@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, type ComponentType } from "react"
 import { Button } from "devextreme-react"
-import DataGrid, { Column, ColumnFixing, Editing, Pager, Paging, StateStoring, FilterRow, FilterPanel, Toolbar, Item } from "devextreme-react/data-grid"
+import DataGrid, { Column, ColumnFixing, Editing, Pager, Paging, StateStoring, FilterRow, FilterPanel, Toolbar, Item, Button as GridButton } from "devextreme-react/data-grid"
 import TextBox from "devextreme-react/text-box"
 import dayjs from "dayjs"
 import type dxDataGrid from "devextreme/ui/data_grid"
@@ -668,6 +668,28 @@ function ChitInventoryInputGridPopup({
               </div>
             </Item>
           </Toolbar>
+
+          <Column
+            type="buttons"
+            width={60}
+            fixed={true}
+            fixedPosition="left"
+            visibleIndex={0}
+            allowFixing={false}
+            showInColumnChooser={false}
+            allowReordering={false}
+          >
+            <GridButton
+              icon="trash"
+              hint={t("DELETE", "Delete")}
+              onClick={(event: any) => {
+                const rowKey = event.row?.key
+                if (rowKey) {
+                  void softDeleteRowByKey(rowKey)
+                }
+              }}
+            />
+          </Column>
 
           <Column dataField="INPUT_ID" caption={t("INPUT_ID", "Input ID")} visible={false} showInColumnChooser={false} allowHiding={false} />
           <Column dataField="INPUT_CD" caption={t("INPUT_CD", "Input Code")} visible={false} />
