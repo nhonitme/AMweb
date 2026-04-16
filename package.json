@@ -21,6 +21,7 @@
     "chart.js": "^4.5.0",
     "class-variance-authority": "^0.7.1",
     "classnames": "^2.5.1",
+    "dayjs": "^1.11.20",
     "devexpress-reporting": "^25.2.5",
     "devexpress-reporting-react": "^25.2.5",
     "devextreme": "^25.2.5",
