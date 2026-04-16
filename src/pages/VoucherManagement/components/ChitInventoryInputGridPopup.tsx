@@ -393,18 +393,25 @@ function ChitInventoryInputGridPopup({
     setFocusedRowKey(typeof nextKey === "string" ? nextKey : nextKey != null ? String(nextKey) : null)
   }, [])
 
+  const handleAddRow = useCallback(async () => {
+    if (gridRef.current?.hasEditData()) {
+      await gridRef.current.saveEditData()
+    }
+    gridRef.current?.addRow()
+  }, [])
+
   useImperativeHandle(
     ref,
     () => ({
       savePendingChanges: async () => {
-        if (gridRef.current) {
+        if (gridRef.current?.hasEditData()) {
           await gridRef.current.saveEditData()
         }
 
         return syncRows()
       },
       addRow: () => {
-        gridRef.current?.addRow()
+        void handleAddRow()
       },
       deleteFocusedRow: () => {
         const targetKey = focusedRowKey ?? visibleRows[visibleRows.length - 1]?.ROW_KEY ?? null
@@ -421,7 +428,7 @@ function ChitInventoryInputGridPopup({
       },
       getGridInstance: () => gridRef.current,
     }),
-    [focusSearchInput, focusedRowKey, searchVisible, showSearch, softDeleteRowByKey, syncRows, visibleRows],
+    [focusSearchInput, focusedRowKey, handleAddRow, searchVisible, showSearch, softDeleteRowByKey, syncRows, visibleRows],
   )
 
   const handleInitialized = useCallback((event: InitializedEvent<InventoryInputLine, string>) => {
