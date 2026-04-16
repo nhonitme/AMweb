@@ -1,0 +1,175 @@
+import React from "react";
+import DataGrid, {
+    Paging,
+    Pager,
+    FilterRow,
+    HeaderFilter,
+    FilterBuilderPopup,
+    FilterPanel,
+    SearchPanel,
+    Selection,
+    ColumnChooser,
+    ColumnChooserSearch,
+    Column,
+} from "devextreme-react/data-grid";
+
+import type {
+    Column as ColumnType,
+    InitializedEvent,
+    ToolbarPreparingEvent,
+    ContextMenuPreparingEvent,
+    RowInsertingEvent,
+    RowUpdatingEvent,
+    RowRemovingEvent,
+    EditingStartEvent,
+    InitNewRowEvent,
+    OptionChangedEvent,
+    SelectionChangedEvent,
+} from "devextreme/ui/data_grid";
+
+import "./BaseDataGrid.scss";
+
+interface BaseDataGridProps<T> {
+    dataSource: T[];
+    keyExpr: string;
+    columns?: (string | ColumnType<T, unknown>)[];
+    children?: React.ReactNode;
+    actionButtons?: boolean;
+    onRowDblClick?: (e: any) => void;
+    onRowClick?: (e: any) => void;
+
+    onInitialized?: (e: InitializedEvent) => void;
+    onToolbarPreparing?: (e: ToolbarPreparingEvent) => void;
+    onContextMenuPreparing?: (e: ContextMenuPreparingEvent) => void;
+    onRowInserting?: (e: RowInsertingEvent) => void;
+    onRowUpdating?: (e: RowUpdatingEvent) => void;
+    onRowRemoving?: (e: RowRemovingEvent) => void;
+    onEditingStart?: (e: EditingStartEvent) => void;
+    onInitNewRow?: (e: InitNewRowEvent) => void;
+    onOptionChanged?: (e: OptionChangedEvent) => void;
+    onSelectionChanged?: (e: SelectionChangedEvent) => void;
+}
+
+const onToolbarPreparing = (e: ToolbarPreparingEvent) => {
+    e.toolbarOptions.items = e.toolbarOptions.items?.filter(
+        (item) => item.name !== 'addRowButton' && item.name !== 'columnChooserButton'
+    );
+};
+
+export function BaseDataGrid<T>({
+  dataSource,
+  keyExpr,
+  children,
+  actionButtons = false,
+  onRowDblClick,
+  onRowClick,
+  onInitialized,
+  onContextMenuPreparing,
+  onRowInserting,
+  onRowUpdating,
+  onRowRemoving,
+  onEditingStart,
+  onInitNewRow,
+  onOptionChanged,
+  onSelectionChanged
+
+}: BaseDataGridProps<T>) {
+    const [selectedRowKeys, setSelectedRowKeys] = React.useState<Array<string | number>>([]);
+    const [searchVisible, setSearchVisible] = React.useState(false);
+
+    React.useEffect(() => {
+      setSelectedRowKeys([]);
+    }, [dataSource]);
+
+    const handleSelectionChanged = (e: SelectionChangedEvent) => {
+      setSelectedRowKeys(e.selectedRowKeys || []);
+      onSelectionChanged && onSelectionChanged(e);
+    };
+
+    const handleRowClickInternal = (e: any) => {
+      const comp = e.component;
+      if (comp) {
+        const key = e.key;
+        if (comp.isRowSelected(key)) {
+          comp.deselectRows(key);
+        } else {
+          comp.selectRows(key, true);
+        }
+      }
+      onRowClick && onRowClick(e);
+    };
+
+    const handleOptionChanged = (e: OptionChangedEvent) => {
+      if (e.fullName === 'searchPanel.visible') {
+        setSearchVisible(e.value as boolean);
+      }
+      onOptionChanged && onOptionChanged(e);
+    };
+
+    return (
+            <DataGrid
+                dataSource={dataSource}
+                keyExpr={keyExpr}
+                height="100%"
+                       
+                selectedRowKeys={selectedRowKeys}
+                onSelectionChanged={handleSelectionChanged}
+                showBorders
+                columnAutoWidth
+                showColumnHeaders={true}
+                allowColumnResizing={true}
+                allowColumnReordering={true}
+                hoverStateEnabled
+                rowAlternationEnabled
+                onRowClick={handleRowClickInternal}
+                onRowDblClick={onRowDblClick}
+                onInitialized={onInitialized}
+                onToolbarPreparing={onToolbarPreparing}
+                onContextMenuPreparing={onContextMenuPreparing}
+                onRowInserting={onRowInserting}
+                onRowUpdating={onRowUpdating}
+                onRowRemoving={onRowRemoving}
+                onEditingStart={onEditingStart}
+                onInitNewRow={onInitNewRow}
+                onOptionChanged={handleOptionChanged}
+            >
+            <HeaderFilter visible />
+            <FilterRow visible />
+            <SearchPanel visible={searchVisible} placeholder="Search..." />
+            <FilterPanel visible />
+            <FilterBuilderPopup />
+
+            <Selection
+                mode="multiple"
+                selectAllMode="allPages"
+                showCheckBoxesMode="always"
+            />
+
+            <ColumnChooser enabled mode="select">
+                <ColumnChooserSearch
+                    enabled
+                    timeout={800}
+                    editorOptions={{
+                        placeholder: "Search column",
+                        mode: "text",
+                    }}
+                />
+            </ColumnChooser>
+
+            <Paging defaultPageSize={20} />
+            <Pager
+                visible={true}
+                showPageSizeSelector={true}
+                allowedPageSizes={[20, 50, 100]}
+                showInfo={true}
+                showNavigationButtons={true}
+            />
+
+            {actionButtons && (
+                <Column type="buttons" width={100} />
+            )}
+            {children}
+          
+            </DataGrid>
+    );
+}

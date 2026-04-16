@@ -1,0 +1,66 @@
+import type { Language } from "@/types/languages";
+import { getAccessToken } from "@/lib/login";
+
+// --- Cấu hình API ---
+import API_BASE_URL from "../config/apiConfig";
+import { Product } from "@/types/product";
+
+const API_URL = "https://localhost:7108/api/Language";
+
+function unwrapArray<T>(json: unknown): T[] {
+  // json không phải null/undefined
+  // json phải là object và có thuộc tính Data
+  if (json && typeof json === "object" && "Data" in json) {
+    const data = json.Data;
+    return Array.isArray(data) ? (data as T[]) : [];
+  }
+
+  throw new Error("API response format invalid (expected {data:[...]} or [...])");
+}
+
+async function request<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+  const res = await fetch(input, {
+    ...init,
+    headers: {
+      Accept: "application/json",
+      ...(init?.headers ?? {}),
+    },
+  // Include cookies (server may rely on refresh token cookie or cookie-based auth)
+  credentials: "include",
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`${res.status} ${res.statusText} - ${text}`);
+  }
+
+  try {
+    return (await res.json()) as T;
+  } catch (jsonErr) {
+    // Attempt to capture text body and content-type to aid debugging
+    let textBody = '';
+    try {
+      textBody = await res.text();
+    } catch {
+      textBody = '<unreadable body>';
+    }
+    const ct = res.headers.get('content-type') || '<unknown content-type>';
+    const msg = `Invalid JSON response (status ${res.status}, content-type: ${ct}) - body: ${textBody}`;
+    console.error(msg, jsonErr);
+    throw new Error(msg);
+  }
+}
+
+// GET
+export async function getLanguages(): Promise<Language[]> {
+    const token = getAccessToken();
+
+    const json = await request<unknown>(API_URL, { 
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
+    });
+    return unwrapArray<Language>(json);
+}

@@ -1,0 +1,28 @@
+import type { Column } from 'devextreme-react/data-grid';
+import type { ManagementInfo } from '@/types/managementInfo';
+
+export type ManagementInfoField = {
+  key: string;
+  caption: string;
+};
+
+export const managementInfoFields: ManagementInfoField[] = [
+  { key: 'MG_CD', caption: 'Mã quản lý' },
+  { key: 'MG_DESC_KOR', caption: 'Mô tả (KOR)' },
+  { key: 'MG_DESC_ENG', caption: 'Mô tả (ENG)' },
+  { key: 'MG_DESC_VIET', caption: 'Mô tả (VIET)' },
+  { key: 'MG_CD_ROOT', caption: 'MG_CD Root' },
+  { key: 'USERID', caption: 'User' },
+  { key: 'ISDEL', caption: 'Is Deleted' },
+];
+
+export const managementInfoFieldGroups: Record<'basic' | 'other', string[]> = {
+  basic: ['MG_CD', 'MG_DESC_KOR', 'MG_DESC_ENG', 'MG_DESC_VIET', 'MG_CD_ROOT', 'USERID'],
+  other: ['ISDEL'],
+};
+
+export const ManagementInfoColumns: (Column<ManagementInfo, number | string> | string)[] = [
+  ...managementInfoFields
+    .filter((field) => field.key !== 'ISDEL')
+    .map((field) => ({ dataField: field.key, caption: field.caption })),
+];

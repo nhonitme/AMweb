@@ -1,0 +1,237 @@
+import React, { useContext } from "react";
+import { Toolbar, Button } from "devextreme-react";
+import { Item } from "devextreme-react/toolbar";
+import type dxDataGrid from "devextreme/ui/data_grid";
+import { LanguageContext } from '@/lib/i18nLoader';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+
+import "./GridToolbar.scss";
+
+export type GridToolbarProps = {
+  title?: string;
+  titleKey?: string;
+
+  gridRef: React.RefObject<dxDataGrid | null>;
+
+  onAdd?: () => void;
+  onRefresh?: () => void;
+
+  onExportPdf?: () => void;
+  onExportXlsx?: () => void;
+  onImport?: () => void;
+  onDelete?: () => void;
+  onSearch?: () => void;
+
+  showAdd?: boolean;
+  showRefresh?: boolean;
+  showColumnChooser?: boolean;
+  showExportPdf?: boolean;
+  showExportXlsx?: boolean;
+  showImport?: boolean;
+  showDelete?: boolean;
+  showSearch?: boolean;
+
+};
+
+export function GridToolbar({
+  title = "List",
+  titleKey,
+  gridRef,
+  onAdd,
+  onRefresh,
+  onExportPdf,
+  onExportXlsx,
+  onImport,
+  onDelete,
+  onSearch,
+  showAdd = true,
+  showRefresh = true,
+  showColumnChooser = true,
+  showExportPdf = true,
+  showExportXlsx = true,
+  showImport = true,
+  showDelete = true,
+  showSearch = true,
+}: GridToolbarProps) {
+  const { translate } = useContext(LanguageContext) as { translate?: (k: string, f?: string) => string };
+  const label = titleKey ? (translate ? translate(titleKey, title) : title) : title;
+  const renderLabel = () => <div className="toolbar-label">{label}</div>;
+
+  const [confirmVisible, setConfirmVisible] = React.useState(false);
+  const [confirmMessage, setConfirmMessage] = React.useState("");
+  const [onConfirmAction, setOnConfirmAction] = React.useState<() => void>(()=>{});
+
+  const handleAdd = () => {
+    if (onAdd) return onAdd();
+    gridRef.current?.addRow();
+  };
+
+  const handleRefresh = () => {
+    if (onRefresh) return onRefresh();
+  };
+
+  const handleColumnChooser = () => {
+    gridRef.current?.showColumnChooser();
+  };
+
+  const handleSearch = () => {
+    if (onSearch) return onSearch();
+    try {
+      const current = gridRef.current?.option('searchPanel.visible');
+      gridRef.current?.option('searchPanel.visible', !current);
+      if (!current) {
+        (gridRef.current as any)?.focus && (gridRef.current as any).focus();
+      }
+    } catch {
+      // no-op
+    }
+  };
+
+  const performGridDelete = () => {
+    const keys = gridRef.current?.getSelectedRowKeys() || [];
+    keys.forEach((k: any) => {
+      const idx = gridRef.current?.getRowIndexByKey(k);
+      if (idx !== undefined && idx !== -1) {
+        gridRef.current?.deleteRow(idx);
+      }
+    });
+  };
+
+  const handleDelete = () => {
+    gridRef.current?.option('editing.confirmDelete', false);
+    if (onDelete) {
+      onDelete();
+      return;
+    }
+    const confirmText = translate
+      ? translate('Are you sure you want to delete the selected rows?', 'Are you sure you want to delete the selected rows?')
+      : 'Are you sure you want to delete the selected rows?';
+    setConfirmMessage(confirmText);
+    setOnConfirmAction(() => performGridDelete);
+    setConfirmVisible(true);
+  };
+
+
+
+  return (
+    <>
+    <Toolbar className="my-toolbar">
+      <Item location="before" locateInMenu="never" render={renderLabel} />
+
+      {showAdd && (
+        <Item location="after" widget="dxButton" locateInMenu="auto">
+          <Button
+            type="default"
+            stylingMode="contained"
+            onClick={handleAdd}
+            icon="plus"
+            hint={translate ? translate('lblAddNew', 'Add') : 'Add'}
+            text={translate ? translate('lblAddNew', 'Add') : 'Add'}
+          />
+        </Item>
+      )}
+
+      {showSearch && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={handleSearch}
+            icon="search"
+            hint={translate ? translate('btnSer', 'Search') : 'Search'}
+            text={translate ? translate('btnSer', 'Search') : 'Search'}
+          />
+        </Item>
+      )}
+
+      {showRefresh && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={handleRefresh}
+            icon="refresh"
+            hint={translate ? translate('KeyM_Refresh', 'Refresh') : 'Refresh'}
+            text={translate ? translate('KeyM_Refresh', 'Refresh') : 'Refresh'}
+          />
+        </Item>
+      )}
+
+      {showColumnChooser && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={handleColumnChooser}
+            icon="columnchooser"
+            hint={translate ? translate('Column Chooser', 'Column Chooser') : 'Column Chooser'}
+            text={translate ? translate('Column Chooser', 'Column Chooser') : 'Column Chooser'}
+          />
+        </Item>
+      )}
+
+      {(showDelete || showImport || showExportPdf || showExportXlsx) && (
+        <Item location="after" locateInMenu="auto">
+          <div className="separator" />
+        </Item>
+      )}
+
+      {showDelete && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            type="danger"
+            onClick={handleDelete}
+            icon="trash"
+            hint={translate ? translate('btndelete', 'Delete selected') : 'Delete selected'}
+            text={translate ? translate('btndelete', 'Delete selected') : 'Delete selected'}
+          />
+        </Item>
+      )}
+
+      {showImport && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={onImport}
+            icon="upload"
+            hint={translate ? translate('history_action75', 'Import from Excel') : 'Import from Excel'}
+            text={translate ? translate('history_action75', 'Import from Excel') : 'Import from Excel'}
+          />
+        </Item>
+      )}
+
+      {showExportPdf && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={onExportPdf}
+            icon="exportpdf"
+            hint={translate ? translate('EXPORT_PDF_FILE', 'Export PDF') : 'Export PDF'}
+            text={translate ? translate('EXPORT_PDF_FILE', 'Export PDF') : 'Export PDF'}
+          />
+        </Item>
+      )}
+
+      {showExportXlsx && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={onExportXlsx}
+            icon="download"
+            hint={translate ? translate('btnExport', 'Export Excel') : 'Export Excel'}
+            text={translate ? translate('btnExport', 'Export Excel') : 'Export Excel'}
+          />
+        </Item>
+      )}
+      </Toolbar>
+      <ConfirmDialog
+        visible={confirmVisible}
+        title={translate ? translate('btnOK','Confirm') : 'Confirm'}
+        message={confirmMessage}
+        onConfirm={() => {
+          setConfirmVisible(false);
+          onConfirmAction && onConfirmAction();
+        }}
+        onCancel={() => setConfirmVisible(false)}
+      />
+    </>
+  );
+}

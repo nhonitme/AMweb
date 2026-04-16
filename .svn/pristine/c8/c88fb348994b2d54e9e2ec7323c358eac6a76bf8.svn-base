@@ -1,0 +1,6 @@
+import BankNoteManagementPage from "./BankNoteManagementPage"
+import { createCreditNoteImportConfig } from "./creditNoteImportConfig"
+
+export default function CreditNotePage() {
+  return <BankNoteManagementPage ledger="AR" noteType="CN" createImportConfig={createCreditNoteImportConfig} />
+}

@@ -1,0 +1,106 @@
+import { useContext } from "react";
+import { Column } from "devextreme-react/data-grid";
+import { LanguageContext } from '@/lib/i18nLoader';
+
+export type CustomerFieldGroup = "basic" | "contact" | "address" | "id" | "tax" | "other";
+
+export type CustomerField = {
+  key: string;
+  caption: string;
+};
+
+export const customerFields: CustomerField[] = [
+  { key: "CUSTOMER_ID", caption: "Customer ID" },
+  { key: "CUSTOMER_EXT_ID", caption: "Ext Row ID" },
+  { key: "COMPANY_CD", caption: "Company" },
+  { key: "CUSTOMER_CD", caption: "Customer Code" },
+  { key: "CATEGORY_CD", caption: "Category" },
+  { key: "CUSTOMER_TYPE", caption: "Customer Type" },
+  { key: "CUSTOMER_TYPE_NAME", caption: "Customer Type" },
+  { key: "CUSTOMER_NM_VIET", caption: "Customer Name (VI)" },
+  { key: "BUYER_NM", caption: "Buyer Name" },
+  { key: "CUSTOMER_USER_CD", caption: "User Code" },
+  { key: "BRN", caption: "BRN" },
+  { key: "SSN", caption: "SSN" },
+  { key: "OWNER_NM", caption: "Owner Name" },
+  { key: "BUSINESS_TYPE", caption: "Business Type" },
+  { key: "KIND_BUSINESS", caption: "Kind Business" },
+  { key: "ZIP_CODE", caption: "Zip Code" },
+  { key: "ADDRESS_DO", caption: "Address (DO)" },
+  { key: "ADDRESS", caption: "Address" },
+  { key: "TEL", caption: "Tel" },
+  { key: "FAX", caption: "Fax" },
+  { key: "EMAIL", caption: "Email" },
+  { key: "ISDEL", caption: "Deleted" },
+  { key: "CUSTOMER_EXT_CD", caption: "Customer Ext Code" },
+  { key: "CREATED_AT", caption: "Created At" },
+  { key: "UPDATED_AT", caption: "Updated At" },
+  { key: "TAX_CD", caption: "Tax Code" },
+  { key: "BANK_CD", caption: "Bank Code" },
+  { key: "ISTEMP", caption: "Is Temp" },
+  { key: "NOTE", caption: "Note" },
+  { key: "INQUIRY_IN", caption: "Inquiry In" },
+  { key: "INDIVIDUAL", caption: "Individual" },
+  { key: "NATIONALITY", caption: "Nationality" },
+  { key: "IDNUMBER", caption: "ID Number" },
+  { key: "SHChieu", caption: "Passport No" },
+  { key: "PLACE_ISSUE", caption: "Place Issue" },
+  { key: "DATE_ISSUE", caption: "Date Issue" },
+  { key: "CUSTOMER_RECEIVE", caption: "Customer Receive" },
+  { key: "ADDRESS_RECEIVE", caption: "Address Receive" },
+  { key: "TAX_CD_RECEIVE", caption: "Tax Code Receive" },
+  { key: "PAYMENT_TERM", caption: "Payment Term" },
+  { key: "TenDVQHNhsach", caption: "Unit Name" },
+  { key: "MDVQHNhsach", caption: "Unit Code" },
+];
+
+export const customerFieldGroups: Record<CustomerFieldGroup, string[]> = {
+  basic: [
+    "CUSTOMER_CD",
+    "CATEGORY_CD",
+    "CUSTOMER_TYPE",
+    "CUSTOMER_TYPE_NAME",
+    "CUSTOMER_NM_VIET",
+    "BUYER_NM",
+    "CUSTOMER_USER_CD",
+    "CUSTOMER_RECEIVE",
+  ],
+  contact: ["TEL", "FAX", "EMAIL"],
+  address: ["ZIP_CODE", "ADDRESS_DO", "ADDRESS", "ADDRESS_RECEIVE"],
+  id: ["IDNUMBER", "SHChieu", "PLACE_ISSUE", "DATE_ISSUE"],
+  tax: ["TAX_CD", "BANK_CD", "PAYMENT_TERM", "TAX_CD_RECEIVE"],
+  other: [
+    "BRN",
+    "SSN",
+    "OWNER_NM",
+    "BUSINESS_TYPE",
+    "KIND_BUSINESS",
+   
+    "CUSTOMER_EXT_CD",
+   
+
+    "NOTE",
+    "INQUIRY_IN",
+
+    "NATIONALITY",
+    "TenDVQHNhsach",
+    "MDVQHNhsach",
+  ],
+};
+
+export const CustomerColumns: React.FC = () => {
+  const { translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string };
+  const t = (k: string, f: string) => translate(k, f);
+
+  const visibleFields = customerFields.filter((field) => !new Set(["CUSTOMER_ID", "CUSTOMER_EXT_ID", "COMPANY_CD"]).has(field.key));
+
+  return (
+    <>
+      {visibleFields.map((field) => (
+        <Column key={field.key} dataField={field.key} caption={t(field.key, field.caption)} />
+      ))}
+    </>
+  );
+};
+
+export default CustomerColumns;

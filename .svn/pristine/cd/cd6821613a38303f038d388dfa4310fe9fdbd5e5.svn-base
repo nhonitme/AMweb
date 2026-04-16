@@ -1,0 +1,241 @@
+import React, { useContext } from "react";
+import TreeList, {
+  Paging,
+  Pager,
+  FilterRow,
+  HeaderFilter,
+  FilterBuilderPopup,
+  FilterPanel,
+  SearchPanel,
+  Selection,
+  ColumnChooser,
+  ColumnChooserSearch,
+  Column,
+} from "devextreme-react/tree-list";
+import { LanguageContext } from "@/lib/i18nLoader";
+
+import type {
+  Column as ColumnType,
+  InitializedEvent,
+  ToolbarPreparingEvent,
+  ContextMenuPreparingEvent,
+  RowInsertingEvent,
+  RowUpdatingEvent,
+  RowRemovingEvent,
+  EditingStartEvent,
+  InitNewRowEvent,
+  SelectionChangedEvent,
+  RowClickEvent,
+  RowDblClickEvent,
+} from "devextreme/ui/tree_list";
+
+import "./BaseTreeList.scss";
+
+interface BaseTreeListProps<T extends object> {
+  dataSource: T[];
+  keyExpr: string;
+  parentIdExpr: string;
+  rootValue?: string | number | null;
+  /** initial visibility of the search panel */
+  searchPanelVisible?: boolean;
+  copyExcludeFields?: string[];
+  columns?: (string | ColumnType<T, unknown>)[];
+  children?: React.ReactNode;
+  actionButtons?: boolean;
+  actionButtonsPosition?: "start" | "end";
+  onRowDblClick?: (e: RowDblClickEvent) => void;
+  onRowClick?: (e: RowClickEvent) => void;
+
+  onInitialized?: (e: InitializedEvent) => void;
+  onToolbarPreparing?: (e: ToolbarPreparingEvent) => void;
+  onContextMenuPreparing?: (e: ContextMenuPreparingEvent) => void;
+  onRowInserting?: (e: RowInsertingEvent) => void;
+  onRowUpdating?: (e: RowUpdatingEvent) => void;
+  onRowRemoving?: (e: RowRemovingEvent) => void;
+  onEditingStart?: (e: EditingStartEvent) => void;
+  onInitNewRow?: (e: InitNewRowEvent) => void;
+  onSelectionChanged?: (e: SelectionChangedEvent) => void;
+
+  wordWrapEnabled?: boolean;
+}
+
+const handleToolbarPreparingDefault = (e: ToolbarPreparingEvent) => {
+  e.toolbarOptions.items = e.toolbarOptions.items?.filter(
+    (item) => item.name !== "addRowButton" && item.name !== "columnChooserButton"
+  );
+};
+
+export function BaseTreeList<T extends object>({
+  dataSource,
+  keyExpr,
+  parentIdExpr,
+  rootValue = 0,
+  copyExcludeFields = [],
+  children,
+  actionButtons = false,
+  actionButtonsPosition = "end",
+  onRowDblClick,
+  onRowClick,
+  onInitialized,
+  onToolbarPreparing,
+  onContextMenuPreparing,
+  onRowInserting,
+  onRowUpdating,
+  onRowRemoving,
+  onEditingStart,
+  onInitNewRow,
+  onSelectionChanged,
+  wordWrapEnabled,
+  searchPanelVisible = false,
+}: BaseTreeListProps<T>) {
+  const { lang, translate } = useContext(LanguageContext) as {
+    lang: string;
+    translate: (key: string, fallback?: string) => string;
+  };
+
+  const t = (key: string, fallback?: string) =>
+    translate ? translate(key, fallback) : (fallback ?? key);
+
+  const stripFields = (obj: Record<string, unknown>, fields: string[] | Set<string>) => {
+    if (!obj || typeof obj !== "object") return;
+    const upper = new Set(Array.from(fields).map((f) => f.toUpperCase()));
+    Object.keys(obj).forEach((k) => {
+      if (upper.has(k.toUpperCase())) {
+        delete obj[k];
+      }
+    });
+  };
+
+  const copyDataRef = React.useRef<Record<string, unknown> | null>(null);
+
+  const handleRowClickInternal = (e: RowClickEvent) => {
+    const comp = e.component;
+    if (comp) {
+      const key = e.key;
+      if (comp.isRowSelected(key)) {
+        comp.deselectRows(key);
+      } else {
+        comp.selectRows([key], true);
+      }
+    }
+    onRowClick?.(e);
+  };
+
+  const handleContextMenuPreparingInternal = (e: ContextMenuPreparingEvent) => {
+    if (e.row && e.row.rowType === "data") {
+      const items: Array<{ text: string; onItemClick: () => void }> = [
+        {
+          text: t("Update", "Update"),
+          onItemClick: () => {
+            e.component?.editRow(e.row!.rowIndex);
+          },
+        },
+        {
+          text: t("Delete", "Delete"),
+          onItemClick: () => {
+            e.component?.deleteRow(e.row!.rowIndex);
+          },
+        },
+      ];
+
+      items.push({
+        text: t("Copy", "Copy"),
+        onItemClick: () => {
+          if (e.row?.data) {
+            const clone = { ...(e.row.data as Record<string, unknown>) };
+            if (keyExpr) stripFields(clone, [keyExpr]);
+            if (copyExcludeFields.length) stripFields(clone, copyExcludeFields);
+            copyDataRef.current = clone;
+            e.component?.addRow();
+          }
+        },
+      });
+
+      e.items = items;
+    }
+
+    onContextMenuPreparing?.(e);
+  };
+
+  return (
+    <div className="data-tree-list-container h-full w-full">
+      <TreeList
+        dataSource={dataSource}
+        keyExpr={keyExpr}
+        parentIdExpr={parentIdExpr}
+        rootValue={rootValue}
+        width="100%"
+        height="100%"
+        key={lang}
+        onSelectionChanged={onSelectionChanged}
+        showBorders
+        columnAutoWidth
+        showColumnHeaders={true}
+        allowColumnResizing={true}
+        allowColumnReordering={true}
+        hoverStateEnabled
+        wordWrapEnabled={wordWrapEnabled}
+        rowAlternationEnabled
+        onRowClick={handleRowClickInternal}
+        onRowDblClick={onRowDblClick}
+        onInitialized={onInitialized}
+        onToolbarPreparing={(e) => {
+          handleToolbarPreparingDefault(e);
+          onToolbarPreparing?.(e);
+        }}
+        onContextMenuPreparing={handleContextMenuPreparingInternal}
+        onRowInserting={onRowInserting}
+        onRowUpdating={onRowUpdating}
+        onRowRemoving={onRowRemoving}
+        onEditingStart={onEditingStart}
+        selection={{ mode: "single" }}
+        onInitNewRow={(e) => {
+        if (copyDataRef.current) {
+          const nextData = {
+            ...(e.data ?? ({} as T)),
+            ...copyDataRef.current,
+          } as T;
+
+          const nextDataRecord = nextData as Record<string, unknown>;
+
+          if (keyExpr) stripFields(nextDataRecord, [keyExpr]);
+          if (copyExcludeFields.length) stripFields(nextDataRecord, copyExcludeFields);
+
+          copyDataRef.current = null;
+          e.data = nextData;
+        }
+
+        onInitNewRow?.(e);
+      }}
+      >
+        <HeaderFilter visible />
+        <FilterRow visible={searchPanelVisible} />
+        <SearchPanel visible={searchPanelVisible} placeholder={t("Search...", "Search...")} />
+        <FilterPanel visible />
+        <FilterBuilderPopup />
+
+        <Paging defaultPageSize={20} />
+        <Pager
+          visible={true}
+          showPageSizeSelector={true}
+          allowedPageSizes={[20, 50, 100]}
+          showInfo={true}
+          showNavigationButtons={true}
+          infoText={t("PAGE_TEXT", "Page {0} / {1} ({2} rows)")}
+        />
+
+        {actionButtons && actionButtonsPosition === "start" && (
+          <Column type="buttons" width={100} />
+        )}
+
+        {children}
+
+        {actionButtons && actionButtonsPosition === "end" && (
+          <Column type="buttons" width={100} />
+        )}
+      </TreeList>
+    </div>
+  );
+}
+
+export default BaseTreeList;

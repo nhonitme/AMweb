@@ -1,0 +1,487 @@
+import { useCallback, useEffect, useRef, useState, useContext, useMemo } from "react";
+import { LoadPanel } from "devextreme-react";
+import { Column, Editing, Popup } from "devextreme-react/data-grid";
+import {
+  ContextMenuPreparingEvent,
+  RowInsertingEvent,
+  RowUpdatingEvent,
+  RowRemovingEvent,
+  SelectionChangedEvent,
+  RowDblClickEvent,
+} from "devextreme/ui/data_grid";
+import { confirm } from "devextreme/ui/dialog";
+import type dxDataGrid from "devextreme/ui/data_grid";
+import notify from "devextreme/ui/notify";
+
+import DxPage from "@/dx/DxPage";
+import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid";
+import { GridToolbar } from "@/components/toolbar/GridToolbar";
+import { LanguageContext } from "@/lib/i18nLoader";
+import { PermissionsDialog } from "./Permission/PermissionsDialog";
+
+import {
+  getUserInfos,
+  createUserInfo,
+  updateUserInfo,
+  deleteUserInfo,
+} from "@/api/userInfoApi";
+import { getUserPermissions, updateUserPermission } from "@/api/systemApi";
+import type { UserInfo } from "@/types/userInfo";
+import UserInfoForm from "./UserInfoForm";
+import { UserInfoColumns } from "./Columns/UserInfoColumns";
+
+type TKey = string | number
+
+type RowInsertingEventWithPromise = RowInsertingEvent<UserInfo, TKey> & { promise?: Promise<void> }
+type RowUpdatingEventWithPromise = RowUpdatingEvent<UserInfo, TKey> & { promise?: Promise<void> }
+type RowRemovingEventWithPromise = RowRemovingEvent<UserInfo, TKey> & { promise?: Promise<void> }
+
+type PermissionRow = {
+  MENU_CODE: string
+  CAN_VIEW: boolean
+  CAN_ADD: boolean
+  CAN_EDIT: boolean
+  CAN_DELETE: boolean
+  CAN_PRINT: boolean
+  CAN_EXPORT: boolean
+  CAN_IMPORT: boolean
+  CAN_APPROVE: boolean
+}
+
+const getCurrentCompanyCd = () =>
+  localStorage.getItem("lastCompanyCD") || localStorage.getItem("companyCd") || "";
+
+const getCurrentUserId = () => localStorage.getItem("lastUserId") || "";
+
+const UserInfoPage = () => {
+  const [loading, setLoading] = useState(true);
+  const [gridData, setGridData] = useState<UserInfo[]>([]);
+  const [colLabels, setColLabels] = useState<Record<string, string>>({});
+  const [permModalOpen, setPermModalOpen] = useState(false);
+  const [permissions, setPermissions] = useState<PermissionRow[]>([]);
+  const [initialPermissions, setInitialPermissions] = useState<PermissionRow[]>([]);
+  const [permLoading, setPermLoading] = useState(false);
+  const [canOpenPermissionDialog, setCanOpenPermissionDialog] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserInfo | null>(null);
+  const gridRef = useRef<dxDataGrid | null>(null);
+
+  const { lang, translate } = useContext(LanguageContext) as {
+    translate: (k: string, f?: string) => string;
+    lang: string;
+  };
+
+  const t = useCallback(
+    (k: string, f?: string) => (translate ? translate(k, f || k) : f || k),
+    [translate],
+  );
+
+  const isAllowed = useCallback((value: unknown): boolean => {
+    return value === 1 || value === "1" || value === true || value === "true";
+  }, []);
+
+  const excludedFields = useMemo(
+    () => new Set<string>(["COMPANY_CD", "PASSWD"]),
+    [],
+  );
+
+  const hasLoadedData = useRef(false);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const resp = await getUserInfos(undefined, lang);
+      setColLabels(resp.labels || {});
+      setGridData(resp.data || []);
+      gridRef.current?.clearSelection();
+      setSelectedUser(null);
+    } catch (err) {
+      console.error("Failed to load user info", err);
+      notify(t("Load failed", "Load failed"), "error", 5000);
+    } finally {
+      setLoading(false);
+    }
+  }, [lang]);
+
+  const loadDataOnce = useCallback(() => {
+    if (hasLoadedData.current) return;
+    hasLoadedData.current = true;
+    void loadData();
+  }, [loadData]);
+
+  const normalizePermissionRow = useCallback(
+    (row: Record<string, unknown>): PermissionRow => ({
+      MENU_CODE: (row.MENU_CODE as string) ?? (row.menuCode as string) ?? "",
+      CAN_VIEW: isAllowed(row.CAN_VIEW) || isAllowed(row.canView),
+      CAN_ADD: isAllowed(row.CAN_ADD) || isAllowed(row.canAdd),
+      CAN_EDIT: isAllowed(row.CAN_EDIT) || isAllowed(row.canEdit),
+      CAN_DELETE: isAllowed(row.CAN_DELETE) || isAllowed(row.canDelete),
+      CAN_PRINT: isAllowed(row.CAN_PRINT) || isAllowed(row.canPrint),
+      CAN_EXPORT: isAllowed(row.CAN_EXPORT) || isAllowed(row.canExport),
+      CAN_IMPORT: isAllowed(row.CAN_IMPORT) || isAllowed(row.canImport),
+      CAN_APPROVE: isAllowed(row.CAN_APPROVE) || isAllowed(row.canApprove),
+    }),
+    [isAllowed],
+  );
+
+  const filterCheckedPermissions = useCallback(
+    (rows: unknown[]) => (rows as unknown[]).map(normalizePermissionRow),
+    [normalizePermissionRow],
+  );
+
+  const hasLoadedPermissionState = useRef(false);
+
+  const loadCurrentUserPermissions = useCallback(async () => {
+    if (hasLoadedPermissionState.current) return;
+
+    const userId = getCurrentUserId();
+    const companyCd = getCurrentCompanyCd();
+    if (!userId || !companyCd) {
+      setCanOpenPermissionDialog(false);
+      hasLoadedPermissionState.current = true;
+      return;
+    }
+
+    try {
+      const perms = await getUserPermissions(undefined, userId, companyCd);
+      const rows = Array.isArray(perms) ? filterCheckedPermissions(perms) : [];
+      setCanOpenPermissionDialog(
+        rows.some((r) => r.CAN_EDIT || r.CAN_ADD || r.CAN_VIEW),
+      );
+    } catch (err) {
+      console.error("Failed to load current user permissions", err);
+      setCanOpenPermissionDialog(false);
+    } finally {
+      hasLoadedPermissionState.current = true;
+    }
+  }, [filterCheckedPermissions]);
+
+  const loadPermissions = useCallback(
+    async (userId?: string, companyCd?: string) => {
+      if (!userId || !companyCd) {
+        notify(t("Select a user first", "Select a user first"), "warning", 3000);
+        return;
+      }
+
+      setPermLoading(true);
+      try {
+        const perms = await getUserPermissions(undefined, userId, companyCd);
+        const rows = Array.isArray(perms) ? filterCheckedPermissions(perms) : [];
+        if (!rows.length) {
+          setPermissions([]);
+          setPermModalOpen(false);
+          return;
+        }
+        setPermissions(rows);
+        setInitialPermissions(rows);
+        setPermModalOpen(true);
+      } catch (err) {
+        console.error("Failed to load user permissions", err);
+        notify(t("Load failed", "Load failed"), "error", 5000);
+      } finally {
+        setPermLoading(false);
+      }
+    },
+    [t, filterCheckedPermissions],
+  );
+
+
+  const permissionKeys = [
+    "CAN_VIEW",
+    "CAN_ADD",
+    "CAN_EDIT",
+    "CAN_DELETE",
+    "CAN_PRINT",
+    "CAN_EXPORT",
+    "CAN_IMPORT",
+    "CAN_APPROVE",
+  ] as const;
+
+  const isPermissionRowEqual = (a: PermissionRow, b: PermissionRow) =>
+    permissionKeys.every((key) => Boolean(a[key]) === Boolean(b[key]));
+
+  const permissionsChanged = () => {
+    if (permissions.length !== initialPermissions.length) return true;
+    const initialMap = new Map(
+      initialPermissions.map((row) => [row.MENU_CODE, row]),
+    );
+
+    return permissions.some((row) => {
+      const initial = initialMap.get(row.MENU_CODE);
+      return !initial || !isPermissionRowEqual(row, initial);
+    });
+  };
+
+  const resetPermissions = () => {
+    setPermissions(initialPermissions);
+  };
+
+  const handleSavePermissions = async () => {
+    if (!selectedUser) return;
+    if (!permissionsChanged()) {
+      setPermModalOpen(false);
+      return;
+    }
+
+    const initialMap = new Map(
+      initialPermissions.map((row) => [row.MENU_CODE, row]),
+    );
+
+    const changedRows = permissions.filter((row) => {
+      const initial = initialMap.get(row.MENU_CODE);
+      return !initial || !isPermissionRowEqual(row, initial);
+    });
+
+    if (!changedRows.length) {
+      setPermModalOpen(false);
+      return;
+    }
+
+    setPermLoading(true);
+    try {
+      await Promise.all(
+        changedRows.map((row) =>
+          updateUserPermission({
+            COMPANY_CD: selectedUser.COMPANY_CD || getCurrentCompanyCd(),
+            USERID: selectedUser.USERID,
+            MENU_CODE: row.MENU_CODE ?? row.menuCode,
+            CAN_VIEW: row.CAN_VIEW ? "1" : "0",
+            CAN_ADD: row.CAN_ADD ? "1" : "0",
+            CAN_EDIT: row.CAN_EDIT ? "1" : "0",
+            CAN_DELETE: row.CAN_DELETE ? "1" : "0",
+            CAN_PRINT: row.CAN_PRINT ? "1" : "0",
+            CAN_EXPORT: row.CAN_EXPORT ? "1" : "0",
+            CAN_IMPORT: row.CAN_IMPORT ? "1" : "0",
+            CAN_APPROVE: row.CAN_APPROVE ? "1" : "0",
+            USERID_MODIFY: selectedUser.USERID,
+          }),
+        ),
+      );
+      notify(t("Update success", "Updated successfully"), "success", 3000);
+      await loadPermissions(selectedUser.USERID, selectedUser.COMPANY_CD || getCurrentCompanyCd());
+    } catch (err) {
+      console.error("Save permissions failed", err);
+      notify(t("Update failed", "Update failed"), "error", 5000);
+    } finally {
+      setPermLoading(false);
+    }
+  };
+
+  const handleCancelPermissions = () => {
+    resetPermissions();
+    setPermModalOpen(false);
+  };
+
+  useEffect(() => {
+    void loadDataOnce();
+    void loadCurrentUserPermissions();
+  }, [loadDataOnce, loadCurrentUserPermissions]);
+
+  const normalizePayload = (data: Partial<UserInfo>) => {
+    const result: Partial<UserInfo> = { ...(data || {}) };
+    result.COMPANY_CD = result.COMPANY_CD || getCurrentCompanyCd();
+    result.USERID = result.USERID || getCurrentUserId();
+    return result;
+  };
+
+  const onRowInserting = (e: RowInsertingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        const row = { ...(e.data ?? {}) } as Partial<UserInfo>;
+        excludedFields.forEach((f) => delete (row as Record<string, unknown>)[f]);
+        await createUserInfo(normalizePayload(row), lang);
+        await loadData();
+      } catch (err) {
+        console.error("Insert error", err);
+        notify(t("Insert failed", "Insert failed"), "error", 3000);
+      } finally {
+        if (e.component) (e.component as dxDataGrid<UserInfo, TKey>).cancelEditData();
+      }
+    })();
+  };
+
+  const onRowUpdating = (e: RowUpdatingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        const payload = { ...(e.oldData ?? {}), ...(e.newData ?? {}) } as Partial<UserInfo>;
+        if (!payload.USERID && e.key !== undefined) {
+          payload.USERID = String(e.key);
+        }
+        payload.COMPANY_CD = payload.COMPANY_CD || getCurrentCompanyCd();
+
+        await updateUserInfo(normalizePayload(payload), lang);
+        await loadData();
+      } catch (err) {
+        console.error("Update error", err);
+        notify(t("Update failed", "Update failed"), "error", 3000);
+      } finally {
+        if (e.component) (e.component as dxDataGrid<UserInfo, TKey>).cancelEditData();
+      }
+    })();
+  };
+
+  const onRowRemoving = (e: RowRemovingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        await deleteUserInfo(String(e.key));
+        await loadData();
+      } catch (err) {
+        console.error("Delete error", err);
+        notify(t("Delete failed", "Delete failed"), "error", 3000);
+      }
+    })();
+  };
+
+  const handleToolbarDelete = async () => {
+    const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>;
+    const keys = selectedKeys.map(String);
+    if (!keys.length) {
+      notify(t("No rows selected", "No rows selected"), "warning", 2000);
+      return;
+    }
+
+    const confirmText = t(
+      "MSG_CONFIRM_DELETE_RECORD",
+      "Are you sure you want to delete {0} record?",
+    ).replace("{0}", String(keys.length));
+
+    const result = await confirm(confirmText, t("MSG_CONFIRM_DELETE", "Confirm delete"));
+    if (!result) return;
+
+    try {
+      await Promise.all(keys.map((k) => deleteUserInfo(String(k))));
+      notify(t("Delete success", "Deleted successfully"), "success", 3000);
+      await loadData();
+    } catch (err) {
+      console.error("Bulk delete error", err);
+      notify(t("Delete failed", "Delete failed"), "error", 3000);
+    }
+  };
+
+  const handleSelectionChanged = useCallback((e: SelectionChangedEvent<UserInfo, TKey>) => {
+    const rows = e.selectedRowsData as UserInfo[] | undefined;
+    setSelectedUser(rows && rows.length > 0 ? rows[0] : null);
+  }, []);
+
+  const handlePermissionsRowUpdating = (e: RowUpdatingEvent<PermissionRow, string>) => {
+    if (!e.key) return;
+    const updatedRow = e.newData as Partial<PermissionRow>;
+    setPermissions((prev) =>
+      prev.map((row) =>
+        row.MENU_CODE === e.key ? { ...row, ...updatedRow } : row,
+      ),
+    );
+  };
+
+  const onRowDblClick = (e: RowDblClickEvent<UserInfo, TKey>) => {
+    if (!gridRef.current) return;
+    const idx = e.row?.rowIndex ?? gridRef.current.getRowIndexByKey(e.key as TKey);
+    if (idx !== undefined && idx !== -1) {
+      gridRef.current.editRow(idx);
+    }
+  };
+
+  return (
+    <DxPage>
+      <GridToolbar
+        title={t("USER", "User")}
+        gridRef={gridRef}
+        onRefresh={loadData}
+        onDelete={handleToolbarDelete}
+        showImport={false}
+        showExportPdf={false}
+        showExportXlsx={false}
+        customItems={[
+          {
+            key: "permissions",
+            icon: "key",
+            text: "",
+            hint: t("PermissionTooltip", "Phân quyền người dùng"),
+            stylingMode: "text",
+            showText: "none",
+            disabled: !selectedUser || !canOpenPermissionDialog,
+            onClick: () =>
+              void loadPermissions(
+                selectedUser?.USERID,
+                selectedUser?.COMPANY_CD || getCurrentCompanyCd(),
+              ),
+          },
+        ]}
+      />
+
+      <div className="data-grid-container">
+        <BaseDataGrid<UserInfo>
+          dataSource={gridData}
+          keyExpr="USERID"
+          copyExcludeFields={Array.from(excludedFields)}
+          actionButtons
+          actionButtonsPosition="start"
+          onRowDblClick={onRowDblClick}
+          onSelectionChanged={handleSelectionChanged}
+          onInitialized={(e) => {
+            gridRef.current = e.component ?? null;
+          }}
+          onRowInserting={onRowInserting}
+          onRowUpdating={onRowUpdating}
+          onRowRemoving={onRowRemoving}
+          onInitNewRow={(e) => {
+            const data = (e.data ?? {}) as Partial<UserInfo>;
+            data.COMPANY_CD = getCurrentCompanyCd();
+            e.data = data as UserInfo;
+          }}
+        >
+          <Editing
+            mode="popup"
+            allowUpdating={true}
+            allowAdding={true}
+            allowDeleting={true}
+            confirmDelete={true}
+            startEditAction="dblClick"
+          >
+            <Popup
+              key={lang}
+              title={t("USER", "User")}
+              showTitle={true}
+              width="90%"
+              maxWidth={600}
+              deferRendering={true}
+            />
+            <UserInfoForm colLabels={colLabels} />
+          </Editing>
+
+          <UserInfoColumns colLabels={colLabels} />
+        </BaseDataGrid>
+
+        <LoadPanel
+          shadingColor="rgba(0, 0, 0, 0.4)"
+          visible={loading}
+          showIndicator={true}
+          shading={true}
+          showPane={true}
+        />
+
+        <PermissionsDialog
+          open={permModalOpen}
+          onOpenChange={setPermModalOpen}
+          title={t("Permissions", "Permissions")}
+          description={t(
+            "PERMISSIONS_DIALOG_DESCRIPTION",
+            "Danh sách quyền của người dùng cho các menu / chức năng",
+          )}
+          userLabel={
+            selectedUser
+              ? `${selectedUser.USERID} (${selectedUser.COMPANY_CD})`
+              : undefined
+          }
+          permissions={permissions}
+          onChange={setPermissions}
+          onCancel={handleCancelPermissions}
+          onSave={handleSavePermissions}
+          canSave={permissionsChanged()}
+          loading={permLoading}
+        />
+      </div>
+    </DxPage>
+  );
+};
+
+export default UserInfoPage;

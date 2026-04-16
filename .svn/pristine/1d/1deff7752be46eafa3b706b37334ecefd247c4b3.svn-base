@@ -1,0 +1,33 @@
+.data-grid-container {
+  margin-top: 24px;
+  height: calc(100vh - 160px);
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+
+  .dx-datagrid {
+    .dx-datagrid-headers {
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
+    }
+
+    .dx-row.dx-row-alt {
+      background-color: #fafafa;
+    }
+
+    .dx-datagrid-rowsview .dx-row:hover {
+      background-color: #e6f7ff;
+    }
+
+    .dx-datagrid-rowsview .dx-row:not(:hover) .dx-command-edit,
+    .dx-datagrid-rowsview .dx-row:not(:hover) .dx-command-delete,
+    .dx-datagrid-rowsview .dx-row:not(:hover) .dx-command-more {
+      visibility: hidden;
+    }
+
+    .dx-scrollable-scrollbar.dx-scrollbar-horizontal,
+    .dx-scrollable-scrollbar.dx-scrollbar-horizontal .dx-scrollable-scroll,
+    .dx-scrollable-scrollbar.dx-scrollbar-horizontal .dx-scrollable-scroll-content {
+      height: 20px !important;
+    }
+  }
+}

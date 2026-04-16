@@ -1,0 +1,42 @@
+import * as React from "react";
+import TextBox, { ITextBoxOptions, TextBoxRef } from "devextreme-react/text-box";
+import { cn } from "@/lib/utils";
+
+export interface InputProps extends ITextBoxOptions {
+    className?: string;
+}
+
+export function inputEditorOptions(options: ITextBoxOptions = {}): ITextBoxOptions {
+    return {
+        stylingMode: "outlined",
+        showClearButton: true,
+        elementAttr: { class: "am-editor" },
+        ...options,
+    };
+}
+
+const Input = React.forwardRef<TextBoxRef, InputProps>(
+    (
+        {
+            className,
+            stylingMode = "outlined",
+            showClearButton = true,
+            ...props
+        },
+        ref
+    ) => {
+        return (
+            <TextBox
+                ref={ref}
+                stylingMode={stylingMode}
+                showClearButton={showClearButton}
+                className={cn("am-editor", className)}
+                {...props}
+            />
+        );
+    }
+);
+
+Input.displayName = "Input";
+
+export { Input };

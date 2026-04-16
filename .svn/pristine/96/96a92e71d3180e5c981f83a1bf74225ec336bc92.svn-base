@@ -1,0 +1,167 @@
+import { useContext, useMemo } from "react";
+import { Form as DxForm } from "devextreme-react/data-grid";
+import { GroupItem, Item } from "devextreme-react/form";
+
+import { LanguageContext } from "@/lib/i18nLoader";
+import type { UserInfo } from "@/types/userInfo";
+import type { SysCode } from "@/api/sysCodeService";
+import { userInfoFields, userInfoFieldGroups } from "./Columns/UserInfoColumns";
+
+interface UserInfoFormProps {
+  isUpdate: boolean;
+  userLevelCodes: SysCode[];
+}
+
+type UserInfoFormData = UserInfo & Record<string, unknown>;
+
+type FormItemConfig<TFormData extends Record<string, unknown>> = {
+  colSpan?: number;
+  dataField: keyof TFormData & string;
+  editorOptions?: Record<string, unknown>;
+  editorType?: string;
+  label: string;
+  visible?: boolean;
+};
+
+type FormGroupConfig<TFormData extends Record<string, unknown>> = {
+  caption: string;
+  colCount?: number;
+  items: FormItemConfig<TFormData>[];
+  key: string;
+};
+
+const createTextBoxOptions = (options: Record<string, unknown> = {}): Record<string, unknown> => ({
+  stylingMode: "outlined",
+  ...options,
+});
+
+const createNumberBoxOptions = (options: Record<string, unknown> = {}): Record<string, unknown> => ({
+  showSpinButtons: true,
+  stylingMode: "outlined",
+  ...options,
+});
+
+const createTextAreaOptions = (options: Record<string, unknown> = {}): Record<string, unknown> => ({
+  autoResizeEnabled: true,
+  minHeight: 96,
+  stylingMode: "outlined",
+  ...options,
+});
+
+export default function UserInfoForm({ isUpdate, userLevelCodes }: UserInfoFormProps) {
+  const { translate } = useContext(LanguageContext) as {
+    translate: (key: string, fallback?: string) => string;
+  };
+
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback);
+
+  const fieldMap = useMemo(() => Object.fromEntries(userInfoFields.map((f) => [f.key, f.caption])), []);
+
+  const fieldEditorTypeMap: Record<string, string> = {
+    USERID: "dxTextBox",
+    USERNM: "dxTextBox",
+    PASSWD: "dxTextBox",
+    PASSWD_LV2: "dxTextBox",
+    DEPARTMENT_CD: "dxTextBox",
+    USERLV: "dxSelectBox",
+    USER_TEL: "dxTextBox",
+    TEAM_NUMBER: "dxTextBox",
+    CANLOGIN: "dxCheckBox",
+    CAN_LOCK: "dxCheckBox",
+    IS_MANAGER: "dxCheckBox",
+    COMPANY_CD: "dxTextBox",
+  };
+
+  const groups = useMemo<FormGroupConfig<UserInfoFormData>[]>(() => {
+    const createItem = (key: string) => {
+      const caption = t(key, fieldMap[key] ?? key);
+      const editorType = fieldEditorTypeMap[key] ?? "dxTextBox";
+      const options: Record<string, unknown> = {};
+
+      if (editorType === "dxNumberBox") {
+        Object.assign(options, { min: 1, step: 1 });
+      }
+
+      if (key === "USERID") {
+        Object.assign(options, { readOnly: isUpdate });
+      }
+
+      if (key === "USERLV") {
+        Object.assign(options, {
+          dataSource: userLevelCodes,
+          displayExpr: (entry: unknown) => {
+            if (!entry || typeof entry !== "object") {
+              return "";
+            }
+            const code = entry as SysCode;
+            return t(`USER_LEVEL_${code.CODE_CD}`, code.CODE_NAME || code.CODE_CD);
+          },
+          valueExpr: (entry: unknown) => {
+            if (!entry || typeof entry !== "object") {
+              return undefined;
+            }
+            const code = entry as SysCode;
+            const numeric = Number(code.CODE_CD);
+            return Number.isNaN(numeric) ? code.CODE_CD : numeric;
+          },
+          placeholder: t("SELECT_USER_LEVEL", "Select user level"),
+          showClearButton: true,
+          showDropDownButton: true,
+          searchEnabled: true,
+          stylingMode: "outlined",
+        });
+      }
+
+      if (key === "COMPANY_CD") {
+        Object.assign(options, { readOnly: true });
+      }
+
+      if (key === "PASSWD" || key === "PASSWD_LV2") {
+        Object.assign(options, {
+          mode: "password",
+          placeholder: t(
+            key === "PASSWD" ? (isUpdate ? "LEAVE_PASSWORD_BLANK" : "ENTER_PASSWORD") : (isUpdate ? "LEAVE_PASSWORD_BLANK" : "ENTER_PASSWORD"),
+            isUpdate ? "Leave blank to keep the current password" : "Enter password",
+          ),
+        });
+      }
+
+      return {
+        dataField: key,
+        label: caption,
+        editorType,
+        editorOptions: createTextBoxOptions(options),
+      };
+    };
+
+    return (Object.keys(userInfoFieldGroups) as Array<keyof typeof userInfoFieldGroups>).map((groupKey) => ({
+      key: groupKey,
+      caption: t(groupKey.toUpperCase(), groupKey),
+      colCount: 2,
+      items: userInfoFieldGroups[groupKey].map(createItem),
+    }));
+  }, [fieldMap, isUpdate, t]);
+
+  return (
+    <div className="user-info-form">
+      <DxForm colCount={1} labelLocation="top" width="100%">
+        {groups.map((group) => (
+          <GroupItem key={group.key} caption={group.caption} colCount={group.colCount ?? 2}>
+            {group.items
+              .filter((item) => item.visible !== false)
+              .map((item) => (
+                <Item
+                  key={item.dataField}
+                  dataField={item.dataField}
+                  label={{ text: item.label }}
+                  editorType={item.editorType}
+                  editorOptions={item.editorOptions}
+                  colSpan={item.colSpan}
+                />
+              ))}
+          </GroupItem>
+        ))}
+      </DxForm>
+    </div>
+  );
+}

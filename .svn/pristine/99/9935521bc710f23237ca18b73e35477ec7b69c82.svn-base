@@ -1,0 +1,15 @@
+import type { ExcelImportConfig } from "@/types/modal"
+
+export function createPurchaseVoucherImportConfig(
+  translate: (key: string, fallback: string) => string,
+): ExcelImportConfig {
+  const fileLabel = translate("PURCHASE_VOUCHER", "Purchase Voucher")
+    .trim()
+    .replace(/\s+/g, "_")
+    .toLowerCase()
+
+  return {
+    templateName: `${fileLabel}_template.xlsx`,
+    moduleCd: "PurchaseVoucherAp",
+  }
+}

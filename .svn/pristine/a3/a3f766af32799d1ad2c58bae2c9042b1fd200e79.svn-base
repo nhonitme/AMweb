@@ -1,0 +1,106 @@
+import axios from './axiosClient';
+import API_BASE_URL from '../config/apiConfig';
+import type { CustomerExt } from '@/types/customerExt';
+
+const BASE_URL = `${API_BASE_URL}/CustomerInfoCustomerExt`;
+
+export async function getCustomerExts(
+  customerIdentifier?: string,
+  lang?: string,
+): Promise<{ data: CustomerExt[]; labels: Record<string, string> }> {
+  try {
+    const params: Record<string, string> = {};
+
+    if (customerIdentifier) {
+      params.CUSTOMER_CD = customerIdentifier;
+      params.CUSTOMER_ID = customerIdentifier;
+    }
+
+    if (lang) {
+      params.lang = lang;
+    }
+
+    const resp = await axios.get(`${BASE_URL}/Get`, { params });
+
+    if (resp.status !== 200) {
+      throw new Error(`Unexpected HTTP status ${resp.status}`);
+    }
+
+    const payload = resp.data;
+    if (!payload || typeof payload !== "object") {
+      throw new Error("Invalid response format from getCustomerExts");
+    }
+
+    const inner = payload.Data ?? payload.data ?? payload;
+    if (Array.isArray(inner)) {
+      return { data: inner as CustomerExt[], labels: {} };
+    }
+
+    const list = inner.data ?? inner;
+    const labels = inner.labels ?? {};
+
+    if (!Array.isArray(list)) {
+      throw new Error("Response did not contain an array of customer exts");
+    }
+
+    return { data: list as CustomerExt[], labels: labels as Record<string, string> };
+  } catch (err: any) {
+    console.error("Error in getCustomerExts:", err);
+    if (err.response) {
+      console.error("Response data:", err.response.data);
+      console.error("Response status:", err.response.status);
+    }
+    throw err;
+  }
+}
+
+export async function createCustomerExt(payload: Partial<CustomerExt>): Promise<any> {
+  const resp = await axios.post(`${BASE_URL}/Create`, payload);
+  return resp.data;
+}
+
+export async function updateCustomerExt(payload: Partial<CustomerExt>): Promise<any> {
+  const resp = await axios.put(`${BASE_URL}/Update`, payload);
+  return resp.data;
+}
+
+export async function deleteCustomerExt(customerIdOrIds: string | string[]): Promise<any> {
+  const companyCd = localStorage.getItem("lastCompanyCD") || localStorage.getItem("companyCd") || undefined;
+  const params: Record<string, string | undefined> = { COMPANY_CD: companyCd };
+
+  if (customerIdOrIds) {
+    if (Array.isArray(customerIdOrIds)) {
+      params.CUSTOMER_ID = customerIdOrIds.join(",");
+    } else {
+      params.CUSTOMER_ID = customerIdOrIds;
+    }
+  }
+
+  const resp = await axios.delete(`${BASE_URL}/Delete`, { params });
+  return resp.data;
+}
+
+export async function exportCustomerExtExcel(customerIdOrCd?: string): Promise<Blob> {
+  const params: Record<string, string> = {};
+
+  if (customerIdOrCd) {
+    params.CUSTOMER_ID = customerIdOrCd;
+    params.CUSTOMER_CD = customerIdOrCd;
+  }
+
+  const resp = await axios.get(`${BASE_URL}/customer/export`, {
+    params,
+    responseType: "blob",
+  });
+
+  return resp.data;
+}
+
+export async function importCustomerExtExcel(file: File, lang?: string): Promise<any> {
+  const form = new FormData();
+  form.append("file", file);
+
+  const url = `${BASE_URL}/customer/import${lang ? `?lang=${encodeURIComponent(lang)}` : ""}`;
+  const resp = await axios.post(url, form);
+  return resp.data;
+}

@@ -1,0 +1,36 @@
+import CustomStore from "devextreme/data/custom_store";
+import { getEtData } from "@/api/systemApi";
+import { etcData } from "@/types/etcData";
+import { AcclistInfo } from "@/types/acclist";
+
+const normalizeChitDetail = (record: etcData): Partial<AcclistInfo> => ({
+  ACC_CD: String((record as any).CD ?? "").trim(),
+  ACCTITLE_NM_VIET: String((record as any).NM_VIET ?? "").trim(),
+  ACCTITLE_NM_ENG: String((record as any).NM_ENG ?? "").trim(),
+  ACCTITLE_NM_KOR: String((record as any).NM_KOR ?? "").trim(),
+  ACCTITLE_NM_CHINA: String((record as any).NM_CHINA ?? "").trim()
+});
+
+async function loadAcclists(): Promise<AcclistInfo[]> {
+  const response = await getEtData("0")
+  const payload = (response as any)?.data ?? (response as any) ?? []
+  return (Array.isArray(payload) ? payload : []).map((item: any) => normalizeChitDetail(item)) as AcclistInfo[]
+}
+
+export function clearAcclistLookupCache() {
+}
+
+export const LookupStore = new CustomStore({
+  key: "ACC_CD",
+  loadMode: "raw",
+  cacheRawData: false,
+
+  load: async () => {
+    return await loadAcclists();
+  },
+
+  byKey: async (key) => {
+    const items = await loadAcclists()
+    return items.find((x) => x.ACC_CD === key) ?? null
+  },
+})

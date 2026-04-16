@@ -1,0 +1,11 @@
+export interface UserInfoApi {
+  COMPANY_CD: string
+  USERID: string
+  PASSWD: string
+}
+
+export interface UserInfo {
+  COMPANY_CD: string
+  USERID: string
+  PASSWD: string
+}

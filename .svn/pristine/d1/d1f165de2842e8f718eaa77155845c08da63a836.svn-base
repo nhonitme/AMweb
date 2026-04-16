@@ -1,0 +1,10 @@
+import DxPage from "@/dx/DxPage";
+import CustomerExtManager from "@/pages/Module/CustomerManagementPage/CustomerExtManager";
+
+export default function CustomerExtPage() {
+  return (
+    <DxPage>
+      <CustomerExtManager mode="page" />
+    </DxPage>
+  );
+}

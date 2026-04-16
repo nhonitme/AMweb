@@ -1,0 +1,5 @@
+import PurchaseVoucherManagementPage from "./PurchaseVoucherManagementPage"
+
+export default function PurchaseVoucherPage() {
+  return <PurchaseVoucherManagementPage />
+}

@@ -1,0 +1,113 @@
+export interface CompanyInfoApi {
+  COMPANY_CD: string;
+  DB_GROUP_ID: number | null;
+
+  COMPANY_NM: string;
+  COMPANY_NM_EN: string;
+  COMPANY_NM_KOR: string;
+
+  COMPANY_TYPE: number;
+  COMPANY_KIND: number | null;
+
+  DE_COMPANY_CD: string;
+  COMPANY_LV: string;
+
+  ACCDATE_CD: string | null;
+  TAX_CD: string | null;
+  CCCDan: string | null;
+
+  TCQTQLy: string | null;
+  MCQTQLy: string | null;
+
+  BRN: string | null;
+  CRN: string | null;
+
+  OWNER_NM: string | null;
+  ZIP_CODE: string | null;
+
+  ADDRESS_DO: string | null;
+  ADDRESS: string | null;
+  ADDRESS_ENG: string | null;
+  ADDRESS_KOR: string | null;
+
+  CARRYFORWARD_YMD: string | null;
+
+  SIDO: string | null;
+  GUMYUN: string | null;
+
+  BUSINESS_TYPE: string | null;
+  KIND_BUSINESS: string | null;
+
+  TEL: string | null;
+  EMAIL: string | null;
+  WEBSITE: string | null;
+  FAX: string | null;
+
+  STOCKCALC_TYPE: string | null;
+
+  OPEN_YMD: string | null;
+  DECISION: string | null;
+
+  REG_YMD: string | null;
+
+  ISDEL: string | null;
+  NOTE: string | null;
+}
+
+export interface CompanyInfo {
+  COMPANY_CD: string;
+  DB_GROUP_ID: number | null;
+
+  COMPANY_NM: string;
+  COMPANY_NM_EN: string;
+  COMPANY_NM_KOR: string;
+
+  COMPANY_TYPE: number;
+  COMPANY_KIND: number | null;
+
+  DE_COMPANY_CD: string;
+  COMPANY_LV: string;
+
+  ACCDATE_CD: string | null;
+  TAX_CD: string | null;
+  CCCDan: string | null;
+
+  TCQTQLy: string | null;
+  MCQTQLy: string | null;
+
+  BRN: string | null;
+  CRN: string | null;
+
+  OWNER_NM: string | null;
+  ZIP_CODE: string | null;
+
+  ADDRESS_DO: string | null;
+  ADDRESS: string | null;
+  ADDRESS_ENG: string | null;
+  ADDRESS_KOR: string | null;
+
+  CARRYFORWARD_YMD: string | null;
+
+  SIDO: string | null;
+  GUMYUN: string | null;
+
+  BUSINESS_TYPE: string | null;
+  KIND_BUSINESS: string | null;
+
+  TEL: string | null;
+  EMAIL: string | null;
+  WEBSITE: string | null;
+  FAX: string | null;
+
+  STOCKCALC_TYPE: string | null;
+
+  OPEN_YMD: string | null;
+  DECISION: string | null;
+
+  REG_YMD: string | null;
+
+  ISDEL: string | null;
+  NOTE: string | null;
+
+  raw?: CompanyInfoApi;
+}

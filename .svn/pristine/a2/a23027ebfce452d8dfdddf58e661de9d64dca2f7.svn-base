@@ -1,0 +1,341 @@
+import React, { useCallback, useContext, useState } from "react";
+import { Toolbar, Button } from "devextreme-react";
+import DateBox from "devextreme-react/date-box";
+import TextBox from "devextreme-react/text-box";
+import { Item } from "devextreme-react/toolbar";
+import type dxDataGrid from "devextreme/ui/data_grid";
+import { confirm } from "devextreme/ui/dialog";
+import { LanguageContext } from '@/lib/i18nLoader';
+
+import "./GridToolbar.scss";
+
+export type ToolbarCustomItem = {
+  key?: string;
+  icon?: string;
+  text?: string;
+  hint?: string;
+  type?: 'default' | 'normal' | 'danger';
+  stylingMode?: 'contained' | 'text' | 'outlined';
+  showText?: 'always' | 'inMenu' | 'none';
+  disabled?: boolean;
+  onClick?: () => void;
+};
+
+export type GridToolbarProps = {
+  title?: string;
+  titleKey?: string;
+
+  gridRef: React.RefObject<dxDataGrid | null>;
+
+  onAdd?: () => void;
+  onRefresh?: () => void;
+
+  onExportPdf?: () => void;
+  onExportXlsx?: () => void;
+  onImport?: () => void;
+  onDelete?: () => void;
+  onRangeSearch?: () => void;
+  fromDate?: Date | null;
+  toDate?: Date | null;
+  onFromDateChange?: (value: Date | null) => void;
+  onToDateChange?: (value: Date | null) => void;
+  showDateRange?: boolean;
+  customItems?: ToolbarCustomItem[];
+
+  showAdd?: boolean;
+  showRefresh?: boolean;
+  showColumnChooser?: boolean;
+  showExportPdf?: boolean;
+  showExportXlsx?: boolean;
+  showImport?: boolean;
+  showDelete?: boolean;
+  showSearch?: boolean;
+
+};
+
+export function GridToolbar({
+  title = "",
+  titleKey,
+  gridRef,
+  onAdd,
+  onRefresh,
+  onExportPdf,
+  onExportXlsx,
+  onImport,
+  onDelete,
+  onRangeSearch,
+  fromDate = null,
+  toDate = null,
+  onFromDateChange,
+  onToDateChange,
+  showDateRange = false,
+  customItems,
+  showAdd = true,
+  showRefresh = true,
+  showColumnChooser = true,
+  showExportPdf = true,
+  showExportXlsx = true,
+  showImport = true,
+  showDelete = true,
+  showSearch = true,
+}: GridToolbarProps) {
+  const { translate } = useContext(LanguageContext) as { translate?: (k: string, f?: string) => string };
+  const label = titleKey ? (translate ? translate(titleKey, title) : title) : title;
+  const renderLabel = () => <div className="toolbar-label">{label}</div>;
+  const [searchText, setSearchText] = useState("");
+
+  const handleAdd = () => {
+    if (onAdd) return onAdd();
+    gridRef.current?.addRow();
+  };
+
+  const handleRefresh = () => {
+    if (onRefresh) return onRefresh();
+  };
+
+  const handleColumnChooser = () => {
+    gridRef.current?.showColumnChooser();
+  };
+
+  const updateSearchFilterVisibility = useCallback((value: string) => {
+    const hasSearchValue = value.trim().length > 0;
+    const searchableGrid = gridRef.current as
+      | { option?: (name: string, value?: boolean | string) => void }
+      | null;
+
+    searchableGrid?.option?.("filterRow.visible", hasSearchValue);
+    searchableGrid?.option?.("filterPanel.visible", hasSearchValue);
+  }, [gridRef]);
+
+  const handleSearchTextChange = useCallback((value: string) => {
+    setSearchText(value);
+    updateSearchFilterVisibility(value);
+
+    const searchableGrid = gridRef.current as
+      | { searchByText?: (text: string) => void; option?: (name: string, value?: string) => void }
+      | null;
+
+    searchableGrid?.searchByText?.(value);
+    searchableGrid?.option?.("searchPanel.text", value);
+  }, [gridRef, updateSearchFilterVisibility]);
+
+  const handleRangeSearchClick = () => {
+    if (onRangeSearch) {
+      onRangeSearch();
+      return;
+    }
+  };
+
+  const handleDateBoxKeyDown = (event: React.KeyboardEvent | React.KeyboardEvent<HTMLInputElement> | { event?: KeyboardEvent; key?: string }) => {
+    const key =
+      (event as React.KeyboardEvent<HTMLInputElement>).key ||
+      ((event as { event?: KeyboardEvent }).event?.key ?? (event as { key?: string }).key);
+
+    if (key === "Enter") {
+      handleRangeSearchClick();
+    }
+  };
+
+  const performGridDelete = () => {
+    const keys = (gridRef.current?.getSelectedRowKeys() ?? []) as unknown[];
+    keys.forEach((key) => {
+      const idx = gridRef.current?.getRowIndexByKey(key);
+      if (idx !== undefined && idx !== -1) {
+        gridRef.current?.deleteRow(idx);
+      }
+    });
+  };
+
+  const handleDelete = async () => {
+    gridRef.current?.option('editing.confirmDelete', false);
+    if (onDelete) {
+      onDelete();
+      return;
+    }
+    const confirmText =
+      translate
+        ? translate(
+            'MSG_CONFIRM_DELETE_ROWS',
+            'Are you sure you want to delete the selected rows?',
+          )
+        : 'Are you sure you want to delete the selected rows?';
+    const confirmTitle = translate ? translate('MSG_BTNOK', 'Confirm') : 'Confirm';
+    const isConfirmed = await confirm(confirmText, confirmTitle);
+    if (isConfirmed) {
+      performGridDelete();
+    }
+  };
+
+  return (
+    <Toolbar className="my-toolbar">
+      <Item location="before" locateInMenu="never" render={renderLabel} />
+
+      {showAdd && (
+        <Item location="after" widget="dxButton" locateInMenu="auto">
+          <Button
+            type="default"
+            stylingMode="contained"
+            onClick={handleAdd}
+            icon="plus"
+                      hint={translate ? translate('lblAddNew', 'Add') : 'Add'}
+                      text={translate ? translate('lblAddNew', 'Add') : 'Add'}
+          />
+        </Item>
+      )}
+
+      {showDateRange ? (
+        <Item location="after" locateInMenu="auto">
+          <div className="flex items-center gap-2">
+            <DateBox
+              width={160}
+              value={fromDate}
+              displayFormat="dd/MM/yyyy"
+              pickerType="calendar"
+              placeholder={translate ? translate('MSG_FROMDATE', 'From') : 'From'}
+              onValueChanged={(e) => onFromDateChange?.((e.value as Date) ?? null)}
+              onKeyDown={handleDateBoxKeyDown}
+              inputAttr={{ onKeyDown: handleDateBoxKeyDown }}
+            />
+            <DateBox
+              width={160}
+              value={toDate}
+              displayFormat="dd/MM/yyyy"
+              pickerType="calendar"
+              placeholder={translate ? translate('MSG_TODATE', 'To') : 'To'}
+              onValueChanged={(e) => onToDateChange?.((e.value as Date) ?? null)}
+              onKeyDown={handleDateBoxKeyDown}
+              inputAttr={{ onKeyDown: handleDateBoxKeyDown }}
+            />
+            <TextBox
+              width={260}
+              mode="search"
+              stylingMode="outlined"
+              value={searchText}
+              showClearButton={true}
+              placeholder={translate ? translate("Search...", "Search...") : "Search..."}
+              onValueChanged={(e) => handleSearchTextChange(String(e.value ?? ""))}
+              onEnterKey={() => updateSearchFilterVisibility(searchText)}
+            />
+            <Button
+              stylingMode="text"
+              onClick={handleRangeSearchClick}
+              icon="search"
+              hint={translate ? translate('MSG_BTNSER', 'Search') : 'Search'}
+            />
+          </div>
+        </Item>
+      ) : showSearch ? (
+        <Item location="after" locateInMenu="never">
+          <TextBox
+            width={260}
+            mode="search"
+            stylingMode="outlined"
+            value={searchText}
+            showClearButton={true}
+            placeholder={translate ? translate("Search...", "Search...") : "Search..."}
+            onValueChanged={(e) => handleSearchTextChange(String(e.value ?? ""))}
+            onEnterKey={() => updateSearchFilterVisibility(searchText)}
+          />
+        </Item>
+      ) : null}
+
+      {showRefresh && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={handleRefresh}
+            icon="refresh"
+            hint={translate ? translate('MSG_BTNREFRESH', 'Refresh') : 'Refresh'}
+            text={translate ? translate('MSG_BTNREFRESH', 'Refresh') : 'Refresh'}
+          />
+        </Item>
+      )}
+
+      {showColumnChooser && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={handleColumnChooser}
+            icon="columnchooser"
+            hint={translate ? translate('AUDIT_SETTING_SHOW_HIDE', 'Column Chooser') : 'Column Chooser'}
+            text={translate ? translate('AUDIT_SETTING_SHOW_HIDE', 'Column Chooser') : 'Column Chooser'}
+          />
+        </Item>
+      )}
+
+      {(showDelete || showImport || showExportPdf || showExportXlsx) && (
+        <Item location="after" locateInMenu="auto">
+          <div className="separator" />
+        </Item>
+      )}
+
+      {customItems?.map((item, index) => (
+        <Item
+          key={item.key ?? index}
+          location="after"
+          widget="dxButton"
+          showText={item.showText ?? "inMenu"}
+          locateInMenu="auto"
+          options={{
+            icon: item.icon,
+            text: item.text,
+            hint: item.hint,
+            type: item.type,
+            stylingMode: item.stylingMode,
+            disabled: item.disabled,
+            onClick: item.onClick,
+          }}
+        />
+      ))}
+
+      {showDelete && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            type="danger"
+            onClick={handleDelete}
+            icon="trash"
+            hint={translate ? translate('MSG_BTNDELETE', 'Delete selected') : 'Delete selected'}
+            text={translate ? translate('MSG_BTNDELETE', 'Delete selected') : 'Delete selected'}
+          />
+        </Item>
+      )}
+
+      {showImport && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={onImport}
+            icon="upload"
+            hint={translate ? translate('MSG_BTNIMPORTEXCEL', 'Import from Excel') : 'Import from Excel'}
+            text={translate ? translate('MSG_BTNIMPORTEXCEL', 'Import from Excel') : 'Import from Excel'}
+          />
+        </Item>
+      )}
+
+      {showExportPdf && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={onExportPdf}
+            icon="exportpdf"
+            hint={translate ? translate('EXPORT_PDF_FILE', 'Export PDF') : 'Export PDF'}
+            text={translate ? translate('EXPORT_PDF_FILE', 'Export PDF') : 'Export PDF'}
+          />
+        </Item>
+      )}
+
+      {showExportXlsx && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={onExportXlsx}
+            icon="download"
+            hint={translate ? translate('MSG_BTNEXPORT', 'Export Excel') : 'Export Excel'}
+            text={translate ? translate('MSG_BTNEXPORT', 'Export Excel') : 'Export Excel'}
+          />
+        </Item>
+      )}
+    </Toolbar>
+  );
+}

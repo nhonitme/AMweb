@@ -1,0 +1,214 @@
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import Button from "devextreme-react/button"
+import Form, { GroupItem, Item } from "devextreme-react/form"
+import LoadPanel from "devextreme-react/load-panel"
+import Popup from "devextreme-react/popup"
+
+import { LanguageContext } from "@/lib/i18nLoader"
+import type { ChitInfo, ChitType } from "@/types/voucher"
+import { calculateChitAmount, cloneChit, getChitTypeLabel } from "../chitUtils"
+import ChitDetailGrid, { type ChitDetailGridHandle } from "./ChitDetailGrid"
+
+interface ChitEditorPopupProps {
+  visible: boolean
+  value: ChitInfo
+  chitType: ChitType
+  isUpdate: boolean
+  loading: boolean
+  onClose: () => void
+  onSave: (record: ChitInfo) => Promise<void>
+}
+
+export function ChitEditorPopup({
+  visible,
+  value,
+  chitType,
+  isUpdate,
+  loading,
+  onClose,
+  onSave,
+}: ChitEditorPopupProps) {
+  const [draft, setDraft] = useState<ChitInfo>(() => cloneChit(value))
+  const detailGridRef = useRef<ChitDetailGridHandle | null>(null)
+
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+
+  const t = useCallback(
+    (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
+    [translate],
+  )
+
+  useEffect(() => {
+    setDraft(cloneChit(value))
+  }, [value])
+
+  const chitLabel = useMemo(() => getChitTypeLabel(chitType, t), [chitType, t])
+
+  const title = useMemo(
+    () => (isUpdate ? `${t("lblEdit", "Edit")} ${chitLabel}` : `${t("lblAddNew", "Add")} ${chitLabel}`),
+    [isUpdate, chitLabel, t],
+  )
+
+  const handleDetailsChange = useCallback((rows: ChitInfo["DETAILS"], amount: number) => {
+    setDraft((current) => ({
+      ...current,
+      DETAILS: rows,
+      DETAIL_COUNT: rows.length,
+      AMOUNT: amount,
+    }))
+  }, [])
+
+  const handleSave = useCallback(async () => {
+    const syncedDetails = detailGridRef.current
+      ? await detailGridRef.current.savePendingChanges()
+      : draft.DETAILS
+    const totalAmount = calculateChitAmount(syncedDetails)
+
+    await onSave({
+      ...draft,
+      DETAILS: syncedDetails,
+      DETAIL_COUNT: syncedDetails.length,
+      AMOUNT: totalAmount,
+    })
+  }, [draft, onSave])
+
+  const formData = useMemo(
+    () => ({
+      ...draft,
+      CHIT_TYPE_LABEL: chitLabel,
+    }),
+    [draft, chitLabel],
+  )
+
+  return (
+    <Popup
+      visible={visible}
+      title={title}
+      showTitle={true}
+      dragEnabled={false}
+      hideOnOutsideClick={!loading}
+      width="100vw"
+      height="100vh"
+      maxWidth="100vw"
+      maxHeight="100vh"
+      container=".dx-viewport"
+      position={{ my: "center", at: "center", of: window }}
+      onHiding={onClose}
+    >
+      <div className="relative h-full w-full overflow-hidden p-2">
+        <LoadPanel visible={loading} showPane={true} showIndicator={true} shading={true} />
+
+        <div className="h-full flex flex-col gap-3 overflow-hidden">
+          <div className="h-[40%] min-h-[220px] overflow-auto rounded-lg border border-gray-200 bg-white p-2">
+            <Form
+              formData={formData}
+              labelLocation="top"
+              colCount={1}
+            onFieldDataChanged={(event) => {
+              if (typeof event.dataField === "string") {
+                setDraft((current) => ({
+                  ...current,
+                  [event.dataField as keyof ChitType]: event.value as never,
+                }))
+              }
+            }}
+          >
+            <GroupItem caption={t("BASE_INFO", "Basic Information")} colCount={4}>
+              <Item
+                dataField="CHIT_TYPE_LABEL"
+                editorType="dxTextBox"
+                label={{ text: t("CHIT_TYPE", "Type") }}
+                editorOptions={{ readOnly: true, stylingMode: "outlined" }}
+              />
+              <Item
+                dataField="CHIT_YMD"
+                editorType="dxDateBox"
+                label={{ text: t("CHIT_YMD", "Note Date") }}
+                editorOptions={{ stylingMode: "outlined", displayFormat: "yyyy-MM-dd", type: "date" }}
+              />
+              <Item
+                dataField="CHIT_NO"
+                editorType="dxTextBox"
+                label={{ text: t("CHIT_NO", "Document No") }}
+                editorOptions={{ stylingMode: "outlined" }}
+              />
+              <Item
+                dataField="AMOUNT"
+                editorType="dxNumberBox"
+                label={{ text: t("AMOUNT", "Amount") }}
+                editorOptions={{ stylingMode: "outlined", format: "#,##0.00", readOnly: true}}
+              />
+              <Item
+                dataField="PAYER_INFO"
+                colSpan={2}
+                editorType="dxTextBox"
+                label={{ text: t("lblPayer", "Payer Info") }}
+                editorOptions={{ stylingMode: "outlined" }}
+              />
+              <Item 
+                colSpan={2}
+              />
+              <Item
+                dataField="DESCRIPTION_VIET"
+                colSpan={2}
+                editorType="dxTextBox"
+                label={{ text: t("DESCRIPTION_VIET", "Description (VI)") }}
+                editorOptions={{ stylingMode: "outlined", minHeight: 80, autoResizeEnabled: true }}
+              />
+              <Item 
+                colSpan={2}
+              />
+              <Item
+                dataField="DESCRIPTION_ENG"
+                colSpan={4}
+                editorType="dxTextBox"
+                label={{ text: t("DESCRIPTION_ENG", "Description (EN)") }}
+                editorOptions={{ stylingMode: "outlined", minHeight: 80, autoResizeEnabled: true }}
+              />
+              <Item
+                dataField="DESCRIPTION_KOR"
+                colSpan={4}
+                editorType="dxTextBox"
+                label={{ text: t("DESCRIPTION_KOR", "Description (KO)") }}
+                editorOptions={{ stylingMode: "outlined", minHeight: 80, autoResizeEnabled: true }}
+              />
+            </GroupItem>
+          </Form>
+        </div>
+
+          <div className="h-[60%] min-h-[260px] overflow-auto rounded-lg border border-gray-200 bg-white p-3">
+            <div className="mb-3 text-sm font-semibold text-gray-700">
+              {t("lblDetail", "Detail List")}
+            </div>
+            <ChitDetailGrid
+              ref={detailGridRef}
+              companyCd={draft.COMPANY_CD}
+              details={draft.DETAILS}
+              onChange={handleDetailsChange}
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
+          <Button
+            text={t("btnCancel", "Cancel")}
+            stylingMode="outlined"
+            onClick={onClose}
+            disabled={loading}
+          />
+          <Button
+            text={t("btnSave", "Save")}
+            type="default"
+            stylingMode="contained"
+            onClick={handleSave}
+            disabled={loading || draft.DETAILS.length === 0}
+          />
+        </div>
+        </div>
+      </div>
+    </Popup>
+  )
+}
+
+export default ChitEditorPopup

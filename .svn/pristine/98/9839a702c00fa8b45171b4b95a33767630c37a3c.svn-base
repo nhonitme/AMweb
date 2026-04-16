@@ -1,0 +1,113 @@
+import { forwardRef, useCallback, useContext, useImperativeHandle, useRef } from "react"
+import DataGrid, { Editing, Popup } from "devextreme-react/data-grid"
+import type dxDataGrid from "devextreme/ui/data_grid"
+import type { InitializedEvent, SavedEvent } from "devextreme/ui/data_grid"
+
+import { LanguageContext } from "@/lib/i18nLoader"
+import type { ChitNoteDetail } from "@/types/chitNote"
+import ChitNoteDetailColumns from "./ChitNoteDetailColumns"
+import {
+  calculateChitNoteAmount,
+  cloneChitNoteDetail,
+  createDefaultChitNoteDetail,
+  normalizeChitNoteDetailRows,
+} from "../purchaseVoucherUtils"
+
+export interface ChitNoteDetailGridHandle {
+  savePendingChanges: () => Promise<ChitNoteDetail[]>
+}
+
+interface ChitNoteDetailGridProps {
+  companyCd: string
+  details: ChitNoteDetail[]
+  onChange: (rows: ChitNoteDetail[], amount: number) => void
+}
+
+export const ChitNoteDetailGrid = forwardRef<ChitNoteDetailGridHandle, ChitNoteDetailGridProps>(
+  function ChitNoteDetailGrid({ companyCd, details, onChange }, ref) {
+    const gridRef = useRef<dxDataGrid<ChitNoteDetail, string> | null>(null)
+    const { translate } = useContext(LanguageContext) as {
+      translate?: (key: string, fallback?: string) => string
+    }
+
+    const t = useCallback(
+      (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
+      [translate],
+    )
+
+    const syncRows = useCallback(() => {
+      const source = gridRef.current?.option("dataSource")
+      const rows = Array.isArray(source)
+        ? normalizeChitNoteDetailRows(source).map((item) => cloneChitNoteDetail(item))
+        : details.map((item) => cloneChitNoteDetail(item))
+      onChange(rows, calculateChitNoteAmount(rows))
+      return rows
+    }, [details, onChange])
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        savePendingChanges: async () => {
+          if (gridRef.current) {
+            await gridRef.current.saveEditData()
+          }
+
+          return syncRows()
+        },
+      }),
+      [syncRows],
+    )
+
+    const handleInitialized = useCallback((event: InitializedEvent<ChitNoteDetail, string>) => {
+      gridRef.current = event.component ?? null
+    }, [])
+
+    const handleSaved = useCallback(
+      (_event: SavedEvent<ChitNoteDetail, string>) => {
+        syncRows()
+      },
+      [syncRows],
+    )
+
+    return (
+      <div className="min-h-[360px]">
+        <DataGrid<ChitNoteDetail, string>
+          dataSource={details}
+          keyExpr="ROW_KEY"
+          width="100%"
+          height={360}
+          showBorders
+          columnAutoWidth
+          rowAlternationEnabled
+          allowColumnResizing
+          allowColumnReordering
+          onInitialized={handleInitialized}
+          onSaved={handleSaved}
+          onInitNewRow={(event) => {
+            event.data = createDefaultChitNoteDetail(companyCd, details.length + 1)
+          }}
+        >
+          <Editing
+            mode="popup"
+            allowAdding={true}
+            allowUpdating={true}
+            allowDeleting={true}
+            confirmDelete={false}
+          >
+            <Popup
+              title={t("DETAIL_INFO", "Detail Line")}
+              showTitle={true}
+              width="90%"
+              maxWidth={1080}
+              height="auto"
+            />
+          </Editing>
+
+          <ChitNoteDetailColumns />
+        </DataGrid>
+      </div>
+    )
+  },
+)
+
+export default ChitNoteDetailGrid

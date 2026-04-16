@@ -1,0 +1,54 @@
+.data-grid-container {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  margin-top: 24px;
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+
+  .dx-datagrid {
+    font-size: 12px !important;
+
+    &, * {
+      font-size: 12px !important;
+    }
+
+
+    .dx-datagrid-headers .dx-row > td,
+    .dx-datagrid-rowsview .dx-row > td {
+      padding: 5px 8px !important;
+      border-right: 1px dashed rgba(0, 0, 0, 0.12);
+    }
+
+    .dx-datagrid-headers .dx-row > td:last-child,
+    .dx-datagrid-rowsview .dx-row > td:last-child {
+      border-right: none;
+    }
+
+    .dx-datagrid-headers {
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
+    }
+
+    .dx-row.dx-row-alt {
+      background-color: #fafafa;
+    }
+
+    .dx-datagrid-rowsview .dx-row:hover {
+      background-color: #e6f7ff;
+    }
+
+    .dx-datagrid-rowsview .dx-row:not(:hover) .dx-command-edit,
+    .dx-datagrid-rowsview .dx-row:not(:hover) .dx-command-delete,
+    .dx-datagrid-rowsview .dx-row:not(:hover) .dx-command-more {
+      visibility: hidden;
+    }
+
+    .dx-scrollable-scrollbar.dx-scrollbar-horizontal,
+    .dx-scrollable-scrollbar.dx-scrollbar-horizontal .dx-scrollable-scroll,
+    .dx-scrollable-scrollbar.dx-scrollbar-horizontal .dx-scrollable-scroll-content {
+      height: 20px !important;
+    }
+  }
+}

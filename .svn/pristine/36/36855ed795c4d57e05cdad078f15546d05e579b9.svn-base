@@ -1,0 +1,70 @@
+@media (min-width: 1536px) and (max-width: 1400px) {
+  .max-2xl\:max-w-\[1400px\]\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+/* Đảm bảo toàn bộ button, input, select, optgroup, textarea dùng font-size 13px */
+button, input, select, optgroup, textarea, label {
+  font-size: 13px !important;
+  font-family: 'Noto Sans', sans-serif;
+}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Import Noto Sans từ Google Fonts */
+html, body {
+  font-family: 'Noto Sans', sans-serif;
+}
+body {
+  font-size: 13px !important;
+  line-height: 1.4;
+}
+
+/* Đảm bảo toàn bộ bảng dùng font-size 13px */
+table, th, td, thead, tbody {
+  font-size: 13px !important;
+}
+
+/* Hide scrollbar for horizontal scroll tabs */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
+}
+
+/* Ensure the sidebar menu search input shows a red border when focused/clicked */
+.menu-search-input {
+  transition: border-color 0.12s ease-in-out, box-shadow 0.12s ease-in-out;
+}
+.menu-search-input:focus,
+.menu-search-input:active {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220,38,38,0.08) !important;
+  outline: none !important;
+}
+
+/* DevExtreme textbox outlined wrapper when focused */
+.dx-textbox.dx-state-focused .dx-texteditor-outline,
+.dx-texteditor.dx-state-focused .dx-texteditor-outline {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220,38,38,0.08) !important;
+}
+
+/* If the input has class but wrapper gains focus state, ensure wrapper also styled */
+.dx-textbox .menu-search-input:focus ~ .dx-texteditor-outline,
+.dx-textbox .menu-search-input:focus + .dx-texteditor-outline {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220,38,38,0.08) !important;
+}
+
+/* ensure the outline wrapper inside the search wrapper gets red border */
+.menu-search-wrapper .dx-texteditor-outline {
+  transition: border-color 0.12s ease-in-out, box-shadow 0.12s ease-in-out;
+}
+.menu-search-wrapper .dx-texteditor-outline.dx-state-focused {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220,38,38,0.08) !important;
+}

@@ -1,0 +1,486 @@
+import React, { useCallback, useContext, useMemo, useRef, useState } from "react";
+import { Toolbar, Button } from "devextreme-react";
+import TextBox from "devextreme-react/text-box";
+import { Item } from "devextreme-react/toolbar";
+import type dxTreeList from "devextreme/ui/tree_list";
+import { confirm } from "devextreme/ui/dialog";
+import { LanguageContext } from '@/lib/i18nLoader';
+import type { ShowTextMode } from "devextreme/ui/toolbar";
+import ShortcutHelpPopup from "@/components/shortcuts/ShortcutHelpPopup";
+import { syncGridSearchState } from "@/components/datagrid/gridSearch";
+import useShortcutBindings from "@/hooks/useShortcutBindings";
+import useShortcutHelp from "@/hooks/useShortcutHelp";
+import {
+  createShortcutBindings,
+  type ShortcutBinding,
+  type ShortcutHandler,
+} from "@/lib/shortcuts/shortcutBindings";
+import {
+  SHORTCUT_ACTIONS,
+  type ShortcutActionCode,
+} from "@/lib/shortcuts/shortcutDefinitions";
+import "./TreeListToolbar.scss";
+
+export type ToolbarCustomItem = {
+  key?: string;
+  icon?: string;
+  text?: string;
+  hint?: string;
+  type?: 'default' | 'normal' | 'danger';
+  stylingMode?: 'contained' | 'text' | 'outlined';
+  showText?: ShowTextMode;
+  disabled?: boolean;
+  onClick?: () => void;
+};
+
+export type TreeListToolbarProps = {
+  title?: string;
+  titleKey?: string;
+
+  treeListRef: React.RefObject<dxTreeList | null>;
+
+  onAdd?: () => void;
+  onRefresh?: () => void;
+
+  onExportPdf?: () => void;
+  onExportXlsx?: () => void;
+  onImport?: () => void;
+  onDelete?: () => void;
+  customItems?: ToolbarCustomItem[];
+
+  showAdd?: boolean;
+  showRefresh?: boolean;
+  showColumnChooser?: boolean;
+  showExportPdf?: boolean;
+  showExportXlsx?: boolean;
+  showImport?: boolean;
+  showDelete?: boolean;
+  showSearch?: boolean;
+  shortcutsEnabled?: boolean;
+  additionalShortcutActions?: ShortcutActionCode[];
+  additionalShortcutHandlers?: Partial<Record<ShortcutActionCode, ShortcutHandler>>;
+  additionalShortcutOptions?: Partial<Record<ShortcutActionCode, Omit<ShortcutBinding, "action" | "handler">>>;
+};
+
+export function TreeListToolbar({
+  title = "Tree List",
+  titleKey,
+  treeListRef,
+  onAdd,
+  onRefresh,
+  onExportPdf,
+  onExportXlsx,
+  onImport,
+  onDelete,
+  customItems,
+  showAdd = true,
+  showRefresh = true,
+  showColumnChooser = true,
+  showExportPdf = true,
+  showExportXlsx = true,
+  showImport = true,
+  showDelete = true,
+  showSearch = true,
+  shortcutsEnabled = true,
+  additionalShortcutActions,
+  additionalShortcutHandlers,
+  additionalShortcutOptions,
+}: TreeListToolbarProps) {
+  const { translate } = useContext(LanguageContext) as { translate?: (k: string, f?: string) => string };
+  const label = titleKey ? (translate ? translate(titleKey, title) : title) : title;
+  const renderLabel = () => <div className="toolbar-label">{label}</div>;
+  const [searchText, setSearchText] = useState("");
+  const searchContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const focusSearchInput = useCallback(() => {
+    const input = searchContainerRef.current?.querySelector("input.dx-texteditor-input, input") as HTMLInputElement | null;
+    input?.focus();
+    input?.select?.();
+  }, []);
+
+  const getPrimaryRowIndex = useCallback(() => {
+    const focusedRowKey = (treeListRef.current as any)?.option?.("focusedRowKey");
+    if (focusedRowKey !== undefined && focusedRowKey !== null) {
+      const focusedIndex = treeListRef.current?.getRowIndexByKey?.(focusedRowKey);
+      if (typeof focusedIndex === "number" && focusedIndex >= 0) {
+        return focusedIndex;
+      }
+    }
+
+    const selectedKeys = (treeListRef.current?.getSelectedRowKeys?.() ?? []) as unknown[];
+    const primaryKey = selectedKeys[0];
+    if (primaryKey === undefined || primaryKey === null) {
+      return -1;
+    }
+
+    const selectedIndex = treeListRef.current?.getRowIndexByKey?.(primaryKey);
+    return typeof selectedIndex === "number" ? selectedIndex : -1;
+  }, [treeListRef]);
+
+  const executeTreeListHelper = useCallback((helperName: "__openFocusedOrSelectedRow" | "__duplicateFocusedOrSelectedRow") => {
+    const helper = (treeListRef.current as any)?.[helperName];
+    if (typeof helper !== "function") {
+      return false;
+    }
+
+    return helper() === true;
+  }, [treeListRef]);
+
+  const shortcutActions = useMemo(() => {
+    const actions = [
+      SHORTCUT_ACTIONS.SAVE,
+      SHORTCUT_ACTIONS.CLOSE,
+      SHORTCUT_ACTIONS.HELP,
+      SHORTCUT_ACTIONS.OPEN,
+      SHORTCUT_ACTIONS.EDIT,
+    ] as ShortcutActionCode[]
+
+    if (showAdd) {
+      actions.push(SHORTCUT_ACTIONS.ADD_ROW, SHORTCUT_ACTIONS.DUPLICATE)
+    }
+
+    if (showRefresh) {
+      actions.push(SHORTCUT_ACTIONS.REFRESH)
+    }
+
+    if (showColumnChooser) {
+      actions.push(SHORTCUT_ACTIONS.COLUMN_CHOOSER)
+    }
+
+    if (showDelete) {
+      actions.push(SHORTCUT_ACTIONS.DELETE)
+    }
+
+    if (showImport && onImport) {
+      actions.push(SHORTCUT_ACTIONS.IMPORT)
+    }
+
+    if (showExportPdf && onExportPdf) {
+      actions.push(SHORTCUT_ACTIONS.EXPORT_PDF, SHORTCUT_ACTIONS.PRINT)
+    }
+
+    if (showExportXlsx && onExportXlsx) {
+      actions.push(SHORTCUT_ACTIONS.EXPORT_EXCEL)
+    }
+
+    if (showSearch) {
+      actions.push(SHORTCUT_ACTIONS.QUICK_SEARCH)
+    }
+
+    if (additionalShortcutActions?.length) {
+      actions.push(...additionalShortcutActions)
+    }
+
+    return Array.from(new Set(actions))
+  }, [
+    additionalShortcutActions,
+    onExportPdf,
+    onExportXlsx,
+    onImport,
+    showAdd,
+    showColumnChooser,
+    showDelete,
+    showExportPdf,
+    showExportXlsx,
+    showImport,
+    showRefresh,
+  ])
+  const {
+    shortcutHelpVisible,
+    shortcutHelpItems,
+    openShortcutHelp,
+    closeShortcutHelp,
+  } = useShortcutHelp(shortcutActions)
+
+  const handleAdd = () => {
+    if (onAdd) return onAdd();
+    treeListRef.current?.addRow();
+  };
+
+  const handleRefresh = () => {
+    if (onRefresh) return onRefresh();
+  };
+
+  const handleColumnChooser = () => {
+    treeListRef.current?.showColumnChooser();
+  };
+
+  const handleSave = useCallback(() => {
+    void (treeListRef.current as any)?.saveEditData?.()
+  }, [treeListRef])
+
+  const handleClose = useCallback(() => {
+    treeListRef.current?.cancelEditData?.()
+    ;(treeListRef.current as any)?.closeEditCell?.()
+  }, [treeListRef])
+
+  const handleOpen = useCallback(() => {
+    if (executeTreeListHelper("__openFocusedOrSelectedRow")) {
+      return;
+    }
+
+    const rowIndex = getPrimaryRowIndex();
+    if (rowIndex >= 0) {
+      treeListRef.current?.editRow?.(rowIndex);
+    }
+  }, [executeTreeListHelper, getPrimaryRowIndex, treeListRef]);
+
+  const handleEdit = useCallback(() => {
+    handleOpen();
+  }, [handleOpen]);
+
+  const handleDuplicate = useCallback(() => {
+    if (executeTreeListHelper("__duplicateFocusedOrSelectedRow")) {
+      return;
+    }
+
+    const rowIndex = getPrimaryRowIndex();
+    if (rowIndex >= 0) {
+      treeListRef.current?.editRow?.(rowIndex);
+    }
+  }, [executeTreeListHelper, getPrimaryRowIndex, treeListRef]);
+
+  const handleQuickSearch = useCallback(() => {
+    focusSearchInput();
+  }, [focusSearchInput]);
+
+  const handlePrint = useCallback(() => {
+    onExportPdf?.();
+  }, [onExportPdf]);
+
+  const updateSearchFilterVisibility = useCallback((value: string) => {
+    syncGridSearchState(treeListRef.current, value);
+  }, [treeListRef]);
+
+  const handleSearchTextChange = useCallback((value: string) => {
+    setSearchText(value);
+    updateSearchFilterVisibility(value);
+  }, [treeListRef, updateSearchFilterVisibility]);
+
+  const performTreeListDelete = () => {
+    const keys = (treeListRef.current?.getSelectedRowKeys() ?? []) as unknown[];
+    keys.forEach((key) => {
+      const idx = treeListRef.current?.getRowIndexByKey(key);
+      if (idx !== undefined && idx !== -1) {
+        treeListRef.current?.deleteRow(idx);
+      }
+    });
+  };
+
+  const handleDelete = async () => {
+    treeListRef.current?.option('editing.confirmDelete', false);
+    if (onDelete) {
+      onDelete();
+      return;
+    }
+    const confirmText =
+      translate
+        ? translate('Are you sure you want to delete the selected rows?', 'Are you sure you want to delete the selected rows?')
+        : 'Are you sure you want to delete the selected rows?';
+    const confirmTitle = translate ? translate('btnOK', 'Confirm') : 'Confirm';
+    const isConfirmed = await confirm(confirmText, confirmTitle);
+    if (isConfirmed) {
+      performTreeListDelete();
+    }
+  };
+
+  const shortcutBindings = useMemo(
+    () => {
+      const builtInHandlers: Partial<Record<ShortcutActionCode, ShortcutHandler>> = {
+        [SHORTCUT_ACTIONS.SAVE]: () => handleSave(),
+        [SHORTCUT_ACTIONS.CLOSE]: () => handleClose(),
+        [SHORTCUT_ACTIONS.OPEN]: () => handleOpen(),
+        [SHORTCUT_ACTIONS.EDIT]: () => handleEdit(),
+        [SHORTCUT_ACTIONS.DELETE]: () => {
+          void handleDelete()
+        },
+        [SHORTCUT_ACTIONS.ADD_ROW]: () => handleAdd(),
+        [SHORTCUT_ACTIONS.DUPLICATE]: () => handleDuplicate(),
+        [SHORTCUT_ACTIONS.REFRESH]: () => handleRefresh(),
+        [SHORTCUT_ACTIONS.COLUMN_CHOOSER]: () => handleColumnChooser(),
+        [SHORTCUT_ACTIONS.QUICK_SEARCH]: () => handleQuickSearch(),
+        [SHORTCUT_ACTIONS.IMPORT]: () => onImport?.(),
+        [SHORTCUT_ACTIONS.PRINT]: () => handlePrint(),
+        [SHORTCUT_ACTIONS.EXPORT_PDF]: () => onExportPdf?.(),
+        [SHORTCUT_ACTIONS.EXPORT_EXCEL]: () => onExportXlsx?.(),
+        [SHORTCUT_ACTIONS.HELP]: () => openShortcutHelp(),
+      }
+
+      return createShortcutBindings(
+        shortcutActions,
+        {
+          ...builtInHandlers,
+          ...additionalShortcutHandlers,
+        },
+        {
+          [SHORTCUT_ACTIONS.QUICK_SEARCH]: { allowInInput: true },
+          ...additionalShortcutOptions,
+        },
+      )
+    },
+    [
+      additionalShortcutHandlers,
+      additionalShortcutOptions,
+      handleAdd,
+      handleClose,
+      handleColumnChooser,
+      handleDelete,
+      handleDuplicate,
+      handleEdit,
+      handleOpen,
+      handlePrint,
+      handleQuickSearch,
+      handleRefresh,
+      handleSave,
+      onExportPdf,
+      onExportXlsx,
+      onImport,
+      openShortcutHelp,
+      shortcutActions,
+    ],
+  )
+
+  useShortcutBindings(shortcutBindings, { enabled: shortcutsEnabled })
+
+  return (
+    <>
+      <Toolbar className="my-toolbar">
+        <Item location="before" locateInMenu="never" render={renderLabel} />
+
+      {showAdd && (
+        <Item location="after" widget="dxButton" locateInMenu="auto">
+          <Button
+            type="default"
+            stylingMode="contained"
+            onClick={handleAdd}
+            icon="plus"
+            hint={translate ? translate('lblAddNew', 'Add') : 'Add'}
+            text={translate ? translate('lblAddNew', 'Add') : 'Add'}
+          />
+        </Item>
+      )}
+
+      {showSearch && (
+        <Item location="after" locateInMenu="never">
+          <div ref={searchContainerRef}>
+            <TextBox
+              width={260}
+              mode="search"
+              stylingMode="outlined"
+              value={searchText}
+              showClearButton={true}
+              placeholder={translate ? translate("Search...", "Search...") : "Search..."}
+              onValueChanged={(e) => handleSearchTextChange(String(e.value ?? ""))}
+              onEnterKey={() => updateSearchFilterVisibility(searchText)}
+            />
+          </div>
+        </Item>
+      )}
+
+      {showRefresh && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={handleRefresh}
+            icon="refresh"
+            hint={translate ? translate('btnRefresh', 'Refresh') : 'Refresh'}
+            text={translate ? translate('btnRefresh', 'Refresh') : 'Refresh'}
+          />
+        </Item>
+      )}
+
+      {showColumnChooser && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={handleColumnChooser}
+            icon="columnchooser"
+            hint={translate ? translate('AUDIT_SETTING_SHOW_HIDE', 'Column Chooser') : 'Column Chooser'}
+            text={translate ? translate('AUDIT_SETTING_SHOW_HIDE', 'Column Chooser') : 'Column Chooser'}
+          />
+        </Item>
+      )}
+
+      {(showDelete || showImport || showExportPdf || showExportXlsx) && (
+        <Item location="after" locateInMenu="auto">
+          <div className="separator" />
+        </Item>
+      )}
+
+      {customItems?.map((item, index) => (
+        <Item
+          key={item.key ?? index}
+          location="after"
+          widget="dxButton"
+          showText={item.showText ?? "inMenu"}
+          locateInMenu="auto"
+          options={{
+            icon: item.icon,
+            text: item.text,
+            hint: item.hint,
+            type: item.type,
+            stylingMode: item.stylingMode,
+            disabled: item.disabled,
+            onClick: item.onClick,
+          }}
+        />
+      ))}
+
+      {showDelete && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            type="danger"
+            onClick={handleDelete}
+            icon="trash"
+            hint={translate ? translate('btndelete', 'Delete selected') : 'Delete selected'}
+            text={translate ? translate('btndelete', 'Delete selected') : 'Delete selected'}
+          />
+        </Item>
+      )}
+
+      {showImport && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={onImport}
+            icon="upload"
+            hint={translate ? translate('history_action75', 'Import from Excel') : 'Import from Excel'}
+            text={translate ? translate('history_action75', 'Import from Excel') : 'Import from Excel'}
+          />
+        </Item>
+      )}
+
+      {showExportPdf && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={onExportPdf}
+            icon="exportpdf"
+            hint={translate ? translate('EXPORT_PDF_FILE', 'Export PDF') : 'Export PDF'}
+            text={translate ? translate('EXPORT_PDF_FILE', 'Export PDF') : 'Export PDF'}
+          />
+        </Item>
+      )}
+
+      {showExportXlsx && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={onExportXlsx}
+            icon="download"
+            hint={translate ? translate('btnExport', 'Export Excel') : 'Export Excel'}
+            text={translate ? translate('btnExport', 'Export Excel') : 'Export Excel'}
+          />
+        </Item>
+      )}
+      </Toolbar>
+      <ShortcutHelpPopup
+        visible={shortcutHelpVisible}
+        shortcuts={shortcutHelpItems}
+        onClose={closeShortcutHelp}
+      />
+    </>
+  );
+}
+export default TreeListToolbar;

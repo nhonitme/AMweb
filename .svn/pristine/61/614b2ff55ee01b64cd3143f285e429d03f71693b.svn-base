@@ -1,0 +1,294 @@
+import { useEffect, useRef, useState, useContext  } from "react";
+import { LoadPanel } from "devextreme-react";
+import { Editing, Popup } from "devextreme-react/data-grid";
+import { RowInsertingEvent, RowUpdatingEvent, RowRemovingEvent, RowDblClickEvent } from "devextreme/ui/data_grid";
+import type dxDataGrid from "devextreme/ui/data_grid";
+
+import "./ProductPage.scss";
+
+import DxPage from "../../dx/DxPage";
+import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid";
+import { GridToolbar } from "@/components/toolbar/GridToolbar";
+
+import { ProductColumns } from "./Columns/ProductColumns";
+import { ProductForm } from "./Forms/ProductForm";
+
+import { getProducts, createProduct, updateProduct, deleteProduct } from "@/api/productApi";
+import { getProductKinds } from "@/api/productKindApi";
+import { Product } from "@/types/product";
+import { ProductKind } from "@/types/productKind";
+import { Unit } from "@/types/unit";
+import { StoreInfo } from "@/types/store";
+import { LanguageContext } from "@/lib/i18nLoader";
+import { getProductUnits } from "@/api/productUnitApi";
+import { getStoreInfos } from "@/api/storeAPI";
+// import { messages } from '../../lib/i18nLoader';
+
+// type RowInsertingEventWithPromise = RowInsertingEvent & { promise?: Promise<void> };
+// type RowUpdatingEventWithPromise = RowUpdatingEvent & { promise?: Promise<void> };
+// type RowRemovingEventWithPromise = RowRemovingEvent & { promise?: Promise<void> };
+
+export default function ProductList() {
+  const [loading, setLoading] = useState(true);
+  const [gridData, setGridData] = useState<Product[]>([]);
+  const [searchVisible, setSearchVisible] = useState(false);
+  const gridRef = useRef<dxDataGrid | null>(null);
+  const { translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string; lang: string };
+  const t = (k: string, f?: string) => translate ? translate(k, f || k) : (f || k);
+  const [productKinds, setProductKinds] = useState<ProductKind[]>([]);
+  const [productUnits, setProductUnits] = useState<Unit[]>([]);
+  const [stores, setStores] = useState<StoreInfo[]>([]);
+
+  const loadProducts = async () => {
+    try {
+      setLoading(true);
+      const products = await getProducts();
+      setGridData(products as Product[]);
+
+      gridRef.current?.clearSelection();
+    } catch (error) {
+      console.error("Tải danh sách hàng tồn kho thất bại", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadProductKinds = async () => {
+    try {
+      const productKinds = await getProductKinds();
+      setProductKinds(productKinds);
+    } catch (error) {
+      console.error(error);
+      setProductKinds([]);
+    }
+  };
+
+  const loadUnits = async () => {
+    try {
+      const units = await getProductUnits();
+      setProductUnits(units);
+    } catch (error) {
+      console.error(error);
+      setProductUnits([]);
+    }
+  };
+
+  const loadStores = async () => {
+    try {
+      const stores = await getStoreInfos();
+      setStores(stores.data);
+    } catch (error) {
+      console.error(error);
+      setStores([]);
+    }
+  };
+
+  // const onRowInserting = (e: RowInsertingEventWithPromise) => {
+  //   e.promise = (async () => {
+  //     try {
+  //       const payload = {
+  //         ...e.data,
+  //         PRODUCT_KIND_ID: e.data?.PRODUCT_KIND_ID ?? "",
+  //         USERID: localStorage.getItem("lastUserId") || "unknown",
+  //         ISUSE: "1",
+  //       };
+  //       console.log("Insert payload =", payload);
+  //       // Gọi API để thêm sản phẩm mới
+  //       // const result = await createProduct(e.data);
+  //       await createProduct(payload);
+  //       // Nếu thành công, có thể show thông báo hoặc reload lại danh sách
+  //       // Ví dụ:
+  //       // setNotification({ isOpen: true, type: "success", title: "Thành công!", message: "Đã thêm sản phẩm!" });
+  //       await loadProducts(); // Reload lại danh sách
+
+  //       if (e.component) {
+  //         (e.component as dxDataGrid).cancelEditData();
+  //       }
+  //     } catch (error: unknown) {
+  //       e.cancel = true;
+  //       if (error instanceof Error) {
+  //         alert(error.message);
+  //       } else {
+  //         alert(String(error));
+  //       }
+  //     } finally {
+  //       // Đóng popup bằng cách hủy trạng thái edit
+  //       // if (e.component) {
+  //       //   (e.component as dxDataGrid).cancelEditData();
+  //       // }
+  //     }
+  //   })();
+  // };
+
+  // const onRowUpdating = (e: RowUpdatingEventWithPromise) => {
+  //   e.promise = (async () => {
+  //     try {
+  //       // e.key là id, e.newData là dữ liệu mới, e.oldData là dữ liệu cũ
+  //       const id = e.key; // hoặc e.oldData.PRODUCT_CD nếu keyExpr="PRODUCT_CD"
+  //       const payload = { ...e.oldData, ...e.newData }; // merge để có đủ dữ liệu
+  //       await updateProduct(id, payload);
+  //       await loadProducts();
+  //     } catch (error) {
+  //       alert("Update error: " + error);
+  //     } finally {
+  //       if (e.component) {
+  //         (e.component as dxDataGrid).cancelEditData();
+  //       }
+  //     }
+  //   })();
+  // };
+
+  // const onRowRemoving = (e: RowRemovingEventWithPromise) => {
+  //   e.promise = (async () => {
+  //     try {
+  //       const id = e.key; // keyExpr="PRODUCT_ID" nên id là PRODUCT_ID
+  //       await deleteProduct(id);
+  //       await loadProducts();
+  //     } catch (error) {
+  //       alert("Delete error: " + error);
+  //     }
+  //   })();
+  // };
+
+  const onRowInserting = (e: RowInsertingEvent) => {
+    e.cancel = true;
+
+    (async () => {
+      try {
+        const payload = {
+          ...e.data,
+          PRODUCT_KIND_ID: e.data?.PRODUCT_KIND_ID ?? "",
+          USERID: localStorage.getItem("lastUserId") || "unknown",
+          ISUSE: "1",
+        };
+
+        console.log("Insert payload =", payload);
+
+        await createProduct(payload);
+        await loadProducts();
+
+        if (e.component) {
+          (e.component as dxDataGrid).cancelEditData();
+        }
+      } catch (error: unknown) {
+        alert(error instanceof Error ? error.message : String(error));
+      }
+    })();
+  };
+
+  const onRowUpdating = (e: RowUpdatingEvent) => {
+    e.cancel = true;
+
+    (async () => {
+      try {
+        const id = e.key;
+        const payload = { ...e.oldData, ...e.newData };
+
+        await updateProduct(id, payload);
+        await loadProducts();
+
+        if (e.component) {
+          (e.component as dxDataGrid).cancelEditData();
+        }
+      } catch (error: unknown) {
+        alert(error instanceof Error ? error.message : String(error));
+      }
+    })();
+  };
+
+  const onRowRemoving = (e: RowRemovingEvent) => {
+    e.cancel = true;
+
+    (async () => {
+      try {
+        const id = e.key;
+        await deleteProduct(id);
+        await loadProducts();
+      } catch (error: unknown) {
+        alert(error instanceof Error ? error.message : String(error));
+      }
+    })();
+  };
+
+  const handleRowDblClick = (e: RowDblClickEvent) => {
+    if (!gridRef.current) return;
+
+    let idx = e.rowIndex;
+    if ((idx === undefined || idx === null) && e.key !== undefined) {
+      idx = gridRef.current.getRowIndexByKey(e.key);
+    }
+
+    if ((idx === undefined || idx === null) && e?.key !== undefined) {
+      idx = gridRef.current.getRowIndexByKey(e.key);
+    }
+
+    if (typeof idx === "number" && idx !== -1) {
+      gridRef.current.editRow(idx);
+    }
+  };
+
+  useEffect(() => {
+    loadProducts();
+    loadProductKinds();
+    loadUnits();
+    loadStores();
+  }, []);
+
+  return (
+    <DxPage>
+      <GridToolbar
+        title={t('PRODUCT', 'Product List')}
+        gridRef={gridRef}
+        onRefresh={loadProducts}
+        onSearch={() => setSearchVisible((prev) => !prev)}
+        onExportPdf={() => alert("Export To PDF clicked")}
+        onExportXlsx={() => alert("Export To XLSX clicked")}
+        onImport={() => alert("Import clicked")}
+      />
+
+      <div className="data-grid-container">
+        <BaseDataGrid<Product>
+          dataSource={gridData}
+          keyExpr="PRODUCT_ID"
+          filterRowVisible={searchVisible}
+          searchPanelVisible={searchVisible}
+          filterPanelVisible={searchVisible}
+          onInitialized={(e) => {
+            gridRef.current = e.component ?? null;
+          }}
+          
+          // onEditorPreparing={onEditorPreparing}
+          onRowInserting={onRowInserting}
+          onRowUpdating={onRowUpdating}
+          onRowRemoving={onRowRemoving}
+          onRowDblClick={handleRowDblClick}
+
+          onInitNewRow={(e) => {
+            e.data.ISUSE = "1";
+          }}
+        >
+          <Editing
+            mode="popup"
+            allowUpdating={true}
+            allowAdding={true}
+            allowDeleting={true}
+            confirmDelete={true} // False: Ẩn thông báo xác nhận xóa dữ liệu
+          >
+            <Popup title={t('PRODUCT_INFO','Product Info')} showTitle={true} width={800} />
+            <ProductForm productKinds={productKinds} productUnits={productUnits} stores={stores} />
+          </Editing>
+          
+          <ProductColumns />
+        </BaseDataGrid>
+
+        <LoadPanel
+          shadingColor="rgba(0, 0, 0, 0.4)"
+          visible={loading}
+          showIndicator={true}
+          shading={true}
+          showPane={true}
+        />
+      </div>
+    </DxPage>
+  );
+}

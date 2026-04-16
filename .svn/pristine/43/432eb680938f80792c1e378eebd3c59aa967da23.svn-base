@@ -1,0 +1,57 @@
+import type { ExcelImportConfig } from "@/types/modal";
+import { useContext } from "react";
+import { LanguageContext } from '@/lib/i18nLoader';
+
+type TranslateFn = (key: string, fallback?: string) => string;
+
+export const createStoreImportConfig = (translate?: TranslateFn): ExcelImportConfig => {
+  const t: TranslateFn = (k, f) => (translate ? translate(k, f) : (f ?? k));
+
+  return {
+    templateName: `${t('TSStore','Warehouse management management')}_${new Date().toISOString().replace(/[:.-]/g, '')}.xlsx`,
+    columnMappings: [
+      { softwareColumn: "STORE_CD", excelColumn: "", required: true, description: t("STORE_CD","Store Code") },
+      { softwareColumn: "STORE_NM_VIET", excelColumn: "", required: true, description: t("STORE_NM_VIET", "Store Name (VI) (required)") },
+      { softwareColumn: "STORE_NM_ENG", excelColumn: "", required: false, description: t("STORE_NM_ENG", "Store Name (EN)") },
+      { softwareColumn: "STORE_NM_KOR", excelColumn: "", required: false, description: t("STORE_NM_KOR", "Store Name (KO)") },
+      { softwareColumn: "STORE_NM_CHINA", excelColumn: "", required: false, description: t("STORE_NM_CHINA", "Store Name (CN)") },
+      { softwareColumn: "STORE_KIND_CD", excelColumn: "", required: false, description: t("STORE_KIND_CD", "Store Kind Code") },
+    ],
+    sampleData: [
+      ["STORE001", "Cửa hàng A", "Store A", "매장 A", "门店 A", "SKIND1"]
+    ],
+    instructions: [
+      "HƯỚNG DẪN NHẬP QUẢN LÝ KHO BÃI",
+      "- Cột 'Mã kho' phải duy nhất, không chứa ký tự đặc biệt.",
+      "- Cột 'Tên kho ' phải không được trống.",
+      "- Có thể bỏ trống các cột không bắt buộc.",
+    ],
+    validationRules: {
+      STORE_CD: (value: any, allData: any[], existingData: any[]) => {
+        const errors: string[] = [];
+        if (!value || String(value).trim() === "") {
+          errors.push(t("store.validation.STORE_CD.required", "Store Code is required"));
+        } else {
+          const duplicate = [...allData, ...existingData].filter((item) => item.STORE_CD === value);
+          if (duplicate.length > 1) {
+            errors.push(t("store.validation.STORE_CD.duplicate", `Store Code "${value}" already exists`));
+          }
+        }
+        return errors;
+      },
+      STORE_NM_VIET: (value: any) => {
+        const errors: string[] = [];
+        if (!value || String(value).trim() === "") {
+          errors.push(t("store.validation.STORE_NM_VIET.required", "Store Name (VI) is required"));
+        }
+        return errors;
+      },
+    },
+  };
+};
+
+export const useStoreImportConfig = (): ExcelImportConfig => {
+  const ctx = useContext(LanguageContext) as any;
+  const translate: TranslateFn | undefined = ctx?.translate;
+  return createStoreImportConfig(translate);
+};

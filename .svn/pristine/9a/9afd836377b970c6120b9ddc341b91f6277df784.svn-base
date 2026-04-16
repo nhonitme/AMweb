@@ -1,0 +1,223 @@
+import { useCallback, useEffect, useRef, useState, useContext, useMemo } from "react";
+import { LoadPanel } from "devextreme-react";
+import { Editing, Popup } from "devextreme-react/data-grid";
+import { RowInsertingEvent, RowUpdatingEvent, RowRemovingEvent } from "devextreme/ui/data_grid";
+import { confirm } from "devextreme/ui/dialog";
+import type dxDataGrid from "devextreme/ui/data_grid";
+import notify from "devextreme/ui/notify";
+
+import DxPage from "@/dx/DxPage";
+import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid";
+import { GridToolbar } from "@/components/toolbar/GridToolbar";
+import { LanguageContext } from "@/lib/i18nLoader";
+
+import {
+  getUserInfos,
+  createUserInfo,
+  updateUserInfo,
+  deleteUserInfo,
+} from "@/api/userInfoApi";
+import type { UserInfo } from "@/types/userInfo";
+import UserInfoForm from "./UserInfoForm";
+import { UserInfoColumns } from "./UserInfoColumns";
+
+type RowInsertingEventWithPromise = RowInsertingEvent & { promise?: Promise<void> };
+type RowUpdatingEventWithPromise = RowUpdatingEvent & { promise?: Promise<void> };
+type RowRemovingEventWithPromise = RowRemovingEvent & { promise?: Promise<void> };
+
+const getCurrentCompanyCd = () =>
+  localStorage.getItem("lastCompanyCD") || localStorage.getItem("companyCd") || "";
+
+const getCurrentUserId = () => localStorage.getItem("lastUserId") || "";
+
+const UserInfoPage = () => {
+  const [loading, setLoading] = useState(true);
+  const [gridData, setGridData] = useState<UserInfo[]>([]);
+  const [colLabels, setColLabels] = useState<Record<string, string>>({});
+  const gridRef = useRef<dxDataGrid | null>(null);
+
+  const { lang, translate } = useContext(LanguageContext) as {
+    translate: (k: string, f?: string) => string;
+    lang: string;
+  };
+
+  const t = useCallback(
+    (k: string, f?: string) => (translate ? translate(k, f || k) : f || k),
+    [translate],
+  );
+
+  const excludedFields = useMemo(
+    () => new Set<string>(["COMPANY_CD"]),
+    [],
+  );
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const resp = await getUserInfos(undefined, lang);
+      setColLabels(resp.labels || {});
+      setGridData(resp.data || []);
+      gridRef.current?.clearSelection();
+    } catch (err) {
+      console.error("Failed to load user info", err);
+      notify(t("Load failed", "Load failed"), "error", 5000);
+    } finally {
+      setLoading(false);
+    }
+  }, [lang, t]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  const normalizePayload = (data: any) => {
+    const result = { ...(data || {}) };
+    result.COMPANY_CD = result.COMPANY_CD || getCurrentCompanyCd();
+    result.USERID = result.USERID || getCurrentUserId();
+    return result;
+  };
+
+  const onRowInserting = (e: RowInsertingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        const row = { ...(e.data || {}) };
+        excludedFields.forEach((f) => delete row[f]);
+        await createUserInfo(normalizePayload(row) as any, lang);
+        await loadData();
+      } catch (err) {
+        console.error("Insert error", err);
+        notify(t("Insert failed", "Insert failed"), "error", 3000);
+      } finally {
+        if (e.component) (e.component as dxDataGrid).cancelEditData();
+      }
+    })();
+  };
+
+  const onRowUpdating = (e: RowUpdatingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        const payload = { ...(e.oldData as object), ...(e.newData as object) } as any;
+        if (!payload.USERID && e.key !== undefined) {
+          payload.USERID = e.key;
+        }
+        payload.COMPANY_CD = payload.COMPANY_CD || getCurrentCompanyCd();
+
+        await updateUserInfo(normalizePayload(payload), lang);
+        await loadData();
+      } catch (err) {
+        console.error("Update error", err);
+        notify(t("Update failed", "Update failed"), "error", 3000);
+      } finally {
+        if (e.component) (e.component as dxDataGrid).cancelEditData();
+      }
+    })();
+  };
+
+  const onRowRemoving = (e: RowRemovingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        await deleteUserInfo(String(e.key));
+        await loadData();
+      } catch (err) {
+        console.error("Delete error", err);
+        notify(t("Delete failed", "Delete failed"), "error", 3000);
+      }
+    })();
+  };
+
+  const handleToolbarDelete = async () => {
+    const keys = (gridRef.current?.getSelectedRowKeys() || []) as string[];
+    if (!keys.length) {
+      notify(t("No rows selected", "No rows selected"), "warning", 2000);
+      return;
+    }
+
+    const confirmText = t(
+      "MSG_CONFIRM_DELETE_RECORD",
+      "Are you sure you want to delete {0} record?",
+    ).replace("{0}", String(keys.length));
+
+    const result = await confirm(confirmText, t("MSG_CONFIRM_DELETE", "Confirm delete"));
+    if (!result) return;
+
+    try {
+      await Promise.all(keys.map((k: any) => deleteUserInfo(String(k))));
+      notify(t("Delete success", "Deleted successfully"), "success", 3000);
+      await loadData();
+    } catch (err) {
+      console.error("Bulk delete error", err);
+      notify(t("Delete failed", "Delete failed"), "error", 3000);
+    }
+  };
+
+  const onRowDblClick = (e: any) => {
+    if (!gridRef.current) return;
+    const idx = e.row?.rowIndex ?? gridRef.current.getRowIndexByKey(e.key as any);
+    if (idx !== undefined && idx !== -1) {
+      gridRef.current.editRow(idx);
+    }
+  };
+
+  return (
+    <DxPage>
+      <GridToolbar
+        title={t("USER", "User")}
+        gridRef={gridRef}
+        onRefresh={loadData}
+        onDelete={handleToolbarDelete}
+      />
+
+      <div className="data-grid-container">
+        <BaseDataGrid<UserInfo>
+          dataSource={gridData}
+          keyExpr="USERID"
+          copyExcludeFields={Array.from(excludedFields)}
+          actionButtons
+          actionButtonsPosition="start"
+          onRowDblClick={onRowDblClick}
+          onInitialized={(e) => {
+            gridRef.current = e.component ?? null;
+          }}
+          onRowInserting={onRowInserting}
+          onRowUpdating={onRowUpdating}
+          onRowRemoving={onRowRemoving}
+          onInitNewRow={(e) => {
+            e.data = e.data ?? ({} as any);
+            e.data.COMPANY_CD = getCurrentCompanyCd();
+          }}
+        >
+          <Editing
+            mode="popup"
+            allowUpdating={true}
+            allowAdding={true}
+            allowDeleting={true}
+            confirmDelete={true}
+            startEditAction="dblClick"
+          >
+            <Popup
+              key={lang}
+              title={t("USER", "User")}
+              showTitle={true}
+              width="90%"
+              maxWidth={600}
+              deferRendering={true}
+            />
+            <UserInfoForm colLabels={colLabels} />
+          </Editing>
+
+          <UserInfoColumns colLabels={colLabels} />
+        </BaseDataGrid>
+
+        <LoadPanel
+          shadingColor="rgba(0, 0, 0, 0.4)"
+          visible={loading}
+          showIndicator={true}
+          shading={true}
+          showPane={true}
+        />
+      </div>
+    </DxPage>
+  );
+};
+
+export default UserInfoPage;

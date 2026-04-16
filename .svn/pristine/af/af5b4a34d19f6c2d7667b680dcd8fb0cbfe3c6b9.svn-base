@@ -1,0 +1,375 @@
+﻿import React, { useContext } from "react";
+import DataGrid, {
+    Paging,
+    Pager,
+    FilterRow,
+    HeaderFilter,
+    FilterBuilderPopup,
+    FilterPanel,
+    Selection,
+    ColumnChooser,
+    ColumnChooserSearch,
+    Column,
+} from "devextreme-react/data-grid";
+import { LanguageContext } from "@/lib/i18nLoader";
+
+import type {
+    Column as ColumnType,
+    InitializedEvent,
+    ToolbarPreparingEvent,
+    ContextMenuPreparingEvent,
+    RowInsertingEvent,
+    RowUpdatingEvent,
+    RowRemovingEvent,
+    EditingStartEvent,
+    InitNewRowEvent,
+    SelectionChangedEvent,
+    RowDblClickEvent,
+    FocusedRowChangedEvent,
+    CellClickEvent,
+    OptionChangedEvent
+} from "devextreme/ui/data_grid";
+
+import "./BaseDataGrid.scss";
+
+interface BaseDataGridProps<T> {
+    dataSource: any;
+    keyExpr: string;
+    /** fields removed when copying a row (in addition to keyExpr) */
+    copyExcludeFields?: string[];
+    columns?: (string | ColumnType<T, unknown>)[];
+    children?: React.ReactNode;
+    actionButtons?: boolean;
+    /** Position of the action buttons column */
+    actionButtonsPosition?: 'start' | 'end';
+
+    onRowDblClick?: (e: RowDblClickEvent) => void;
+
+    onInitialized?: (e: InitializedEvent) => void;
+    onToolbarPreparing?: (e: ToolbarPreparingEvent) => void;
+    onContextMenuPreparing?: (e: ContextMenuPreparingEvent) => void;
+    onContextMenuUpdate?: (rowData: T) => void;
+    onContextMenuCopy?: (rowData: T) => void;
+    onRowInserting?: (e: RowInsertingEvent) => void;
+    onRowUpdating?: (e: RowUpdatingEvent) => void;
+    onRowRemoving?: (e: RowRemovingEvent) => void;
+    onEditingStart?: (e: EditingStartEvent) => void;
+    onInitNewRow?: (e: InitNewRowEvent) => void;
+    onSelectionChanged?: (e: SelectionChangedEvent) => void;
+    onFocusedRowChanged?: (e: FocusedRowChangedEvent) => void;
+    selectMode?: "single" | "multiple";
+    selectAllMode?: "allPages" | "page";
+    focusRowEnabled?: boolean;
+    autoNavigateToFocusedRow?: boolean;
+    selectByClick?: boolean;
+    pagingEnabled?: boolean;
+    showPager?: boolean;
+    pageSize?: number;
+    defaultPageSize?: number;
+    showPageSizeSelector?: boolean;
+    allowedPageSizes?: number[];
+    remoteOperations?: boolean | Record<string, boolean>;
+    onOptionChanged?: (e: OptionChangedEvent) => void;
+}
+
+const handleToolbarPreparingDefault = (e: ToolbarPreparingEvent) => {
+    e.toolbarOptions.items = e.toolbarOptions.items?.filter(
+        (item) => item.name !== 'addRowButton' && item.name !== 'columnChooserButton'
+    );
+};
+
+export function BaseDataGrid<T>({
+    dataSource,
+    keyExpr,
+    copyExcludeFields = [],
+    children,
+    actionButtons = false,
+    actionButtonsPosition = 'end',
+    onRowDblClick,
+    onInitialized,
+    onToolbarPreparing,
+    onContextMenuPreparing,
+    onContextMenuUpdate,
+    onContextMenuCopy,
+    onRowInserting,
+    onRowUpdating,
+    onRowRemoving,
+    onEditingStart,
+    onInitNewRow,
+    onSelectionChanged,
+    onFocusedRowChanged,
+    onOptionChanged,
+    selectMode = "multiple",
+    selectAllMode = "allPages",
+    selectByClick = true,
+    focusRowEnabled = false,
+    autoNavigateToFocusedRow = true,
+    pagingEnabled = true,
+    showPager = true,
+    pageSize,
+    defaultPageSize = 20,
+    showPageSizeSelector = true,
+    allowedPageSizes = [20, 50, 100],
+    remoteOperations = false,
+}: BaseDataGridProps<T>) {
+    const { lang, translate } = useContext(LanguageContext) as {
+        lang: string;
+        translate: (key: string, fallback?: string) => string;
+    };
+
+    const t = (key: string, fallback?: string) => (translate ? translate(key, fallback) : fallback ?? key);
+
+    const stripFields = (obj: Record<string, unknown>, fields: string[] | Set<string>) => {
+        if (!obj || typeof obj !== 'object') return;
+        const upper = new Set(Array.from(fields).map((f) => f.toUpperCase()));
+        Object.keys(obj).forEach((k) => {
+            if (upper.has(k.toUpperCase())) {
+                delete obj[k];
+            }
+        });
+    };
+
+    const copyDataRef = React.useRef<Record<string, unknown> | null>(null);
+    const getPrimaryRowContext = React.useCallback((component: any) => {
+        if (!component) {
+            return null;
+        }
+
+        const selectedKeys = (component.getSelectedRowKeys?.() ?? []) as unknown[];
+        const selectedRows = (component.getSelectedRowsData?.() ?? []) as T[];
+        const focusedRowKey = component.option?.("focusedRowKey");
+        const key = selectedKeys[0] ?? focusedRowKey ?? null;
+
+        if (key === null || key === undefined) {
+            return null;
+        }
+
+        const rowIndex = component.getRowIndexByKey?.(key);
+        const data =
+            selectedRows[0] ??
+            component.getVisibleRows?.()?.find((row: { key?: unknown }) => row.key === key)?.data ??
+            null;
+
+        return {
+            key,
+            rowIndex: typeof rowIndex === "number" ? rowIndex : -1,
+            data,
+        };
+    }, []);
+
+    const duplicateRowData = React.useCallback((component: any, rowData: T | null | undefined) => {
+        if (!component || !rowData) {
+            return false;
+        }
+
+        const clone = { ...(rowData as Record<string, unknown>) };
+        if (keyExpr) stripFields(clone, [keyExpr]);
+        if (copyExcludeFields.length) stripFields(clone, copyExcludeFields);
+        copyDataRef.current = clone;
+        component.addRow?.();
+        return true;
+    }, [copyExcludeFields, keyExpr]);
+
+    const installGridHelpers = React.useCallback((component: any) => {
+        if (!component) {
+            return;
+        }
+
+        component.__openFocusedOrSelectedRow = () => {
+            const rowContext = getPrimaryRowContext(component);
+            if (!rowContext) {
+                return false;
+            }
+
+            if (onContextMenuUpdate && rowContext.data) {
+                onContextMenuUpdate(rowContext.data);
+                return true;
+            }
+
+            if (rowContext.rowIndex >= 0) {
+                component.editRow?.(rowContext.rowIndex);
+                return true;
+            }
+
+            return false;
+        };
+
+        component.__duplicateFocusedOrSelectedRow = () => {
+            const rowContext = getPrimaryRowContext(component);
+            if (!rowContext?.data) {
+                return false;
+            }
+
+            if (onContextMenuCopy) {
+                onContextMenuCopy(rowContext.data);
+                return true;
+            }
+
+            return duplicateRowData(component, rowContext.data);
+        };
+    }, [duplicateRowData, getPrimaryRowContext, onContextMenuCopy, onContextMenuUpdate]);
+    const pagingProps =
+        typeof pageSize === "number" && Number.isFinite(pageSize) && pageSize > 0
+            ? { pageSize }
+            : { defaultPageSize };
+
+    const handleCellClickInternal = (e: CellClickEvent) => {
+        if (e.rowType !== "data" || selectMode !== "multiple") {
+            return;
+        }
+
+        const columnCommand = (e.column as { command?: string } | undefined)?.command;
+        const columnType = e.column?.type;
+        const isSelectionColumn = columnType === "selection" || columnCommand === "select";
+        const isCommandColumn = columnType === "buttons";
+
+        if (isSelectionColumn || isCommandColumn || e.key === undefined || e.key === null) {
+            return;
+        }
+
+        e.component.selectRows([e.key], false);
+    };
+
+    const handleContextMenuPreparingInternal = (e: ContextMenuPreparingEvent) => {
+        if (e.row && e.row.rowType === "data") {
+            const items: Array<{ text: string; onItemClick: () => void }> = [
+                {
+                    text: t('UpdateMsg', 'Update'),
+                    onItemClick: () => {
+                        if (onContextMenuUpdate && e.row?.data) {
+                            onContextMenuUpdate(e.row.data as T)
+                        } else {
+                            e.component?.editRow(e.row!.rowIndex)
+                        }
+                    },
+                },
+                {
+                    text: t('btndelete', 'Delete'),
+                    onItemClick: () => {
+                        e.component?.deleteRow(e.row!.rowIndex);
+                    },
+                },
+            ];
+            items.push({
+                text: t('btn_copy', 'Copy'),
+                onItemClick: () => {
+                    if (e.row?.data) {
+                        if (onContextMenuCopy) {
+                            onContextMenuCopy(e.row.data as T);
+                            return;
+                        }
+
+                        const clone = { ...(e.row.data as Record<string, unknown>) };
+                        if (keyExpr) stripFields(clone, [keyExpr]);
+                        if (copyExcludeFields && copyExcludeFields.length) stripFields(clone, copyExcludeFields);
+                        copyDataRef.current = clone;
+                        e.component?.addRow();
+                    }
+                },
+            });
+            e.items = items;
+        }
+        onContextMenuPreparing && onContextMenuPreparing(e);
+    };
+
+    return (
+        <div className="data-grid-container h-full w-full">
+            <DataGrid
+                dataSource={dataSource}
+                keyExpr={keyExpr}
+                width="100%"
+                height="100%"
+                key={lang}
+                onSelectionChanged={onSelectionChanged}
+                showBorders
+                columnAutoWidth
+                showColumnHeaders={true}
+                allowColumnResizing={true}
+                allowColumnReordering={true}
+                focusedRowEnabled={focusRowEnabled}
+                autoNavigateToFocusedRow={focusRowEnabled ? autoNavigateToFocusedRow : false}
+                hoverStateEnabled
+                remoteOperations={remoteOperations}
+                rowAlternationEnabled
+                onFocusedRowChanged={onFocusedRowChanged}
+                onRowDblClick={onRowDblClick}
+                onInitialized={(e) => {
+                    installGridHelpers(e.component);
+                    onInitialized?.(e);
+                }}
+                onToolbarPreparing={(e) => {
+                    handleToolbarPreparingDefault(e);
+                    onToolbarPreparing?.(e);
+                }}
+                onContextMenuPreparing={handleContextMenuPreparingInternal}
+                onRowInserting={onRowInserting}
+                onRowUpdating={onRowUpdating}
+                onRowRemoving={onRowRemoving}
+                onEditingStart={onEditingStart}
+                onOptionChanged={onOptionChanged}
+                onCellClick={handleCellClickInternal}
+                onInitNewRow={(e) => {
+                    if (copyDataRef.current) {
+                        const nextData = {
+                            ...(e.data ?? ({} as T)),
+                            ...copyDataRef.current,
+                        } as T;
+
+                        const nextDataRecord = nextData as Record<string, unknown>;
+
+                        if (keyExpr) stripFields(nextDataRecord, [keyExpr]);
+                        if (copyExcludeFields.length) stripFields(nextDataRecord, copyExcludeFields);
+
+                        copyDataRef.current = null;
+                        e.data = nextData;
+                    }
+
+                    onInitNewRow?.(e);
+                }}
+            >
+                <HeaderFilter visible />
+                <FilterRow showOperationChooser />
+                <FilterPanel />
+                <FilterBuilderPopup />
+
+                <Selection
+                    mode={selectMode}
+                    selectAllMode={selectAllMode}
+                    showCheckBoxesMode="always"
+                    selectByClick={selectMode === "single" ? selectByClick : false}
+                />
+
+                <ColumnChooser enabled mode="select">
+                    <ColumnChooserSearch
+                        enabled
+                        timeout={800}
+                        editorOptions={{
+                            placeholder: t("Search column", "Search column"),
+                            mode: "text",
+                        }}
+                    />
+                </ColumnChooser>
+
+                <Paging enabled={pagingEnabled} {...pagingProps} />
+                {showPager ? (
+                    <Pager
+                        visible={true}
+                        showPageSizeSelector={showPageSizeSelector}
+                        allowedPageSizes={allowedPageSizes}
+                        showInfo={true}
+                        showNavigationButtons={true}
+                        infoText={t("PAGE_TEXT", "Page {0} / {1} ({2} rows)")}
+                    />
+                ) : null}
+
+                {actionButtons && actionButtonsPosition === 'start' && (
+                    <Column type="buttons" width={100} />
+                )}
+                {children}
+                {actionButtons && actionButtonsPosition === 'end' && (
+                    <Column type="buttons" width={100} />
+                )}
+
+            </DataGrid></div>
+    );
+}

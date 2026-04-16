@@ -1,0 +1,112 @@
+import axios from 'axios';
+import API_BASE_URL from '../config/apiConfig';
+import { getAccessToken, refreshToken, logout } from '@/lib/login';
+
+axios.defaults.baseURL = API_BASE_URL;
+axios.defaults.withCredentials = true;
+
+let isRefreshing = false;
+let refreshPromise: Promise<string | null> | null = null;
+
+const bc: BroadcastChannel | null = typeof window !== 'undefined' && 'BroadcastChannel' in window
+    ? new BroadcastChannel('auth')
+    : null;
+
+function subscribeTokenRefresh(cb: (token: string | null) => void) {
+    if (refreshPromise) {
+        refreshPromise.then(cb).catch(() => cb(null));
+        return;
+    }
+
+    if (bc) {
+        const handler = (ev: MessageEvent) => {
+            try {
+                const data = ev.data as { type?: string; token?: string | null } | null;
+                if (!data) return;
+                if (data.type === 'refresh-success') {
+                    bc.removeEventListener('message', handler);
+                    cb(data.token ?? null);
+                } else if (data.type === 'refresh-failed') {
+                    bc.removeEventListener('message', handler);
+                    cb(null);
+                }
+            } catch (err) { }
+        };
+
+        bc.addEventListener('message', handler);
+
+        const timeout = setTimeout(() => {
+            try { bc.removeEventListener('message', handler); } catch { };
+            cb(null);
+        }, 10000);
+
+        const wrappedCb = (token: string | null) => { clearTimeout(timeout); cb(token); };
+        return;
+    }
+
+    cb(null);
+}
+
+axios.interceptors.request.use(
+    (config) => {
+        const token = getAccessToken();
+        if (token && config && config.headers) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => Promise.reject(error)
+);
+
+axios.interceptors.response.use(
+    (resp) => resp,
+    async (error) => {
+        const originalRequest = error.config;
+        if (!originalRequest) return Promise.reject(error);
+
+        if (error.response && error.response.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
+
+            if (!isRefreshing) {
+                isRefreshing = true;
+                refreshPromise = refreshToken();
+                try {
+                    const newToken = await refreshPromise;
+                    isRefreshing = false;
+                    refreshPromise = null;
+                    if (newToken) {
+                        originalRequest.headers = originalRequest.headers || {};
+                        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                        return axios(originalRequest);
+                    } else {
+                        await logout();
+                        window.location.href = '/login';
+                        return Promise.reject(error);
+                    }
+                } catch (refreshErr) {
+                    isRefreshing = false;
+                    refreshPromise = null;
+                    await logout();
+                    window.location.href = '/login';
+                    return Promise.reject(refreshErr);
+                }
+            } else {
+                return new Promise((resolve, reject) => {
+                    subscribeTokenRefresh((token) => {
+                        if (token) {
+                            originalRequest.headers = originalRequest.headers || {};
+                            originalRequest.headers.Authorization = `Bearer ${token}`;
+                            resolve(axios(originalRequest));
+                        } else {
+                            reject(error);
+                        }
+                    });
+                });
+            }
+        }
+
+        return Promise.reject(error);
+    }
+);
+
+export default axios;

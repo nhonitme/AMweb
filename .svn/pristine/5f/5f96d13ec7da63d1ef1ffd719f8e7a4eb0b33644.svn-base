@@ -1,0 +1,39 @@
+import type { ReactNode } from "react"
+import type { InitializedEvent, RowDblClickEvent, SelectionChangedEvent } from "devextreme/ui/data_grid"
+
+import { BaseDataGrid } from "./BaseDataGrid"
+
+interface PageGridProps<TData> {
+  dataSource: TData[]
+  keyExpr: string
+  copyExcludeFields?: string[]
+  children: ReactNode
+  onInitialized?: (event: InitializedEvent<TData, string | number>) => void
+  onRowDblClick?: (event: RowDblClickEvent<TData, string | number>) => void
+  onSelectionChanged?: (event: SelectionChangedEvent<TData, string | number>) => void
+}
+
+export function PageGrid<TData>({
+  dataSource,
+  keyExpr,
+  copyExcludeFields,
+  children,
+  onInitialized,
+  onRowDblClick,
+  onSelectionChanged,
+}: PageGridProps<TData>) {
+  return (
+    <BaseDataGrid<TData>
+      dataSource={dataSource}
+      keyExpr={keyExpr}
+      copyExcludeFields={copyExcludeFields}
+      onInitialized={onInitialized}
+      onRowDblClick={onRowDblClick}
+      onSelectionChanged={onSelectionChanged}
+    >
+      {children}
+    </BaseDataGrid>
+  )
+}
+
+export default PageGrid

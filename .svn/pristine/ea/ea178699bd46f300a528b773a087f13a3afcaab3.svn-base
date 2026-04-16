@@ -1,0 +1,43 @@
+// language.ts
+export const LANG_KEY = "lang";
+
+export const getCurrentLang = () =>
+  localStorage.getItem(LANG_KEY) || "vi";
+
+export const setCurrentLang = (lang: string) =>
+  localStorage.setItem(LANG_KEY, lang);
+
+export const convertLangToCode = (lang: string) => {
+  switch (lang) {
+    case 'vi':
+      return 'VIET';
+    case 'en':
+      return 'ENG';
+    case 'zh':
+      return 'CHN';
+    case 'ja':
+      return 'JPN';
+    case 'ko':
+      return 'KOR';
+    default:
+      return 'VIET';
+  }
+};
+
+export const convertCodeToLang = (lang: string) => {
+  switch (lang) {
+    case 'VIET':
+      return 'vi';
+    case 'ENG':
+      return 'en';
+    case 'CHN':
+      return 'zh';
+    case 'JPN':
+      return 'ja';
+    case 'KOR':
+      return 'ko';
+    default:
+      return 'vi';
+  }
+};
+

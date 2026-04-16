@@ -1,0 +1,360 @@
+﻿import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { LoadPanel } from "devextreme-react"
+import { Editing, Popup } from "devextreme-react/data-grid"
+import type dxDataGrid from "devextreme/ui/data_grid"
+import {
+  RowDblClickEvent,
+  RowInsertingEvent,
+  RowRemovingEvent,
+  RowUpdatingEvent,
+} from "devextreme/ui/data_grid"
+import { confirm } from "devextreme/ui/dialog"
+import notify from "devextreme/ui/notify"
+
+import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid"
+import { GridToolbar } from "@/components/toolbar/GridToolbar"
+import { LanguageContext } from "@/lib/i18nLoader"
+import {
+  createCompanySignature,
+  deleteCompanySignature,
+  deleteCompanySignatures,
+  getCompanySignatures,
+  updateCompanySignature,
+} from "@/api/companySignatureInfoApi"
+import type { CompanySignatureInfo, CompanySignatureInfoApi } from "@/types/companySignatureInfo"
+import CompanySignatureColumns from "./CompanySignatureColumns"
+import CompanySignatureForm from "./CompanySignatureForm"
+import {
+  createDefaultCompanySignatureInfo,
+  mapCompanySignatureToApiPayload,
+  normalizeCompanySignatureRows,
+} from "./companySignatureUtils"
+
+type TKey = string | number
+
+type RowInsertingEventWithPromise = RowInsertingEvent<CompanySignatureInfo, TKey> & { promise?: Promise<void> }
+type RowUpdatingEventWithPromise = RowUpdatingEvent<CompanySignatureInfo, TKey> & { promise?: Promise<void> }
+type RowRemovingEventWithPromise = RowRemovingEvent<CompanySignatureInfo, TKey> & { promise?: Promise<void> }
+
+interface CompanySignatureSectionProps {
+  companyCd: string
+}
+
+const fixedSignatureCodes = new Set(["01", "02", "03", "04", "05", "06"])
+
+const isFixedSignatureCode = (value: unknown) => fixedSignatureCodes.has(String(value ?? "").trim())
+
+export default function CompanySignatureSection({ companyCd }: CompanySignatureSectionProps) {
+  const [loading, setLoading] = useState(true)
+  const [gridData, setGridData] = useState<CompanySignatureInfo[]>([])
+  const [isUpdate, setIsUpdate] = useState(false)
+  const [searchVisible, setSearchVisible] = useState(false)
+  const gridRef = useRef<dxDataGrid<CompanySignatureInfo, TKey> | null>(null)
+
+  const { lang, translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+    lang: string
+  }
+
+  const t = useCallback(
+    (key: string, fallback?: string) => (translate ? translate(key, fallback || key) : fallback || key),
+    [translate],
+  )
+
+  const popupTitle = t(isUpdate ? "lblEdit" : "lblAddNew", isUpdate ? "Edit Signature" : "Add Signature")
+
+  const excludedFields = useMemo(
+    () =>
+      new Set<string>([
+        "ID",
+        "COMPANY_CD",
+        "ISDEL",
+        "CREATE_BY",
+        "CREATE_AT",
+        "UPDATE_BY",
+        "UPDATE_AT",
+      ]),
+    [],
+  )
+
+  const loadData = useCallback(async () => {
+    setLoading(true)
+
+    try {
+      const response = await getCompanySignatures()
+      setGridData(normalizeCompanySignatureRows(response.data || []))
+      gridRef.current?.clearSelection()
+    } catch (error) {
+      console.error("Failed to load company signatures", error)
+      notify(t("LOAD_FAILED", "Failed to load signatures"), "error", 5000)
+    } finally {
+      setLoading(false)
+    }
+  }, [t])
+
+  useEffect(() => {
+    void loadData()
+  }, [loadData])
+
+  const buildCreatePayload = useCallback(
+    (data: Partial<CompanySignatureInfo>): Partial<CompanySignatureInfoApi> => {
+      const nextRow: CompanySignatureInfo = {
+        ...createDefaultCompanySignatureInfo(companyCd),
+        ...data,
+        COMPANY_CD: data.COMPANY_CD || companyCd,
+        SIGN_CODE: "",
+        DISPLAY_LABEL: typeof data.DISPLAY_LABEL === "string" ? data.DISPLAY_LABEL.trim() : "",
+        SIGN_NAME: typeof data.SIGN_NAME === "string" ? data.SIGN_NAME.trim() : "",
+        SIGN_TITLE: typeof data.SIGN_TITLE === "string" ? data.SIGN_TITLE.trim() : "",
+        SIGN_IMAGE_URL: typeof data.SIGN_IMAGE_URL === "string" ? data.SIGN_IMAGE_URL.trim() : "",
+        SORT_ORDER:
+          typeof data.SORT_ORDER === "number" && Number.isFinite(data.SORT_ORDER)
+            ? data.SORT_ORDER
+            : Number(data.SORT_ORDER ?? 0) || 0,
+      }
+
+      return mapCompanySignatureToApiPayload(nextRow)
+    },
+    [companyCd],
+  )
+
+  const buildUpdatePayload = useCallback(
+    (event: RowUpdatingEventWithPromise): Partial<CompanySignatureInfoApi> => {
+      const mergedRow: CompanySignatureInfo = {
+        ...createDefaultCompanySignatureInfo(companyCd),
+        ...(event.oldData ?? {}),
+        ...(event.newData ?? {}),
+        ID: typeof event.oldData?.ID === "number" ? event.oldData.ID : null,
+        COMPANY_CD: event.oldData?.COMPANY_CD || companyCd,
+        SIGN_CODE:
+          typeof event.newData?.SIGN_CODE === "string"
+            ? event.newData.SIGN_CODE.trim()
+            : event.oldData?.SIGN_CODE ?? "",
+        DISPLAY_LABEL:
+          typeof event.newData?.DISPLAY_LABEL === "string"
+            ? event.newData.DISPLAY_LABEL.trim()
+            : event.oldData?.DISPLAY_LABEL ?? "",
+        SIGN_NAME:
+          typeof event.newData?.SIGN_NAME === "string"
+            ? event.newData.SIGN_NAME.trim()
+            : event.oldData?.SIGN_NAME ?? "",
+        SIGN_TITLE:
+          typeof event.newData?.SIGN_TITLE === "string"
+            ? event.newData.SIGN_TITLE.trim()
+            : event.oldData?.SIGN_TITLE ?? "",
+        SIGN_IMAGE_URL:
+          typeof event.newData?.SIGN_IMAGE_URL === "string"
+            ? event.newData.SIGN_IMAGE_URL.trim()
+            : event.oldData?.SIGN_IMAGE_URL ?? "",
+        SORT_ORDER:
+          typeof event.newData?.SORT_ORDER === "number"
+            ? event.newData.SORT_ORDER
+            : event.oldData?.SORT_ORDER ?? 0,
+      }
+
+      return mapCompanySignatureToApiPayload(mergedRow)
+    },
+    [companyCd],
+  )
+
+  const onRowInserting = useCallback(
+    (event: RowInsertingEventWithPromise) => {
+      event.promise = (async () => {
+        try {
+          const payload = buildCreatePayload({ ...(event.data ?? {}) })
+          await createCompanySignature(payload)
+            notify(t("MSG_INSERT_SUCCESS", "Created successfully"), "success", 3000)
+          await loadData()
+        } catch (error) {
+          console.error("Create company signature error", error)
+          notify(t("INSERT_FAILED", "Insert failed"), "error", 3000)
+        } finally {
+          if (event.component) {
+            ;(event.component as dxDataGrid<CompanySignatureInfo, TKey>).cancelEditData()
+          }
+        }
+      })()
+    },
+    [buildCreatePayload, loadData, t],
+  )
+
+  const onRowUpdating = useCallback(
+    (event: RowUpdatingEventWithPromise) => {
+      event.promise = (async () => {
+        try {
+          const payload = buildUpdatePayload(event)
+          await updateCompanySignature(payload)
+            notify(t("MSG_EDIT_SUCCESS", "Updated successfully"), "success", 3000)
+          await loadData()
+        } catch (error) {
+          console.error("Update company signature error", error)
+          notify(t("UPDATE_FAILED", "Update failed"), "error", 3000)
+        } finally {
+          if (event.component) {
+            ;(event.component as dxDataGrid<CompanySignatureInfo, TKey>).cancelEditData()
+          }
+        }
+      })()
+    },
+    [buildUpdatePayload, loadData, t],
+  )
+
+  const onRowRemoving = useCallback(
+    (event: RowRemovingEventWithPromise) => {
+      if (isFixedSignatureCode(event.data?.SIGN_CODE)) {
+        event.cancel = true
+        notify(t("FIXED_SIGN_CODE_DELETE_BLOCKED", "Default signature codes 01-06 cannot be deleted"), "warning", 3000)
+        return
+      }
+
+      event.promise = (async () => {
+        try {
+          const signatureId = Number(event.key)
+          if (!Number.isFinite(signatureId) || signatureId <= 0) {
+            throw new Error("Invalid signature id")
+          }
+
+          await deleteCompanySignature(signatureId)
+          notify(t("DELETE_SUCCESS", "Deleted successfully"), "success", 3000)
+          await loadData()
+        } catch (error) {
+          console.error("Delete company signature error", error)
+          notify(t("DELETE_FAILED", "Delete failed"), "error", 3000)
+        }
+      })()
+    },
+    [loadData, t],
+  )
+
+  const handleToolbarDelete = useCallback(async () => {
+    const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
+    const signatureIds = selectedKeys
+      .map((key) => Number(key))
+      .filter((value) => Number.isFinite(value) && value > 0)
+
+    if (!signatureIds.length) {
+      notify(t("NO_ROWS_SELECTED", "No rows selected"), "warning", 2000)
+      return
+    }
+
+    const selectedRows = gridData.filter((row) => typeof row.ID === "number" && signatureIds.includes(row.ID))
+    if (selectedRows.some((row) => isFixedSignatureCode(row.SIGN_CODE))) {
+      notify(t("FIXED_SIGN_CODE_DELETE_BLOCKED", "Default signature codes 01-06 cannot be deleted"), "warning", 3000)
+      return
+    }
+
+    const confirmText = t(
+      "MSG_CONFIRM_DELETE_RECORD",
+      "Are you sure you want to delete {0} record?",
+    ).replace("{0}", String(signatureIds.length))
+
+    const isConfirmed = await confirm(confirmText, t("MSG_CONFIRM_DELETE", "Confirm delete"))
+    if (!isConfirmed) {
+      return
+    }
+
+    try {
+      await deleteCompanySignatures({ SignatureIds: signatureIds })
+      notify(t("DELETE_SUCCESS", "Deleted successfully"), "success", 3000)
+      await loadData()
+    } catch (error) {
+      console.error("Bulk delete company signature error", error)
+      notify(t("DELETE_FAILED", "Delete failed"), "error", 3000)
+    }
+  }, [loadData, t])
+
+  const onRowDblClick = useCallback((event: RowDblClickEvent<CompanySignatureInfo, TKey>) => {
+    if (!gridRef.current) {
+      return
+    }
+
+    setIsUpdate(true)
+
+    const rowIndex =
+      typeof (event as { rowIndex?: number }).rowIndex === "number"
+        ? (event as { rowIndex?: number }).rowIndex
+        : gridRef.current.getRowIndexByKey(event.key as TKey)
+
+    if (rowIndex !== undefined && rowIndex !== -1) {
+      gridRef.current.editRow(rowIndex)
+    }
+  }, [])
+
+  return (
+    <div className="space-y-4">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      
+
+        <div className="mt-4">
+          <GridToolbar
+   
+            gridRef={gridRef}
+            onRefresh={loadData}
+            onDelete={handleToolbarDelete}
+            onSearch={() => setSearchVisible((prev) => !prev)}
+            showImport={false}
+            showExportPdf={false}
+            showExportXlsx={false}
+          />
+        </div>
+
+        <div className="mt-4 min-h-[520px]">
+          <BaseDataGrid<CompanySignatureInfo>
+            dataSource={gridData}
+            keyExpr="ID"
+            copyExcludeFields={Array.from(excludedFields)}
+            actionButtons
+            actionButtonsPosition="start"
+            filterRowVisible={searchVisible}
+            searchPanelVisible={searchVisible}
+            filterPanelVisible={searchVisible}
+            onRowDblClick={onRowDblClick}
+            onEditingStart={() => setIsUpdate(true)}
+            onInitialized={(event) => {
+              gridRef.current = event.component ?? null
+            }}
+            onRowInserting={onRowInserting}
+            onRowUpdating={onRowUpdating}
+            onRowRemoving={onRowRemoving}
+            onInitNewRow={(event) => {
+              setIsUpdate(false)
+              event.data = {
+                ...createDefaultCompanySignatureInfo(companyCd),
+                ...(event.data ?? {}),
+              }
+            }}
+          >
+            <Editing
+              mode="popup"
+              allowUpdating={true}
+              allowAdding={true}
+              allowDeleting={true}
+              confirmDelete={true}
+              startEditAction="dblClick"
+            >
+              <Popup
+                key={lang}
+                title={popupTitle}
+                showTitle={true}
+                width="90%"
+                maxWidth={900}
+                deferRendering={true}
+              />
+              <CompanySignatureForm isUpdate={isUpdate} />
+            </Editing>
+
+            <CompanySignatureColumns />
+          </BaseDataGrid>
+        </div>
+
+        <LoadPanel
+          shadingColor="rgba(0, 0, 0, 0.4)"
+          visible={loading}
+          showIndicator={true}
+          shading={true}
+          showPane={true}
+        />
+      </section>
+    </div>
+  )
+}

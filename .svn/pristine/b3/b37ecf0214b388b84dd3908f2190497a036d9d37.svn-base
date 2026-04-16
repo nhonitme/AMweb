@@ -1,0 +1,24 @@
+import type { ExcelImportConfig } from "@/types/modal"
+
+export const bankImportConfig: ExcelImportConfig = {
+  templateName: "mau-tai-khoan-ngan-hang.xlsx",
+  columnMappings: [
+    { softwareColumn: "BANK_CD", excelColumn: "", required: true, description: "Mã ngân hàng (bắt buộc)" },
+    { softwareColumn: "BANK_NM", excelColumn: "", required: true, description: "Tên ngân hàng (bắt buộc)" },
+    { softwareColumn: "ACC_CD", excelColumn: "", required: false, description: "Mã tài khoản" },
+    { softwareColumn: "PASSBOOK_NM", excelColumn: "", required: false, description: "Tên tài khoản" },
+    { softwareColumn: "ACCOUNT_NUM", excelColumn: "", required: false, description: "Số tài khoản" },
+    { softwareColumn: "CITAD_CODE", excelColumn: "", required: false, description: "Mã CITAD" },
+    { softwareColumn: "REMARK", excelColumn: "", required: false, description: "Ghi chú" },
+  ],
+  sampleData: [
+    ["VCB001", "Vietcombank", "AC001", "Tài khoản chính", "1234567890", "CITAD001", "Tài khoản chính"],
+    ["BIDV001", "BIDV", "AC002", "Tài khoản phụ", "0987654321", "CITAD002", "Tài khoản phụ"],
+    ["ACB001", "ACB", "AC003", "Tài khoản tiết kiệm", "1122334455", "CITAD003", "Tài khoản tiết kiệm"],
+  ],
+  instructions: [
+    "Lưu ý: Mã ngân hàng không được trùng lặp trong hệ thống",
+    "Các trường bắt buộc: Mã ngân hàng, Tên ngân hàng",
+  ],
+  validationRules: {},
+}

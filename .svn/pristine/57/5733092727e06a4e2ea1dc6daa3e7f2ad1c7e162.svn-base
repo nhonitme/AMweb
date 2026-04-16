@@ -1,0 +1,20 @@
+import { Form } from 'devextreme-react/data-grid';
+import { Item } from 'devextreme-react/form';
+import type { ITextBoxOptions } from 'devextreme-react/text-box';
+
+type AcclistFormProps = {
+  isUpdate: boolean;
+};
+  
+export function AcclistForm({ isUpdate }: AcclistFormProps) {
+  return (
+    <Form colCount={2}>
+      <Item dataField="ACC_CD" />
+      <Item dataField="ACCTITLE_NM_VIET" colSpan={2} />
+      <Item dataField="ACCTITLE_NM_ENG" colSpan={2} />
+      <Item dataField="ACCTITLE_NM_KOR" colSpan={2} />
+      <Item dataField="ACCTITLE_NM_CHINA" colSpan={2} />
+      <Item dataField="ISABLEINPUT" />
+    </Form>
+  );
+}

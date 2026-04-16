@@ -1,0 +1,170 @@
+import * as React from "react";
+import { Form } from "devextreme-react/data-grid";
+import { Item, GroupItem, TabbedItem, Tab } from "devextreme-react/form";
+import type { ValidationRule } from "devextreme/common";
+import type dxForm from "devextreme/ui/form";
+import type { FieldDataChangedEvent, FormItemComponent } from "devextreme/ui/form";
+
+import { cn } from "@/lib/utils";
+import { LanguageContext } from "@/lib/i18nLoader";
+import { useIsMobile } from "./use-mobile";
+
+export type BaseFormItemConfig<TFormData extends Record<string, unknown>> = {
+  dataField: keyof TFormData & string;
+  label?: string;
+  editorType?: FormItemComponent;
+  editorOptions?: object;
+  colSpan?: number;
+  visible?: boolean | ((formData: TFormData) => boolean);
+  validationRules?: ValidationRule[];
+};
+
+export type BaseFormGroupConfig<TFormData extends Record<string, unknown>> = {
+  key: string;
+  caption: string;
+  colCount?: number;
+  items: BaseFormItemConfig<TFormData>[];
+};
+
+export type BaseFormTabConfig<TFormData extends Record<string, unknown>> = {
+  key: string;
+  title: string;
+  groups: BaseFormGroupConfig<TFormData>[];
+};
+
+export type BaseDxFormProps<TFormData extends Record<string, unknown>> = {
+  formData?: TFormData;
+  onFormDataChange?: (next: TFormData) => void;
+  tabs?: BaseFormTabConfig<TFormData>[];
+  groups?: BaseFormGroupConfig<TFormData>[];
+  items?: BaseFormItemConfig<TFormData>[];
+  colCount?: number;
+  mobileColCount?: number;
+  labelLocation?: "left" | "right" | "top";
+  mobileLabelLocation?: "left" | "right" | "top";
+  width?: number | string;
+  className?: string;
+  translate?: (key: string, fallback?: string) => string;
+};
+
+function BaseDxForm<TFormData extends Record<string, unknown>>({
+  formData,
+  onFormDataChange,
+  tabs,
+  groups,
+  items,
+  colCount = 1,
+  mobileColCount,
+  labelLocation = "top",
+  mobileLabelLocation,
+  width = "100%",
+  className,
+  translate,
+}: BaseDxFormProps<TFormData>) {
+  const { translate: contextTranslate } = React.useContext(LanguageContext);
+  const translateFn = translate ?? contextTranslate ?? ((key: string, fallback?: string) => fallback ?? key);
+  const isMobile = useIsMobile();
+  const emptyFormDataRef = React.useRef<TFormData>({} as TFormData);
+
+  const resolvedColCount = isMobile ? mobileColCount ?? colCount : colCount;
+  const resolvedLabelLocation = isMobile ? mobileLabelLocation ?? labelLocation : labelLocation;
+  const resolvedFormData = formData ?? emptyFormDataRef.current;
+
+  const buildNextFormData = React.useCallback(
+    (component: dxForm, field: keyof TFormData & string, value: unknown) => {
+      const currentFormData = (component.option("formData") ?? resolvedFormData) as TFormData;
+      return {
+        ...currentFormData,
+        [field]: value,
+      } as TFormData;
+    },
+    [resolvedFormData],
+  );
+
+  const handleFieldDataChanged = React.useCallback(
+    (event: FieldDataChangedEvent) => {
+      const field = event.dataField as (keyof TFormData & string) | undefined;
+      if (!field || !onFormDataChange) {
+        return;
+      }
+
+      onFormDataChange(buildNextFormData(event.component, field, event.value));
+    },
+    [buildNextFormData, onFormDataChange],
+  );
+
+  const renderItem = React.useCallback(
+    (item: BaseFormItemConfig<TFormData>) => {
+      const visible =
+        typeof item.visible === "function" ? item.visible(resolvedFormData) : item.visible !== false;
+      if (!visible) return null;
+
+      const labelText = translateFn(item.label ?? item.dataField, item.label ?? item.dataField);
+
+      return (
+        <Item
+          key={item.dataField}
+          dataField={item.dataField}
+          label={{ text: labelText }}
+          editorType={item.editorType}
+          editorOptions={item.editorOptions}
+          colSpan={item.colSpan}
+          validationRules={item.validationRules}
+        />
+      );
+    },
+    [resolvedFormData, translateFn],
+  );
+
+  const renderGroup = React.useCallback(
+    (group: BaseFormGroupConfig<TFormData>) => (
+      <GroupItem key={group.key} caption={group.caption} colCount={group.colCount ?? 2}>
+        {group.items.map(renderItem)}
+      </GroupItem>
+    ),
+    [renderItem],
+  );
+
+  const content = React.useMemo(() => {
+    if (tabs && tabs.length > 0) {
+      return (
+        <TabbedItem>
+          {tabs.map((tab) => (
+            <Tab key={tab.key} title={tab.title}>
+              {tab.groups.map(renderGroup)}
+            </Tab>
+          ))}
+        </TabbedItem>
+      );
+    }
+
+    if (groups && groups.length > 0) {
+      return groups.map(renderGroup);
+    }
+
+    if (items && items.length > 0) {
+      return items.map(renderItem);
+    }
+
+    return null;
+  }, [groups, items, renderGroup, renderItem, tabs]);
+
+  return (
+    <div className={cn("w-full", className)}>
+      <Form
+        {...(formData === undefined ? {} : { formData })}
+        colCount={resolvedColCount}
+        labelLocation={resolvedLabelLocation}
+        width={width}
+        onFieldDataChanged={onFormDataChange ? handleFieldDataChanged : undefined}
+      >
+        {content}
+      </Form>
+    </div>
+  );
+}
+
+export default BaseDxForm;
+
+export { Form, Item, GroupItem, TabbedItem, Tab };
+export { Input } from "./input";

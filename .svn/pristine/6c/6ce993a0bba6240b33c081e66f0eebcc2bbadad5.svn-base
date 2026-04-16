@@ -1,0 +1,247 @@
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import Button from "devextreme-react/button"
+import Form, { GroupItem, Item } from "devextreme-react/form"
+import LoadPanel from "devextreme-react/load-panel"
+import Popup from "devextreme-react/popup"
+
+import { LanguageContext } from "@/lib/i18nLoader"
+import type { ChitNote } from "@/types/chitNote"
+import { calculateChitNoteAmount, cloneChitNote, getPurchaseVoucherLabel } from "../purchaseVoucherUtils"
+import ChitNoteDetailGrid, { type ChitNoteDetailGridHandle } from "./ChitNoteDetailGrid"
+
+interface ChitNoteEditorPopupProps {
+  visible: boolean
+  value: ChitNote
+  isUpdate: boolean
+  loading: boolean
+  onClose: () => void
+  onSave: (record: ChitNote) => Promise<void>
+}
+
+export function ChitNoteEditorPopup({
+  visible,
+  value,
+  isUpdate,
+  loading,
+  onClose,
+  onSave,
+}: ChitNoteEditorPopupProps) {
+  const [draft, setDraft] = useState<ChitNote>(() => cloneChitNote(value))
+  const detailGridRef = useRef<ChitNoteDetailGridHandle | null>(null)
+
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+
+  const t = useCallback(
+    (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
+    [translate],
+  )
+
+  useEffect(() => {
+    setDraft(cloneChitNote(value))
+  }, [value])
+
+  const noteLabel = useMemo(() => getPurchaseVoucherLabel(t), [t])
+
+  const title = useMemo(
+    () => (isUpdate ? `${t("lblEdit", "Edit")} ${noteLabel}` : `${t("lblAddNew", "Add")} ${noteLabel}`),
+    [isUpdate, noteLabel, t],
+  )
+
+  const handleDetailsChange = useCallback((rows: ChitNote["DETAILS"], amount: number) => {
+    setDraft((current) => ({
+      ...current,
+      DETAILS: rows,
+      DETAIL_COUNT: rows.length,
+      AMOUNT: amount,
+    }))
+  }, [])
+
+  const handleSave = useCallback(async () => {
+    const syncedDetails = detailGridRef.current
+      ? await detailGridRef.current.savePendingChanges()
+      : draft.DETAILS
+    const totalAmount = calculateChitNoteAmount(syncedDetails)
+
+    await onSave({
+      ...draft,
+      DETAILS: syncedDetails,
+      DETAIL_COUNT: syncedDetails.length,
+      AMOUNT: totalAmount,
+    })
+  }, [draft, onSave])
+
+  const formData = useMemo(
+    () => ({
+      ...draft,
+      CHIT_TYPE_LABEL: noteLabel,
+    }),
+    [draft, noteLabel],
+  )
+
+  return (
+    <Popup
+      visible={visible}
+      title={title}
+      showTitle={true}
+      dragEnabled={false}
+      hideOnOutsideClick={!loading}
+      maxWidth={1280}
+      width="96vw"
+      height="92vh"
+      onHiding={onClose}
+    >
+      <div className="relative h-full w-full overflow-hidden p-2">
+        <LoadPanel visible={loading} showPane={true} showIndicator={true} shading={true} />
+
+        <div className="h-full flex flex-col gap-3 overflow-hidden">
+          <div className="h-[40%] min-h-[220px] overflow-auto rounded-lg border border-gray-200 bg-white p-2">
+            <Form
+              formData={formData}
+              labelLocation="top"
+              colCount={1}
+            onFieldDataChanged={(event) => {
+              if (typeof event.dataField === "string") {
+                setDraft((current) => ({
+                  ...current,
+                  [event.dataField as keyof ChitNote]: event.value as never,
+                }))
+              }
+            }}
+          >
+            <GroupItem caption={t("BASIC_INFO", "Basic Information")} colCount={4}>
+              <Item
+                dataField="CHIT_TYPE_LABEL"
+                editorType="dxTextBox"
+                label={{ text: t("CHIT_TYPE", "Type") }}
+                editorOptions={{ readOnly: true, stylingMode: "outlined" }}
+              />
+              <Item
+                dataField="CHIT_CD"
+                editorType="dxTextBox"
+                label={{ text: t("CHIT_CD", "Note Code") }}
+                editorOptions={{ readOnly: isUpdate, stylingMode: "outlined" }}
+              />
+              <Item
+                dataField="CHIT_NO"
+                editorType="dxTextBox"
+                label={{ text: t("CHIT_NO", "Document No") }}
+                editorOptions={{ stylingMode: "outlined" }}
+              />
+              <Item
+                dataField="CHIT_YMD"
+                editorType="dxDateBox"
+                label={{ text: t("CHIT_YMD", "Note Date") }}
+                editorOptions={{ stylingMode: "outlined", displayFormat: "yyyy-MM-dd", type: "date" }}
+              />
+              <Item
+                dataField="PAYER_INFO"
+                colSpan={2}
+                editorType="dxTextBox"
+                label={{ text: t("PAYER_INFO", "Payer Info") }}
+                editorOptions={{ stylingMode: "outlined" }}
+              />
+              <Item
+                dataField="AMOUNT"
+                editorType="dxNumberBox"
+                label={{ text: t("AMOUNT", "Amount") }}
+                editorOptions={{ stylingMode: "outlined", format: "#,##0.00", readOnly: true }}
+              />
+              <Item
+                dataField="CHIT_CD_COGS"
+                editorType="dxTextBox"
+                label={{ text: t("CHIT_CD_COGS", "COGS Note Code") }}
+                editorOptions={{ stylingMode: "outlined" }}
+              />
+            </GroupItem>
+
+            <GroupItem caption={t("STATUS_INFO", "Status")} colCount={4}>
+              <Item dataField="IS_CONFIRMED" editorType="dxCheckBox" label={{ text: t("IS_CONFIRMED", "Confirmed") }} />
+              <Item dataField="IS_PAYMENT" editorType="dxCheckBox" label={{ text: t("IS_PAYMENT", "Paid") }} />
+              <Item dataField="IS_LOCK" editorType="dxCheckBox" label={{ text: t("IS_LOCK", "Locked") }} />
+              <Item dataField="ISEXCEL" editorType="dxCheckBox" label={{ text: t("ISEXCEL", "Excel Imported") }} />
+              <Item
+                dataField="EMAIL_EPAY"
+                colSpan={2}
+                editorType="dxTextBox"
+                label={{ text: t("EMAIL_EPAY", "E-Payment Email") }}
+                editorOptions={{ stylingMode: "outlined" }}
+              />
+              <Item
+                dataField="DAY_OF_PAYMENT"
+                editorType="dxNumberBox"
+                label={{ text: t("DAY_OF_PAYMENT", "Payment Day") }}
+                editorOptions={{ stylingMode: "outlined", min: 1, max: 31, showSpinButtons: true }}
+              />
+              <Item
+                dataField="TIME_FOR_PAYMENT"
+                editorType="dxTextBox"
+                label={{ text: t("TIME_FOR_PAYMENT", "Payment Time") }}
+                editorOptions={{ stylingMode: "outlined" }}
+              />
+            </GroupItem>
+
+            <GroupItem caption={t("DESCRIPTION_INFO", "Descriptions")} colCount={2}>
+              <Item
+                dataField="DESCRIPTION_VIET"
+                editorType="dxTextArea"
+                label={{ text: t("DESCRIPTION_VIET", "Description (VI)") }}
+                editorOptions={{ stylingMode: "outlined", minHeight: 80, autoResizeEnabled: true }}
+              />
+              <Item
+                dataField="DESCRIPTION_ENG"
+                editorType="dxTextArea"
+                label={{ text: t("DESCRIPTION_ENG", "Description (EN)") }}
+                editorOptions={{ stylingMode: "outlined", minHeight: 80, autoResizeEnabled: true }}
+              />
+              <Item
+                dataField="DESCRIPTION_KOR"
+                editorType="dxTextArea"
+                label={{ text: t("DESCRIPTION_KOR", "Description (KO)") }}
+                editorOptions={{ stylingMode: "outlined", minHeight: 80, autoResizeEnabled: true }}
+              />
+              <Item
+                dataField="NOTE"
+                editorType="dxTextArea"
+                label={{ text: t("NOTE", "Internal Note") }}
+                editorOptions={{ stylingMode: "outlined", minHeight: 80, autoResizeEnabled: true }}
+              />
+            </GroupItem>
+          </Form>
+        </div>
+
+          <div className="h-[60%] min-h-[260px] overflow-auto rounded-lg border border-gray-200 bg-white p-3">
+            <div className="mb-3 text-sm font-semibold text-gray-700">
+              {t("DETAIL_LIST", "Detail Lines")}
+            </div>
+            <ChitNoteDetailGrid
+              ref={detailGridRef}
+              companyCd={draft.COMPANY_CD}
+              details={draft.DETAILS}
+              onChange={handleDetailsChange}
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
+          <Button
+            text={t("btnCancel", "Cancel")}
+            stylingMode="outlined"
+            onClick={onClose}
+            disabled={loading}
+          />
+          <Button
+            text={t("btnSave", "Save")}
+            type="default"
+            stylingMode="contained"
+            onClick={handleSave}
+            disabled={loading || draft.DETAILS.length === 0}
+          />
+        </div>
+      </div>
+    </Popup>
+  )
+}
+
+export default ChitNoteEditorPopup

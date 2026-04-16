@@ -1,0 +1,152 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { TablePage } from "@/components/table/TablePage";
+import { exportToExcel } from "../../lib/excelUtils";
+import { addKhoAPI, updateKhoAPI } from "@/api/khoApi";
+import type { Kho } from "../../types/kho";
+import KhoFormModal from "./KhoFormModal";
+import { customerImportConfig as khoImportConfig } from "./khoImportConfig";
+import { khoColumns } from "./khoConfig";
+import { khoDeleteConfig, khoBulkDeleteConfig } from "./khoFormConfig";
+import { khoPrintConfig } from "./khoPrintConfig";
+import API_BASE_URL from "../../config/apiConfig";
+
+const API_URL = `${API_BASE_URL}/ProductInfo/getDataProduct`;
+
+export default function KhoManagementPage() {
+  const [data, setData] = useState<Kho[]>([]);
+  const [isLoading, setIsInitialLoading] = useState(true);
+  const [isEditLoading, setIsEditLoading] = useState(false);
+
+  const loadData = useCallback(async () => {
+    setIsInitialLoading(true);
+    try {
+      const response = await fetch(API_URL, {
+        credentials: "include",
+      });
+      const rawKhoData = await response.json();
+
+      if (rawKhoData && rawKhoData.result) {
+        const processedData: Kho[] = rawKhoData.result.map((item: any) => ({
+          id: item.KHO_CD,
+          PRODUCT_CD: item.PRODUCT_CD,
+          DivisionCD: item.DivisionCD,
+          PRODUCTKIND_CD: item.PRODUCTKIND_CD,
+          DepartmentCD: item.DepartmentCD,
+          PRODUCT_NM: item.PRODUCT_NM,
+          PRODUCT_NM_ENG: item.PRODUCT_NM_ENG,
+          PRODUCT_NM_KOR: item.PRODUCT_NM_KOR,
+          InboundUnitCD: item.InboundUnitCD,
+          OutboundUnitCD: item.OutboundUnitCD,
+          materialInputUnitCD: item.materialInputUnitCD,
+          StockUnitCD: item.StockUnitCD,
+          InboundQuantity: item.InboundQuantity,
+          OutboundQuantity: item.OutboundQuantity,
+          MaterialInputQuantity: item.MaterialInputQuantity,
+          StoreCD: item.StoreCD,
+          StandardCD: item.StandardCD,
+          FitnessStock: item.FitnessStock,
+          UnitPrice: item.UnitPrice,
+          FcUnitPirce: item.FcUnitPirce,
+          ExRate: item.ExRate,
+          lblCCType: item.lblCCType,
+          lblFCType: item.lblFCType,
+          txtSummary: item.txtSummary,
+          rgUseNotUse: item.rgUseNotUse,
+          HaveChildBOM: item.HaveChildBOM,
+          Origin: item.Origin,
+        }));
+        setData(processedData);
+      }
+    } catch (error) {
+      console.error("Failed to fetch kho data:", error);
+    } finally {
+      setIsInitialLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  const handleImport = useCallback((rows: any[], method: "add" | "update" | "overwrite") => {
+    console.log("Import kho data:", rows, "Method:", method);
+  }, []);
+
+  const handlePrint = useCallback((lang: "vi" | "en" | "ko") => {
+    console.log("Print kho list in language:", lang);
+  }, []);
+
+  const handleRefresh = useCallback(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await loadData();
+  }, [loadData]);
+
+  const handleAdd = useCallback(async (newItem: Kho) => {
+    try {
+      const result = await addKhoAPI(newItem);
+      if (result && result.success) {
+        setIsEditLoading(true);
+        await handleRefresh();
+        setIsEditLoading(false);
+        return { success: true, message: result.message || "Thêm mới kho hàng thành công!" };
+      }
+      return { success: false, message: result?.message || "Thêm mới kho hàng thất bại!" };
+    } catch (error) {
+      console.error("Failed to add kho:", error);
+      return { success: false, message: "Thêm mới kho hàng thất bại!" };
+    }
+  }, [handleRefresh]);
+
+  const handleEdit = useCallback(async (updatedItem: Kho) => {
+    setIsEditLoading(true);
+    try {
+      const result = await updateKhoAPI(updatedItem);
+      if (result.success) {
+        await handleRefresh();
+        setIsEditLoading(false);
+        return { success: true, message: result.message || "Cập nhật kho hàng thành công!" };
+      }
+      setIsEditLoading(false);
+      return { success: false, message: result.message || "Cập nhật kho hàng thất bại!" };
+    } catch (error) {
+      setIsEditLoading(false);
+      console.error("Failed to edit kho:", error);
+      return { success: false, message: "Cập nhật kho hàng thất bại!" };
+    }
+  }, [handleRefresh]);
+
+  const handleExport = useCallback(() => {
+    exportToExcel(data, khoColumns, "danh-sach-kho-hang.xlsx", "KhoHang");
+    alert("Đã xuất dữ liệu kho hàng ra Excel thành công!");
+  }, [data]);
+
+  return (
+    <TablePage
+      title="Quản lý kho hàng"
+      description="Quản lý danh sách thông tin kho hàng"
+      columns={khoColumns}
+      data={data}
+      isInitialLoading={isLoading || isEditLoading}
+      onImport={handleImport}
+      onPrint={handlePrint}
+      onAdd={handleAdd}
+      onEdit={handleEdit}
+      onRefresh={handleRefresh}
+      onExport={handleExport}
+      searchFields={["id", "nameVi", "nameEn", "nameKo", "taxCode", "email", "tel", "address"]}
+      enableTreeView={false}
+      companyInfo={{
+        name: "Công ty TNHH ABC Technology",
+        address: "123 Đường ABC, Quận Ba Đình, Hà Nội",
+        taxCode: "0123456789",
+      }}
+      excelImportConfig={khoImportConfig}
+      printConfig={khoPrintConfig}
+      FormModalComponent={KhoFormModal}
+      deleteConfig={khoDeleteConfig}
+      bulkDeleteConfig={khoBulkDeleteConfig}
+    />
+  );
+}

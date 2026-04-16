@@ -1,0 +1,184 @@
+import * as React from "react";
+
+import BaseDxForm, { BaseFormGroupConfig, BaseFormItemConfig } from "@/components/ui/form";
+import { readonlySelectEditorOptions } from "@/components/ui/ReadonlySelect";
+import { checkboxEditorOptions } from "@/components/ui/checkbox";
+import { dateEditorOptions } from "@/components/ui/calendar";
+import { inputEditorOptions } from "@/components/ui/input";
+
+import type { SysCode } from "@/api/sysCodeService";
+import type { CustomerExt } from "@/types/customerExt";
+
+export type CustomerExtFormGroupOptions = {
+  colLabels: Record<string, string>;
+  excludedFields: Set<string>;
+  sysCodes: SysCode[];
+  sysCodeLabels: Record<string, string>;
+  translate: (key: string, fallback?: string) => string;
+};
+
+export type CustomerExtFormData = CustomerExt & Record<string, unknown>;
+export type FormGroup<TFormData extends Record<string, unknown> = CustomerExtFormData> =
+  BaseFormGroupConfig<TFormData>;
+
+const BASIC_GROUP_KEYS = new Set(["basic", "contact"]);
+
+function getCustomerTypeLabel(
+  entry: unknown,
+  sysCodeLabels: Record<string, string>,
+): string {
+  if (!entry || typeof entry !== "object") {
+    return "";
+  }
+
+  const code = entry as SysCode;
+  return sysCodeLabels[code.CODE_NAME] ?? code.CODE_NAME ?? code.CODE_CD;
+}
+
+export function getCustomerExtFormGroups<TFormData extends Record<string, unknown>>({
+  colLabels,
+  excludedFields,
+  sysCodes,
+  sysCodeLabels,
+  translate,
+}: CustomerExtFormGroupOptions): BaseFormGroupConfig<TFormData>[] {
+  const groups: Record<string, BaseFormGroupConfig<TFormData>> = {
+    basic: { key: "basic", caption: translate("group.basic", "Thông tin cơ bản"), items: [] },
+    contact: { key: "contact", caption: translate("group.contact", "Thông tin liên hệ"), items: [] },
+    address: { key: "address", caption: translate("group.address", "Địa chỉ"), items: [] },
+    id: { key: "id", caption: translate("group.id", "Chứng minh"), items: [] },
+    tax: { key: "tax", caption: translate("group.tax", "Thuế / Ngân hàng"), items: [] },
+    other: { key: "other", caption: translate("group.other", "Khác"), items: [] },
+  };
+
+  const fieldKeys = Object.keys(colLabels).filter((field) => !excludedFields.has(field.toUpperCase()));
+  const basicKeys = new Set([
+    "CUSTOMER_EXT_CD",
+    "CUSTOMER_CD",
+    "CUSTOMER_NM_VIET",
+    "BUYER_NM",
+    "CUSTOMER_USER_CD",
+    "OWNER_NM",
+    "CUSTOMER_RECEIVE",
+  ]);
+  const contactKeys = new Set(["TEL", "FAX", "EMAIL", "CUSTOMER_RECEIVE"]);
+  const addressKeys = new Set(["ADDRESS", "ADDRESS_DO", "ADDRESS_RECEIVE", "ZIP_CODE"]);
+  const idKeys = new Set(["IDNUMBER", "SSN", "SHCHIEU", "PLACE_ISSUE", "DATE_ISSUE"]);
+  const taxKeys = new Set(["TAX_CD", "TAX_CD_RECEIVE", "BANK_CD", "PAYMENT_TERM", "BRN"]);
+
+  fieldKeys.forEach((field) => {
+    const name = field.toUpperCase();
+    const rawCaption = colLabels[field] ?? field;
+    const caption = translate(field, rawCaption);
+
+    const item: BaseFormItemConfig<TFormData> = {
+      dataField: field as keyof TFormData & string,
+      label: caption,
+    };
+
+    if (/DATE(_|).*|\bDATE\b|DATEISSUE|DATE_ISSUE/i.test(name)) {
+      item.editorType = "dxDateBox";
+      item.editorOptions = dateEditorOptions({
+        type: "date",
+        displayFormat: "dd/MM/yyyy",
+        placeholder: caption,
+        showClearButton: true,
+      });
+    } else if (/CUSTOMER.*TYPE|TYPE.*CUSTOMER|\bTYPE\b/i.test(name)) {
+      item.editorType = "dxSelectBox";
+      item.editorOptions = readonlySelectEditorOptions({
+        dataSource: sysCodes,
+        valueExpr: "CODE_CD",
+        displayExpr: (entry: unknown) => getCustomerTypeLabel(entry, sysCodeLabels),
+        placeholder: caption,
+        showClearButton: true,
+        showDropDownButton: true,
+      });
+    } else if (/^ISUSE$|^IS_/.test(name) || /ISTEMP|ISDEL|IS_/.test(name)) {
+      item.editorType = "dxCheckBox";
+      item.editorOptions = checkboxEditorOptions();
+    } else {
+      item.editorType = "dxTextBox";
+      item.editorOptions = inputEditorOptions({
+        placeholder: caption,
+      });
+    }
+
+    if (basicKeys.has(name) || /^(CUSTOMER_|CUSTOMER$|EXT$)/.test(name)) {
+      groups.basic.items.push(item);
+      return;
+    }
+
+    if (contactKeys.has(name) || /TEL|FAX|EMAIL/.test(name)) {
+      groups.contact.items.push(item);
+      return;
+    }
+
+    if (addressKeys.has(name) || /ADDRESS|ZIP/.test(name)) {
+      groups.address.items.push(item);
+      return;
+    }
+
+    if (idKeys.has(name) || /IDNUMBER|SSN|SHCHIEU/.test(name)) {
+      groups.id.items.push(item);
+      return;
+    }
+
+    if (taxKeys.has(name) || /TAX|BANK|PAYMENT|BRN/.test(name)) {
+      groups.tax.items.push(item);
+      return;
+    }
+
+    groups.other.items.push(item);
+  });
+
+  return ["basic", "contact", "address", "id", "tax", "other"]
+    .map((key) => groups[key])
+    .filter((group) => group.items.length > 0);
+}
+
+type CustomerExtFormProps<TFormData extends Record<string, unknown>> = {
+  translate: (key: string, fallback?: string) => string;
+  formGroups: BaseFormGroupConfig<TFormData>[];
+  formData?: TFormData;
+  onFormDataChange?: (next: TFormData) => void;
+};
+
+export default function CustomerExtForm<TFormData extends Record<string, unknown>>({
+  translate,
+  formGroups,
+  formData,
+  onFormDataChange,
+}: CustomerExtFormProps<TFormData>) {
+  const basicGroups = React.useMemo(
+    () => formGroups.filter((group) => BASIC_GROUP_KEYS.has(group.key)),
+    [formGroups],
+  );
+
+  const extendedGroups = React.useMemo(
+    () => formGroups.filter((group) => !BASIC_GROUP_KEYS.has(group.key)),
+    [formGroups],
+  );
+
+  const tabs = React.useMemo(
+    () => [
+      { key: "basic", title: translate("tab.basic", "Cơ bản"), groups: basicGroups },
+      { key: "extended", title: translate("tab.extended", "Mở rộng"), groups: extendedGroups },
+    ],
+    [basicGroups, extendedGroups, translate],
+  );
+
+  return (
+    <div className="customer-ext-form am-form">
+      <BaseDxForm
+        formData={formData}
+        onFormDataChange={onFormDataChange}
+        tabs={tabs}
+        colCount={1}
+        labelLocation="top"
+        width="100%"
+        translate={translate}
+      />
+    </div>
+  );
+}

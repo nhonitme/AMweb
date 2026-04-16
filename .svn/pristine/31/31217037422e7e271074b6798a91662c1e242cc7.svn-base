@@ -1,0 +1,731 @@
+import type {
+  ChitInfo,
+  ChitApi,
+  ChitDateValue,
+  ChitDetail,
+  ChitDetailApi,
+  ChitFlag,
+  ChitText,
+  ChitType,
+  InventoryInputApi,
+  InventoryInputLine,
+  InventoryOutputApi,
+  InventoryOutputLine,
+} from "@/types/voucher"
+
+const trimText = (value: ChitText): string => (typeof value === "string" ? value.trim() : "")
+
+const normalizeDate = (value: ChitDateValue): ChitDateValue => {
+  if (value == null || value === "") {
+    return value
+  }
+
+  const formatDate = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, "0")
+    const day = String(date.getDate()).padStart(2, "0")
+    return `${year}${month}${day}`
+  }
+
+  if (value instanceof Date) {
+    return formatDate(value)
+  }
+
+  if (typeof value === "number") {
+    const text = String(value).trim()
+    if (/^\d{8}$/.test(text)) {
+      return text
+    }
+
+    const parsed = new Date(value)
+    if (!isNaN(parsed.getTime())) {
+      return formatDate(parsed)
+    }
+
+    return text
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim()
+    if (!trimmed) return trimmed
+    if (/^\d{8}$/.test(trimmed)) return trimmed
+
+    const cleaned = trimmed.replace(/[-/.:\s]/g, "")
+    if (/^\d{8}$/.test(cleaned)) return cleaned
+
+    const parsed = new Date(trimmed)
+    if (!isNaN(parsed.getTime())) {
+      return formatDate(parsed)
+    }
+
+    return trimmed
+  }
+
+  return value
+}
+
+const normalizeDateTime = (value: string | Date | null | undefined | number): string | null => {
+  if (value == null || value === "") return null
+
+  if (value instanceof Date) {
+    return value.toISOString()
+  }
+
+  if (typeof value === "number") {
+    const date = new Date(value)
+    return !isNaN(date.getTime()) ? date.toISOString() : null
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim()
+    if (!trimmed) return null
+
+    const parsed = new Date(trimmed)
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString()
+    }
+
+    return trimmed.includes("T") ? trimmed : null
+  }
+
+  return null
+}
+
+const normalizeNumber = (value: number | string | null | undefined): number | null => {
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
+  return null
+}
+
+const ensureArray = <T>(value: T[] | null | undefined): T[] => (Array.isArray(value) ? value : [])
+
+const flagText = (value: ChitFlag): string =>
+  typeof value === "boolean" ? (value ? "true" : "false") : trimText(value)
+
+const normalizeFlag = (value: ChitFlag): boolean =>
+  value === true || flagText(value).toLowerCase() === "1" || flagText(value).toLowerCase() === "true"
+
+const toFlag = (value: boolean): "1" | "0" => (value ? "1" : "0")
+
+export const normalizeChitTypeValue = (
+  value: ChitType | ChitText,
+  fallbackType: ChitType = "DN",
+): ChitType => {
+  const normalized = trimText(value).toUpperCase()
+
+  switch (normalized) {
+    case "CREDIT_NOTE":
+    case "CN":
+      return "CN"
+    case "DEBIT_NOTE":
+      return "DN"
+    case "PURCHASE_VOUCHER":
+    case "PO":
+      return "PO"
+    case "PAYMENT_VOUCHER":
+      return "PM"
+    case "PURCHASE_SERVICE_VOUCHER":
+    case "PS":
+      return "PS"
+    case "RECEIPT_VOUCHER":
+    case "RC":
+      return "RC"
+    case "SALES_VOUCHER":
+    case "SO":
+      return "SO"
+    case "OFFSET_VOUCHER":
+    case "CO":
+      return "CO"
+    case "OTHER_VOUCHER":
+    case "OT":
+      return "OT"
+    case "DN":
+    case "PM":
+      return normalized
+    default:
+      return fallbackType
+  }
+}
+
+export const getChitTypeLabel = (
+  noteType: ChitType,
+  translate: (key: string, fallback: string) => string,
+): string => {
+  switch (noteType) {
+    case "RC":
+      return translate("RECEIPT_VOUCHER", "Phiếu thu")
+    case "PM":
+      return translate("PAYMENT_VOUCHER", "Phiếu chi")
+    case "DN":
+      return translate("DEBIT_NOTE", "Giấy báo nợ")
+    case "CN":
+      return translate("CREDIT_NOTE", "Giấy báo có")
+    case "PO":
+      return translate("PURCHASE_VOUCHER", "Phiếu mua hàng")
+    case "PS":
+      return translate("PURCHASE_SERVICE_VOUCHER", "Phiếu mua dịch vụ")
+    case "SO":
+      return translate("SALES_VOUCHER", "Phiếu bán hàng")
+    case "CO":
+      return translate("OFFSET_VOUCHER", "Phiếu bù trừ")
+    case "OT":
+      return translate("OTHER_VOUCHER", "Phiếu khác")
+    default:
+      return ""
+  }
+}
+
+export const createRowKey = (seed?: number | string | null): string => {
+  if (seed !== null && seed !== undefined && `${seed}`.trim().length > 0) {
+    return `${seed}`
+  }
+
+  return `row_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+}
+
+const createInventoryInputRowKey = (seed?: number | string | null): string => {
+  if (seed !== null && seed !== undefined && `${seed}`.trim().length > 0) {
+    return `input_${seed}`
+  }
+  return `input_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+}
+
+const createInventoryOutputRowKey = (seed?: number | string | null): string => {
+  if (seed !== null && seed !== undefined && `${seed}`.trim().length > 0) {
+    return `output_${seed}`
+  }
+  return `output_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+}
+
+export const normalizeInventoryInput = (record: InventoryInputApi): InventoryInputLine => ({
+  ROW_KEY: createInventoryInputRowKey(record.INPUT_ID ?? record.INPUT_CD),
+  INPUT_ID: normalizeNumber(record.INPUT_ID),
+  INPUT_CD: trimText(record.INPUT_CD),
+  COMPANY_CD: trimText(record.COMPANY_CD),
+  PRODUCT_ID: normalizeNumber(record.PRODUCT_ID),
+  PRODUCT_CD: trimText(record.PRODUCT_CD),
+  STORE_ID: normalizeNumber(record.STORE_ID),
+  STORE_CD: trimText(record.STORE_CD),
+  UNIT_ID: normalizeNumber(record.UNIT_ID),
+  UNIT_CD: trimText(record.UNIT_CD),
+  QUANTITY: normalizeNumber(record.QUANTITY),
+  UNIT_PRICE_CC: normalizeNumber(record.UNIT_PRICE_CC),
+  UNIT_PRICE_FC: normalizeNumber(record.UNIT_PRICE_FC),
+  EXCHANGE_RATES: normalizeNumber(record.EXCHANGE_RATES),
+  AMOUNT_CC: normalizeNumber(record.AMOUNT_CC),
+  AMOUNT_FC: normalizeNumber(record.AMOUNT_FC),
+  SUMMARY: trimText(record.SUMMARY),
+ INVENTORY_YMD: normalizeDateTime(record.INVENTORY_YMD),
+  STATE: trimText(record.STATE) || "1",
+  CHITDETAIL_ID: normalizeNumber(record.CHITDETAIL_ID),
+  CHITDETAIL_CD: trimText(record.CHITDETAIL_CD),
+  SORT: normalizeNumber(record.SORT),
+  ISDEL: normalizeFlag(record.ISDEL),
+})
+
+export const normalizeInventoryOutput = (record: InventoryOutputApi): InventoryOutputLine => ({
+  ROW_KEY: createInventoryOutputRowKey(record.OUTPUT_ID ?? record.OUTPUT_CD),
+  OUTPUT_ID: normalizeNumber(record.OUTPUT_ID),
+  OUTPUT_CD: trimText(record.OUTPUT_CD),
+  COMPANY_CD: trimText(record.COMPANY_CD),
+  PRODUCT_ID: normalizeNumber(record.PRODUCT_ID),
+  PRODUCT_CD: trimText(record.PRODUCT_CD),
+  STORE_ID: normalizeNumber(record.STORE_ID),
+  STORE_CD: trimText(record.STORE_CD),
+  UNIT_ID: normalizeNumber(record.UNIT_ID),
+  UNIT_CD: trimText(record.UNIT_CD),
+  QUANTITY: normalizeNumber(record.QUANTITY),
+  UNIT_PRICE_CC: normalizeNumber(record.UNIT_PRICE_CC),
+  UNIT_PRICE_FC: normalizeNumber(record.UNIT_PRICE_FC),
+  EXCHANGE_RATES: normalizeNumber(record.EXCHANGE_RATES),
+  AMOUNT_CC: normalizeNumber(record.AMOUNT_CC),
+  AMOUNT_FC: normalizeNumber(record.AMOUNT_FC),
+  SUMMARY: trimText(record.SUMMARY),
+  INVENTORY_YMD: normalizeDateTime(record.INVENTORY_YMD),
+  STATE: trimText(record.STATE) || "1",
+  CHITDETAIL_ID: normalizeNumber(record.CHITDETAIL_ID),
+  CHITDETAIL_CD: trimText(record.CHITDETAIL_CD),
+  SORT: normalizeNumber(record.SORT),
+  ISDEL: normalizeFlag(record.ISDEL),
+})
+
+export const normalizeChitDetail = (record: ChitDetailApi): ChitDetail => {
+  const inventoryInputs = ensureArray(record.INVENTORY_INPUTS).map(normalizeInventoryInput)
+  const inventoryOutputs = ensureArray(record.INVENTORY_OUTPUTS).map(normalizeInventoryOutput)
+
+  return {
+    ROW_KEY: createRowKey(record.CHITDETAIL_ID),
+    CHITDETAIL_ID: normalizeNumber(record.CHITDETAIL_ID),
+    COMPANY_CD: trimText(record.COMPANY_CD),
+    CHIT_ID: normalizeNumber(record.CHIT_ID),
+    CHITDETAIL_CD: trimText(record.CHITDETAIL_CD),
+    CHIT_YMD: normalizeDate(record.CHIT_YMD),
+    CHIT_VMD: normalizeDate(record.CHIT_VMD),
+    DEBIT: trimText(record.DEBIT),
+    CREDIT: trimText(record.CREDIT),
+    DEBIT_NM_VIET: trimText(record.DEBIT_NM_VIET),
+    DEBIT_NM_ENG: trimText(record.DEBIT_NM_ENG),
+    DEBIT_NM_KOR: trimText(record.DEBIT_NM_KOR),
+    DEBIT_NM_CHINA: trimText(record.DEBIT_NM_CHINA),
+    CREDIT_NM_VIET: trimText(record.CREDIT_NM_VIET),
+    CREDIT_NM_ENG: trimText(record.CREDIT_NM_ENG),
+    CREDIT_NM_KOR: trimText(record.CREDIT_NM_KOR),
+    CREDIT_NM_CHINA: trimText(record.CREDIT_NM_CHINA),
+    AMOUNT: normalizeNumber(record.AMOUNT),
+    FC_AMOUNT: normalizeNumber(record.FC_AMOUNT),
+    FC_TYPE: trimText(record.FC_TYPE),
+    FC_RATE: normalizeNumber(record.FC_RATE),
+    FC_DATETIME: normalizeDate(record.FC_DATETIME),
+    SORT: normalizeNumber(record.SORT),
+    ISDEL: normalizeFlag(record.ISDEL),
+    CHITDETAIL_VAT_CD: trimText(record.CHITDETAIL_VAT_CD),
+    MG_CD: trimText(record.MG_CD),
+    MG_CD_2: trimText(record.MG_CD_2),
+    MR_CD: trimText(record.MR_CD),
+    MR_CD2: trimText(record.MR_CD2),
+    BANK_ID: normalizeNumber(record.BANK_ID),
+    BANK_CD: trimText(record.BANK_CD),
+    BANK_OWN_CD: trimText(record.BANK_OWN_CD),
+    CUSTOMER_ID: normalizeNumber(record.CUSTOMER_ID),
+    CUSTOMER_CD: trimText(record.CUSTOMER_CD),
+    CUSTOMER_NM_VIET: trimText(record.CUSTOMER_NM_VIET),
+    CUSTOMER_NM_ENG: trimText(record.CUSTOMER_NM_ENG),
+    CUSTOMER_NM_KOR: trimText(record.CUSTOMER_NM_KOR),
+    CUSTOMER_NM_CHINA: trimText(record.CUSTOMER_NM_CHINA),
+    CUSTOMER_OWN_CD: trimText(record.CUSTOMER_OWN_CD),
+    DEPARTMENT_ID: normalizeNumber(record.DEPARTMENT_ID),
+    DEPARTMENT_CD: trimText(record.DEPARTMENT_CD),
+    DEPARTMENT_CD_2: trimText(record.DEPARTMENT_CD_2),
+    HASINVENTORY:
+      inventoryInputs.length > 0 || inventoryOutputs.length > 0 || normalizeFlag(record.HASINVENTORY),
+    INVENTORY_YMD: normalizeDateTime(record.INVENTORY_YMD),
+    ISPAY: normalizeFlag(record.ISPAY),
+    ISCOLLECT: normalizeFlag(record.ISCOLLECT),
+    VAT_INPUT_CD: trimText(record.VAT_INPUT_CD),
+    PRODUCT_NM: trimText(record.PRODUCT_NM),
+    UNIT_NM: trimText(record.UNIT_NM),
+    QUANTITY: normalizeNumber(record.QUANTITY),
+    UNIT_PRICE: normalizeNumber(record.UNIT_PRICE),
+    PRODUCT_AMOUNT: normalizeNumber(record.PRODUCT_AMOUNT),
+    VAT_TYPE: trimText(record.VAT_TYPE),
+    PERCENT: normalizeNumber(record.PERCENT),
+    PRODUCT_VAT_AMOUNT: normalizeNumber(record.PRODUCT_VAT_AMOUNT),
+    PRODUCT_NOTE: trimText(record.PRODUCT_NOTE),
+    VAT_SERIAL_NO: trimText(record.VAT_SERIAL_NO),
+    VAT_CHIT_NO: trimText(record.VAT_CHIT_NO),
+    VAT_CHIT_NO_2: trimText(record.VAT_CHIT_NO_2),
+    VAT_AMOUNT: normalizeNumber(record.VAT_AMOUNT),
+    VAT_TAXABLE_AMOUNT: normalizeNumber(record.VAT_TAXABLE_AMOUNT),
+    FO_VAT_AMOUNT: normalizeNumber(record.FO_VAT_AMOUNT),
+    VAT_ISFREE: normalizeFlag(record.VAT_ISFREE),
+    VAT_INVOICE_CD: trimText(record.VAT_INVOICE_CD),
+    VAT_INVOICE_NM: trimText(record.VAT_INVOICE_NM),
+    VAT_INFO_TYPE: trimText(record.VAT_INFO_TYPE),
+    VAT_COMPANY_ISSUE: trimText(record.VAT_COMPANY_ISSUE),
+    VAT_COMPANY_ISSUE_ADDRESS: trimText(record.VAT_COMPANY_ISSUE_ADDRESS),
+    VAT_COMPANY_ISSUE_CD: trimText(record.VAT_COMPANY_ISSUE_CD),
+    VAT_COMPANY_TAXCD: trimText(record.VAT_COMPANY_TAXCD),
+    VAT_PRODUCT_NM: trimText(record.VAT_PRODUCT_NM),
+    VAT_ETC: trimText(record.VAT_ETC),
+    VAT_YMD: normalizeDate(record.VAT_YMD),
+    VAT_YMD_2: normalizeDate(record.VAT_YMD_2),
+    VAT_INQUIRY_IN: trimText(record.VAT_INQUIRY_IN),
+    VAT_INQUIRY_CODE: trimText(record.VAT_INQUIRY_CODE),
+    IS_NEXTVAT: normalizeFlag(record.IS_NEXTVAT),
+    UNDEFINE: trimText(record.UNDEFINE),
+    DETAIL_DESCRIPTION_VIET: trimText(record.DETAIL_DESCRIPTION_VIET),
+    DETAIL_DESCRIPTION_ENG: trimText(record.DETAIL_DESCRIPTION_ENG),
+    DETAIL_DESCRIPTION_KOR: trimText(record.DETAIL_DESCRIPTION_KOR),
+    CREATE_BY: trimText(record.CREATE_BY),
+    CREATE_DT: normalizeDate(record.CREATE_DT),
+    UPDATE_BY: trimText(record.UPDATE_BY),
+    UPDATE_DT: normalizeDate(record.UPDATE_DT),
+    INVENTORY_INPUTS: inventoryInputs,
+    INVENTORY_OUTPUTS: inventoryOutputs,
+  }
+}
+
+export const normalizeChitDetailRows = (records: ChitDetailApi[]): ChitDetail[] =>
+  ensureArray(records).map(normalizeChitDetail)
+
+export const normalizeChit = (
+  record: ChitApi,
+  fallbackType: ChitType = "DN",
+): ChitInfo => ({
+  CHIT_ID: normalizeNumber(record.CHIT_ID),
+  COMPANY_CD: trimText(record.COMPANY_CD),
+  CHIT_CD: trimText(record.CHIT_CD),
+  CHIT_NO: trimText(record.CHIT_NO),
+  CHIT_YMD: normalizeDate(record.CHIT_YMD),
+  CHIT_TYPE: normalizeChitTypeValue(record.CHIT_TYPE, fallbackType),
+  AMOUNT: normalizeNumber(record.AMOUNT),
+  PAYER_INFO: trimText(record.PAYER_INFO),
+  ISDEL: normalizeFlag(record.ISDEL),
+  CREATE_BY: trimText(record.CREATE_BY),
+  CREATE_DT: normalizeDate(record.CREATE_DT),
+  UPDATE_BY: trimText(record.UPDATE_BY),
+  UPDATE_DT: normalizeDate(record.UPDATE_DT),
+  IS_LOCK: normalizeFlag(record.IS_LOCK),
+  ISEXCEL: normalizeFlag(record.ISEXCEL),
+  EMAIL_EPAY: trimText(record.EMAIL_EPAY),
+  IS_CONFIRMED: normalizeFlag(record.IS_CONFIRMED),
+  NOTE: trimText(record.NOTE),
+  DAY_OF_PAYMENT: normalizeNumber(record.DAY_OF_PAYMENT),
+  TIME_FOR_PAYMENT: trimText(record.TIME_FOR_PAYMENT),
+  IS_PAYMENT: normalizeFlag(record.IS_PAYMENT),
+  CHIT_CD_COGS: trimText(record.CHIT_CD_COGS),
+  DESCRIPTION_VIET: trimText(record.DESCRIPTION_VIET),
+  DESCRIPTION_ENG: trimText(record.DESCRIPTION_ENG),
+  DESCRIPTION_KOR: trimText(record.DESCRIPTION_KOR),
+  DETAIL_COUNT: normalizeNumber(record.DETAIL_COUNT) ?? 0,
+  DETAILS: normalizeChitDetailRows(ensureArray(record.DETAILS)),
+})
+
+export const normalizeChitRows = (
+  records: ChitApi[],
+  fallbackType: ChitType = "DN",
+): ChitInfo[] => records.map((record) => normalizeChit(record, fallbackType))
+
+export const getActiveChitDetails = (details: ChitDetail[]): ChitDetail[] =>
+  ensureArray(details).filter((item) => !item.ISDEL)
+
+export const calculateChitAmount = (details: ChitDetail[]): number =>
+  getActiveChitDetails(details).reduce((total, item) => total + (item.AMOUNT ?? 0), 0)
+
+export const createDefaultChitDetail = (_index: number, companyCd = ""): ChitDetail => ({
+  ROW_KEY: createRowKey(),
+  CHITDETAIL_ID: -Date.now(),
+  COMPANY_CD: companyCd,
+  CHIT_ID: 0,
+  CHITDETAIL_CD: "",
+  CHIT_YMD: null,
+  CHIT_VMD: null,
+  DEBIT: "",
+  CREDIT: "",
+  DEBIT_NM_VIET: "",
+  DEBIT_NM_ENG: "",
+  DEBIT_NM_KOR: "",
+  DEBIT_NM_CHINA: "",
+  CREDIT_NM_VIET: "",
+  CREDIT_NM_ENG: "",
+  CREDIT_NM_KOR: "",
+  CREDIT_NM_CHINA: "",
+  AMOUNT: 0,
+  FC_AMOUNT: 0,
+  FC_TYPE: "",
+  FC_RATE: 0,
+  FC_DATETIME: null,
+  SORT: 1,
+  ISDEL: false,
+  CHITDETAIL_VAT_CD: "",
+  MG_CD: "",
+  MG_CD_2: "",
+  MR_CD: "",
+  MR_CD2: "",
+  BANK_ID: null,
+  BANK_CD: "",
+  BANK_OWN_CD: "",
+  CUSTOMER_ID: null,
+  CUSTOMER_CD: "",
+  CUSTOMER_NM_VIET: "",
+  CUSTOMER_NM_ENG: "",
+  CUSTOMER_NM_KOR: "",
+  CUSTOMER_NM_CHINA: "",
+  CUSTOMER_OWN_CD: "",
+  DEPARTMENT_ID: null,
+  DEPARTMENT_CD: "",
+  DEPARTMENT_CD_2: "",
+  HASINVENTORY: false,
+  INVENTORY_YMD: null,
+  ISPAY: false,
+  ISCOLLECT: false,
+  VAT_INPUT_CD: "",
+  PRODUCT_NM: "",
+  UNIT_NM: "",
+  QUANTITY: 0,
+  UNIT_PRICE: 0,
+  PRODUCT_AMOUNT: 0,
+  VAT_TYPE: "",
+  PERCENT: 0,
+  PRODUCT_VAT_AMOUNT: 0,
+  PRODUCT_NOTE: "",
+  VAT_SERIAL_NO: "",
+  VAT_CHIT_NO: "",
+  VAT_CHIT_NO_2: "",
+  VAT_AMOUNT: 0,
+  VAT_TAXABLE_AMOUNT: 0,
+  FO_VAT_AMOUNT: 0,
+  VAT_ISFREE: false,
+  VAT_INVOICE_CD: "",
+  VAT_INVOICE_NM: "",
+  VAT_INFO_TYPE: "",
+  VAT_COMPANY_ISSUE: "",
+  VAT_COMPANY_ISSUE_ADDRESS: "",
+  VAT_COMPANY_ISSUE_CD: "",
+  VAT_COMPANY_TAXCD: "",
+  VAT_PRODUCT_NM: "",
+  VAT_ETC: "",
+  VAT_YMD: null,
+  VAT_YMD_2: null,
+  VAT_INQUIRY_IN: "",
+  VAT_INQUIRY_CODE: "",
+  IS_NEXTVAT: false,
+  UNDEFINE: "",
+  DETAIL_DESCRIPTION_VIET: "",
+  DETAIL_DESCRIPTION_ENG: "",
+  DETAIL_DESCRIPTION_KOR: "",
+  CREATE_BY: "",
+  CREATE_DT: null,
+  UPDATE_BY: "",
+  UPDATE_DT: null,
+  INVENTORY_INPUTS: [],
+  INVENTORY_OUTPUTS: [],
+})
+
+export const createDefaultChit = (noteType: ChitType, companyCd = "", _userId = ""): ChitInfo => ({
+  CHIT_ID: null,
+  COMPANY_CD: companyCd,
+  CHIT_CD: "",
+  CHIT_NO: "",
+  CHIT_YMD: new Date(),
+  CHIT_TYPE: noteType,
+  AMOUNT: 0,
+  PAYER_INFO: "",
+  ISDEL: false,
+  CREATE_BY: "",
+  CREATE_DT: null,
+  UPDATE_BY: "",
+  UPDATE_DT: null,
+  IS_LOCK: false,
+  ISEXCEL: false,
+  EMAIL_EPAY: "",
+  IS_CONFIRMED: false,
+  NOTE: "",
+  DAY_OF_PAYMENT: null,
+  TIME_FOR_PAYMENT: "",
+  IS_PAYMENT: false,
+  CHIT_CD_COGS: "",
+  DESCRIPTION_VIET: "",
+  DESCRIPTION_ENG: "",
+  DESCRIPTION_KOR: "",
+  DETAIL_COUNT: 1,
+  DETAILS: [],
+})
+
+export const cloneInventoryInput = (record: InventoryInputLine): InventoryInputLine => ({
+  ...record,
+  ROW_KEY: record.ROW_KEY || createInventoryInputRowKey(record.INPUT_ID ?? record.INPUT_CD),
+})
+
+export const cloneInventoryOutput = (record: InventoryOutputLine): InventoryOutputLine => ({
+  ...record,
+  ROW_KEY: record.ROW_KEY || createInventoryOutputRowKey(record.OUTPUT_ID ?? record.OUTPUT_CD),
+})
+
+export const cloneChitDetail = (record: ChitDetail): ChitDetail => ({
+  ...record,
+  ROW_KEY: record.ROW_KEY || createRowKey(record.CHITDETAIL_ID),
+  INVENTORY_INPUTS: ensureArray(record.INVENTORY_INPUTS).map(cloneInventoryInput),
+  INVENTORY_OUTPUTS: ensureArray(record.INVENTORY_OUTPUTS).map(cloneInventoryOutput),
+})
+
+export const cloneChit = (record: ChitInfo): ChitInfo => ({
+  ...record,
+  DETAILS: ensureArray(record.DETAILS).map(cloneChitDetail),
+})
+
+export const prepareChitForEdit = (record: ChitInfo): ChitInfo => ({
+  ...record,
+  CHIT_NO: String(record.CHIT_NO ?? "").trim(),
+  DETAIL_COUNT: getActiveChitDetails(ensureArray(record.DETAILS)).length,
+  AMOUNT: record.AMOUNT ?? calculateChitAmount(ensureArray(record.DETAILS)),
+  DETAILS: ensureArray(record.DETAILS).map((detail) => ({
+    ...detail,
+    ROW_KEY: detail.ROW_KEY || createRowKey(detail.CHITDETAIL_ID),
+    SORT: detail.SORT ?? 1,
+  })),
+})
+
+export const mapInventoryInputToApiPayload = (record: InventoryInputLine): InventoryInputApi => ({
+  INPUT_ID: record.INPUT_ID,
+  INPUT_CD: trimText(record.INPUT_CD),
+  COMPANY_CD: trimText(record.COMPANY_CD),
+  PRODUCT_ID: record.PRODUCT_ID ?? null,
+  PRODUCT_CD: trimText(record.PRODUCT_CD),
+  STORE_ID: record.STORE_ID ?? null,
+  STORE_CD: trimText(record.STORE_CD),
+  UNIT_ID: record.UNIT_ID ?? null,
+  UNIT_CD: trimText(record.UNIT_CD),
+  QUANTITY: record.QUANTITY ?? 0,
+  UNIT_PRICE_CC: record.UNIT_PRICE_CC ?? 0,
+  UNIT_PRICE_FC: record.UNIT_PRICE_FC ?? 0,
+  EXCHANGE_RATES: record.EXCHANGE_RATES ?? 0,
+  AMOUNT_CC: record.AMOUNT_CC ?? 0,
+  AMOUNT_FC: record.AMOUNT_FC ?? 0,
+  SUMMARY: trimText(record.SUMMARY),
+  INVENTORY_YMD: normalizeDateTime(record.INVENTORY_YMD),
+  STATE: trimText(record.STATE) || "1",
+  CHITDETAIL_ID: record.CHITDETAIL_ID ?? null,
+  CHITDETAIL_CD: trimText(record.CHITDETAIL_CD),
+  SORT: record.SORT ?? 0,
+  ISDEL: toFlag(record.ISDEL),
+})
+
+export const mapInventoryOutputToApiPayload = (record: InventoryOutputLine): InventoryOutputApi => ({
+  OUTPUT_ID: record.OUTPUT_ID,
+  OUTPUT_CD: trimText(record.OUTPUT_CD),
+  COMPANY_CD: trimText(record.COMPANY_CD),
+  PRODUCT_ID: record.PRODUCT_ID ?? null,
+  PRODUCT_CD: trimText(record.PRODUCT_CD),
+  STORE_ID: record.STORE_ID ?? null,
+  STORE_CD: trimText(record.STORE_CD),
+  UNIT_ID: record.UNIT_ID ?? null,
+  UNIT_CD: trimText(record.UNIT_CD),
+  QUANTITY: record.QUANTITY ?? 0,
+  UNIT_PRICE_CC: record.UNIT_PRICE_CC ?? 0,
+  UNIT_PRICE_FC: record.UNIT_PRICE_FC ?? 0,
+  EXCHANGE_RATES: record.EXCHANGE_RATES ?? 0,
+  AMOUNT_CC: record.AMOUNT_CC ?? 0,
+  AMOUNT_FC: record.AMOUNT_FC ?? 0,
+  SUMMARY: trimText(record.SUMMARY),
+  INVENTORY_YMD: normalizeDateTime(record.INVENTORY_YMD),
+  STATE: trimText(record.STATE) || "1",
+  CHITDETAIL_ID: record.CHITDETAIL_ID ?? null,
+  CHITDETAIL_CD: trimText(record.CHITDETAIL_CD),
+  SORT: record.SORT ?? 0,
+  ISDEL: toFlag(record.ISDEL),
+})
+
+export const mapChitDetailToApiPayload = (record: ChitDetail): ChitDetailApi => {
+  const inventoryInputs = ensureArray(record.INVENTORY_INPUTS)
+  const inventoryOutputs = ensureArray(record.INVENTORY_OUTPUTS)
+
+  return {
+    CHITDETAIL_ID: record.CHITDETAIL_ID,
+    COMPANY_CD: trimText(record.COMPANY_CD),
+    CHIT_ID: record.CHIT_ID,
+    CHITDETAIL_CD: trimText(record.CHITDETAIL_CD),
+    CHIT_YMD: normalizeDate(record.CHIT_YMD),
+    CHIT_VMD: normalizeDate(record.CHIT_VMD),
+    DEBIT: trimText(record.DEBIT),
+    CREDIT: trimText(record.CREDIT),
+    DEBIT_NM_VIET: trimText(record.DEBIT_NM_VIET),
+    DEBIT_NM_ENG: trimText(record.DEBIT_NM_ENG),
+    DEBIT_NM_KOR: trimText(record.DEBIT_NM_KOR),
+    DEBIT_NM_CHINA: trimText(record.DEBIT_NM_CHINA),
+    CREDIT_NM_VIET: trimText(record.CREDIT_NM_VIET),
+    CREDIT_NM_ENG: trimText(record.CREDIT_NM_ENG),
+    CREDIT_NM_KOR: trimText(record.CREDIT_NM_KOR),
+    CREDIT_NM_CHINA: trimText(record.CREDIT_NM_CHINA),
+    AMOUNT: record.AMOUNT ?? 0,
+    FC_AMOUNT: record.FC_AMOUNT ?? 0,
+    FC_TYPE: trimText(record.FC_TYPE),
+    FC_RATE: record.FC_RATE ?? 0,
+    FC_DATETIME: normalizeDate(record.FC_DATETIME),
+    SORT: record.SORT ?? 0,
+    ISDEL: toFlag(record.ISDEL),
+    CHITDETAIL_VAT_CD: trimText(record.CHITDETAIL_VAT_CD),
+    MG_CD: trimText(record.MG_CD),
+    MG_CD_2: trimText(record.MG_CD_2),
+    MR_CD: trimText(record.MR_CD),
+    MR_CD2: trimText(record.MR_CD2),
+    BANK_ID: record.BANK_ID ?? null,
+    BANK_CD: trimText(record.BANK_CD),
+    BANK_OWN_CD: trimText(record.BANK_OWN_CD),
+    CUSTOMER_ID: record.CUSTOMER_ID ?? null,
+    CUSTOMER_CD: trimText(record.CUSTOMER_CD),
+    CUSTOMER_NM_VIET: trimText(record.CUSTOMER_NM_VIET),
+    CUSTOMER_NM_ENG: trimText(record.CUSTOMER_NM_ENG),
+    CUSTOMER_NM_KOR: trimText(record.CUSTOMER_NM_KOR),
+    CUSTOMER_NM_CHINA: trimText(record.CUSTOMER_NM_CHINA),
+    CUSTOMER_OWN_CD: trimText(record.CUSTOMER_OWN_CD),
+    DEPARTMENT_ID: record.DEPARTMENT_ID ?? null,
+    DEPARTMENT_CD: trimText(record.DEPARTMENT_CD),
+    DEPARTMENT_CD_2: trimText(record.DEPARTMENT_CD_2),
+    HASINVENTORY: toFlag(inventoryInputs.length > 0 || inventoryOutputs.length > 0 || record.HASINVENTORY),
+    INVENTORY_YMD: normalizeDateTime(record.INVENTORY_YMD),
+    ISPAY: toFlag(record.ISPAY),
+    ISCOLLECT: toFlag(record.ISCOLLECT),
+    VAT_INPUT_CD: trimText(record.VAT_INPUT_CD),   
+    PRODUCT_NM: trimText(record.PRODUCT_NM),
+    UNIT_NM: trimText(record.UNIT_NM),
+    QUANTITY: record.QUANTITY ?? 0,
+    UNIT_PRICE: record.UNIT_PRICE ?? 0,
+    PRODUCT_AMOUNT: record.PRODUCT_AMOUNT ?? record.AMOUNT ?? 0,
+    VAT_TYPE: trimText(record.VAT_TYPE),
+    PERCENT: record.PERCENT ?? 0,
+    PRODUCT_VAT_AMOUNT: record.PRODUCT_VAT_AMOUNT ?? 0,
+    PRODUCT_NOTE: trimText(record.PRODUCT_NOTE),
+    VAT_SERIAL_NO: trimText(record.VAT_SERIAL_NO),
+    VAT_CHIT_NO: trimText(record.VAT_CHIT_NO),
+    VAT_CHIT_NO_2: trimText(record.VAT_CHIT_NO_2),
+    VAT_AMOUNT: record.VAT_AMOUNT ?? 0,
+    VAT_TAXABLE_AMOUNT: record.VAT_TAXABLE_AMOUNT ?? 0,
+    FO_VAT_AMOUNT: record.FO_VAT_AMOUNT ?? 0,
+    VAT_ISFREE: toFlag(record.VAT_ISFREE),
+    VAT_INVOICE_CD: trimText(record.VAT_INVOICE_CD),
+    VAT_INVOICE_NM: trimText(record.VAT_INVOICE_NM),
+    VAT_INFO_TYPE: trimText(record.VAT_INFO_TYPE),
+    VAT_COMPANY_ISSUE: trimText(record.VAT_COMPANY_ISSUE),
+    VAT_COMPANY_ISSUE_ADDRESS: trimText(record.VAT_COMPANY_ISSUE_ADDRESS),
+    VAT_COMPANY_ISSUE_CD: trimText(record.VAT_COMPANY_ISSUE_CD),
+    VAT_COMPANY_TAXCD: trimText(record.VAT_COMPANY_TAXCD),
+    VAT_PRODUCT_NM: trimText(record.VAT_PRODUCT_NM),
+    VAT_ETC: trimText(record.VAT_ETC),
+    VAT_YMD: normalizeDate(record.VAT_YMD),
+    VAT_YMD_2: normalizeDate(record.VAT_YMD_2),
+    VAT_INQUIRY_IN: trimText(record.VAT_INQUIRY_IN),
+    VAT_INQUIRY_CODE: trimText(record.VAT_INQUIRY_CODE),
+    IS_NEXTVAT: toFlag(record.IS_NEXTVAT),
+    UNDEFINE: trimText(record.UNDEFINE),
+    DETAIL_DESCRIPTION_VIET: trimText(record.DETAIL_DESCRIPTION_VIET),
+    DETAIL_DESCRIPTION_ENG: trimText(record.DETAIL_DESCRIPTION_ENG),
+    DETAIL_DESCRIPTION_KOR: trimText(record.DETAIL_DESCRIPTION_KOR),
+    INVENTORY_INPUTS: inventoryInputs.map(mapInventoryInputToApiPayload),
+    INVENTORY_OUTPUTS: inventoryOutputs.map(mapInventoryOutputToApiPayload),
+  }
+}
+
+export const mapChitToApiPayload = (record: ChitInfo): ChitApi => {
+  const activeDetails = getActiveChitDetails(ensureArray(record.DETAILS))
+  const details = activeDetails.map((item, index) => ({
+    ...mapChitDetailToApiPayload({
+      ...item,
+      SORT: item.SORT ?? index + 1,
+    }),
+  }))
+  const totalAmount = calculateChitAmount(activeDetails)
+
+  return {
+    CHIT_ID: record.CHIT_ID,
+    COMPANY_CD: trimText(record.COMPANY_CD),
+    CHIT_CD: trimText(record.CHIT_CD),
+    CHIT_NO: trimText(record.CHIT_NO),
+    CHIT_YMD: normalizeDate(record.CHIT_YMD),
+    CHIT_TYPE: record.CHIT_TYPE,
+    AMOUNT: record.AMOUNT ?? totalAmount,
+    PAYER_INFO: trimText(record.PAYER_INFO),
+    ISDEL: toFlag(record.ISDEL),  
+    IS_LOCK: toFlag(record.IS_LOCK),
+    ISEXCEL: toFlag(record.ISEXCEL),
+    EMAIL_EPAY: trimText(record.EMAIL_EPAY),
+    IS_CONFIRMED: toFlag(record.IS_CONFIRMED),
+    NOTE: trimText(record.NOTE),
+    DAY_OF_PAYMENT: record.DAY_OF_PAYMENT,
+    TIME_FOR_PAYMENT: trimText(record.TIME_FOR_PAYMENT),
+    IS_PAYMENT: toFlag(record.IS_PAYMENT),
+    CHIT_CD_COGS: trimText(record.CHIT_CD_COGS),
+    DESCRIPTION_VIET: trimText(record.DESCRIPTION_VIET),
+    DESCRIPTION_ENG: trimText(record.DESCRIPTION_ENG),
+    DESCRIPTION_KOR: trimText(record.DESCRIPTION_KOR),
+    DETAILS: details,
+  }
+}

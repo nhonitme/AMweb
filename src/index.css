@@ -1,0 +1,46 @@
+@media (min-width: 1536px) and (max-width: 1400px) {
+  .max-2xl\:max-w-\[1400px\]\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+button,
+input,
+select,
+optgroup,
+textarea,
+label {
+  font-family: "Noto Sans", sans-serif;
+  font-size: 13px !important;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  font-family: "Noto Sans", sans-serif;
+}
+
+body {
+  font-size: 13px !important;
+  line-height: 1.4;
+}
+
+table,
+th,
+td,
+thead,
+tbody {
+  font-size: 13px !important;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

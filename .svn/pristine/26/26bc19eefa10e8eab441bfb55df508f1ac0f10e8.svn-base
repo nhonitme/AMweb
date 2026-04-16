@@ -1,0 +1,15 @@
+/**
+ * Centralized API configuration
+ * Change API_BASE_URL here to switch between development and production
+ */
+
+// ✅ For local development (backend running on localhost with HTTPS)
+export const API_BASE_URL = "https://localhost:7108/api";
+
+// 🌐 For production (remote server)
+// export const API_BASE_URL = "https://118.69.170.50/API/api";
+
+// 🔧 Alternative: Use environment variable
+// export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://localhost:7108/api";
+
+export default API_BASE_URL;

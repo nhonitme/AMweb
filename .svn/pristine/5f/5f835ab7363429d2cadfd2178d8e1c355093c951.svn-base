@@ -1,0 +1,31 @@
+export interface ManagementInfoApi {
+  MG_ID?: number | null
+  COMPANY_CD?: string | null
+  MG_CD?: string | null
+  MG_DESC_KOR?: string | null
+  MG_DESC_ENG?: string | null
+  MG_DESC_VIET?: string | null
+  ISDEL?: string | null
+  CREATE_BY?: string | null
+  UPDATE_BY?: string | null
+  MG_CD_ROOT?: string | null
+}
+
+export interface ManagementInfo {
+  MG_ID: number | null
+  COMPANY_CD: string
+  MG_CD: string
+  MG_DESC_KOR: string
+  MG_DESC_ENG: string
+  MG_DESC_VIET: string
+  ISDEL: boolean
+  CREATE_BY: string
+  UPDATE_BY: string
+  MG_CD_ROOT: string
+}
+
+export type ManagementInfoRequest = Partial<ManagementInfoApi>
+
+export interface DeleteManagementInfosRequest {
+  ManagementIds: number[]
+}

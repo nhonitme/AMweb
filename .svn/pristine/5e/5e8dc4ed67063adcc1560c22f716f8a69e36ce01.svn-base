@@ -1,0 +1,39 @@
+import { useContext } from "react"
+import { Column, RequiredRule } from "devextreme-react/data-grid"
+
+import { LanguageContext } from "@/lib/i18nLoader"
+
+const widthMap = {
+  SIGN_CODE: 180,
+  DISPLAY_LABEL: 180,
+  SIGN_NAME: 220,
+  SIGN_TITLE: 180,
+  SIGN_IMAGE_URL: 260,
+  SORT_ORDER: 110,
+  IS_ACTIVE: 110,
+} as const
+
+export default function CompanySignatureColumns() {
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+
+  return (
+    <>
+      <Column dataField="SIGN_CODE" caption={t("SIGN_CODE", "Sign Code")} width={widthMap.SIGN_CODE} allowEditing={false} />
+
+      <Column dataField="DISPLAY_LABEL" caption={t("DISPLAY_LABEL", "Display Label")} width={widthMap.DISPLAY_LABEL}>
+        <RequiredRule message={t("MSG_MUST_ITEM", "DISPLAY_LABEL khong duoc de trong")} />
+      </Column>
+
+      <Column dataField="SIGN_NAME" caption={t("SIGN_NAME", "Signer Name")} width={widthMap.SIGN_NAME} />
+
+      <Column dataField="SIGN_TITLE" caption={t("SIGN_TITLE", "Signer Title")} width={widthMap.SIGN_TITLE} />
+      <Column dataField="SIGN_IMAGE_URL" caption={t("SIGN_IMAGE_URL", "Image URL")} width={widthMap.SIGN_IMAGE_URL} />
+      <Column dataField="SORT_ORDER" caption={t("SORT_ORDER", "Sort Order")} width={widthMap.SORT_ORDER} dataType="number" />
+      <Column dataField="IS_ACTIVE" caption={t("IS_ACTIVE", "Active")} width={widthMap.IS_ACTIVE} dataType="boolean" />
+    </>
+  )
+}

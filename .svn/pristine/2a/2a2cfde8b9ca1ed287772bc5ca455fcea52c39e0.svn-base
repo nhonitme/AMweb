@@ -1,0 +1,66 @@
+import React, { useContext, useMemo } from "react";
+import { Form as DxForm } from "devextreme-react/data-grid";
+import { Item as DxItem } from "devextreme-react/form";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { LanguageContext } from "@/lib/i18nLoader";
+
+interface BankFormProps {
+  colLabels?: Record<string, string>;
+}
+
+export default function BankForm({ colLabels = {} }: BankFormProps) {
+  const { translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string; lang: string };
+  const t = (k: string, f: string) => (translate ? translate(k, f) : f);
+
+  const label = (field: string, fallback: string) => colLabels[field] ?? t(field, fallback);
+
+  const items = useMemo(() => {
+    return [
+      {
+        dataField: "BANK_CD",
+        label: { text: label("BANK_CD", "Bank Code") },
+      },
+      {
+        dataField: "BANK_NM",
+        label: { text: label("BANK_NM", "Bank Name") },
+      },
+      {
+        dataField: "ACC_CD",
+        label: { text: label("ACC_CD", "Account Code") },
+      },
+      {
+        dataField: "PASSBOOK_NM",
+        label: { text: label("PASSBOOK_NM", "Account Name") },
+      },
+      {
+        dataField: "ACCOUNT_NUM",
+        label: { text: label("ACCOUNT_NUM", "Account Number") },
+      },
+      {
+        dataField: "CITAD_CODE",
+        label: { text: label("CITAD_CODE", "Citad Code") },
+      },
+      {
+        dataField: "REMARK",
+        label: { text: label("REMARK", "Remark") },
+      },
+    ];
+  }, [colLabels, translate]);
+
+  return (
+    <div className="bank-form">
+      <DxForm colCount={2} labelLocation="top" width="100%">
+        {items.map((item) => (
+          <DxItem
+            key={item.dataField}
+            dataField={item.dataField}
+            editorType={item.editorType as any}
+            editorTemplate={item.editorTemplate as any}
+            label={item.label}
+          />
+        ))}
+      </DxForm>
+    </div>
+  );
+}

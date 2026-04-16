@@ -1,0 +1,934 @@
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import Button from "devextreme-react/button"
+import Form, { Item } from "devextreme-react/form"
+import LoadPanel from "devextreme-react/load-panel"
+import Popup from "devextreme-react/popup"
+import TabPanel from "devextreme-react/tab-panel"
+
+import { LookupPopupProvider } from "@/components/lookup/LookupPopupHost"
+import ShortcutHelpPopup from "@/components/shortcuts/ShortcutHelpPopup"
+import useShortcutBindings from "@/hooks/useShortcutBindings"
+import useShortcutHelp from "@/hooks/useShortcutHelp"
+import { LanguageContext } from "@/lib/i18nLoader"
+import { createShortcutBindings } from "@/lib/shortcuts/shortcutBindings"
+import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/shortcutDefinitions"
+import type {
+  ChitInfo,
+  ChitLedger,
+  ChitType,
+  InventoryInputApi,
+  InventoryInputLine,
+  InventoryOutputApi,
+  InventoryOutputLine,
+} from "@/types/voucher"
+import { calculateChitAmount, cloneChit, getChitTypeLabel } from "../chitUtils"
+import { ChitDetailGridPopup, type ChitDetailGridHandle } from "./ChitDetailGridPopup"
+import { getVoucherDetailColumnsComponent } from "./ChitDetailColumnsPopup"
+import ChitInventoryInputGridPopup from "./ChitInventoryInputGridPopup"
+import ChitInventoryOutputGridPopup from "./ChitInventoryOutputGridPopup"
+import { getInventoryInputs, getInventoryOutputs } from "@/api/voucherApi"
+
+interface ChitEditorPopupProps {
+  visible: boolean
+  value: ChitInfo
+  ledger: ChitLedger
+  chitType: ChitType
+  isUpdate: boolean
+  loading: boolean
+  onClose: () => void
+  onSave: (record: ChitInfo) => Promise<void>
+  onSaveAndNew?: (record: ChitInfo) => Promise<void>
+}
+
+type DetailRow = ChitInfo["DETAILS"][number]
+type EditorTabKey = "detail" | "inventory_input" | "inventory_output"
+const inventoryEnabledChitTypes = new Set<ChitType>(["PO", "PS", "SO"])
+
+function boolToFlag(value: boolean | null | undefined): "0" | "1" {
+  return value ? "1" : "0"
+}
+
+function supportsInventory(chitType: ChitType) {
+  return inventoryEnabledChitTypes.has(chitType)
+}
+
+function createInputRowKey(detailKey?: string | null) {
+  return `input_${detailKey ?? "detail"}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+function createOutputRowKey(detailKey?: string | null) {
+  return `output_${detailKey ?? "detail"}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+function getDetailRowKey(row: DetailRow, index: number) {
+  const detail = row as any
+  const candidate =
+    detail?.CHITDETAIL_ID ??
+    detail?.ROW_KEY ??
+    detail?.DETAIL_ID ??
+    detail?.ID ??
+    detail?.TEMP_ID ??
+    detail?.DETAIL_TEMP_ID ??
+    index
+  return String(candidate)
+}
+
+function getDetailRowAmount(row: DetailRow) {
+  const detail = row as any
+  const amountCandidate = detail?.AMOUNT ?? detail?.amount ?? detail?.SUPPLY_AMOUNT ?? detail?.TOTAL_AMOUNT ?? 0
+  const parsed = Number(amountCandidate)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function getDetailInventoryInputs(row: DetailRow | null | undefined) {
+  return Array.isArray(row?.INVENTORY_INPUTS) ? row.INVENTORY_INPUTS : []
+}
+
+function getDetailInventoryOutputs(row: DetailRow | null | undefined) {
+  return Array.isArray(row?.INVENTORY_OUTPUTS) ? row.INVENTORY_OUTPUTS : []
+}
+
+function normalizeInventoryInputApi(item: InventoryInputApi, detailKey?: string | null): InventoryInputLine {
+  return {
+    ROW_KEY: createInputRowKey(detailKey),
+    INPUT_ID: item.INPUT_ID ?? null,
+    INPUT_CD: String(item.INPUT_CD ?? ""),
+    COMPANY_CD: String(item.COMPANY_CD ?? ""),
+    PRODUCT_ID: item.PRODUCT_ID ?? null,
+    PRODUCT_CD: String(item.PRODUCT_CD ?? ""),
+    STORE_ID: item.STORE_ID ?? null,
+    STORE_CD: String(item.STORE_CD ?? ""),
+    UNIT_ID: item.UNIT_ID ?? null,
+    UNIT_CD: String(item.UNIT_CD ?? ""),
+    QUANTITY: item.QUANTITY ?? null,
+    UNIT_PRICE_CC: item.UNIT_PRICE_CC ?? null,
+    UNIT_PRICE_FC: item.UNIT_PRICE_FC ?? 0,
+    EXCHANGE_RATES: item.EXCHANGE_RATES ?? 0,
+    AMOUNT_CC: item.AMOUNT_CC ?? null,
+    AMOUNT_FC: item.AMOUNT_FC ?? 0,
+    SUMMARY: String(item.SUMMARY ?? ""),
+    INVENTORY_YMD: item.INVENTORY_YMD ?? null,
+    STATE: String(item.STATE ?? "1"),
+    CHITDETAIL_ID: item.CHITDETAIL_ID ?? null,
+    CHITDETAIL_CD: String(item.CHITDETAIL_CD ?? ""),
+    SORT: item.SORT ?? null,
+    ISDEL: item.ISDEL === true || item.ISDEL === "1",
+  }
+}
+
+function normalizeInventoryOutputApi(item: InventoryOutputApi, detailKey?: string | null): InventoryOutputLine {
+  return {
+    ROW_KEY: createOutputRowKey(detailKey),
+    OUTPUT_ID: item.OUTPUT_ID ?? null,
+    OUTPUT_CD: String(item.OUTPUT_CD ?? ""),
+    COMPANY_CD: String(item.COMPANY_CD ?? ""),
+    PRODUCT_ID: item.PRODUCT_ID ?? null,
+    PRODUCT_CD: String(item.PRODUCT_CD ?? ""),
+    STORE_ID: item.STORE_ID ?? null,
+    STORE_CD: String(item.STORE_CD ?? ""),
+    UNIT_ID: item.UNIT_ID ?? null,
+    UNIT_CD: String(item.UNIT_CD ?? ""),
+    QUANTITY: item.QUANTITY ?? null,
+    UNIT_PRICE_CC: item.UNIT_PRICE_CC ?? null,
+    UNIT_PRICE_FC: item.UNIT_PRICE_FC ?? 0,
+    EXCHANGE_RATES: item.EXCHANGE_RATES ?? 0,
+    AMOUNT_CC: item.AMOUNT_CC ?? null,
+    AMOUNT_FC: item.AMOUNT_FC ?? 0,
+    SUMMARY: String(item.SUMMARY ?? ""),
+    INVENTORY_YMD: item.INVENTORY_YMD ?? null,
+    STATE: String(item.STATE ?? "1"),
+    CHITDETAIL_ID: item.CHITDETAIL_ID ?? null,
+    CHITDETAIL_CD: String(item.CHITDETAIL_CD ?? ""),
+    SORT: item.SORT ?? null,
+    ISDEL: item.ISDEL === true || item.ISDEL === "1",
+  }
+}
+
+function toInventoryInputApi(line: InventoryInputLine): InventoryInputApi {
+  return {
+    INPUT_ID: line.INPUT_ID,
+    INPUT_CD: line.INPUT_CD,
+    COMPANY_CD: line.COMPANY_CD,
+    PRODUCT_ID: line.PRODUCT_ID,
+    PRODUCT_CD: line.PRODUCT_CD,
+    STORE_ID: line.STORE_ID,
+    STORE_CD: line.STORE_CD,
+    UNIT_ID: line.UNIT_ID,
+    UNIT_CD: line.UNIT_CD,
+    QUANTITY: line.QUANTITY,
+    UNIT_PRICE_CC: line.UNIT_PRICE_CC,
+    UNIT_PRICE_FC: line.UNIT_PRICE_FC,
+    EXCHANGE_RATES: line.EXCHANGE_RATES,
+    AMOUNT_CC: line.AMOUNT_CC,
+    AMOUNT_FC: line.AMOUNT_FC,
+    SUMMARY: line.SUMMARY,
+    INVENTORY_YMD: line.INVENTORY_YMD,
+    STATE: line.STATE,
+    CHITDETAIL_ID: line.CHITDETAIL_ID,
+    CHITDETAIL_CD: line.CHITDETAIL_CD,
+    SORT: line.SORT,
+    ISDEL: boolToFlag(line.ISDEL),
+  }
+}
+
+function toInventoryOutputApi(line: InventoryOutputLine): InventoryOutputApi {
+  return {
+    OUTPUT_ID: line.OUTPUT_ID,
+    OUTPUT_CD: line.OUTPUT_CD,
+    COMPANY_CD: line.COMPANY_CD,
+    PRODUCT_ID: line.PRODUCT_ID,
+    PRODUCT_CD: line.PRODUCT_CD,
+    STORE_ID: line.STORE_ID,
+    STORE_CD: line.STORE_CD,
+    UNIT_ID: line.UNIT_ID,
+    UNIT_CD: line.UNIT_CD,
+    QUANTITY: line.QUANTITY,
+    UNIT_PRICE_CC: line.UNIT_PRICE_CC,
+    UNIT_PRICE_FC: line.UNIT_PRICE_FC,
+    EXCHANGE_RATES: line.EXCHANGE_RATES,
+    AMOUNT_CC: line.AMOUNT_CC,
+    AMOUNT_FC: line.AMOUNT_FC,
+    SUMMARY: line.SUMMARY,
+    INVENTORY_YMD: line.INVENTORY_YMD,
+    STATE: line.STATE,
+    CHITDETAIL_ID: line.CHITDETAIL_ID,
+    CHITDETAIL_CD: line.CHITDETAIL_CD,
+    SORT: line.SORT,
+    ISDEL: boolToFlag(line.ISDEL),
+  }
+}
+
+function mergeInventoryIntoDetails(details: DetailRow[], sourceDetails: DetailRow[]) {
+  const inputMap = new Map<string, InventoryInputLine[]>()
+  const outputMap = new Map<string, InventoryOutputLine[]>()
+
+  sourceDetails.forEach((row, index) => {
+    const key = getDetailRowKey(row, index)
+    inputMap.set(key, getDetailInventoryInputs(row))
+    outputMap.set(key, getDetailInventoryOutputs(row))
+  })
+
+  return details.map((row, index) => {
+    const key = getDetailRowKey(row, index)
+    const inputs = inputMap.get(key) ?? getDetailInventoryInputs(row)
+    const outputs = outputMap.get(key) ?? getDetailInventoryOutputs(row)
+
+    return {
+      ...row,
+      INVENTORY_INPUTS: inputs,
+      INVENTORY_OUTPUTS: outputs,
+      HASINVENTORY: inputs.length > 0 || outputs.length > 0,
+    }
+  })
+}
+
+function mergeApiInventoryByChitDetailId(details: DetailRow[], inputs: InventoryInputApi[], outputs: InventoryOutputApi[]) {
+  const inputMap = new Map<number, InventoryInputLine[]>()
+  const outputMap = new Map<number, InventoryOutputLine[]>()
+  const inputItems = Array.isArray(inputs) ? inputs : []
+  const outputItems = Array.isArray(outputs) ? outputs : []
+
+  inputItems.forEach((item) => {
+    const key = Number(item.CHITDETAIL_ID ?? 0)
+    if (key <= 0) return
+    const list = inputMap.get(key) ?? []
+    list.push(normalizeInventoryInputApi(item, String(key)))
+    inputMap.set(key, list)
+  })
+
+  outputItems.forEach((item) => {
+    const key = Number(item.CHITDETAIL_ID ?? 0)
+    if (key <= 0) return
+    const list = outputMap.get(key) ?? []
+    list.push(normalizeInventoryOutputApi(item, String(key)))
+    outputMap.set(key, list)
+  })
+
+  return details.map((row) => {
+    const chitDetailId = Number(row.CHITDETAIL_ID ?? 0)
+    const inventoryInputs = chitDetailId > 0 ? inputMap.get(chitDetailId) ?? getDetailInventoryInputs(row) : getDetailInventoryInputs(row)
+    const inventoryOutputs = chitDetailId > 0 ? outputMap.get(chitDetailId) ?? getDetailInventoryOutputs(row) : getDetailInventoryOutputs(row)
+
+    return {
+      ...row,
+      INVENTORY_INPUTS: inventoryInputs,
+      INVENTORY_OUTPUTS: inventoryOutputs,
+      HASINVENTORY: inventoryInputs.length > 0 || inventoryOutputs.length > 0,
+    }
+  })
+}
+
+function getDetailRowLabel(row: DetailRow, index: number) {
+  const detail = row as any
+  const description =
+    detail?.DETAIL_DESCRIPTION_VIET ??
+    detail?.DETAIL_DESCRIPTION_ENG ??
+    detail?.DETAIL_DESCRIPTION_KOR ??
+    detail?.DESCRIPTION_VIET ??
+    detail?.REMARK ??
+    ""
+
+  const debit = String(detail?.DEBIT ?? "").trim()
+  const credit = String(detail?.CREDIT ?? "").trim()
+  const amount = getDetailRowAmount(row)
+  const fallback = [debit || "?", credit || "?", amount > 0 ? amount.toLocaleString() : ""].filter(Boolean).join(" / ")
+
+  return description ? `${index + 1}. ${description}` : `${index + 1}. ${fallback || "Detail row"}`
+}
+
+function mapDraftForSave(draft: ChitInfo): ChitInfo {
+  return {
+    ...draft,
+    DETAILS: draft.DETAILS.map((detail) => ({
+      ...detail,
+      HASINVENTORY: getDetailInventoryInputs(detail).length > 0 || getDetailInventoryOutputs(detail).length > 0,
+      INVENTORY_INPUTS: getDetailInventoryInputs(detail).map(toInventoryInputApi) as any,
+      INVENTORY_OUTPUTS: getDetailInventoryOutputs(detail).map(toInventoryOutputApi) as any,
+    })) as any,
+  }
+}
+
+export function ChitEditorPopup({
+  visible,
+  value,
+  ledger,
+  chitType,
+  isUpdate,
+  loading,
+  onClose,
+  onSave,
+  onSaveAndNew,
+}: ChitEditorPopupProps) {
+  const [draft, setDraft] = useState<ChitInfo>(() => cloneChit(value))
+  const [inventoryLoading, setInventoryLoading] = useState(false)
+  const [selectedTabIndex, setSelectedTabIndex] = useState(0)
+  const [selectedInventoryDetailKey, setSelectedInventoryDetailKey] = useState<string | null>(null)
+
+  const detailGridRef = useRef<ChitDetailGridHandle | null>(null)
+  const formRef = useRef<any>(null)
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+
+  const t = useCallback(
+    (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
+    [translate],
+  )
+  const inventoryEnabled = useMemo(() => supportsInventory(chitType), [chitType])
+  const shortcutActions = useMemo(
+    () => [
+      SHORTCUT_ACTIONS.SAVE,
+      SHORTCUT_ACTIONS.SAVE_AND_NEW,
+      SHORTCUT_ACTIONS.SAVE_AND_CLOSE,
+      SHORTCUT_ACTIONS.CLOSE,
+      SHORTCUT_ACTIONS.ADD_ROW,
+      SHORTCUT_ACTIONS.DELETE_ROW,
+      SHORTCUT_ACTIONS.QUICK_ITEM_SEARCH,
+      SHORTCUT_ACTIONS.DUPLICATE,
+      SHORTCUT_ACTIONS.HELP,
+    ],
+    [],
+  )
+  const {
+    shortcutHelpVisible,
+    shortcutHelpItems,
+    openShortcutHelp,
+    closeShortcutHelp,
+  } = useShortcutHelp(shortcutActions)
+
+  useEffect(() => {
+    setDraft(cloneChit(value))
+    setSelectedTabIndex(0)
+    setSelectedInventoryDetailKey(null)
+  }, [value])
+
+  useEffect(() => {
+    if (!inventoryEnabled && selectedTabIndex !== 0) {
+      setSelectedTabIndex(0)
+    }
+  }, [inventoryEnabled, selectedTabIndex])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadInventory() {
+      if (!visible) return
+
+      if (!inventoryEnabled) {
+        setDraft((current) => ({
+          ...current,
+          DETAILS: mergeInventoryIntoDetails(current.DETAILS, current.DETAILS),
+        }))
+        return
+      }
+
+      const chitDetailIds = (value.DETAILS ?? [])
+        .map((item) => Number(item.CHITDETAIL_ID ?? 0))
+        .filter((id) => id > 0)
+
+      if (chitDetailIds.length === 0) {
+        setDraft((current) => ({
+          ...current,
+          DETAILS: mergeInventoryIntoDetails(current.DETAILS, current.DETAILS),
+        }))
+        return
+      }
+
+      setInventoryLoading(true)
+      try {
+        const [inputs, outputs] = await Promise.all([
+          getInventoryInputs(ledger, chitType, chitDetailIds),
+          getInventoryOutputs(ledger, chitType, chitDetailIds),
+        ])
+
+        if (cancelled) return
+
+        setDraft((current) => ({
+          ...current,
+          DETAILS: mergeApiInventoryByChitDetailId(current.DETAILS, inputs, outputs),
+        }))
+      } catch (error) {
+        if (cancelled) return
+        console.error("Failed to load voucher inventory", error)
+        setDraft((current) => ({
+          ...current,
+          DETAILS: mergeInventoryIntoDetails(current.DETAILS, current.DETAILS),
+        }))
+      } finally {
+        if (!cancelled) setInventoryLoading(false)
+      }
+    }
+
+    loadInventory()
+    return () => {
+      cancelled = true
+    }
+  }, [visible, value, ledger, chitType, inventoryEnabled])
+
+  const chitLabel = useMemo(() => getChitTypeLabel(chitType, t), [chitType, t])
+  const DetailColumns = useMemo(() => getVoucherDetailColumnsComponent(chitType), [chitType])
+
+  const title = useMemo(
+    () => (isUpdate ? `${t("lblEdit", "Edit")} ${chitLabel}` : `${t("lblAddNew", "Add")} ${chitLabel}`),
+    [isUpdate, chitLabel, t],
+  )
+
+  const handleFieldDataChanged = useCallback((event: { dataField?: string; value?: unknown }) => {
+    if (typeof event.dataField !== "string") return
+    setDraft((current) => ({
+      ...current,
+      [event.dataField as keyof ChitInfo]: event.value as never,
+    }))
+  }, [])
+
+  const handleDetailsChange = useCallback((rows: ChitInfo["DETAILS"], amount: number) => {
+    setDraft((current) => ({
+      ...current,
+      DETAILS: mergeInventoryIntoDetails(rows as DetailRow[], current.DETAILS as DetailRow[]),
+      DETAIL_COUNT: rows.length,
+      AMOUNT: amount,
+    }))
+  }, [])
+
+  const handleInventoryInputsChange = useCallback((detailKey: string, inventoryInputs: InventoryInputLine[]) => {
+    setDraft((current) => ({
+      ...current,
+      DETAILS: current.DETAILS.map((row, index) => {
+        if (getDetailRowKey(row, index) !== detailKey) return row
+        const outputs = getDetailInventoryOutputs(row)
+        return {
+          ...row,
+          INVENTORY_INPUTS: inventoryInputs,
+          INVENTORY_OUTPUTS: outputs,
+          HASINVENTORY: inventoryInputs.length > 0 || outputs.length > 0,
+        }
+      }),
+    }))
+  }, [])
+
+  const handleInventoryOutputsChange = useCallback((detailKey: string, inventoryOutputs: InventoryOutputLine[]) => {
+    setDraft((current) => ({
+      ...current,
+      DETAILS: current.DETAILS.map((row, index) => {
+        if (getDetailRowKey(row, index) !== detailKey) return row
+        const inputs = getDetailInventoryInputs(row)
+        return {
+          ...row,
+          INVENTORY_INPUTS: inputs,
+          INVENTORY_OUTPUTS: inventoryOutputs,
+          HASINVENTORY: inputs.length > 0 || inventoryOutputs.length > 0,
+        }
+      }),
+    }))
+  }, [])
+
+  const detailOptions = useMemo(
+    () =>
+      draft.DETAILS.map((row, index) => ({
+        key: getDetailRowKey(row, index),
+        label: getDetailRowLabel(row, index),
+        row,
+        index,
+      })),
+    [draft.DETAILS],
+  )
+
+  useEffect(() => {
+    if (detailOptions.length === 0) {
+      setSelectedInventoryDetailKey(null)
+      return
+    }
+
+    setSelectedInventoryDetailKey((current) => {
+      if (current && detailOptions.some((item) => item.key === current)) return current
+      return detailOptions[0]?.key ?? null
+    })
+  }, [detailOptions])
+
+  const selectedInventoryDetail = useMemo(
+    () => detailOptions.find((item) => item.key === selectedInventoryDetailKey) ?? null,
+    [detailOptions, selectedInventoryDetailKey],
+  )
+
+  const tabItems = useMemo(
+    () => [
+      { key: "detail" as EditorTabKey, title: t("lblDetail", "Detail List") },
+      { key: "inventory_input" as EditorTabKey, title: t("INVENTORY_INPUT", "Nhập kho") },
+      { key: "inventory_output" as EditorTabKey, title: t("INVENTORY_OUTPUT", "Xuất kho") },
+    ],
+    [t],
+  )
+
+  const buildRecordForSave = useCallback(async () => {
+    const validationResult = formRef.current?.instance().validate()
+    if (validationResult && !validationResult.isValid) {
+      return null
+    }
+
+    const syncedBaseDetails = detailGridRef.current ? await detailGridRef.current.savePendingChanges() : draft.DETAILS
+    const syncedDetails = mergeInventoryIntoDetails(syncedBaseDetails as DetailRow[], draft.DETAILS as DetailRow[])
+    const totalAmount = calculateChitAmount(syncedDetails)
+    const normalizedChitNo = String(draft.CHIT_NO ?? "").trim()
+
+    return mapDraftForSave({
+      ...draft,
+      CHIT_NO: normalizedChitNo,
+      DETAILS: syncedDetails,
+      DETAIL_COUNT: syncedDetails.length,
+      AMOUNT: totalAmount,
+    })
+  }, [draft])
+
+  const handleSave = useCallback(async () => {
+    const record = await buildRecordForSave()
+    if (!record) {
+      return
+    }
+
+    await onSave(record)
+  }, [buildRecordForSave, onSave])
+
+  const handleSaveAndNewShortcut = useCallback(async () => {
+    const record = await buildRecordForSave()
+    if (!record) {
+      return
+    }
+
+    if (onSaveAndNew) {
+      await onSaveAndNew(record)
+      return
+    }
+
+    await onSave(record)
+  }, [buildRecordForSave, onSave, onSaveAndNew])
+
+  const handleClosePopup = useCallback(() => {
+    if (!loading && !inventoryLoading) {
+      onClose()
+    }
+  }, [inventoryLoading, loading, onClose])
+
+  const handleAddDetailRow = useCallback(() => {
+    if (selectedTabIndex === 0) {
+      detailGridRef.current?.addRow()
+    }
+  }, [selectedTabIndex])
+
+  const handleDeleteDetailRow = useCallback(() => {
+    if (selectedTabIndex === 0) {
+      detailGridRef.current?.deleteFocusedRow()
+    }
+  }, [selectedTabIndex])
+
+  const handleQuickItemSearch = useCallback(() => {
+    if (selectedTabIndex === 0) {
+      detailGridRef.current?.focusSearch()
+    }
+  }, [selectedTabIndex])
+
+  const handleDuplicateDraft = useCallback(async () => {
+    const syncedBaseDetails = detailGridRef.current ? await detailGridRef.current.savePendingChanges() : draft.DETAILS
+    const duplicatedDetails = mergeInventoryIntoDetails(
+      syncedBaseDetails as DetailRow[],
+      draft.DETAILS as DetailRow[],
+    ).map((detail, index) => ({
+      ...detail,
+      CHITDETAIL_ID: null,
+      CHIT_ID: null,
+      CHITDETAIL_CD: "",
+      SORT: index + 1,
+      CREATE_BY: "",
+      CREATE_DT: null,
+      UPDATE_BY: "",
+      UPDATE_DT: null,
+    }))
+
+    setDraft((current) => ({
+      ...cloneChit(current),
+      CHIT_ID: null,
+      CHIT_CD: "",
+      CHIT_NO: "",
+      DETAILS: duplicatedDetails,
+      DETAIL_COUNT: duplicatedDetails.length,
+      AMOUNT: calculateChitAmount(duplicatedDetails),
+      CREATE_BY: "",
+      CREATE_DT: null,
+      UPDATE_BY: "",
+      UPDATE_DT: null,
+    }))
+    setSelectedTabIndex(0)
+  }, [draft.DETAILS])
+
+  const shortcutBindings = useMemo(
+    () =>
+      createShortcutBindings(
+        shortcutActions,
+        {
+          [SHORTCUT_ACTIONS.SAVE]: () => {
+            void handleSave()
+          },
+          [SHORTCUT_ACTIONS.SAVE_AND_NEW]: () => {
+            void handleSaveAndNewShortcut()
+          },
+          [SHORTCUT_ACTIONS.SAVE_AND_CLOSE]: () => {
+            void handleSave()
+          },
+          [SHORTCUT_ACTIONS.CLOSE]: () => handleClosePopup(),
+          [SHORTCUT_ACTIONS.ADD_ROW]: () => handleAddDetailRow(),
+          [SHORTCUT_ACTIONS.DELETE_ROW]: () => handleDeleteDetailRow(),
+          [SHORTCUT_ACTIONS.QUICK_ITEM_SEARCH]: () => handleQuickItemSearch(),
+          [SHORTCUT_ACTIONS.DUPLICATE]: () => {
+            void handleDuplicateDraft()
+          },
+          [SHORTCUT_ACTIONS.HELP]: () => openShortcutHelp(),
+        },
+        {
+          [SHORTCUT_ACTIONS.SAVE]: { enabled: !loading && !inventoryLoading, allowInInput: true },
+          [SHORTCUT_ACTIONS.SAVE_AND_NEW]: { enabled: !loading && !inventoryLoading, allowInInput: true },
+          [SHORTCUT_ACTIONS.SAVE_AND_CLOSE]: { enabled: !loading && !inventoryLoading, allowInInput: true },
+          [SHORTCUT_ACTIONS.CLOSE]: { allowInInput: true },
+          [SHORTCUT_ACTIONS.ADD_ROW]: { enabled: selectedTabIndex === 0 && !loading && !inventoryLoading },
+          [SHORTCUT_ACTIONS.DELETE_ROW]: { enabled: selectedTabIndex === 0 && !loading && !inventoryLoading },
+          [SHORTCUT_ACTIONS.QUICK_ITEM_SEARCH]: { enabled: selectedTabIndex === 0, allowInInput: true },
+          [SHORTCUT_ACTIONS.DUPLICATE]: { enabled: !loading && !inventoryLoading, allowInInput: true },
+        },
+      ),
+    [
+      handleAddDetailRow,
+      handleClosePopup,
+      handleDeleteDetailRow,
+      handleDuplicateDraft,
+      handleQuickItemSearch,
+      handleSave,
+      handleSaveAndNewShortcut,
+      inventoryLoading,
+      loading,
+      openShortcutHelp,
+      selectedTabIndex,
+      shortcutActions,
+    ],
+  )
+
+  useShortcutBindings(shortcutBindings, { enabled: visible })
+
+  const handleTabSelectionChanged = useCallback(
+    async (event: any) => {
+      const nextTabIndex = Number(event.component.option("selectedIndex") ?? 0)
+
+      if (selectedTabIndex === 0 && nextTabIndex !== 0 && detailGridRef.current) {
+        const syncedBaseDetails = await detailGridRef.current.savePendingChanges()
+        const syncedDetails = mergeInventoryIntoDetails(syncedBaseDetails as DetailRow[], draft.DETAILS as DetailRow[])
+        const totalAmount = calculateChitAmount(syncedDetails)
+
+        setDraft((current) => ({
+          ...current,
+          DETAILS: syncedDetails,
+          DETAIL_COUNT: syncedDetails.length,
+          AMOUNT: totalAmount,
+        }))
+      }
+
+      setSelectedTabIndex(nextTabIndex)
+    },
+    [draft.DETAILS, selectedTabIndex],
+  )
+
+  const formData = useMemo(() => ({ ...draft, CHIT_TYPE_LABEL: chitLabel }), [draft, chitLabel])
+  const isDetailTabActive = selectedTabIndex === 0
+  const detailPanelClassName = useMemo(
+    () =>
+      isDetailTabActive
+        ? "overflow-hidden rounded-lg border border-gray-200 bg-white p-3"
+        : "min-h-0 flex-1 overflow-hidden rounded-lg border border-gray-200 bg-white p-3",
+    [isDetailTabActive],
+  )
+
+  const renderDetailSelector = () => (
+    <div className="grid gap-3 lg:grid-cols-[320px,1fr]">
+      <div className="rounded-lg border border-gray-200 bg-slate-50 p-3">
+        <div className="mb-2 text-sm font-semibold text-gray-800">{t("DETAIL_ROW_SELECTOR", "Dòng detail đang gắn với kho")}</div>
+        <Form labelLocation="top" colCount={1}>
+          <Item
+            dataField="selectedInventoryDetailKey"
+            editorType="dxSelectBox"
+            label={{ text: t("DETAIL_ROW", "Detail Row") }}
+            editorOptions={{
+              stylingMode: "outlined",
+              dataSource: detailOptions,
+              valueExpr: "key",
+              displayExpr: "label",
+              value: selectedInventoryDetailKey,
+              searchEnabled: true,
+              disabled: detailOptions.length === 0,
+              onValueChanged: (e: { value?: string | null }) => {
+                setSelectedInventoryDetailKey(e.value ?? null)
+              },
+              placeholder: t("SELECT_DETAIL_ROW", "Select detail row"),
+            }}
+          />
+        </Form>
+
+        <div className="mt-3 space-y-2 text-sm text-gray-600">
+          <div>
+            <span className="font-medium text-gray-800">{t("DETAIL_COUNT", "Số dòng detail")}: </span>
+            {detailOptions.length}
+          </div>
+          <div>
+            <span className="font-medium text-gray-800">{t("CURRENT_ROW", "Dòng hiện tại")}: </span>
+            {selectedInventoryDetail ? selectedInventoryDetail.index + 1 : "-"}
+          </div>
+          <div>
+            <span className="font-medium text-gray-800">{t("DETAIL_AMOUNT", "Số tiền detail")}: </span>
+            {selectedInventoryDetail ? getDetailRowAmount(selectedInventoryDetail.row).toLocaleString() : "0"}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex min-h-0 flex-col rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
+        <div className="mt-3 min-h-[420px] flex-1 overflow-hidden">
+          {selectedInventoryDetail ? (
+            selectedTabIndex === 1 ? (
+              <ChitInventoryInputGridPopup
+                companyCd={draft.COMPANY_CD}
+                chitDetailId={selectedInventoryDetail.row.CHITDETAIL_ID ?? null}
+                chitDetailCd={selectedInventoryDetail.row.CHITDETAIL_CD ?? null}
+                detailRowKey={selectedInventoryDetail.key}
+                detailAmount={getDetailRowAmount(selectedInventoryDetail.row)}
+                detailLabel={selectedInventoryDetail.label}
+                inventoryYmd={selectedInventoryDetail.row.INVENTORY_YMD ?? draft.CHIT_YMD}
+                rows={getDetailInventoryInputs(selectedInventoryDetail.row)}
+                onChange={(rows) => handleInventoryInputsChange(selectedInventoryDetail.key, rows)}
+              />
+            ) : (
+              <ChitInventoryOutputGridPopup
+                companyCd={draft.COMPANY_CD}
+                chitDetailId={selectedInventoryDetail.row.CHITDETAIL_ID ?? null}
+                chitDetailCd={selectedInventoryDetail.row.CHITDETAIL_CD ?? null}
+                detailRowKey={selectedInventoryDetail.key}
+                detailAmount={getDetailRowAmount(selectedInventoryDetail.row)}
+                detailLabel={selectedInventoryDetail.label}
+                inventoryYmd={selectedInventoryDetail.row.INVENTORY_YMD ?? draft.CHIT_YMD}
+                rows={getDetailInventoryOutputs(selectedInventoryDetail.row)}
+                onChange={(rows) => handleInventoryOutputsChange(selectedInventoryDetail.key, rows)}
+              />
+            )
+          ) : (
+            <div className="flex h-full items-center justify-center rounded-lg border border-white bg-white p-4 text-sm text-gray-500">
+              {t("WAREHOUSE_EMPTY_HINT", "Chưa có detail nào. Hãy thêm detail trước khi khai báo kho.")}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+
+  return (
+    <Popup
+      visible={visible}
+      title={title}
+      showTitle={true}
+      dragEnabled={false}
+      hideOnOutsideClick={!loading && !inventoryLoading}
+      width="100vw"
+      height="100vh"
+      maxWidth="100vw"
+      maxHeight="100vh"
+      container=".dx-viewport"
+      position={{ my: "center", at: "center", of: window }}
+      onHiding={handleClosePopup}
+    >
+      <LookupPopupProvider>
+        <div className="relative h-full w-full overflow-hidden p-2">
+          <LoadPanel visible={loading || inventoryLoading} showPane={true} showIndicator={true} shading={true} />
+          <ShortcutHelpPopup
+            visible={shortcutHelpVisible}
+            shortcuts={shortcutHelpItems}
+            onClose={closeShortcutHelp}
+          />
+
+          <div className="flex h-full flex-col gap-3 overflow-hidden">
+            <div className="h-[33vh] min-h-[240px] max-h-[38vh] overflow-auto rounded-lg border border-gray-200 bg-white p-4">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="text-sm font-semibold text-gray-800">{chitLabel}</div>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-4">
+                <div className="rounded-xl border border-gray-200 bg-slate-50 p-4 lg:col-span-3">
+                  <Form formData={formData} labelLocation="top" colCount={2} onFieldDataChanged={handleFieldDataChanged}>
+                    <Item
+                      dataField="AMOUNT"
+                      editorType="dxNumberBox"
+                      label={{ text: t("AMOUNT", "Amount") }}
+                      editorOptions={{ stylingMode: "outlined", format: "#,##0.00", readOnly: true }}
+                    />
+                    <Item
+                      dataField="PAYER_INFO"
+                      colSpan={2}
+                      editorType="dxTextBox"
+                      label={{ text: t("lblPayer", "Payer Info") }}
+                      editorOptions={{ stylingMode: "outlined" }}
+                    />
+                    <Item
+                      dataField="DESCRIPTION_VIET"
+                      colSpan={2}
+                      editorType="dxTextBox"
+                      label={{ text: t("DESCRIPTION_VIET", "Description (VI)") }}
+                      editorOptions={{ stylingMode: "outlined", minHeight: 88, autoResizeEnabled: true }}
+                    />
+                    <Item
+                      dataField="DESCRIPTION_ENG"
+                      editorType="dxTextBox"
+                      label={{ text: t("DESCRIPTION_ENG", "Description (EN)") }}
+                      editorOptions={{ stylingMode: "outlined", minHeight: 88, autoResizeEnabled: true }}
+                    />
+                    <Item
+                      dataField="DESCRIPTION_KOR"
+                      editorType="dxTextBox"
+                      label={{ text: t("DESCRIPTION_KOR", "Description (KO)") }}
+                      editorOptions={{ stylingMode: "outlined", minHeight: 88, autoResizeEnabled: true }}
+                    />
+                  </Form>
+                </div>
+
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 lg:col-span-1">
+                  <Form ref={formRef} formData={formData} labelLocation="top" colCount={1} onFieldDataChanged={handleFieldDataChanged}>
+                    <Item
+                      dataField="CHIT_NO"
+                      editorType="dxTextBox"
+                      label={{ text: t("CHIT_NO", "Document No") }}
+                      editorOptions={{ stylingMode: "outlined", validationMessageMode: "always" }}
+                      validationRules={[
+                        { type: "required", message: t("MSG_MUST_ITEM", "Document No is required") },
+                        {
+                          type: "custom",
+                          reevaluate: true,
+                          message: t("MSG_MUST_ITEM", "Document No is required"),
+                          validationCallback: (e: { value?: unknown }) => String(e.value ?? "").trim().length > 0,
+                        },
+                      ]}
+                    />
+                    <Item
+                      dataField="CHIT_YMD"
+                      editorType="dxDateBox"
+                      label={{ text: t("CHIT_YMD", "Note Date") }}
+                      editorOptions={{
+                        stylingMode: "outlined",
+                        displayFormat: "dd/MM/yyyy",
+                        type: "date",
+                        validationMessageMode: "always",
+                      }}
+                      validationRules={[
+                        { type: "required", message: t("MSG_MUST_ITEM", "Chit date is required") },
+                        {
+                          type: "custom",
+                          reevaluate: true,
+                          message: t("MSG_MUST_ITEM", "Chit date is required"),
+                          validationCallback: (e: { value?: unknown }) => String(e.value ?? "").trim().length > 0,
+                        },
+                      ]}
+                    />
+                  </Form>
+                </div>
+              </div>
+            </div>
+
+            <div className={detailPanelClassName}>
+              <TabPanel
+                selectedIndex={selectedTabIndex}
+                onSelectionChanged={(event: any) => {
+                  void handleTabSelectionChanged(event)
+                }}
+                deferRendering={false}
+                animationEnabled={false}
+                swipeEnabled={false}
+                stylingMode="secondary"
+                height={isDetailTabActive ? undefined : "100%"}
+                items={inventoryEnabled ? tabItems : tabItems.slice(0, 1)}
+                itemTitleRender={(item: { title: string }) => <span className="text-sm font-medium">{item.title}</span>}
+                itemRender={(item: { key: EditorTabKey }) => {
+                  if (item.key === "detail") {
+                    return (
+                      <div className="overflow-hidden pt-2">
+                        <ChitDetailGridPopup
+                          ref={detailGridRef}
+                          companyCd={draft.COMPANY_CD}
+                          details={draft.DETAILS}
+                          onChange={handleDetailsChange}
+                          ChitDetailColumns={DetailColumns}
+                        />
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div className="flex h-full min-h-0 flex-col gap-3 pt-2">
+                      {renderDetailSelector()}
+                    </div>
+                  )
+                }}
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
+              <Button
+                text={t("TIT_SAVE", "Save")}
+                type="default"
+                stylingMode="contained"
+                onClick={handleSave}
+                disabled={loading || inventoryLoading || draft.DETAILS.length === 0}
+              />
+              <Button
+                text={t("CANCEL", "Cancel")}
+                stylingMode="outlined"
+                onClick={handleClosePopup}
+                disabled={loading || inventoryLoading}
+              />
+            </div>
+          </div>
+        </div>
+      </LookupPopupProvider>
+    </Popup>
+  )
+}
+
+export default ChitEditorPopup

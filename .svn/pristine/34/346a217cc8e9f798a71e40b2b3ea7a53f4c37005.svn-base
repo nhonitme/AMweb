@@ -1,0 +1,6 @@
+import type { ExcelImportConfig } from "@/types/modal";
+
+export const receiptImportConfig: ExcelImportConfig = {
+  templateName: "mau-phieu-thu.xlsx",
+ 
+};

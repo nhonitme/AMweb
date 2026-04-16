@@ -1,0 +1,353 @@
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { LoadPanel } from "devextreme-react";
+import notify from 'devextreme/ui/notify';
+import {
+  ContextMenuPreparingEvent,
+  RowInsertingEvent,
+  RowUpdatingEvent,
+  RowRemovingEvent,
+} from "devextreme/ui/data_grid";
+import { Editing, Popup as DxPopup } from 'devextreme-react/data-grid';
+import { Form as DxForm } from 'devextreme-react/data-grid';
+import { Item as DxItem } from 'devextreme-react/form';
+import type dxDataGrid from "devextreme/ui/data_grid";
+
+import DxPage from "@/dx/DxPage";
+import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid";
+import { GridToolbar } from "@/components/toolbar/GridToolbar";
+ 
+import { readonlySelectEditorOptions } from '@/components/inputs/ReadonlySelect'
+
+import {
+  CustomerExt,
+  getCustomerExts,
+  createCustomerExt,
+  updateCustomerExt,
+  deleteCustomerExt,
+} from "@/api/customerExtApi";
+import { getSysCodes, SysCode } from '@/api/sysCodeService'
+import { dateEditorOptions } from '@/components/inputs/DatePicker'
+
+
+type RowInsertingEventWithPromise = RowInsertingEvent & { promise?: Promise<void> };
+type RowUpdatingEventWithPromise = RowUpdatingEvent & { promise?: Promise<void> };
+type RowRemovingEventWithPromise = RowRemovingEvent & { promise?: Promise<void> };
+
+export default function CustomerExtPage() {
+  const [loading, setLoading] = useState(true);
+  const [gridData, setGridData] = useState<CustomerExt[]>([]);
+  const [colLabels, setColLabels] = useState<Record<string,string>>({});
+  const gridRef = useRef<dxDataGrid | null>(null);
+  const [isUpdate, setIsUpdate] = useState(false);
+
+  const excludedFields = useMemo(() => new Set<string>([
+    'COMPANY_CD', 'COMPANYCODE',
+    'CUSTOMER_CD', 'CUSTOMER_EXT_CD',
+    'CREATED_AT', 'CREATE_AT', 'CREATEDAT', 'CREATED',
+    'UPDATED_AT', 'UPDATE_AT', 'UPDATEDAT', 'UPDATED',
+    'ISTEMP', 'IS_TEMP', 'IS_TEMPORARY',
+    'ISDEL', 'IS_DELETED', 'DELETED',
+  ]), []);
+
+  const columns = useMemo(() => {
+    return Object.entries(colLabels)
+      .filter(([field]) => !excludedFields.has(field.toUpperCase()))
+      .map(([field, caption]) => ({ dataField: field, caption }));
+  }, [colLabels, excludedFields]);
+
+  const gridKey = useMemo(() => Object.keys(colLabels).join(","), [colLabels]);
+
+  const [sysCodes, setSysCodes] = useState<SysCode[]>([]);
+  const [sysCodeLabels, setSysCodeLabels] = useState<Record<string,string>>({});
+
+  const formGroups = useMemo(() => {
+    const groups: Record<string, { caption: string; items: any[] }> = {
+      basic: { caption: "Basic", items: [] },
+      contact: { caption: "Contact", items: [] },
+      address: { caption: "Address", items: [] },
+      id: { caption: "Identification", items: [] },
+      tax: { caption: "Tax / Bank", items: [] },
+      other: { caption: "Other", items: [] },
+    };
+
+    const fieldKeys = Object.keys(colLabels || {}).filter((f) => !excludedFields.has(f.toUpperCase()));
+    const basicKeys = new Set(["CUSTOMER_EXT_CD","CUSTOMER_CD","CUSTOMER_NM_VIET","BUYER_NM","CUSTOMER_USER_CD","OWNER_NM","CUSTOMER_RECEIVE"]);
+    const contactKeys = new Set(["TEL","FAX","EMAIL","CUSTOMER_RECEIVE"]);
+    const addressKeys = new Set(["ADDRESS","ADDRESS_DO","ADDRESS_RECEIVE","ZIP_CODE"]);
+    const idKeys = new Set(["IDNUMBER","SSN","SHCHIEU","PLACE_ISSUE","DATE_ISSUE"]);
+    const taxKeys = new Set(["TAX_CD","TAX_CD_RECEIVE","BANK_CD","PAYMENT_TERM","BRN"]);
+
+    fieldKeys.forEach((f) => {
+      const name = f.toUpperCase();
+      const caption = colLabels[f] ?? f;
+      let item: any = { dataField: f, label: { text: caption } };
+
+      if (/DATE(_|).*|\bDATE\b|DATEISSUE|DATE_ISSUE/i.test(name)) {
+        item.editorType = 'dxDateBox';
+        item.editorOptions = dateEditorOptions({
+          type: 'date',
+          displayFormat: 'dd/MM/yyyy',
+          placeholder: caption,
+          showClearButton: true,
+        });
+      }
+
+      if (/CUSTOMER.*TYPE|TYPE.*CUSTOMER|\bTYPE\b/i.test(name)) {
+        item.editorType = 'dxSelectBox';
+        item.editorOptions = readonlySelectEditorOptions({
+          dataSource: sysCodes,
+          valueExpr: 'CODE_CD',
+          displayExpr: (it: any) => (it ? (sysCodeLabels[it.CODE_NAME] ?? it.CODE_NAME ?? it.CODE_CD) : ''),
+          placeholder: caption,
+          showClearButton: true,
+          showDropDownButton: true,
+        });
+      }
+
+      if (basicKeys.has(name) || /^(CUSTOMER_|CUSTOMER$|EXT$)/.test(name)) {
+        groups.basic.items.push(item);
+        return;
+      }
+      if (contactKeys.has(name) || /TEL|FAX|EMAIL/.test(name)) {
+        groups.contact.items.push(item);
+        return;
+      }
+      if (addressKeys.has(name) || /ADDRESS|ZIP/.test(name)) {
+        groups.address.items.push(item);
+        return;
+      }
+      if (idKeys.has(name) || /IDNUMBER|SSN|SHCHIEU/.test(name)) {
+        groups.id.items.push(item);
+        return;
+      }
+      if (taxKeys.has(name) || /TAX|BANK|PAYMENT|BRN/.test(name)) {
+        groups.tax.items.push(item);
+        return;
+      }
+
+      groups.other.items.push(item);
+    });
+
+    const result = ["basic", "contact", "address", "id", "tax", "other"].map((k) => groups[k]).filter(g => g.items.length > 0);
+    return result;
+  }, [colLabels, sysCodes, sysCodeLabels]);
+
+  const [selectedTab, setSelectedTab] = useState(0);
+  const [formData, setFormData] = useState<any>({});
+
+  const tabs = useMemo(() => {
+    const lookup = (caption: string) => formGroups.find((g) => g.caption.toLowerCase() === caption.toLowerCase());
+    const defs = [
+      { title: "General", groups: ["Basic", "Contact"] },
+      { title: "Address", groups: ["Address"] },
+      { title: "Legal", groups: ["Identification", "Tax / Bank"] },
+      { title: "Other", groups: ["Other"] },
+    ];
+
+    return defs.map((d) => ({ title: d.title, groups: d.groups.map(lookup).filter(Boolean) })).filter(t => t.groups.length > 0);
+  }, [formGroups]);
+
+  const flatItems = useMemo(() => formGroups.flatMap((g) => g.items || []), [formGroups]);
+
+  const [popupReady, setPopupReady] = useState(false);
+
+  function CustomerExtForm({ isUpdate }: { isUpdate: boolean }) {
+    return (
+      <DxForm colCount={2}>
+        {flatItems.map((it: any) => (
+          <DxItem
+            key={it.dataField}
+            dataField={it.dataField}
+            editorType={it.editorType}
+            editorOptions={it.editorOptions}
+            label={{ text: (it.label && it.label.text) || it.dataField }}
+            colSpan={it.colSpan}
+          />
+        ))}
+      </DxForm>
+    );
+  }
+
+  const handleAddClick = useCallback(() => {
+    setFormData({});
+    setIsUpdate(false);
+    setSelectedTab(0);
+    gridRef.current?.addRow();
+  }, []);
+
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const resp = await getCustomerExts();
+      setGridData(resp.data);
+      setColLabels(resp.labels);
+      gridRef.current?.clearSelection();
+      // compute columns locally to avoid stale closure
+      const newCols = Object.entries(resp.labels).map(([field, caption]) => ({
+        dataField: field,
+        caption,
+      }));
+      if (gridRef.current) {
+        gridRef.current.option("columns", newCols);
+        gridRef.current.refresh();
+      }
+    } catch (err: any) {
+      console.error("Failed to load customer ext data", err);
+      if (err.response) {
+        console.error("Server response:", err.response.status, err.response.data);
+        notify(`Load error: ${err.response.status} ${JSON.stringify(err.response.data)}`, 'error', 5000);
+      } else {
+        notify(`Load error: ${err.message || err}`, 'error', 5000);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Use the toolbar `Add` button which opens the DataGrid popup editor.
+
+  const onContextMenuPreparing = (e: ContextMenuPreparingEvent) => {
+    if (e.row && e.row.rowType === "data") {
+      e.items = [
+        {
+          text: "Update",
+          onItemClick: () => {
+            gridRef.current?.editRow(e.row!.rowIndex);
+          },
+        },
+        {
+          text: "Delete",
+          onItemClick: () => {
+            gridRef.current?.deleteRow(e.row!.rowIndex);
+          },
+        },
+      ];
+    }
+  };
+
+  const onRowInserting = (e: RowInsertingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        await createCustomerExt(e.data as Partial<CustomerExt>);
+        await loadData();
+      } catch (err) {
+        notify(`Insert error: ${err}`, 'error', 3000);
+      } finally {
+        if (e.component) (e.component as dxDataGrid).cancelEditData();
+      }
+    })();
+  };
+
+  const onRowUpdating = (e: RowUpdatingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        const payload = { ...(e.oldData as object), ...(e.newData as object) } as CustomerExt;
+        await updateCustomerExt(payload);
+        await loadData();
+      } catch (err) {
+        notify(`Update error: ${err}`, 'error', 3000);
+      } finally {
+        if (e.component) (e.component as dxDataGrid).cancelEditData();
+      }
+    })();
+  };
+
+  const onRowRemoving = (e: RowRemovingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        await deleteCustomerExt(e.key as string);
+        await loadData();
+      } catch (err) {
+        notify(`Delete error: ${err}`, 'error', 3000);
+      }
+    })();
+  };
+
+  // in React 18 StrictMode the effect runs twice in development; guard against duplicate requests
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    if (!mountedRef.current) {
+      loadData();
+      mountedRef.current = true;
+    }
+    // load sys codes once for form editors
+    (async () => {
+      try {
+        const lang = localStorage.getItem('lang') || 'VIET';
+        const resp = await getSysCodes('CUSTOMER_TYPE', lang);
+        setSysCodes(resp.data || []);
+        setSysCodeLabels(resp.labels || {});
+        console.debug('sysCodes loaded for form editors', resp);
+      } catch (err) {
+        console.error('Failed to load sys codes for editors', err);
+      }
+    })();
+  }, []);
+
+  return (
+    <DxPage>
+      <GridToolbar
+        title="Customer Ext List"
+        gridRef={gridRef}
+        onAdd={handleAddClick}
+        onRefresh={loadData}
+        onExportPdf={() => alert("Export to PDF not implemented")}
+        onExportXlsx={() => alert("Export to XLSX not implemented")}
+      />
+
+      <div className="data-grid-container">
+        <BaseDataGrid<CustomerExt>
+          key={gridKey}
+          dataSource={gridData}
+          keyExpr="CUSTOMER_EXT_CD"
+          columns={columns}
+          onInitialized={(e) => {
+            gridRef.current = e.component ?? null;
+          }}
+          onRowInserting={onRowInserting}
+          onRowUpdating={onRowUpdating}
+          onRowRemoving={onRowRemoving}
+          onContextMenuPreparing={onContextMenuPreparing}
+          onEditingStart={(e) => {
+            setIsUpdate(true);
+            setFormData(e?.data ?? {});
+            setSelectedTab(0);
+          }}
+          onInitNewRow={(e) => {
+            setIsUpdate(false);
+            e.data.ISUSE = true;
+          }}
+        >
+          <Editing
+            mode="popup"
+            allowUpdating={true}
+            allowAdding={true}
+            allowDeleting={true}
+            confirmDelete={false}
+          >
+            <DxPopup
+              title="Customer Ext"
+              showTitle={true}
+              width={720}
+              deferRendering={true}
+              animation={null}
+              onShown={() => setPopupReady(true)}
+              onHidden={() => setPopupReady(false)}
+            />
+            {popupReady ? <CustomerExtForm isUpdate={isUpdate} /> : <div style={{ padding: 12 }}>Loading...</div>}
+          </Editing>
+        </BaseDataGrid>
+
+        <LoadPanel
+          shadingColor="rgba(0, 0, 0, 0.4)"
+          visible={loading}
+          showIndicator={true}
+          shading={true}
+          showPane={true}
+        />
+      </div>
+      
+    </DxPage>
+  );
+}

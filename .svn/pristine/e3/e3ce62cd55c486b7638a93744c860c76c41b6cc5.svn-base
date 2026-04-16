@@ -1,0 +1,76 @@
+import axios from './axiosClient'
+import API_BASE_URL from '../config/apiConfig'
+import type { BankInfoApi } from '@/types/bankInfo'
+
+const BASE_URL = `${API_BASE_URL}/BankInfo`
+
+
+function normalizeResponse<T>(resp: any): { data: T; message?: string } {
+  if (!resp || typeof resp !== 'object') {
+    throw new Error('Invalid API response')
+  }
+  const payload = resp.data ?? resp
+  return {
+    data: payload.data ?? payload,
+    message: payload.message ?? resp.message ?? '',
+  }
+}
+
+export async function getBankInfos(bankId?: string, lang?: string): Promise<{ data: BankInfoApi[]; labels: Record<string, string> }> {
+  const params: any = { includeLabels: false }
+  if (bankId) params.BANK_ID = bankId
+  if (lang) params.lang = lang
+
+  const resp = await axios.get(`${BASE_URL}/Get`, { params })
+  const payload = resp.data
+  const inner = payload?.Data ?? payload?.data ?? payload
+
+  const data = Array.isArray(inner?.data) ? inner.data : Array.isArray(inner) ? inner : []
+  const labels = inner?.labels ?? {}
+
+  return { data, labels }
+}
+
+export async function createBankInfo(
+  payload: Partial<BankInfoApi>,
+  lang?: string,
+): Promise<{ data: BankInfoApi; message?: string }> {
+  const url = `${BASE_URL}/Create${lang ? `?lang=${encodeURIComponent(lang)}` : ''}`;
+  const resp = await axios.post(url, payload);
+  return normalizeResponse<BankInfoApi>(resp);
+}
+
+export async function updateBankInfo(
+  payload: Partial<BankInfoApi>,
+  lang?: string,
+): Promise<{ data: BankInfoApi; message?: string }> {
+  const url = `${BASE_URL}/Update${lang ? `?lang=${encodeURIComponent(lang)}` : ''}`;
+  const resp = await axios.put(url, payload);
+  return normalizeResponse<BankInfoApi>(resp);
+}
+
+export async function deleteBankInfo(bankId: string): Promise<{ success: boolean; message?: string }> {
+  const params: any = { BANK_ID: bankId }
+  const resp = await axios.delete(`${BASE_URL}/Delete`, { params })
+  const payload = resp.data
+  return { success: payload?.success ?? true, message: payload?.message }
+}
+
+export async function exportBankInfoExcel(bankId?: string): Promise<Blob> {
+  const params: any = {}
+  if (bankId) params.BANK_ID = bankId
+
+  const resp = await axios.get(`${BASE_URL}/bank/export`, {
+    params,
+    responseType: 'blob',
+  })
+  return resp.data
+}
+
+export async function importBankInfoExcel(file: File, lang?: string): Promise<any> {
+  const form = new FormData()
+  form.append('file', file)
+  const url = `${BASE_URL}/bank/import${lang ? `?lang=${encodeURIComponent(lang)}` : ''}`
+  const resp = await axios.post(url, form)
+  return resp.data
+}

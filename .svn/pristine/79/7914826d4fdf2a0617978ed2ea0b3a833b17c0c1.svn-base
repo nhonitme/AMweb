@@ -1,0 +1,92 @@
+import { useContext } from "react"
+import { Column } from "devextreme-react/data-grid"
+
+import { LanguageContext } from "@/lib/i18nLoader"
+import type { DepartmentInfo } from "@/types/departmentInfo"
+import { departmentFields } from "./DepartmentFields"
+
+interface DepartmentInfoColumnsProps {
+  resolveParentName: (parentCd: string) => string
+}
+
+type DepartmentCellData = {
+  data?: DepartmentInfo
+}
+
+const visibleFieldKeys = new Set<string>([
+  "DEPARTMENT_CD",
+  "PARENT_CD",
+  "DEP_NAME_VIET",
+  "DEP_NAME_ENG",
+  "DEP_NAME_KOR",
+  "DEPARTMENT_USER_CD",
+  "PRODUCT_CD",
+  "ISPRODUCT",
+  "REMARK",
+])
+
+const widthMap: Record<string, number> = {
+  DEPARTMENT_CD: 150,
+  PARENT_CD: 220,
+  DEP_NAME_VIET: 180,
+  DEP_NAME_ENG: 180,
+  DEP_NAME_KOR: 180,
+  DEPARTMENT_USER_CD: 170,
+  PRODUCT_CD: 150,
+  ISPRODUCT: 130,
+  REMARK: 220,
+}
+
+export function DepartmentInfoColumns({ resolveParentName }: DepartmentInfoColumnsProps) {
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+
+  return (
+    <>
+      {departmentFields
+        .filter((field) => visibleFieldKeys.has(field.key))
+        .map((field) => {
+          if (field.key === "PARENT_CD") {
+            return (
+              <Column
+                key={field.key}
+                dataField={field.key}
+                caption={t(field.key, field.caption)}
+                width={widthMap[field.key]}
+                cellRender={({ data }: DepartmentCellData) => (
+                  <span>{resolveParentName(data?.PARENT_CD ?? "")}</span>
+                )}
+              />
+            )
+          }
+
+          if (field.key === "ISPRODUCT") {
+            return (
+              <Column
+                key={field.key}
+                dataField={field.key}
+                caption={t(field.key, field.caption)}
+                dataType="boolean"
+                width={widthMap[field.key]}
+              />
+            )
+          }
+
+          return (
+            <Column
+              key={field.key}
+              dataField={field.key}
+              caption={t(field.key, field.caption)}
+              width={widthMap[field.key]}
+              minWidth={field.key.startsWith("DEP_NAME") ? 180 : undefined}
+            />
+          )
+        })}
+    </>
+  )
+}
+
+export default DepartmentInfoColumns

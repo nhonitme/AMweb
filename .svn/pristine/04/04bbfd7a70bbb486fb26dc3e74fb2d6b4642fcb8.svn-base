@@ -1,0 +1,286 @@
+import { useCallback, useEffect, useMemo, useState } from "react"
+import DropDownBox, { Button as DropDownBoxButton } from "devextreme-react/drop-down-box"
+import DataGrid, {
+  Column,
+  FilterRow,
+  Paging,
+  Scrolling,
+  Selection,
+} from "devextreme-react/data-grid"
+import Popup from "devextreme-react/popup"
+
+import CustomerExtManager from "@/pages/Module/CustomerManagementPage/CustomerExtManager"
+import type { CustomerExt } from "@/types/customerExt"
+
+type CustomerLoader = () => Promise<CustomerExt[]>
+type CustomerDataSource = CustomerExt[] | CustomerLoader
+
+type Props = {
+  dataSource: CustomerDataSource
+  value: number | null | undefined
+  rowData: Record<string, unknown>
+  rowIndex: number
+  grid: any
+  setValue: (value: number | null) => void
+  customerIdField?: string
+  customerCdField?: string
+  customerNmField?: string
+  taxCdField?: string
+  addressField?: string
+  placeholder?: string
+  popupTitle?: string
+}
+
+const loaderCache = new WeakMap<CustomerLoader, CustomerExt[]>()
+const loaderPromiseCache = new WeakMap<CustomerLoader, Promise<CustomerExt[]>>()
+
+async function resolveCustomerData(dataSource: CustomerDataSource): Promise<CustomerExt[]> {
+  if (Array.isArray(dataSource)) {
+    return dataSource
+  }
+
+  if (loaderCache.has(dataSource)) {
+    return loaderCache.get(dataSource) ?? []
+  }
+
+  if (loaderPromiseCache.has(dataSource)) {
+    return loaderPromiseCache.get(dataSource) ?? []
+  }
+
+  const promise = dataSource()
+    .then((rows) => {
+      const normalized = Array.isArray(rows) ? rows : []
+      loaderCache.set(dataSource, normalized)
+      return normalized
+    })
+    .finally(() => {
+      loaderPromiseCache.delete(dataSource)
+    })
+
+  loaderPromiseCache.set(dataSource, promise)
+  return promise
+}
+
+export default function CustomerLookupCellEditor({
+  dataSource,
+  value,
+  rowData,
+  rowIndex,
+  grid,
+  setValue,
+  customerIdField = "CUSTOMER_ID",
+  customerCdField = "CUSTOMER_CD",
+  customerNmField = "CUSTOMER_NM_VIET",
+  taxCdField = "TAX_CD",
+  addressField = "ADDRESS",
+  placeholder = "Chọn khách hàng",
+  popupTitle = "Chọn khách hàng",
+}: Props) {
+  const [opened, setOpened] = useState(false)
+  const [popupVisible, setPopupVisible] = useState(false)
+  const [customers, setCustomers] = useState<CustomerExt[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const selectedRowKeys = useMemo(
+    () => (typeof value === "number" && Number.isFinite(value) ? [value] : []),
+    [value],
+  )
+
+  const loadCustomers = useCallback(async () => {
+    try {
+      setLoading(true)
+      const rows = await resolveCustomerData(dataSource)
+      setCustomers(rows)
+    } catch (error) {
+      console.error("Failed to load customer lookup data", error)
+      setCustomers([])
+    } finally {
+      setLoading(false)
+    }
+  }, [dataSource])
+
+  useEffect(() => {
+    void loadCustomers()
+  }, [loadCustomers])
+
+  const getCustomerName = useCallback((item?: Partial<CustomerExt> | null) => {
+    if (!item) return ""
+    return String(item.CUSTOMER_NM_VIET ?? item.CUSTOMER_NM_VIET ?? "").trim()
+  }, [])
+
+  const displayExpr = useCallback(
+    (item: CustomerExt | null) => {
+      if (!item) return ""
+      const code = String(item.CUSTOMER_CD ?? "").trim()
+      const name = getCustomerName(item)
+      return [code, name].filter(Boolean).join(" - ")
+    },
+    [getCustomerName],
+  )
+
+  const setCellValue = useCallback(
+    (fieldName: string | undefined, fieldValue: unknown) => {
+      if (!fieldName) return
+      if (typeof rowIndex !== "number" || rowIndex < 0) return
+      grid?.cellValue?.(rowIndex, fieldName, fieldValue)
+    },
+    [grid, rowIndex],
+  )
+
+  const applyCustomer = useCallback(
+    (customer: CustomerExt) => {
+      const customerId =
+        typeof customer.CUSTOMER_ID === "number" && Number.isFinite(customer.CUSTOMER_ID)
+          ? customer.CUSTOMER_ID
+          : null
+
+      setValue(customerId)
+      setCellValue(customerIdField, customerId)
+      setCellValue(customerCdField, customer.CUSTOMER_CD ?? "")
+      setCellValue(customerNmField, getCustomerName(customer))
+
+      if (taxCdField && taxCdField in rowData) {
+        setCellValue(taxCdField, customer.TAX_CD ?? "")
+      }
+
+      if (addressField && addressField in rowData) {
+        setCellValue(addressField, customer.ADDRESS ?? "")
+      }
+
+      setOpened(false)
+      setPopupVisible(false)
+    },
+    [
+      addressField,
+      customerCdField,
+      customerIdField,
+      customerNmField,
+      getCustomerName,
+      rowData,
+      setCellValue,
+      setValue,
+      taxCdField,
+    ],
+  )
+
+  const clearCustomer = useCallback(() => {
+    setValue(null)
+    setCellValue(customerIdField, null)
+    setCellValue(customerCdField, "")
+    setCellValue(customerNmField, "")
+
+    if (taxCdField && taxCdField in rowData) {
+      setCellValue(taxCdField, "")
+    }
+
+    if (addressField && addressField in rowData) {
+      setCellValue(addressField, "")
+    }
+  }, [
+    addressField,
+    customerCdField,
+    customerIdField,
+    customerNmField,
+    rowData,
+    setCellValue,
+    setValue,
+    taxCdField,
+  ])
+
+  return (
+    <>
+      <DropDownBox
+        dataSource={customers}
+        value={value ?? null}
+        valueExpr="CUSTOMER_ID"
+        displayExpr={displayExpr}
+        opened={opened}
+        deferRendering={false}
+        showClearButton={true}
+        placeholder={placeholder}
+        dropDownOptions={{ width: 920 }}
+        onOptionChanged={(e) => {
+          if (e.name === "opened") {
+            setOpened(Boolean(e.value))
+          }
+        }}
+        onValueChanged={(e) => {
+          if (e.value == null) {
+            clearCustomer()
+          }
+        }}
+        contentRender={() => (
+          <div style={{ height: 320 }}>
+            <DataGrid
+              dataSource={customers}
+              keyExpr="CUSTOMER_ID"
+              selectedRowKeys={selectedRowKeys}
+              hoverStateEnabled={true}
+              focusedRowEnabled={true}
+              height="100%"
+              showBorders={true}
+              noDataText={loading ? "Loading..." : "No data"}
+              onSelectionChanged={(e) => {
+                const selected = e.selectedRowsData?.[0] as CustomerExt | undefined
+                if (selected) {
+                  applyCustomer(selected)
+                }
+              }}
+              onRowDblClick={(e) => {
+                if (e.data) {
+                  applyCustomer(e.data as CustomerExt)
+                }
+              }}
+            >
+              <Selection mode="single" />
+              <FilterRow visible={true} />
+              <Scrolling mode="virtual" />
+              <Paging enabled={true} pageSize={10} />
+
+              <Column dataField="CUSTOMER_CD" caption="Mã KH" width={130} />
+              <Column
+                dataField="CUSTOMER_NM_VIET"
+                caption="Tên khách hàng"
+                calculateCellValue={(rowData: CustomerExt) =>
+                  rowData.CUSTOMER_NM_VIET ?? rowData.CUSTOMER_NM_VIET ?? ""
+                }
+              />
+              <Column dataField="TAX_CD" caption="MST" width={150} />
+              <Column dataField="TEL" caption="Điện thoại" width={130} />
+            </DataGrid>
+          </div>
+        )}
+      >
+        <DropDownBoxButton name="dropDown" location="after" />
+        <DropDownBoxButton
+          name="openCustomerPopup"
+          location="after"
+          options={{
+            icon: "search",
+            stylingMode: "text",
+            hint: "Mở danh sách khách hàng",
+            onClick: () => setPopupVisible(true),
+          }}
+        />
+      </DropDownBox>
+
+      <Popup
+        visible={popupVisible}
+        title={popupTitle}
+        showTitle={true}
+        width="95vw"
+        height="90vh"
+        dragEnabled={false}
+        hideOnOutsideClick={false}
+        onHiding={() => setPopupVisible(false)}
+      >
+        <CustomerExtManager
+          mode="lookup"
+          hideToolbar={true}
+          onPickCustomer={applyCustomer}
+          onCloseLookup={() => setPopupVisible(false)}
+        />
+      </Popup>
+    </>
+  )
+}

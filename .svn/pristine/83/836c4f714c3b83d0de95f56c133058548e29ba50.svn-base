@@ -1,0 +1,165 @@
+import type { MenuItem, MenuApiResponse, MenuTreeNode } from "@/types/menu";
+import { getAccessToken } from "@/lib/login";
+
+// API Configuration
+import API_BASE_URL from "../config/apiConfig";
+
+const API_MENU_LIST = `${API_BASE_URL}/menu/list`;
+
+/**
+ * Fetch menu list from API
+ * @returns Promise with menu items array
+ */
+export async function fetchMenuList(): Promise<MenuItem[]> {
+  try {
+    // Get authentication token from localStorage
+    const token = getAccessToken();
+
+    if (!token) {
+      throw new Error("Authentication token not found. Please login again.");
+    }
+
+    const response = await fetch(API_MENU_LIST, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch menu list: ${response.statusText}`);
+    }
+
+    const result: MenuApiResponse = await response.json();
+
+    if (!result.Success) {
+      throw new Error(result.Message || "Failed to fetch menu list");
+    }
+
+    return result.Data || [];
+  } catch (error) {
+    console.error("Error fetching menu list:", error);
+    throw error;
+  }
+}
+
+/**
+ * Convert flat menu array to hierarchical tree structure
+ * @param menuItems - Flat array of menu items from API
+ * @returns Hierarchical tree structure
+ */
+export function buildMenuTree(menuItems: MenuItem[]): MenuTreeNode[] {
+  // Transform API format to internal format
+  const transformedItems: MenuTreeNode[] = menuItems.map((item) => ({
+    id: item.MENU_ID,
+    code: item.MENU_CODE,
+    name: item.MENU_NAME,
+    parentId: item.PARENT_ID,
+    routePath: item.ROUTE_PATH,
+    icon: item.ICON,
+    sortOrder: item.SORT_ORDER,
+    isActive: item.IS_ACTIVE,
+    isVisible: item.IS_VISIBLE,
+    isDisabled: item.IS_DISABLED,
+    children: [],
+  }));
+
+  // Filter only visible and active items
+  const visibleItems = transformedItems.filter(
+    (item) => item.isVisible && item.isActive
+  );
+
+  // Create a map for quick lookup
+  const itemMap = new Map<string, MenuTreeNode>();
+  visibleItems.forEach((item) => {
+    itemMap.set(item.id, { ...item, children: [] });
+  });
+
+  // Build tree structure
+  const rootItems: MenuTreeNode[] = [];
+
+  visibleItems.forEach((item) => {
+    const node = itemMap.get(item.id);
+    if (!node) return;
+
+    if (!item.parentId) {
+      // Root level item
+      rootItems.push(node);
+    } else {
+      // Child item - add to parent's children
+      const parent = itemMap.get(item.parentId);
+      if (parent) {
+        if (!parent.children) {
+          parent.children = [];
+        }
+        parent.children.push(node);
+      } else {
+        // If parent not found, treat as root item
+        rootItems.push(node);
+      }
+    }
+  });
+
+  // Sort items by sortOrder at each level
+  const sortByOrder = (nodes: MenuTreeNode[]) => {
+    nodes.sort((a, b) => a.sortOrder - b.sortOrder);
+    nodes.forEach((node) => {
+      if (node.children && node.children.length > 0) {
+        sortByOrder(node.children);
+      }
+    });
+  };
+
+  sortByOrder(rootItems);
+
+  return rootItems;
+}
+
+/**
+ * Find menu item by ID in tree structure
+ * @param tree - Menu tree
+ * @param menuId - Menu item ID to find
+ * @returns Menu item or null if not found
+ */
+export function findMenuById(
+  tree: MenuTreeNode[],
+  menuId: string
+): MenuTreeNode | null {
+  for (const node of tree) {
+    if (node.id === menuId) {
+      return node;
+    }
+    if (node.children && node.children.length > 0) {
+      const found = findMenuById(node.children, menuId);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/**
+ * Get path from root to target menu item
+ * @param tree - Menu tree
+ * @param menuId - Target menu item ID
+ * @param path - Current path (used for recursion)
+ * @returns Array of menu IDs from root to target
+ */
+export function getMenuPath(
+  tree: MenuTreeNode[],
+  menuId: string,
+  path: string[] = []
+): string[] | null {
+  for (const node of tree) {
+    const currentPath = [...path, node.id];
+    if (node.id === menuId) {
+      return currentPath;
+    }
+    if (node.children && node.children.length > 0) {
+      const found = getMenuPath(node.children, menuId, currentPath);
+      if (found) return found;
+    }
+  }
+  return null;
+}

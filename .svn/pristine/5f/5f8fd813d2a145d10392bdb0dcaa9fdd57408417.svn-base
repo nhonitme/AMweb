@@ -1,0 +1,33 @@
+import { useContext } from "react";
+import { Column } from "devextreme-react/data-grid";
+import { LanguageContext } from '@/lib/i18nLoader';
+
+export interface BankColumnsProps {
+  colLabels?: Record<string, string>;
+}
+
+export const BankColumns: React.FC<BankColumnsProps> = ({ colLabels = {} }) => {
+  const { translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string };
+  const t = (k: string, f: string) => (translate ? translate(k, f) : f);
+  const label = (field: string, fallback: string) => colLabels[field] ?? t(field, fallback);
+
+  return (
+    <>
+      <Column dataField="BANK_ID" caption={label('BANK_ID', 'Bank ID')} visible={false} />
+      <Column dataField="COMPANY_CD" caption={label('COMPANY_CD', 'Company')} visible={false} />
+      <Column dataField="BANK_CD" caption={label('BANK_CD', 'Bank Code')} width={150} />
+      <Column dataField="BANK_NM" caption={label('BANK_NM', 'Bank Name')} width={250} />
+      <Column dataField="ACC_CD" caption={label('ACC_CD', 'Account Code')} width={180} />
+      <Column dataField="PASSBOOK_NM" caption={label('PASSBOOK_NM', 'Account Name')} width={200} />
+      <Column dataField="ACCOUNT_NUM" caption={label('ACCOUNT_NUM', 'Account Number')} width={200} />
+      <Column dataField="CITAD_CODE" caption={label('CITAD_CODE', 'Citad Code')} width={150} />
+      <Column dataField="REMARK" caption={label('REMARK', 'Remark')} width={250} />
+      <Column dataField="USERID" caption={label('USERID', 'User')} width={150} visible={false} />
+      <Column dataField="ISDEL" caption={label('ISDEL', 'Deleted')} width={90} visible={false} />
+      <Column dataField="CREATED_AT" caption={label('CREATED_AT', 'Created At')} dataType="datetime" width={180} visible={false} />
+      <Column dataField="UPDATED_AT" caption={label('UPDATED_AT', 'Updated At')} dataType="datetime" width={180} visible={false} />
+    </>
+  );
+};
+
+export default BankColumns;

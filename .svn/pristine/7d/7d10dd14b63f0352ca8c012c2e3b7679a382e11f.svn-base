@@ -1,0 +1,37 @@
+import { useContext } from "react";
+import { Column } from "devextreme-react/data-grid";
+
+import { LanguageContext } from "@/lib/i18nLoader";
+
+export function UserInfoColumns() {
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string;
+  };
+
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback);
+
+  return (
+    <>
+      <Column dataField="COMPANY_CD" caption={t("COMPANY_CD", "Company")} visible={false} />
+      <Column dataField="USERID" caption={t("USERID", "User ID")} width={180} />
+      <Column dataField="USERNM" caption={t("USERNM", "User Name")} minWidth={180} />
+      <Column dataField="DEPARTMENT_CD" caption={t("DEPARTMENT_CD", "Department")} width={140} />
+      <Column dataField="USERLV" caption={t("USERLV", "Level")} width={90} alignment="center" />
+      <Column dataField="USER_TEL" caption={t("USER_TEL", "Phone")} width={140} />
+      <Column dataField="TEAM_NUMBER" caption={t("TEAM_NUMBER", "Team")} width={120} />
+      <Column dataField="CANLOGIN" caption={t("CANLOGIN", "Can Login")} dataType="boolean" width={110} />
+      <Column dataField="CAN_LOCK" caption={t("CAN_LOCK", "Locked")} dataType="boolean" width={90} />
+      <Column dataField="IS_MANAGER" caption={t("IS_MANAGER", "Manager")} dataType="boolean" width={110} />
+      <Column
+        dataField="PASSWD"
+        caption={t("PASSWD", "Password")}
+        width={130}
+        cellRender={({ data }) => (
+          <span className="opacity-70">{data?.HAS_PASSWORD ? "********" : ""}</span>
+        )}
+      />
+    </>
+  );
+}
+
+export default UserInfoColumns;

@@ -1,0 +1,45 @@
+import React, { useContext, useMemo } from "react";
+import { Form as DxForm } from "devextreme-react/data-grid";
+import { Item as DxItem } from "devextreme-react/form";
+import { LanguageContext } from "@/lib/i18nLoader";
+import { bankFields, bankFieldGroups } from "../Columns/BankColumns";
+
+type BankFormItem = {
+  dataField: string;
+  label: { text: string };
+};
+
+export default function BankForm() {
+  const { translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string; lang: string };
+  const t = (k: string, f: string) => (translate ? translate(k, f) : f);
+
+  const fieldMap = useMemo(() => Object.fromEntries(bankFields.map((f) => [f.key, f.caption])), []);
+
+  const items = useMemo<BankFormItem[]>(() => {
+    const groupKeys = ["basic", "contact", "address", "other"] as const;
+
+    const hiddenKeys = new Set(["BANK_ID", "COMPANY_CD", "USERID", "ISDEL", "CREATED_AT", "UPDATED_AT"]);
+
+    const visibleKeys = groupKeys.flatMap((group) => bankFieldGroups[group] ?? []).filter((key) => !hiddenKeys.has(key));
+
+    return visibleKeys
+      .map((key) => {
+        const caption = fieldMap[key] ?? key;
+        return {
+          dataField: key,
+          label: { text: t(key, caption) },
+        };
+      })
+      .filter((item) => Boolean(item.label.text));
+  }, [fieldMap, t]);
+
+  return (
+    <div className="bank-form">
+      <DxForm colCount={2} labelLocation="top" width="100%">
+        {items.map((item) => (
+          <DxItem key={item.dataField} dataField={item.dataField} label={item.label} />
+        ))}
+      </DxForm>
+    </div>
+  );
+}

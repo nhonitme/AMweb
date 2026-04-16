@@ -1,0 +1,137 @@
+import { loadMessages, locale } from 'devextreme/localization';
+import { getCurrentLang } from '@/utils/language';
+import { getLanguages } from '@/api/LanguagesApi';
+
+// Base messages for supported languages
+export const messages: Record<string, Record<string, string>> = {
+  vi: {
+    "dxDataGrid-editingSaveAllChanges": "Lưu",
+    "dxDataGrid-editingCancelAllChanges": "Hủy",
+    "dxDataGrid-editingSaveRowChanges": "Lưu",
+    "dxDataGrid-editingCancelRowChanges": "Hủy",
+    "dxPopup-ok": "Lưu",
+    "dxPopup-cancel": "Hủy",
+    "dxDataGrid-editingEditRow": "Sửa",
+    "dxDataGrid-editingDeleteRow": "Xóa",
+    "dxDataGrid-editingAddRow": "Thêm",
+    "dxDataGrid-confirmDeleteMessage": "Bạn có chắc muốn xóa không?"
+  },
+  en: {
+    "dxDataGrid-editingSaveAllChanges": "Save",
+    "dxDataGrid-editingCancelAllChanges": "Cancel",
+    "dxDataGrid-editingSaveRowChanges": "Save",
+    "dxDataGrid-editingCancelRowChanges": "Cancel",
+    "dxPopup-ok": "Save",
+    "dxPopup-cancel": "Cancel",
+    "dxDataGrid-editingEditRow": "Edit",
+    "dxDataGrid-editingDeleteRow": "Delete",
+    "dxDataGrid-editingAddRow": "Add",
+    "dxDataGrid-confirmDeleteMessage": "Are you sure you want to delete?"
+  },
+  zh: {
+    "dxDataGrid-editingSaveAllChanges": "保存",
+    "dxDataGrid-editingCancelAllChanges": "取消",
+    "dxDataGrid-editingSaveRowChanges": "保存",
+    "dxDataGrid-editingCancelRowChanges": "取消",
+    "dxPopup-ok": "保存",
+    "dxPopup-cancel": "取消",
+    "dxDataGrid-editingEditRow": "编辑",
+    "dxDataGrid-editingDeleteRow": "删除",
+    "dxDataGrid-editingAddRow": "新增",
+    "dxDataGrid-confirmDeleteMessage": "您确定要删除吗？"
+  },
+  ko: {
+    "dxDataGrid-editingSaveAllChanges": "저장",
+    "dxDataGrid-editingCancelAllChanges": "취소",
+    "dxDataGrid-editingSaveRowChanges": "저장",
+    "dxDataGrid-editingCancelRowChanges": "취소",
+    "dxPopup-ok": "저장",
+    "dxPopup-cancel": "취소",
+    "dxDataGrid-editingEditRow": "수정",
+    "dxDataGrid-editingDeleteRow": "삭제",
+    "dxDataGrid-editingAddRow": "추가",
+    "dxDataGrid-confirmDeleteMessage": "정말로 삭제하시겠습니까?"
+  },
+  ja: {
+    "dxDataGrid-editingSaveAllChanges": "保存",
+    "dxDataGrid-editingCancelAllChanges": "キャンセル",
+    "dxDataGrid-editingSaveRowChanges": "保存",
+    "dxDataGrid-editingCancelRowChanges": "キャンセル",
+    "dxPopup-ok": "保存",
+    "dxPopup-cancel": "キャンセル",
+    "dxDataGrid-editingEditRow": "編集",
+    "dxDataGrid-editingDeleteRow": "削除",
+    "dxDataGrid-editingAddRow": "追加",
+    "dxDataGrid-confirmDeleteMessage": "削除してもよろしいですか？"
+  }
+};
+
+// Overwrite/merge app-provided labels into messages
+function mergeLabelsIntoMessages(labels: any[]) {
+  messages.vi ||= {};
+  messages.en ||= {};
+  messages.zh ||= {};
+  messages.ko ||= {};
+  messages.ja ||= {};
+
+  for (const lbl of labels || []) {
+    const anyLbl = lbl as any;
+    const key = String(anyLbl.KEY ?? anyLbl.key ?? '');
+    if (!key) continue;
+
+    // overwrite app-specific keys so updates show immediately
+    messages.vi[key] = anyLbl.VIET ?? '';
+    messages.en[key] = anyLbl.ENG ?? '';
+    messages.zh[key] = anyLbl.CHN ?? '';
+    messages.ko[key] = anyLbl.KOR ?? '';
+    messages.ja[key] = anyLbl.JPN ?? '';
+  }
+}
+
+const defaultCacheKey = 'appLabels_v1';
+
+export function initMessagesFromCache(cacheKey = defaultCacheKey) {
+  try {
+    const raw = localStorage.getItem(cacheKey);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed._ts && Array.isArray(parsed.data)) {
+        mergeLabelsIntoMessages(parsed.data);
+      }
+    }
+  } catch (err) {
+    // ignore cache errors
+  }
+}
+
+export async function refreshLanguages(cacheKey = defaultCacheKey, timeoutMs = 5000) {
+  try {
+    const timeout = (ms: number) => new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms));
+    const result = await Promise.race([getLanguages(), timeout(timeoutMs)]) as any;
+    if (!Array.isArray(result)) return;
+
+    // compare with cache
+    let cached: any[] = [];
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.data)) cached = parsed.data;
+      }
+    } catch {}
+
+    const changed = JSON.stringify(result) !== JSON.stringify(cached);
+    if (changed) {
+      mergeLabelsIntoMessages(result);
+      loadMessages(messages);
+      // re-apply current locale to ensure UI picks up new strings
+      locale(getCurrentLang());
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify({ _ts: Date.now(), data: result }));
+      } catch {}
+    }
+  } catch (err) {
+    // background failures are non-fatal
+    console.debug('refreshLanguages failed', err);
+  }
+}

@@ -1,0 +1,83 @@
+import { useContext } from "react";
+import { AsyncRule, Column, RequiredRule } from "devextreme-react/data-grid";
+import { LanguageContext } from '@/lib/i18nLoader';
+import type { AsyncValidationCallback } from "@/pages/validationUtils";
+
+export type BankFieldGroup = "basic" | "contact" | "address" | "other";
+
+export type BankField = {
+  key: string;
+  caption: string;
+};
+
+export const bankFields: BankField[] = [
+  { key: "BANK_ID", caption: "Bank ID" },
+  { key: "COMPANY_CD", caption: "Company" },
+  { key: "BANK_CD", caption: "Bank Code" },
+  { key: "BANK_NM", caption: "Bank Name" },
+  { key: "ACC_CD", caption: "Account Code" },
+  { key: "PASSBOOK_NM", caption: "Account Name" },
+  { key: "ACCOUNT_NUM", caption: "Account Number" },
+  { key: "CITAD_CODE", caption: "Citad Code" },
+  { key: "REMARK", caption: "Remark" },
+  { key: "USERID", caption: "User" },
+  { key: "ISDEL", caption: "Deleted" },
+  { key: "CREATED_AT", caption: "Created At" },
+  { key: "UPDATED_AT", caption: "Updated At" },
+];
+
+export const bankFieldGroups: Record<BankFieldGroup, string[]> = {
+  basic: ["BANK_CD", "BANK_NM", "ACC_CD", "PASSBOOK_NM", "ACCOUNT_NUM"],
+  contact: ["CITAD_CODE", "REMARK"],
+  address: [],
+  other: ["USERID", "ISDEL", "CREATED_AT", "UPDATED_AT"],
+};
+
+type BankColumnsProps = {
+  validateBankCd: AsyncValidationCallback<{ BANK_ID?: number }>;
+};
+
+export const BankColumns: React.FC<BankColumnsProps> = ({ validateBankCd }) => {
+  const { translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string };
+  const t = (k: string, f: string) => translate(k, f);
+
+  const visibleFieldKeys = new Set(["BANK_CD", "BANK_NM", "ACC_CD", "PASSBOOK_NM", "ACCOUNT_NUM", "CITAD_CODE", "REMARK"]);
+  const widthMap: Record<string, number> = {
+    BANK_CD: 150,
+    BANK_NM: 250,
+    ACC_CD: 180,
+    PASSBOOK_NM: 200,
+    ACCOUNT_NUM: 200,
+    CITAD_CODE: 150,
+    REMARK: 250,
+  };
+
+  return (
+    <>
+      {bankFields
+        .filter((field) => visibleFieldKeys.has(field.key))
+        .map((field) =>
+          field.key === "BANK_CD" ? (
+            <Column
+              key={field.key}
+              dataField={field.key}
+              caption={t(field.key, field.caption)}
+              width={widthMap[field.key]}
+            >
+              <RequiredRule message={t("MSG_MUST_ITEM", "Bank code is required")} />
+              <AsyncRule message={t("MsgEqualCode", "Bank code already exists")} validationCallback={validateBankCd} />
+            </Column>
+          ) : (
+            <Column
+              key={field.key}
+              dataField={field.key}
+              caption={t(field.key, field.caption)}
+              width={widthMap[field.key]}
+            />
+          ),
+        )}
+    </>
+  );
+};
+
+export default BankColumns;

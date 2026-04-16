@@ -1,0 +1,103 @@
+import type { AxiosResponse } from "axios"
+
+import axios from "./axiosClient"
+import API_BASE_URL from "../config/apiConfig"
+import type { ChitNoteApi, ChitNoteLedger, ChitNoteType } from "@/types/chitNote"
+
+type ApiEnvelope<T> = {
+  Data?: T
+  Message?: string
+  Success?: boolean
+  data?: T
+  message?: string
+  success?: boolean
+}
+
+function unwrapPayload<T>(response: AxiosResponse<ApiEnvelope<T> | T>): ApiEnvelope<T> | T {
+  return response.data
+}
+
+function normalizeResponse<T>(
+  response: AxiosResponse<ApiEnvelope<T> | T>,
+): { data: T; message?: string; success?: boolean } {
+  const payload = unwrapPayload(response)
+  const envelope = (payload as ApiEnvelope<T>).Data ?? (payload as ApiEnvelope<T>).data
+
+  return {
+    data: (envelope ?? payload) as T,
+    message: (payload as ApiEnvelope<T>).Message ?? (payload as ApiEnvelope<T>).message ?? "",
+    success: (payload as ApiEnvelope<T>).Success ?? (payload as ApiEnvelope<T>).success ?? true,
+  }
+}
+
+function getBaseUrl(ledger: ChitNoteLedger, noteType?: ChitNoteType): string {
+  if (ledger === "AP" && noteType === "PURCHASE_VOUCHER") {
+    return `${API_BASE_URL}/PurchaseVoucherAp`
+  }
+
+  return `${API_BASE_URL}/${ledger === "AP" ? "ChitNoteAp" : "ChitNoteAr"}`
+}
+
+export async function getChitNotes(
+  ledger: ChitNoteLedger,
+  noteType?: ChitNoteType,
+): Promise<{ data: ChitNoteApi[] }> {
+  const response = await axios.get<ApiEnvelope<ChitNoteApi[]>>(`${getBaseUrl(ledger, noteType)}/Get`, {
+    params: undefined,
+  })
+  const { data } = normalizeResponse<ChitNoteApi[]>(response)
+
+  return { data: Array.isArray(data) ? data : [] }
+}
+
+export async function getChitNoteById(
+  ledger: ChitNoteLedger,
+  chitId: number,
+  noteType?: ChitNoteType,
+): Promise<ChitNoteApi | null> {
+  const response = await axios.get<ApiEnvelope<ChitNoteApi[]>>(`${getBaseUrl(ledger, noteType)}/Get`, {
+    params: {
+      CHIT_ID: chitId,
+      INCLUDE_DETAILS: true,
+    },
+  })
+  const { data } = normalizeResponse<ChitNoteApi[]>(response)
+  const rows = Array.isArray(data) ? data : []
+
+  return rows.length > 0 ? rows[0] : null
+}
+
+export async function createChitNote(
+  ledger: ChitNoteLedger,
+  payload: Partial<ChitNoteApi>,
+  noteType?: ChitNoteType,
+): Promise<{ data: ChitNoteApi; message?: string }> {
+  const response = await axios.post<ApiEnvelope<ChitNoteApi> | ChitNoteApi>(`${getBaseUrl(ledger, noteType)}/Create`, payload)
+  const { data, message } = normalizeResponse<ChitNoteApi>(response)
+
+  return { data, message }
+}
+
+export async function updateChitNote(
+  ledger: ChitNoteLedger,
+  payload: Partial<ChitNoteApi>,
+  noteType?: ChitNoteType,
+): Promise<{ data: ChitNoteApi; message?: string }> {
+  const response = await axios.put<ApiEnvelope<ChitNoteApi> | ChitNoteApi>(`${getBaseUrl(ledger, noteType)}/Update`, payload)
+  const { data, message } = normalizeResponse<ChitNoteApi>(response)
+
+  return { data, message }
+}
+
+export async function deleteChitNote(
+  ledger: ChitNoteLedger,
+  chitId: number,
+  noteType?: ChitNoteType,
+): Promise<{ success: boolean; message?: string }> {
+  const response = await axios.delete<ApiEnvelope<number>>(`${getBaseUrl(ledger, noteType)}/Delete`, {
+    params: { CHIT_ID: chitId },
+  })
+  const { success, message } = normalizeResponse<number>(response)
+
+  return { success: success ?? true, message }
+}

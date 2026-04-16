@@ -1,0 +1,279 @@
+import { forwardRef, useCallback, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, type ComponentType } from "react"
+import { Button } from "devextreme-react"
+import DataGrid, { Toolbar, Item, Editing, FilterRow, FilterPanel } from "devextreme-react/data-grid"
+import TextBox from "devextreme-react/text-box"
+import type dxDataGrid from "devextreme/ui/data_grid"
+import type { ContentReadyEvent, FocusedRowChangedEvent, InitializedEvent, SavedEvent } from "devextreme/ui/data_grid"
+
+import { LanguageContext } from "@/lib/i18nLoader"
+import { useInlineGridSearch } from "@/components/datagrid/gridSearch"
+import type { ChitDetail } from "@/types/voucher"
+import {
+  calculateChitAmount,
+  cloneChitDetail,
+  createDefaultChitDetail,
+  normalizeChitDetailRows,
+} from "../chitUtils"
+export interface ChitDetailGridHandle {
+  savePendingChanges: () => Promise<ChitDetail[]>
+  addRow: () => void
+  deleteFocusedRow: () => void
+  focusSearch: () => void
+}
+
+interface ChitDetailGridProps {
+  companyCd: string
+  details: ChitDetail[]
+  onChange: (rows: ChitDetail[], amount: number) => void
+  height?: number
+  ChitDetailColumns?: ComponentType | undefined
+}
+
+const DEFAULT_ROW_HEIGHT = 38
+const DEFAULT_CHROME_HEIGHT = 118
+const DEFAULT_MAX_GRID_HEIGHT = 420
+const VIEWPORT_VERTICAL_OFFSET = 430
+
+function getElementHeight(element: Element | null) {
+  if (!(element instanceof HTMLElement)) {
+    return 0
+  }
+
+  return Math.ceil(element.getBoundingClientRect().height)
+}
+
+export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGridProps>(
+  function ChitDetailGrid({ companyCd, details, onChange, height, ChitDetailColumns }, ref) {
+    const gridRef = useRef<dxDataGrid<ChitDetail, string> | null>(null)
+    const containerRef = useRef<HTMLDivElement | null>(null)
+    const searchContainerRef = useRef<HTMLDivElement | null>(null)
+    const [rowHeight, setRowHeight] = useState(DEFAULT_ROW_HEIGHT)
+    const [chromeHeight, setChromeHeight] = useState(DEFAULT_CHROME_HEIGHT)
+    const [effectiveRowCount, setEffectiveRowCount] = useState(() => details.length)
+    const [focusedRowKey, setFocusedRowKey] = useState<string | null>(null)
+    const [viewportHeight, setViewportHeight] = useState(() =>
+      typeof window === "undefined" ? 900 : window.innerHeight,
+    )
+    const { translate } = useContext(LanguageContext) as {
+      translate?: (key: string, fallback?: string) => string
+    }
+    const { searchText, searchVisible, showSearch, handleSearchTextChange, handleSearchEnter } =
+      useInlineGridSearch(gridRef)
+
+    const t = useCallback(
+      (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
+      [translate],
+    )
+
+    const measureGridLayout = useCallback(() => {
+      const container = containerRef.current
+      if (!container) {
+        return
+      }
+
+      const headerPanelHeight = getElementHeight(container.querySelector(".dx-datagrid-header-panel"))
+      const headersHeight = getElementHeight(container.querySelector(".dx-datagrid-headers"))
+      const filterPanelHeight = getElementHeight(container.querySelector(".dx-datagrid-filter-panel"))
+      const rowElements = Array.from(container.querySelectorAll(".dx-datagrid-rowsview .dx-data-row")).filter(
+        (element) => !(element as HTMLElement).classList.contains("dx-freespace-row"),
+      )
+      const measuredRowHeight = Math.ceil(
+        (rowElements[0] as HTMLElement | undefined)?.getBoundingClientRect().height ?? DEFAULT_ROW_HEIGHT,
+      )
+      const measuredChromeHeight = Math.max(
+        DEFAULT_CHROME_HEIGHT,
+        headerPanelHeight + headersHeight + filterPanelHeight + 4,
+      )
+      const nextRowCount = Math.max(rowElements.length, details.length)
+
+      setRowHeight((current) => (current === measuredRowHeight ? current : measuredRowHeight))
+      setChromeHeight((current) => (current === measuredChromeHeight ? current : measuredChromeHeight))
+      setEffectiveRowCount((current) => (current === nextRowCount ? current : nextRowCount))
+    }, [details.length])
+
+    const syncRows = useCallback(() => {
+      const source = gridRef.current?.option("dataSource")
+      const rows = Array.isArray(source)
+        ? normalizeChitDetailRows(source).map((item) => cloneChitDetail(item))
+        : details.map((item) => cloneChitDetail(item))
+      onChange(rows, calculateChitAmount(rows))
+      return rows
+    }, [details, onChange])
+
+    const focusSearchInput = useCallback(() => {
+      const input = searchContainerRef.current?.querySelector("input.dx-texteditor-input, input") as HTMLInputElement | null
+      input?.focus()
+      input?.select?.()
+    }, [])
+
+    const handleFocusedRowChanged = useCallback((event: FocusedRowChangedEvent<ChitDetail, string>) => {
+      const nextKey = event.row?.key
+      setFocusedRowKey(typeof nextKey === "string" ? nextKey : nextKey != null ? String(nextKey) : null)
+    }, [])
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        savePendingChanges: async () => {
+          if (gridRef.current) {
+            await gridRef.current.saveEditData()
+          }
+
+          return syncRows()
+        },
+        addRow: () => {
+          gridRef.current?.addRow()
+        },
+        deleteFocusedRow: () => {
+          if (!gridRef.current) {
+            return
+          }
+
+          const targetKey = focusedRowKey ?? details[details.length - 1]?.ROW_KEY ?? null
+          if (!targetKey) {
+            return
+          }
+
+          const rowIndex = gridRef.current.getRowIndexByKey(targetKey)
+          if (typeof rowIndex === "number" && rowIndex >= 0) {
+            gridRef.current.deleteRow(rowIndex)
+          }
+        },
+        focusSearch: () => {
+          if (!searchVisible) {
+            showSearch()
+          }
+
+          requestAnimationFrame(() => {
+            focusSearchInput()
+          })
+        },
+      }),
+      [details, focusSearchInput, focusedRowKey, searchVisible, showSearch, syncRows],
+    )
+
+    const handleInitialized = useCallback((event: InitializedEvent<ChitDetail, string>) => {
+      gridRef.current = event.component ?? null
+    }, [])
+
+    const handleContentReady = useCallback(
+      (_event: ContentReadyEvent<ChitDetail, string>) => {
+        requestAnimationFrame(() => {
+          measureGridLayout()
+        })
+      },
+      [measureGridLayout],
+    )
+
+    const handleSaved = useCallback(
+      (_event: SavedEvent<ChitDetail, string>) => {
+        syncRows()
+      },
+      [syncRows],
+    )
+
+    useEffect(() => {
+      if (typeof window === "undefined") {
+        return
+      }
+
+      const handleResize = () => {
+        setViewportHeight(window.innerHeight)
+      }
+
+      window.addEventListener("resize", handleResize)
+      return () => {
+        window.removeEventListener("resize", handleResize)
+      }
+    }, [])
+
+    useEffect(() => {
+      setEffectiveRowCount(details.length)
+      requestAnimationFrame(() => {
+        measureGridLayout()
+      })
+    }, [details.length, measureGridLayout])
+
+    const gridHeight = useMemo(() => {
+      if (height !== undefined) {
+        return height
+      }
+
+      const maxGridHeight = Math.max(240, Math.min(DEFAULT_MAX_GRID_HEIGHT, viewportHeight - VIEWPORT_VERTICAL_OFFSET))
+      const visibleRowCount = Math.max(effectiveRowCount, 1)
+      return Math.min(chromeHeight + visibleRowCount * rowHeight, maxGridHeight)
+    }, [chromeHeight, effectiveRowCount, height, rowHeight, viewportHeight])
+
+    return (
+      <div
+        ref={containerRef}
+        className="w-full overflow-hidden data-grid-container"
+        style={{ height: gridHeight }}
+      >
+        <DataGrid<ChitDetail, string>
+          dataSource={details}
+          keyExpr="ROW_KEY"
+          width="100%"
+          height={gridHeight}
+          showBorders
+          columnAutoWidth
+          rowAlternationEnabled
+          allowColumnResizing
+          allowColumnReordering
+          focusedRowEnabled={true}
+          onInitialized={handleInitialized}
+          onContentReady={handleContentReady}
+          onFocusedRowChanged={handleFocusedRowChanged}
+          onSaved={handleSaved}
+          onInitNewRow={(event) => {
+            setEffectiveRowCount((current) => current + 1)
+            event.data = createDefaultChitDetail(details.length + 1, companyCd)
+          }}
+        >
+          <Editing
+            mode="batch"
+            allowAdding={true}
+            allowUpdating={true}
+            allowDeleting={true}
+            confirmDelete={false}
+            startEditAction="click"
+            selectTextOnEditStart={true}
+            newRowPosition="last"
+          />
+          <FilterRow showOperationChooser={true} />
+          <FilterPanel />
+          <Toolbar>
+            <Item name="addRowButton" location="before" />
+            <Item location="after" locateInMenu="never">
+              <div className="flex items-center gap-2">
+                {searchVisible ? (
+                  <div ref={searchContainerRef}>
+                    <TextBox
+                      width={260}
+                      mode="search"
+                      stylingMode="outlined"
+                      value={searchText}
+                      showClearButton={true}
+                      placeholder={t("Search detail...", "Tìm chi tiết...")}
+                      onValueChanged={(event) => handleSearchTextChange(String(event.value ?? ""))}
+                      onEnterKey={handleSearchEnter}
+                    />
+                  </div>
+                ) : null}
+                <Button
+                  stylingMode="text"
+                  icon="search"
+                  hint={t("Search detail", "Tìm chi tiết")}
+                  onClick={showSearch}
+                />
+              </div>
+            </Item>
+          </Toolbar>
+          {ChitDetailColumns && <ChitDetailColumns />}
+        </DataGrid>
+      </div>
+    )
+  },
+)
+
+export default ChitDetailGridPopup

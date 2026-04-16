@@ -1,0 +1,86 @@
+import SelectBox, { ISelectBoxOptions } from "devextreme-react/select-box";
+import type { FocusOutEvent, KeyDownEvent, ValueChangedEvent } from "devextreme/ui/select_box";
+
+type ReadonlySelectDisplayExpr = ISelectBoxOptions["displayExpr"];
+
+export interface ReadonlySelectProps {
+  id?: string;
+  dataSource: unknown[];
+  value?: string | number | null;
+  valueExpr?: string;
+  displayExpr?: ReadonlySelectDisplayExpr;
+  placeholder?: string;
+  isLoading?: boolean;
+  onValueChanged?: (event: ValueChangedEvent) => void;
+  onFocusOut?: (event: FocusOutEvent) => void;
+  showClearButton?: boolean;
+  showDropDownButton?: boolean;
+}
+
+export function readonlySelectEditorOptions(options: {
+  dataSource: unknown[];
+  valueExpr?: string;
+  displayExpr?: ReadonlySelectDisplayExpr;
+  placeholder?: string;
+  showClearButton?: boolean;
+  showDropDownButton?: boolean;
+}): ISelectBoxOptions {
+  return {
+    dataSource: options.dataSource,
+    valueExpr: options.valueExpr ?? "CODE_CD",
+    displayExpr: options.displayExpr,
+    placeholder: options.placeholder,
+    searchEnabled: false,
+    acceptCustomValue: false,
+    showDropDownButton: options.showDropDownButton ?? true,
+    showClearButton: options.showClearButton ?? true,
+    elementAttr: { class: "readonly-select" },
+    inputAttr: { readOnly: "true" },
+    onKeyDown: (event: KeyDownEvent) => {
+      event.event?.preventDefault();
+    },
+  };
+}
+
+export default function ReadonlySelect({
+  id,
+  dataSource,
+  value,
+  valueExpr = "CODE_CD",
+  displayExpr,
+  placeholder,
+  isLoading,
+  onValueChanged,
+  onFocusOut,
+  showClearButton = true,
+  showDropDownButton = true,
+}: ReadonlySelectProps) {
+  return (
+    <div>
+      <style>{`.readonly-select .dx-clear-button{width:18px;height:18px;padding:0;margin:0}.readonly-select .dx-clear-button .dx-icon{font-size:12px}.readonly-select .dx-texteditor-input{caret-color:transparent;user-select:none}.readonly-select .dx-texteditor-input:focus{outline:none}`}</style>
+      {isLoading ? (
+        <div className="w-full rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-500">Dang tai...</div>
+      ) : (
+        <SelectBox
+          id={id}
+          dataSource={dataSource}
+          valueExpr={valueExpr}
+          displayExpr={displayExpr}
+          value={value}
+          onValueChanged={onValueChanged}
+          onFocusOut={onFocusOut}
+          placeholder={placeholder}
+          searchEnabled={false}
+          showClearButton={showClearButton}
+          showDropDownButton={showDropDownButton}
+          acceptCustomValue={false}
+          elementAttr={{ class: "readonly-select" }}
+          inputAttr={{ readOnly: "true" }}
+          onKeyDown={(event: KeyDownEvent) => {
+            event.event?.preventDefault();
+          }}
+        />
+      )}
+    </div>
+  );
+}

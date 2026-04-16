@@ -1,0 +1,33 @@
+import { Form } from 'devextreme-react/tree-list';
+import { Item } from 'devextreme-react/form';
+
+type AcclistFormProps = {
+  isUpdate: boolean;
+  lblChoose: string;
+  lblAccType: string;
+  data: { VALUE: number; TEXT: string }[];
+};
+
+export function AcclistForm({ isUpdate, lblChoose, lblAccType, data }: AcclistFormProps) {
+  return (
+    <Form colCount={2}>
+      <Item dataField="ACC_CD"/>
+      {<Item dataField="ISABLETYPE"
+        editorType="dxSelectBox" 
+        label={{ text: lblAccType }}
+        editorOptions={{
+          dataSource: data,
+          valueExpr: "VALUE",
+          displayExpr: "TEXT",
+          searchEnabled: true,
+          placeholder: lblChoose,
+          showClearButton: true
+        }}
+      />}
+      <Item dataField="ACCTITLE_NM_VIET" colSpan={2} />
+      <Item dataField="ACCTITLE_NM_ENG" colSpan={2} />
+      <Item dataField="ACCTITLE_NM_KOR" colSpan={2} />
+      <Item dataField="ACCTITLE_NM_CHINA" colSpan={2} />
+    </Form>
+  );
+}

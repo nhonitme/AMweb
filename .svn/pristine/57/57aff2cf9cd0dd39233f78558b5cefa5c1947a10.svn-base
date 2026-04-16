@@ -1,0 +1,37 @@
+import { Form } from 'devextreme-react/data-grid';
+import { Item } from 'devextreme-react/form';
+import type { ITextBoxOptions } from 'devextreme-react/text-box';
+
+const idEditorOptions: ITextBoxOptions = { disabled: true };
+
+export function ProductForm({isUpdate} : {isUpdate: boolean}) {
+  return (
+    <Form colCount={2}>
+      {isUpdate && (
+        <Item dataField="PRODUCT_ID" editorOptions={idEditorOptions} />
+      )}
+      <Item dataField="PRODUCT_CD" />
+      <Item dataField="PRODUCT_NM" colSpan={2} />
+      <Item dataField="PRODUCT_NM_ENG" colSpan={2} />
+      <Item dataField="PRODUCT_NM_KOR" colSpan={2} />
+      <Item dataField="PRODUCT_KIND_CD" />
+      <Item dataField="STORE_CD" />
+      <Item dataField="UNIT_CD" />
+      <Item dataField="DIVISION" />
+      <Item dataField="DIVISION_C99" />
+      <Item dataField="UNIT_PRICE_CC" />
+      <Item dataField="UNIT_PRICE_FC" />
+      <Item dataField="FC_TYPE" />
+      <Item dataField="EX_RATE" />
+      <Item dataField="VAT_RATE" />
+      <Item dataField="SUMMARY" />
+      <Item dataField="ORIGIN" />
+      <Item dataField="CUSTOMS_CODE" />
+      <Item
+        dataField="ISUSE"
+        editorType="dxCheckBox"
+        editorOptions={{ text: "Is Use" }}
+      />
+    </Form>
+  );
+}

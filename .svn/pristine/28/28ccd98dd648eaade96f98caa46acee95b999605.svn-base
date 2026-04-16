@@ -1,0 +1,102 @@
+import React, { forwardRef } from "react";
+import TreeList, {
+  Selection,
+  SearchPanel,
+  FilterRow,
+  HeaderFilter,
+  Pager,
+  Paging,
+  ColumnChooser,
+} from "devextreme-react/tree-list";
+import type dxTreeList from "devextreme/ui/tree_list";
+
+export type BaseTreeListProps<T> = {
+  dataSource: T[];
+  keyExpr: string;
+  parentIdExpr: string;
+  rootValue?: string | number | null;
+
+  id?: string;
+  height?: number | string;
+  showBorders?: boolean;
+  columnAutoWidth?: boolean;
+  wordWrapEnabled?: boolean;
+  defaultExpandedRowKeys?: Array<string | number>;
+
+  allowSearch?: boolean;
+  allowFilterRow?: boolean;
+  allowHeaderFilter?: boolean;
+  allowSelection?: boolean;
+  allowColumnChooser?: boolean;
+  pageSize?: number;
+
+  onRowDblClick?: (e: any) => void;
+  onContextMenuPreparing?: (e: any) => void;
+
+  children?: React.ReactNode;
+};
+
+function BaseTreeListInner<T extends object>(
+  {
+    dataSource,
+    keyExpr,
+    parentIdExpr,
+    rootValue = -1,
+
+    id = "base-tree-list",
+    height = 500,
+    showBorders = true,
+    columnAutoWidth = true,
+    wordWrapEnabled = false,
+    defaultExpandedRowKeys = [],
+
+    allowSearch = true,
+    allowFilterRow = true,
+    allowHeaderFilter = true,
+    allowSelection = true,
+    allowColumnChooser = true,
+    pageSize = 20,
+
+    onRowDblClick,
+    onContextMenuPreparing,
+    children,
+  }: BaseTreeListProps<T>,
+  ref: React.ForwardedRef<dxTreeList | null>
+) {
+  return (
+    <TreeList
+      ref={ref}
+      id={id}
+      dataSource={dataSource}
+      keyExpr={keyExpr}
+      parentIdExpr={parentIdExpr}
+      rootValue={rootValue}
+      showBorders={showBorders}
+      columnAutoWidth={columnAutoWidth}
+      wordWrapEnabled={wordWrapEnabled}
+      defaultExpandedRowKeys={defaultExpandedRowKeys}
+      width="100%"
+      height="100%"
+      onRowDblClick={onRowDblClick}
+      onContextMenuPreparing={onContextMenuPreparing}
+      onRowExpanding={(e) => console.log("expanding", e.key)}
+      onRowCollapsing={(e) => console.log("collapsing", e.key)}
+    >
+      {allowSelection && <Selection mode="single" recursive={false} />}
+      {allowSearch && <SearchPanel visible={true} />}
+      {allowFilterRow && <FilterRow visible={true} />}
+      {allowHeaderFilter && <HeaderFilter visible={true} />}
+      {allowColumnChooser && <ColumnChooser enabled={true} />}
+
+      {children}
+    </TreeList>
+  );
+}
+
+const BaseTreeList = forwardRef(BaseTreeListInner) as <T extends object>(
+  props: BaseTreeListProps<T> & {
+    ref?: React.ForwardedRef<dxTreeList | null>;
+  }
+) => React.ReactElement;
+
+export default BaseTreeList;

@@ -1,0 +1,31 @@
+.menu-search-input {
+  transition: border-color 0.12s ease-in-out, box-shadow 0.12s ease-in-out;
+}
+
+.menu-search-input:focus,
+.menu-search-input:active {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.08) !important;
+  outline: none !important;
+}
+
+.dx-textbox.dx-state-focused .dx-texteditor-outline,
+.dx-texteditor.dx-state-focused .dx-texteditor-outline {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.08) !important;
+}
+
+.dx-textbox .menu-search-input:focus ~ .dx-texteditor-outline,
+.dx-textbox .menu-search-input:focus + .dx-texteditor-outline {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.08) !important;
+}
+
+.menu-search-wrapper .dx-texteditor-outline {
+  transition: border-color 0.12s ease-in-out, box-shadow 0.12s ease-in-out;
+}
+
+.menu-search-wrapper .dx-texteditor-outline.dx-state-focused {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.08) !important;
+}

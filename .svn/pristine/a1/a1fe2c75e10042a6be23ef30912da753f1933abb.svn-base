@@ -1,0 +1,483 @@
+import type {
+  ChitInfo,
+  ChitApi,
+  ChitDateValue,
+  ChitDetail,
+  ChitDetailApi,
+  ChitFlag,
+  ChitText,
+  ChitType,
+} from "@/types/voucher"
+
+const trimText = (value: ChitText): string => (typeof value === "string" ? value.trim() : "")
+
+const normalizeDate = (value: ChitDateValue): ChitDateValue => {
+  if (value == null || value === "") {
+    return value;
+  }
+
+  const formatDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}${month}${day}`;
+  };
+
+  if (value instanceof Date) {
+    return formatDate(value);
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+      return trimmed;
+    }
+
+    // Nếu đã là yyyyMMdd thì giữ nguyên
+    if (/^\d{8}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    // Xóa các ký tự phân cách như -, /, ., khoảng trắng
+    const cleaned = trimmed.replace(/[-/.:\s]/g, "");
+
+    // Ví dụ: 2026-03-26 -> 20260326
+    if (/^\d{8}$/.test(cleaned)) {
+      return cleaned;
+    }
+
+    // Thử parse các dạng string date khác
+    const parsed = new Date(trimmed);
+    if (!isNaN(parsed.getTime())) {
+      return formatDate(parsed);
+    }
+
+    // Không parse được thì trả nguyên
+    return trimmed;
+  }
+
+  return value;
+};
+
+const normalizeNumber = (value: number | string | null | undefined): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
+  return null
+}
+
+const flagText = (value: ChitFlag): string =>
+  typeof value === "boolean" ? (value ? "true" : "false") : trimText(value)
+
+const normalizeFlag = (value: ChitFlag): boolean =>
+  value === true || flagText(value).toLowerCase() === "1" || flagText(value).toLowerCase() === "true"
+
+const toFlag = (value: boolean): "1" | "0" => (value ? "1" : "0")
+
+export const getChitTypeLabel = (
+  noteType: ChitType,
+  translate: (key: string, fallback: string) => string,
+): string => {
+  switch (noteType) {
+    case "CREDIT_NOTE":
+      return translate("CREDIT_NOTE", "Giấy báo nợ")
+    case "PURCHASE_VOUCHER":
+      return translate("PURCHASE_VOUCHER", "Phiếu mua hàng")
+    case "PM":
+      return translate("PAYMENT_VOUCHER", "Phiếu chi")
+    default:
+      return translate("DEBIT_NOTE", "Giấy báo có")
+  }
+}
+
+export const createRowKey = (seed?: number | string | null): string => {
+  if (seed !== null && seed !== undefined && `${seed}`.trim().length > 0) {
+    return `${seed}`
+  }
+
+  return `row_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+}
+
+export const normalizeChitDetail = (record: ChitDetailApi): ChitDetail => ({
+  ROW_KEY: createRowKey(record.CHITDETAIL_ID),
+  CHITDETAIL_ID: normalizeNumber(record.CHITDETAIL_ID),
+  COMPANY_CD: trimText(record.COMPANY_CD),
+  CHIT_ID: normalizeNumber(record.CHIT_ID),
+  CHITDETAIL_CD: trimText(record.CHITDETAIL_CD),
+  CHIT_YMD: normalizeDate(record.CHIT_YMD),
+  CHIT_VMD: normalizeDate(record.CHIT_VMD),
+  DEBIT: trimText(record.DEBIT),
+  CREDIT: trimText(record.CREDIT),
+  DEBIT_NM_VIET: trimText(record.DEBIT_NM_VIET),
+  DEBIT_NM_ENG: trimText(record.DEBIT_NM_ENG),
+  DEBIT_NM_KOR: trimText(record.DEBIT_NM_KOR),
+  DEBIT_NM_CHINA: trimText(record.DEBIT_NM_CHINA),
+  CREDIT_NM_VIET: trimText(record.CREDIT_NM_VIET),
+  CREDIT_NM_ENG: trimText(record.CREDIT_NM_ENG),
+  CREDIT_NM_KOR: trimText(record.CREDIT_NM_KOR),
+  CREDIT_NM_CHINA: trimText(record.CREDIT_NM_CHINA),
+  AMOUNT: normalizeNumber(record.AMOUNT),
+  FC_AMOUNT: normalizeNumber(record.FC_AMOUNT),
+  FC_TYPE: trimText(record.FC_TYPE),
+  FC_RATE: normalizeNumber(record.FC_RATE),
+  FC_DATETIME: normalizeDate(record.FC_DATETIME),
+  SORT: normalizeNumber(record.SORT),
+  ISDEL: normalizeFlag(record.ISDEL),
+  CHITDETAIL_VAT_CD: trimText(record.CHITDETAIL_VAT_CD),
+  MG_CD: trimText(record.MG_CD),
+  MG_CD_2: trimText(record.MG_CD_2),
+  MR_CD: trimText(record.MR_CD),
+  MR_CD2: trimText(record.MR_CD2),
+  BANK_CD: trimText(record.BANK_CD),
+  BANK_OWN_CD: trimText(record.BANK_OWN_CD),
+  CUSTOMER_CD: trimText(record.CUSTOMER_CD),
+  CUSTOMER_NM_VIET: trimText(record.CUSTOMER_NM_VIET),
+  CUSTOMER_NM_ENG: trimText(record.CUSTOMER_NM_ENG),
+  CUSTOMER_NM_KOR: trimText(record.CUSTOMER_NM_KOR),
+  CUSTOMER_NM_CHINA: trimText(record.CUSTOMER_NM_CHINA),
+  CUSTOMER_OWN_CD: trimText(record.CUSTOMER_OWN_CD),
+  DEPARTMENT_CD: trimText(record.DEPARTMENT_CD),
+  DEPARTMENT_CD_2: trimText(record.DEPARTMENT_CD_2),
+  HASINVENTORY: normalizeFlag(record.HASINVENTORY),
+  INVENTORY_YMD: normalizeDate(record.INVENTORY_YMD),
+  ISPAY: normalizeFlag(record.ISPAY),
+  ISCOLLECT: normalizeFlag(record.ISCOLLECT),
+  VAT_INPUT_CD: trimText(record.VAT_INPUT_CD),
+  VAT_INPUT_CD2: trimText(record.VAT_INPUT_CD2),
+  PRODUCT_NM: trimText(record.PRODUCT_NM),
+  UNIT_NM: trimText(record.UNIT_NM),
+  QUANTITY: normalizeNumber(record.QUANTITY),
+  UNIT_PRICE: normalizeNumber(record.UNIT_PRICE),
+  PRODUCT_AMOUNT: normalizeNumber(record.PRODUCT_AMOUNT),
+  VAT_TYPE: trimText(record.VAT_TYPE),
+  PERCENT: normalizeNumber(record.PERCENT),
+  PRODUCT_VAT_AMOUNT: normalizeNumber(record.PRODUCT_VAT_AMOUNT),
+  PRODUCT_NOTE: trimText(record.PRODUCT_NOTE),
+  VAT_SERIAL_NO: trimText(record.VAT_SERIAL_NO),
+  VAT_CHIT_NO: trimText(record.VAT_CHIT_NO),
+  VAT_CHIT_NO_2: trimText(record.VAT_CHIT_NO_2),
+  VAT_AMOUNT: normalizeNumber(record.VAT_AMOUNT),
+  VAT_TAXABLE_AMOUNT: normalizeNumber(record.VAT_TAXABLE_AMOUNT),
+  FO_VAT_AMOUNT: normalizeNumber(record.FO_VAT_AMOUNT),
+  VAT_ISFREE: normalizeFlag(record.VAT_ISFREE),
+  VAT_INVOICE_CD: trimText(record.VAT_INVOICE_CD),
+  VAT_INVOICE_NM: trimText(record.VAT_INVOICE_NM),
+  VAT_INFO_TYPE: trimText(record.VAT_INFO_TYPE),
+  VAT_COMPANY_ISSUE: trimText(record.VAT_COMPANY_ISSUE),
+  VAT_COMPANY_ISSUE_ADDRESS: trimText(record.VAT_COMPANY_ISSUE_ADDRESS),
+  VAT_COMPANY_ISSUE_CD: trimText(record.VAT_COMPANY_ISSUE_CD),
+  VAT_COMPANY_TAXCD: trimText(record.VAT_COMPANY_TAXCD),
+  VAT_PRODUCT_NM: trimText(record.VAT_PRODUCT_NM),
+  VAT_ETC: trimText(record.VAT_ETC),
+  VAT_YMD: normalizeDate(record.VAT_YMD),
+  VAT_YMD_2: normalizeDate(record.VAT_YMD_2),
+  VAT_INQUIRY_IN: trimText(record.VAT_INQUIRY_IN),
+  VAT_INQUIRY_CODE: trimText(record.VAT_INQUIRY_CODE),
+  IS_NEXTVAT: normalizeFlag(record.IS_NEXTVAT),
+  UNDEFINE: trimText(record.UNDEFINE),
+  DETAIL_DESCRIPTION_VIET: trimText(record.DETAIL_DESCRIPTION_VIET),
+  DETAIL_DESCRIPTION_ENG: trimText(record.DETAIL_DESCRIPTION_ENG),
+  DETAIL_DESCRIPTION_KOR: trimText(record.DETAIL_DESCRIPTION_KOR),
+  CREATE_BY: trimText(record.CREATE_BY),
+  CREATE_DT: normalizeDate(record.CREATE_DT),
+  MODIFY_BY: trimText(record.MODIFY_BY),
+  MODIFY_DT: normalizeDate(record.MODIFY_DT),
+})
+
+export const normalizeChitDetailRows = (records: ChitDetailApi[]): ChitDetail[] =>
+  records.map(normalizeChitDetail)
+
+export const normalizeChit = (
+  record: ChitApi,
+  fallbackType: ChitType = "DEBIT_NOTE",
+): ChitInfo => ({
+  CHIT_ID: normalizeNumber(record.CHIT_ID),
+  COMPANY_CD: trimText(record.COMPANY_CD),
+  CHIT_CD: trimText(record.CHIT_CD),
+  CHIT_NO: trimText(record.CHIT_NO),
+  CHIT_YMD: normalizeDate(record.CHIT_YMD),
+  CHIT_TYPE: (trimText(record.CHIT_TYPE) || fallbackType) as ChitType,
+  AMOUNT: normalizeNumber(record.AMOUNT),
+  PAYER_INFO: trimText(record.PAYER_INFO),
+  ISDEL: normalizeFlag(record.ISDEL),
+  USERID: trimText(record.USERID),
+  CREATE_BY: trimText(record.CREATE_BY),
+  CREATE_DT: normalizeDate(record.CREATE_DT),
+  MODIFY_BY: trimText(record.MODIFY_BY),
+  MODIFY_DT: normalizeDate(record.MODIFY_DT),
+  IS_LOCK: normalizeFlag(record.IS_LOCK),
+  ISEXCEL: normalizeFlag(record.ISEXCEL),
+  EMAIL_EPAY: trimText(record.EMAIL_EPAY),
+  IS_CONFIRMED: normalizeFlag(record.IS_CONFIRMED),
+  NOTE: trimText(record.NOTE),
+  DAY_OF_PAYMENT: normalizeNumber(record.DAY_OF_PAYMENT),
+  TIME_FOR_PAYMENT: trimText(record.TIME_FOR_PAYMENT),
+  IS_PAYMENT: normalizeFlag(record.IS_PAYMENT),
+  CHIT_CD_COGS: trimText(record.CHIT_CD_COGS),
+  DESCRIPTION_VIET: trimText(record.DESCRIPTION_VIET),
+  DESCRIPTION_ENG: trimText(record.DESCRIPTION_ENG),
+  DESCRIPTION_KOR: trimText(record.DESCRIPTION_KOR),
+  DETAIL_COUNT: normalizeNumber(record.DETAIL_COUNT) ?? 0,
+  DETAILS: normalizeChitDetailRows(record.DETAILS ?? []),
+})
+
+export const normalizeChitRows = (
+  records: ChitApi[],
+  fallbackType: ChitType = "DEBIT_NOTE",
+): ChitInfo[] => records.map((record) => normalizeChit(record, fallbackType))
+
+export const calculateChitAmount = (details: ChitDetail[]): number =>
+  details.reduce((total, item) => total + (item.AMOUNT ?? 0), 0)
+
+export const createDefaultChitDetail = (index: number): ChitDetail => ({
+  ROW_KEY: createRowKey(),
+  CHITDETAIL_ID: -Date.now(),
+  COMPANY_CD: "",
+  CHIT_ID: 0,
+  CHITDETAIL_CD: "",
+  CHIT_YMD: null,
+  CHIT_VMD: null,
+  DEBIT: "",
+  CREDIT: "",
+  DEBIT_NM_VIET: "",
+  DEBIT_NM_ENG: "",
+  DEBIT_NM_KOR: "",
+  DEBIT_NM_CHINA: "",
+  CREDIT_NM_VIET: "",
+  CREDIT_NM_ENG: "",
+  CREDIT_NM_KOR: "",
+  CREDIT_NM_CHINA: "",
+  AMOUNT: 0,
+  FC_AMOUNT: 0,
+  FC_TYPE: "",
+  FC_RATE: 0,
+  FC_DATETIME: null,
+  SORT: 1,
+  ISDEL: false,
+  CHITDETAIL_VAT_CD: "",
+  MG_CD: "",
+  MG_CD_2: "",
+  MR_CD: "",
+  MR_CD2: "",
+  BANK_CD: "",
+  BANK_OWN_CD: "",
+  CUSTOMER_CD: "",
+  CUSTOMER_NM_VIET: "",
+  CUSTOMER_NM_ENG: "",
+  CUSTOMER_NM_KOR: "",
+  CUSTOMER_NM_CHINA: "",
+  CUSTOMER_OWN_CD: "",
+  DEPARTMENT_CD: "",
+  DEPARTMENT_CD_2: "",
+  HASINVENTORY: false,
+  INVENTORY_YMD: null,
+  ISPAY: false,
+  ISCOLLECT: false,
+  VAT_INPUT_CD: "",
+  VAT_INPUT_CD2: "",
+  PRODUCT_NM: "",
+  UNIT_NM: "",
+  QUANTITY: 0,
+  UNIT_PRICE: 0,
+  PRODUCT_AMOUNT: 0,
+  VAT_TYPE: "",
+  PERCENT: 0,
+  PRODUCT_VAT_AMOUNT: 0,
+  PRODUCT_NOTE: "",
+  VAT_SERIAL_NO: "",
+  VAT_CHIT_NO: "",
+  VAT_CHIT_NO_2: "",
+  VAT_AMOUNT: 0,
+  VAT_TAXABLE_AMOUNT: 0,
+  FO_VAT_AMOUNT: 0,
+  VAT_ISFREE: false,
+  VAT_INVOICE_CD: "",
+  VAT_INVOICE_NM: "",
+  VAT_INFO_TYPE: "",
+  VAT_COMPANY_ISSUE: "",
+  VAT_COMPANY_ISSUE_ADDRESS: "",
+  VAT_COMPANY_ISSUE_CD: "",
+  VAT_COMPANY_TAXCD: "",
+  VAT_PRODUCT_NM: "",
+  VAT_ETC: "",
+  VAT_YMD: null,
+  VAT_YMD_2: null,
+  VAT_INQUIRY_IN: "",
+  VAT_INQUIRY_CODE: "",
+  IS_NEXTVAT: false,
+  UNDEFINE: "",
+  DETAIL_DESCRIPTION_VIET: "",
+  DETAIL_DESCRIPTION_ENG: "",
+  DETAIL_DESCRIPTION_KOR: "",
+  CREATE_BY: "",
+  CREATE_DT: null,
+  MODIFY_BY: "",
+  MODIFY_DT: null,
+})
+
+export const  createDefaultChit = (
+  noteType: ChitType,
+): ChitInfo => ({
+  CHIT_ID: null,
+  COMPANY_CD: "",
+  CHIT_CD: "",
+  CHIT_NO: "",
+  CHIT_YMD: new Date(),
+  CHIT_TYPE: noteType,
+  AMOUNT: 0,
+  PAYER_INFO: "",
+  ISDEL: false,
+  USERID: "",
+  CREATE_BY: "",
+  CREATE_DT: null,
+  MODIFY_BY: "",
+  MODIFY_DT: null,
+  IS_LOCK: false,
+  ISEXCEL: false,
+  EMAIL_EPAY: "",
+  IS_CONFIRMED: false,
+  NOTE: "",
+  DAY_OF_PAYMENT: null,
+  TIME_FOR_PAYMENT: "",
+  IS_PAYMENT: false,
+  CHIT_CD_COGS: "",
+  DESCRIPTION_VIET: "",
+  DESCRIPTION_ENG: "",
+  DESCRIPTION_KOR: "",
+  DETAIL_COUNT: 1,
+  DETAILS: [],
+})
+
+export const cloneChitDetail = (record: ChitDetail): ChitDetail => ({
+  ...record,
+  ROW_KEY: record.ROW_KEY || createRowKey(record.CHITDETAIL_ID),
+})
+
+export const cloneChit = (record: ChitInfo): ChitInfo => ({
+  ...record,
+  DETAILS: record.DETAILS.map(cloneChitDetail),
+})
+
+export const mapChitDetailToApiPayload = (record: ChitDetail): ChitDetailApi => ({
+  CHITDETAIL_ID: record.CHITDETAIL_ID,
+  COMPANY_CD: trimText(record.COMPANY_CD),
+  CHIT_ID: record.CHIT_ID,
+  CHITDETAIL_CD: trimText(record.CHITDETAIL_CD),
+  CHIT_YMD: normalizeDate(record.CHIT_YMD),
+  CHIT_VMD: normalizeDate(record.CHIT_VMD),
+  DEBIT: trimText(record.DEBIT),
+  CREDIT: trimText(record.CREDIT),
+  DEBIT_NM_VIET: trimText(record.DEBIT_NM_VIET),
+  DEBIT_NM_ENG: trimText(record.DEBIT_NM_ENG),
+  DEBIT_NM_KOR: trimText(record.DEBIT_NM_KOR),
+  DEBIT_NM_CHINA: trimText(record.DEBIT_NM_CHINA),
+  CREDIT_NM_VIET: trimText(record.CREDIT_NM_VIET),
+  CREDIT_NM_ENG: trimText(record.CREDIT_NM_ENG),
+  CREDIT_NM_KOR: trimText(record.CREDIT_NM_KOR),
+  CREDIT_NM_CHINA: trimText(record.CREDIT_NM_CHINA),
+  AMOUNT: record.AMOUNT ?? 0,
+  FC_AMOUNT: record.FC_AMOUNT ?? 0,
+  FC_TYPE: trimText(record.FC_TYPE),
+  FC_RATE: record.FC_RATE ?? 0,
+  FC_DATETIME: normalizeDate(record.FC_DATETIME),
+  SORT: record.SORT ?? 0,
+  ISDEL: toFlag(record.ISDEL),
+  CHITDETAIL_VAT_CD: trimText(record.CHITDETAIL_VAT_CD),
+  MG_CD: trimText(record.MG_CD),
+  MG_CD_2: trimText(record.MG_CD_2),
+  MR_CD: trimText(record.MR_CD),
+  MR_CD2: trimText(record.MR_CD2),
+  BANK_CD: trimText(record.BANK_CD),
+  BANK_OWN_CD: trimText(record.BANK_OWN_CD),
+  CUSTOMER_CD: trimText(record.CUSTOMER_CD),
+  CUSTOMER_NM_VIET: trimText(record.CUSTOMER_NM_VIET),
+  CUSTOMER_NM_ENG: trimText(record.CUSTOMER_NM_ENG),
+  CUSTOMER_NM_KOR: trimText(record.CUSTOMER_NM_KOR),
+  CUSTOMER_NM_CHINA: trimText(record.CUSTOMER_NM_CHINA),
+  CUSTOMER_OWN_CD: trimText(record.CUSTOMER_OWN_CD),
+  DEPARTMENT_CD: trimText(record.DEPARTMENT_CD),
+  DEPARTMENT_CD_2: trimText(record.DEPARTMENT_CD_2),
+  HASINVENTORY: toFlag(record.HASINVENTORY),
+  INVENTORY_YMD: normalizeDate(record.INVENTORY_YMD),
+  ISPAY: toFlag(record.ISPAY),
+  ISCOLLECT: toFlag(record.ISCOLLECT),
+  VAT_INPUT_CD: trimText(record.VAT_INPUT_CD),
+  VAT_INPUT_CD2: trimText(record.VAT_INPUT_CD2),
+  PRODUCT_NM: trimText(record.PRODUCT_NM),
+  UNIT_NM: trimText(record.UNIT_NM),
+  QUANTITY: record.QUANTITY ?? 0,
+  UNIT_PRICE: record.UNIT_PRICE ?? 0,
+  PRODUCT_AMOUNT: record.PRODUCT_AMOUNT ?? record.AMOUNT ?? 0,
+  VAT_TYPE: trimText(record.VAT_TYPE),
+  PERCENT: record.PERCENT ?? 0,
+  PRODUCT_VAT_AMOUNT: record.PRODUCT_VAT_AMOUNT ?? 0,
+  PRODUCT_NOTE: trimText(record.PRODUCT_NOTE),
+  VAT_SERIAL_NO: trimText(record.VAT_SERIAL_NO),
+  VAT_CHIT_NO: trimText(record.VAT_CHIT_NO),
+  VAT_CHIT_NO_2: trimText(record.VAT_CHIT_NO_2),
+  VAT_AMOUNT: record.VAT_AMOUNT ?? 0,
+  VAT_TAXABLE_AMOUNT: record.VAT_TAXABLE_AMOUNT ?? 0,
+  FO_VAT_AMOUNT: record.FO_VAT_AMOUNT ?? 0,
+  VAT_ISFREE: toFlag(record.VAT_ISFREE),
+  VAT_INVOICE_CD: trimText(record.VAT_INVOICE_CD),
+  VAT_INVOICE_NM: trimText(record.VAT_INVOICE_NM),
+  VAT_INFO_TYPE: trimText(record.VAT_INFO_TYPE),
+  VAT_COMPANY_ISSUE: trimText(record.VAT_COMPANY_ISSUE),
+  VAT_COMPANY_ISSUE_ADDRESS: trimText(record.VAT_COMPANY_ISSUE_ADDRESS),
+  VAT_COMPANY_ISSUE_CD: trimText(record.VAT_COMPANY_ISSUE_CD),
+  VAT_COMPANY_TAXCD: trimText(record.VAT_COMPANY_TAXCD),
+  VAT_PRODUCT_NM: trimText(record.VAT_PRODUCT_NM),
+  VAT_ETC: trimText(record.VAT_ETC),
+  VAT_YMD: normalizeDate(record.VAT_YMD),
+  VAT_YMD_2: normalizeDate(record.VAT_YMD_2),
+  VAT_INQUIRY_IN: trimText(record.VAT_INQUIRY_IN),
+  VAT_INQUIRY_CODE: trimText(record.VAT_INQUIRY_CODE),
+  IS_NEXTVAT: toFlag(record.IS_NEXTVAT),
+  UNDEFINE: trimText(record.UNDEFINE),
+  DETAIL_DESCRIPTION_VIET: trimText(record.DETAIL_DESCRIPTION_VIET),
+  DETAIL_DESCRIPTION_ENG: trimText(record.DETAIL_DESCRIPTION_ENG),
+  DETAIL_DESCRIPTION_KOR: trimText(record.DETAIL_DESCRIPTION_KOR),
+})
+
+export const mapChitToApiPayload = (record: ChitInfo): ChitApi => {
+  const details = record.DETAILS.map((item, index) => ({
+    ...mapChitDetailToApiPayload({
+      ...item,
+      SORT: item.SORT ?? index + 1,
+    }),
+  }))
+  const totalAmount = calculateChitAmount(record.DETAILS)
+
+  return {
+    CHIT_ID: record.CHIT_ID,
+    COMPANY_CD: trimText(record.COMPANY_CD),
+    CHIT_CD: trimText(record.CHIT_CD),
+    CHIT_NO: trimText(record.CHIT_NO),
+    CHIT_YMD: normalizeDate(record.CHIT_YMD),
+    CHIT_TYPE: record.CHIT_TYPE,
+    AMOUNT: record.AMOUNT ?? totalAmount,
+    PAYER_INFO: trimText(record.PAYER_INFO),
+    ISDEL: toFlag(record.ISDEL),
+    USERID: trimText(record.USERID),
+    IS_LOCK: toFlag(record.IS_LOCK),
+    ISEXCEL: toFlag(record.ISEXCEL),
+    EMAIL_EPAY: trimText(record.EMAIL_EPAY),
+    IS_CONFIRMED: toFlag(record.IS_CONFIRMED),
+    NOTE: trimText(record.NOTE),
+    DAY_OF_PAYMENT: record.DAY_OF_PAYMENT,
+    TIME_FOR_PAYMENT: trimText(record.TIME_FOR_PAYMENT),
+    IS_PAYMENT: toFlag(record.IS_PAYMENT),
+    CHIT_CD_COGS: trimText(record.CHIT_CD_COGS),
+    DESCRIPTION_VIET: trimText(record.DESCRIPTION_VIET),
+    DESCRIPTION_ENG: trimText(record.DESCRIPTION_ENG),
+    DESCRIPTION_KOR: trimText(record.DESCRIPTION_KOR),
+    DETAILS: details,
+  }
+}

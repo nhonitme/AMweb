@@ -1,0 +1,27 @@
+import { useContext } from "react"
+import { Column } from "devextreme-react/data-grid"
+
+import { LanguageContext } from "@/lib/i18nLoader"
+
+export function ChitNoteColumns() {
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+
+  return (
+    <>
+      <Column dataField="CHIT_ID" visible={false} showInColumnChooser={false} />
+      <Column dataField="CHIT_TYPE" caption={t("CHIT_TYPE", "Loại phiếu")} width={140} visible={true} showInColumnChooser={false} />
+      <Column dataField="CHIT_CD" caption={t("CHIT_CD", "Mã chứng từ")} width={180} visible={false} showInColumnChooser={false} />
+      <Column dataField="CHIT_YMD" caption={t("CHIT_YMD", "Ngày chứng từ")} dataType="date" format="dd/MM/yyyy" width={130} />
+      <Column dataField="CHIT_NO" caption={t("CHIT_NO", "Số chứng từ")} width={160} />
+      <Column dataField={"DESCRIPTION_VIET"} caption={t("DESCRIPTION", "Diễn giải")} minWidth={220} />
+      <Column dataField="AMOUNT" caption={t("AMOUNT", "Số tiền")} dataType="number" format="#,##0.00" width={140} />
+      <Column dataField="PAYER_INFO" caption={t("lblPayer", "Đối tượng liên quan")} minWidth={140} />
+    </>
+  )
+}
+
+export default ChitNoteColumns

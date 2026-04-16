@@ -1,0 +1,387 @@
+﻿import { useContext, useEffect, useState } from 'react';
+import { BrowserRouter as Router, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import Header from './components/Header';
+import LoginPage from './components/LoginPage';
+import ModuleContent from './components/ModuleContent';
+import Sidebar from './components/Sidebar';
+import DashboardOverview from './components/DashboardOverview';
+import CompanyManagement from "./pages/Module/CompanyManagement/CompanyInfo";
+import DebitNotePage from './pages/VoucherManagement/DebitNotePage';
+import CreditNotePage from './pages/VoucherManagement/CreditNotePage';
+import PurchaseVoucherPage from './pages/VoucherManagement/PurchaseVoucherPage';
+import BankDepositBookPage from './pages/Accounting/BankDepositBookPage';
+import ExchangeRateRecalculationPage from './pages/Accounting/ExchangeRateRecalculationPage';
+import PaymentVoucherPage from './pages/VoucherManagement/PaymentVoucherPage';
+import ReceiptVoucherPage from './pages/VoucherManagement/ReceiptVoucherPage';
+import CostObjectPage from './pages/Module/DepartmentManagement';
+import BankManagementPage from './pages/Module/BankManagementPage/bankInfo';
+import CustomerExtPage from './pages/Module/CustomerManagementPage/CustomerExtPage';
+
+import ProductList from './pages/Module/ProductManagement/ProductPage';
+import ProductKindList from './pages/Module/ProductKindManagement/ProductKindPage';
+
+import StoreList from './pages/Module/StoreManagement/StorePage';
+import StoreKindList from './pages/Module/StoreKindManagement/StoreKindPage';
+import UnitManagementPage from "./pages/Module/UnitManagement";
+import UserManagementPage from "./pages/Module/UserManagementPage/userInfo";
+
+import ManagementInfoPage from './pages/Module/ManagementInfo/ManagementInfoPage';
+import AcclistPage from './pages/Module/AcclistManagement/AcclistPage';
+import { initMessagesDevex, LanguageContext } from '@/lib/i18nLoader';
+import { useSysGridColumnSettings } from '@/lib/sysGridColumnSettingContext';
+import { fetchMenuTree, findMenuById, getMenuPath } from '@/api/menuApi';
+import { getSession, isAuthenticated, logout } from './lib/login';
+import { getCurrentLang } from './utils/language';
+import { MenuTreeNode } from './types/menu';
+import ConfiguredReportViewer from './pages/Reports/ConfiguredReportViewer';
+import ProductUnitList from './pages/Module/ProductUnitManagement/ProductUnitPage';
+import OffsetVoucherPage from './pages/VoucherManagement/OffsetVoucherPage';
+import PurchaseServiceVoucherPage from './pages/VoucherManagement/PurchaseServiceVoucherPage';
+import OtherVoucherPage from './pages/VoucherManagement/OtherVoucherPage';
+import SalesVoucherPage from './pages/VoucherManagement/SalesVoucherPage';
+import ProfilePage from './pages/Profile/ProfilePage';
+
+function AppContent({ onLogout }: { onLogout: () => void }) {
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [menuTree, setMenuTree] = useState<MenuTreeNode[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+        };
+    }, []);
+
+    useEffect(() => {
+        const loadMenu = async () => {
+            setLoading(true);
+            try {
+                const sessionMenu = sessionStorage.getItem('menuTree');
+                if (sessionMenu) {
+                    setMenuTree(JSON.parse(sessionMenu) as MenuTreeNode[]);
+                    return;
+                }
+
+                const nextMenuTree = await fetchMenuTree();
+                setMenuTree(nextMenuTree);
+                sessionStorage.setItem('menuTree', JSON.stringify(nextMenuTree));
+            } catch (error) {
+                console.error('Failed to load menu:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        void loadMenu();
+    }, []);
+
+    const getActiveMenuFromPath = (pathname: string, tree: MenuTreeNode[]): string => {
+        if (pathname === "/") return "dashboard";
+
+        const normalize = (path: string) => (path.endsWith("/") && path !== "/" ? path.slice(0, -1) : path);
+        const normalizedPath = normalize(pathname);
+
+        const flatten = (nodes: MenuTreeNode[], output: MenuTreeNode[] = []) => {
+            for (const node of nodes) {
+                if (node.routePath) {
+                    output.push(node);
+                }
+                if (node.children && node.children.length) {
+                    flatten(node.children, output);
+                }
+            }
+            return output;
+        };
+
+        const candidates = flatten(tree)
+            .filter((node) => node.routePath)
+            .map((node) => ({ ...node, routePath: normalize(node.routePath as string) }));
+
+        let best: MenuTreeNode | null = null;
+        let bestLength = -1;
+        for (const candidate of candidates) {
+            const routePath = candidate.routePath as string;
+            if (normalizedPath === routePath || normalizedPath.startsWith(routePath + "/") || normalizedPath.startsWith(routePath)) {
+                if (routePath.length > bestLength) {
+                    best = candidate;
+                    bestLength = routePath.length;
+                }
+            }
+        }
+
+        return best ? best.id : "";
+    };
+
+    const activeMenu = getActiveMenuFromPath(location.pathname, menuTree);
+    const currentMenuItem = findMenuById(menuTree, activeMenu);
+    const currentMenuTitle = currentMenuItem ? currentMenuItem.name : 'Tổng quan';
+    const currentMenuPath = activeMenu ? getMenuPath(menuTree, activeMenu) : null;
+    const systemMenuTitle =
+        (currentMenuPath && currentMenuPath.length > 0
+            ? findMenuById(menuTree, currentMenuPath[0])?.name
+            : undefined) ?? currentMenuTitle;
+
+    useEffect(() => {
+        if (isMobile) {
+            setSidebarOpen(false);
+        }
+    }, [isMobile]);
+
+    useEffect(() => {
+        setSidebarCollapsed(true);
+        if (isMobile) {
+            setSidebarOpen(false);
+        }
+    }, [location.pathname, isMobile]);
+
+    const handleLogout = () => {
+        void (async () => {
+            await logout();
+            onLogout();
+        })();
+    };
+
+    const handleMenuSelect = (menuItem: MenuTreeNode) => {
+        if (menuItem.routePath) {
+            navigate(menuItem.routePath);
+        }
+        if (isMobile) {
+            setSidebarOpen(false);
+        }
+    };
+
+    const toggleSidebar = () => {
+        if (isMobile) {
+            setSidebarOpen(!sidebarOpen);
+        } else {
+            setSidebarCollapsed((previous) => {
+                localStorage.setItem('sidebar-collapsed', !previous ? 'true' : 'false');
+                return !previous;
+            });
+        }
+    };
+
+    const closeSidebar = () => {
+        if (isMobile) {
+            setSidebarOpen(false);
+        }
+    };
+
+    return (
+        <div className="flex h-screen bg-gray-50 relative">
+            {isMobile && sidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+                    onClick={closeSidebar}
+                />
+            )}
+
+            <div
+                className={
+                    isMobile
+                        ? `fixed left-0 top-0 h-full z-50 transform transition-transform duration-300 ease-[cubic-bezier(.22,.68,.18,1)] ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`
+                        : `relative transition-all duration-400 ease-[cubic-bezier(.22,.68,.18,1)] ${sidebarCollapsed ? 'w-16' : 'w-64'}`
+                }
+            >
+                <Sidebar
+                    menuTree={menuTree}
+                    activeMenu={activeMenu}
+                    onMenuSelect={handleMenuSelect}
+                    isCollapsed={!isMobile && sidebarCollapsed}
+                    isMobile={isMobile}
+                    loading={loading}
+                />
+            </div>
+
+            <div className="flex-1 flex flex-col overflow-hidden">
+                <Header
+                    onToggleSidebar={toggleSidebar}
+                    onLogout={handleLogout}
+                    currentMenuTitle={currentMenuTitle}
+                    systemTitle={systemMenuTitle}
+                />
+
+                <main className="flex-1 overflow-auto p-3">
+                    <Routes>
+                        <Route path="/" element={<DashboardOverview />} />
+                        <Route path="/dashboard" element={<Navigate to="/" replace />} />
+                        <Route path="/cost-center" element={<Navigate to="/master/cost-center" replace />} />
+                        <Route path="/master/cost-center" element={<CostObjectPage />} />
+                        <Route path="/bank-management" element={<BankManagementPage />} />
+                        <Route path="/master/bank" element={<BankManagementPage />} />
+                        <Route path="/company" element={<CompanyManagement />} />
+                        <Route path="/master/company" element={<CompanyManagement />} />
+                        <Route path="/profile" element={<ProfilePage />} />
+                        <Route path="/help-support" element={<ModuleContent moduleId="help-support" />} />
+                      <Route path="/master/user" element={<UserManagementPage />} />
+                        <Route path="/customer-management" element={<Navigate to="/master/customer" replace />} />
+                        <Route path="/master/customer" element={<CustomerExtPage />} />
+                        <Route path="/code-registration" element={<ModuleContent moduleId="code-registration" />} />
+                        <Route path="/account-management" element={<ModuleContent moduleId="account-management" />} />
+                       <Route path="/warehouse-category" element={<ModuleContent moduleId="warehouse-category" />} />
+                        <Route path="/master/account" element={<AcclistPage />} />
+                        <Route path="/master/inventory" element={<ProductList />} />
+                        <Route path="/master/product-group" element={<ProductKindList />} />
+                        <Route path="/master/unit" element={<ProductUnitList />} />
+                        <Route path="/master/warehouse" element={<StoreList />} />
+                        <Route path="/master/warehouse-type" element={<StoreKindList />} />
+                        <Route path="/master/management" element={<ManagementInfoPage />} />
+                        <Route path="/unit-management" element={<UnitManagementPage />} />
+                        <Route path="/standard-management" element={<ModuleContent moduleId="standard-management" />} />
+                        <Route path="/note-management" element={<ModuleContent moduleId="note-management" />} />
+                        <Route path="/contract-management" element={<ModuleContent moduleId="contract-management" />} />
+                        <Route path="/journal" element={<ModuleContent moduleId="journal" />} />
+                        <Route path="/cash" element={<ModuleContent moduleId="cash" />} />
+
+                        {/* Phiếu chi */}
+                        <Route path="/cash/payment" element={<PaymentVoucherPage />} />
+                        <Route path="/gl/voucher/payment" element={<PaymentVoucherPage />} />
+                        {/* Phiếu thu */}
+                        <Route path="/gl/voucher/receipt" element={<ReceiptVoucherPage />} />
+                        <Route path="/cash/receipt" element={<ReceiptVoucherPage />} />
+                        {/* Giấy báo nợ */}
+                        <Route path="/gl/voucher/debit-note" element={<DebitNotePage />} />
+                        <Route path="/bank/debit-note" element={<DebitNotePage />} />
+                        <Route path="/gl/voucher/credit-note" element={<CreditNotePage />} />
+                        <Route path="/bank/credit-note" element={<CreditNotePage />} />
+                        {/* Phiếu cấn trừ */}
+                        <Route path="/gl/voucher/offset" element={<OffsetVoucherPage />} />
+                        {/* Phiếu mua hàng */}
+                        <Route path="/gl/voucher/purchase" element={<PurchaseVoucherPage />} />
+                        <Route path="/ap/purchase/goods" element={<PurchaseVoucherPage />} />
+                        {/* Phiếu mua dịch vụ */}
+                        <Route path="/gl/voucher/purchase-service" element={<PurchaseServiceVoucherPage />} />
+                        <Route path="/ap/purchase/purchase-service" element={<PurchaseServiceVoucherPage />} />
+                        {/* Phiếu bán hàng/dịch vụ */}
+                        <Route path="/gl/voucher/sale" element={<SalesVoucherPage />} />
+                        <Route path="/ar/sale" element={<SalesVoucherPage />} />
+                        {/* Phiếu khác */}
+                        <Route path="/gl/voucher/other" element={<OtherVoucherPage />} />
+
+                        <Route path="/bank/bank-book" element={<BankDepositBookPage />} />
+                        <Route path="/bank/revalue" element={<ExchangeRateRecalculationPage />} />
+                        <Route path="/cash/cash-book" element={<ModuleContent moduleId="cash-cash-book" />} />
+                        <Route path="/banking" element={<ModuleContent moduleId="banking" />} />
+                        <Route path="/purchasing" element={<ModuleContent moduleId="purchasing" />} />
+                        <Route path="/sales" element={<ModuleContent moduleId="sales" />} />
+                        <Route path="/costing" element={<ModuleContent moduleId="costing" />} />
+                        <Route path="/inventory" element={<ModuleContent moduleId="inventory" />} />
+                        <Route path="/vat" element={<ModuleContent moduleId="vat" />} />
+                        <Route path="/assets" element={<ModuleContent moduleId="assets" />} />
+                        <Route path="/invoices" element={<ModuleContent moduleId="invoices" />} />
+                        <Route path="/reports" element={<ModuleContent moduleId="reports" />} />
+                        <Route path="/firmbanking" element={<ModuleContent moduleId="firmbanking" />} />
+                        <Route path="/e-documents" element={<ModuleContent moduleId="e-documents" />} />
+                        <Route path="/utilities" element={<ModuleContent moduleId="utilities" />} />
+               
+                        <Route path="/payment" element={<ModuleContent moduleId="payment" />} />
+                        <Route path="/debt-note" element={<Navigate to="/bank/debit-note" replace />} />
+                        <Route path="/credit-note" element={<Navigate to="/bank/credit-note" replace />} />
+                        <Route path="/purchase-order" element={<Navigate to="/gl/voucher/purchase" replace />} />
+                        <Route path="/service-order" element={<ModuleContent moduleId="service-order" />} />
+                        <Route path="/sales-order" element={<ModuleContent moduleId="sales-order" />} />
+                        <Route path="/offset-order" element={<ModuleContent moduleId="offset-order" />} />
+                        <Route path="/other-order" element={<ModuleContent moduleId="other-order" />} />
+                        <Route path="/opening-balance" element={<ModuleContent moduleId="opening-balance" />} />
+                        <Route path="/transfer" element={<ModuleContent moduleId="transfer" />} />
+                        <Route path="/check-transfer" element={<ModuleContent moduleId="check-transfer" />} />
+                        <Route path="/lock" element={<ModuleContent moduleId="lock" />} />
+
+                        <Route path="/report-viewer" element={<ConfiguredReportViewer />} />
+                        <Route path="*" element={<Navigate to="/" replace />} />
+                    </Routes>
+                </main>
+            </div>
+        </div>
+    );
+}
+
+function App() {
+    const [isLoggedIn, setIsLoggedIn] = useState(() => isAuthenticated());
+    const [authLoading, setAuthLoading] = useState(true);
+    const { refreshLabels } = useContext(LanguageContext) as { refreshLabels?: (lang?: string) => Promise<void> };
+    const { clearGridColumnSettings, refreshGridColumnSettings } = useSysGridColumnSettings();
+
+    useEffect(() => {
+        let mounted = true;
+
+        const bootstrapSession = async () => {
+            try {
+                const session = await getSession();
+                const authenticated = Boolean(session?.isAuthenticated);
+
+                if (!mounted) {
+                    return;
+                }
+
+                setIsLoggedIn(authenticated);
+                if (authenticated) {
+                    void initMessagesDevex();
+                    const preloadTasks: Promise<unknown>[] = [refreshGridColumnSettings(true)];
+                    if (typeof refreshLabels === 'function') {
+                        preloadTasks.push(refreshLabels(getCurrentLang()));
+                    }
+                    await Promise.allSettled(preloadTasks);
+                }
+            } finally {
+                if (mounted) {
+                    setAuthLoading(false);
+                }
+            }
+        };
+
+        void bootstrapSession();
+
+        return () => {
+            mounted = false;
+        };
+    }, [refreshGridColumnSettings, refreshLabels]);
+
+    const handleLoginSuccess = () => {
+        const authenticated = isAuthenticated();
+        if (authenticated) {
+            setIsLoggedIn(true);
+            void initMessagesDevex();
+            if (typeof refreshLabels === 'function') {
+                void refreshLabels(getCurrentLang());
+            }
+            void refreshGridColumnSettings(false);
+        }
+    };
+
+    const handleLogoutSuccess = () => {
+        clearGridColumnSettings();
+        setIsLoggedIn(false);
+    };
+
+    if (authLoading) {
+        return <div className="flex h-screen items-center justify-center bg-gray-50 text-sm text-gray-600">Loading...</div>;
+    }
+
+    return (
+        <Router>
+            <Routes>
+                {isLoggedIn ? (
+                    <Route path="/*" element={<AppContent onLogout={handleLogoutSuccess} />} />
+                ) : (
+                    <>
+                        <Route path="/login" element={<LoginPage onLogin={handleLoginSuccess} />} />
+                        <Route path="*" element={<Navigate to="/login" replace />} />
+                    </>
+                )}
+            </Routes>
+        </Router>
+    );
+}
+
+export default App;

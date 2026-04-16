@@ -1,0 +1,72 @@
+import { useContext } from "react";
+import { Column } from "devextreme-react/data-grid";
+import { LanguageContext } from '@/lib/i18nLoader';
+
+export const CompanyInfoColumns: React.FC = () => {
+  const { translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string };
+  const t = (k: string, f: string) => translate(k, f);
+
+  return (
+    <>
+      
+      <Column dataField="COMPANY_CD" caption={t('COMPANY_CD','Company')}  />  
+      <Column dataField="TAX_CD" caption={t('TAX_CD','MST')}  />  
+      <Column dataField="COMPANY_NM" caption={t('lblCOMPANYNAME','COMPANY Name (VI)')} />
+      <Column dataField="OWNER_NM" caption={t('OWNER_NM','Director')}  />  
+      <Column dataField="TEL" caption={t('TEL','TEL')}  />  
+      <Column dataField="OPEN_YMD" caption={t('OPEN_YMD','Open Date')}  />  
+
+      <Column dataField="ADDRESS" caption={t('ADDRESS','Address')}  />  
+               
+      
+      
+      <Column dataField="DB_GROUP_ID" caption={t('DB_GROUP_ID','DB_GROUP_ID')} visible={false} /> 
+      
+      <Column dataField="COMPANY_NM_EN" caption={t('COMPANY_NM_EN','COMPANY_NM_EN')} visible={false} /> 
+      <Column dataField="COMPANY_NM_KOR" caption={t('COMPANY_NM_KOR','COMPANY_NM_KOR')} visible={false} /> 
+      <Column dataField="COMPANY_TYPE" caption={t('COMPANY_TYPE','COMPANY_TYPE')} visible={false} /> 
+      <Column dataField="COMPANY_KIND" caption={t('COMPANY_KIND','COMPANY_KIND')} visible={false} /> 
+      <Column dataField="DE_COMPANY_CD" caption={t('DE_COMPANY_CD','DE_COMPANY_CD')} visible={false} /> 
+      <Column dataField="COMPANY_LV" caption={t('COMPANY_LV','COMPANY_LV')} visible={false} /> 
+      <Column dataField="ACCDATE_CD" caption={t('ACCDATE_CD','ACCDATE_CD')} visible={false} /> 
+      <Column dataField="TAX_CD" caption={t('TAX_CD','TAX_CD')} visible={false} /> 
+      <Column dataField="CCCDan" caption={t('CCCDan','CCCDan')} visible={false} /> 
+      <Column dataField="TCQTQLy" caption={t('TCQTQLy','TCQTQLy')} visible={false} /> 
+      <Column dataField="MCQTQLy" caption={t('MCQTQLy','MCQTQLy')} visible={false} /> 
+      <Column dataField="BRN" caption={t('BRN','BRN')} visible={false} /> 
+      <Column dataField="CRN" caption={t('CRN','CRN')} visible={false} /> 
+      
+      <Column dataField="ZIP_CODE" caption={t('ZIP_CODE','ZIP_CODE')} visible={false} /> 
+      <Column dataField="ADDRESS_DO" caption={t('ADDRESS_DO','ADDRESS_DO')} visible={false} /> 
+      
+      <Column dataField="ADDRESS_ENG" caption={t('ADDRESS_ENG','ADDRESS_ENG')} visible={false} /> 
+      <Column dataField="ADDRESS_KOR" caption={t('ADDRESS_KOR','ADDRESS_KOR')} visible={false} /> 
+      <Column dataField="CARRYFORWARD_YMD" caption={t('CARRYFORWARD_YMD','CARRYFORWARD_YMD')} visible={false} /> 
+      <Column dataField="SIDO" caption={t('SIDO','SIDO')} visible={false} /> 
+      <Column dataField="GUMYUN" caption={t('GUMYUN','GUMYUN')} visible={false} /> 
+      <Column dataField="BUSINESS_TYPE" caption={t('BUSINESS_TYPE','BUSINESS_TYPE')} visible={false} /> 
+      <Column dataField="KIND_BUSINESS" caption={t('KIND_BUSINESS','KIND_BUSINESS')} visible={false} /> 
+      
+      <Column dataField="EMAIL" caption={t('EMAIL','EMAIL')} visible={false} /> 
+      <Column dataField="WEBSITE" caption={t('WEBSITE','WEBSITE')} visible={false} /> 
+      <Column dataField="FAX" caption={t('FAX','FAX')} visible={false} /> 
+      <Column dataField="STOCKCALC_TYPE" caption={t('STOCKCALC_TYPE','STOCKCALC_TYPE')} visible={false} /> 
+      
+      <Column dataField="DECISION" caption={t('DECISION','DECISION')} visible={false} /> 
+      <Column dataField="REG_YMD" caption={t('REG_YMD','REG_YMD')} visible={false} /> 
+      <Column dataField="ISDEL" caption={t('ISDEL','ISDEL')} visible={false} /> 
+      <Column dataField="NOTE" caption={t('NOTE','NOTE')} visible={false} /> 
+
+
+               
+      
+      
+      
+      
+
+
+    </>
+  );
+};
+
+export default CompanyInfoColumns;

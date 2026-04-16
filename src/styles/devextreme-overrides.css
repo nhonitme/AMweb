@@ -1,0 +1,106 @@
+.menu-search-input {
+  transition: border-color 0.12s ease-in-out, box-shadow 0.12s ease-in-out;
+}
+
+.menu-search-input:focus,
+.menu-search-input:active {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.08) !important;
+  outline: none !important;
+}
+
+.dx-textbox.dx-state-focused .dx-texteditor-outline,
+.dx-texteditor.dx-state-focused .dx-texteditor-outline {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.08) !important;
+}
+
+.dx-textbox .menu-search-input:focus ~ .dx-texteditor-outline,
+.dx-textbox .menu-search-input:focus + .dx-texteditor-outline {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.08) !important;
+}
+
+.menu-search-wrapper .dx-texteditor-outline {
+  transition: border-color 0.12s ease-in-out, box-shadow 0.12s ease-in-out;
+}
+
+.menu-search-wrapper .dx-texteditor-outline.dx-state-focused {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.08) !important;
+}
+
+/* Compact DevExtreme grid rows */
+.dx-datagrid .dx-datagrid-rowsview .dx-data-row > td,
+.dx-datagrid .dx-datagrid-rowsview .dx-header-row > td {
+  padding: 6px 8px !important;
+}
+
+.dx-datagrid .dx-datagrid-rowsview .dx-data-row {
+  min-height: 34px !important;
+  height: auto !important;
+}
+
+.dx-datagrid .dx-datagrid-headers .dx-header-row {
+  min-height: 34px !important;
+}
+
+/* Base grid and tree list container styling */
+.data-grid-container,
+.data-tree-list-container {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+.dx-datagrid .dx-datagrid-headers .dx-row > td,
+.dx-datagrid .dx-datagrid-headers .dx-row > td,
+.dx-datagrid .dx-datagrid-rowsview .dx-row > td {
+  border-right: 1px dashed rgba(0, 0, 0, 0.12);
+}
+
+.dx-datagrid .dx-datagrid-headers .dx-row > td {
+  background-color: #f0f4f9;
+  color: rgba(0, 0, 0, 0.85);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.08);
+  font-weight: 600;
+}
+
+.dx-treelist .dx-treelist-headers .dx-row > td,
+.dx-treelist .dx-treelist-rowsview .dx-row > td {
+  border-right: 1px dashed rgba(0, 0, 0, 0.12);
+}
+
+.dx-treelist .dx-treelist-headers .dx-row > td {
+  background-color: #f0f4f9;
+  color: rgba(0, 0, 0, 0.85);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.08);
+  font-weight: 600;
+}
+
+/* Toolbar styles moved from GridToolbar.scss and TreeListToolbar.scss */
+.my-toolbar {
+  margin-top: 12px;
+  padding: 0px 24px;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.1);
+}
+
+.toolbar-label {
+  font-size: 22px;
+}
+
+.my-toolbar .dx-button .dx-icon,
+.my-toolbar .dx-button .dx-button-icon,
+.my-toolbar .dx-toolbar .dx-button .dx-icon {
+  width: 12px !important;
+  height: 12px !important;
+  line-height: 12px !important;
+  font-size: 12px !important;
+  transform: scale(2) !important;
+  transform-origin: center center;
+}

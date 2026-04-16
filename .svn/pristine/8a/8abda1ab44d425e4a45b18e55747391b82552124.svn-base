@@ -1,0 +1,26 @@
+import type { CustomerExt, CustomerExtApi } from "@/types/customerExt";
+import { getCustomerExts } from "@/api/customerExtApi";
+import CustomStore from "devextreme/data/custom_store";
+
+async function loadCustomers(): Promise<CustomerExt[]> {
+  const response = await getCustomerExts()
+  return response.data || []
+}
+
+export function clearCustomerLookupCache() {
+}
+
+export const customerLookupStore = new CustomStore({
+  key: "CUSTOMER_ID",
+  loadMode: "raw",
+  cacheRawData: false,
+
+  load: async () => {
+    return await loadCustomers();
+  },
+
+  byKey: async (key) => {
+    const items = await loadCustomers()
+    return items.find((x) => x.CUSTOMER_ID === key) ?? null
+  },
+})

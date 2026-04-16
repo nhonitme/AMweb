@@ -1,0 +1,109 @@
+import { useContext } from "react"
+import { AsyncRule, Column, Lookup, RequiredRule } from "devextreme-react/data-grid"
+
+import { checkCustomerCdExists } from "@/api/customerExtApi"
+import type { SysCode } from "@/api/sysCodeService"
+import { LanguageContext } from "@/lib/i18nLoader"
+import { resolveGridValidationRowId } from "@/utils/gridValidation"
+
+type CustomerColumnsProps = {
+  customerTypeCodes?: SysCode[]
+}
+
+type CustomerValidationEvent = {
+  data?: {
+    CUSTOMER_ID?: number | null
+  }
+  value: unknown
+  row?: {
+    key?: number | string
+    data?: {
+      CUSTOMER_ID?: number | null
+    }
+  }
+}
+
+const visibleColumns = [
+  "CUSTOMER_CD",
+  "CATEGORY_CD",
+  "CUSTOMER_TYPE",
+  "CUSTOMER_NM_VIET",
+  "CUSTOMER_NM_ENG",
+  "TEL",
+  "EMAIL",
+  "TAX_CD",
+  "BANK_CD",
+] as const
+
+const widthMap: Record<(typeof visibleColumns)[number], number> = {
+  CUSTOMER_CD: 150,
+  CATEGORY_CD: 120,
+  CUSTOMER_TYPE: 140,
+  CUSTOMER_NM_VIET: 220,
+  CUSTOMER_NM_ENG: 220,
+  TEL: 140,
+  EMAIL: 220,
+  TAX_CD: 150,
+  BANK_CD: 150,
+}
+
+const validateCustomerCd = async (event: CustomerValidationEvent) => {
+  const customerCd = String(event.value ?? "").trim()
+
+  if (!customerCd) {
+    return true
+  }
+
+  try {
+    const customerId = resolveGridValidationRowId(event, "CUSTOMER_ID")
+    const exists = await checkCustomerCdExists(customerId, customerCd)
+    return { isValid: !exists }
+  } catch {
+    return {
+      isValid: false,
+      message: "Không kiểm tra được dữ liệu",
+    }
+  }
+}
+
+export function CustomerColumns({ customerTypeCodes = [] }: CustomerColumnsProps) {
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+
+  return (
+    <>
+      <Column dataField="CUSTOMER_CD" caption={t("CUSTOMER_CD", "Customer Code")} width={widthMap.CUSTOMER_CD}>
+        <RequiredRule message={t("MSG_MUST_ITEM", "CUSTOMER_CD không được để trống")} />
+        <AsyncRule message={t("MsgEqualCode", "CUSTOMER_CD đã tồn tại")} validationCallback={validateCustomerCd} />
+      </Column>
+
+      <Column dataField="CATEGORY_CD" caption={t("CATEGORY_CD", "Category")} width={widthMap.CATEGORY_CD} />
+
+      <Column dataField="CUSTOMER_TYPE" caption={t("CUSTOMER_TYPE", "Customer Type")} width={widthMap.CUSTOMER_TYPE}>
+        <Lookup
+          dataSource={customerTypeCodes}
+          displayExpr={(item: SysCode) => {
+            const rawName = (item?.CODE_NAME ?? "") as string
+            return rawName ? t(rawName, rawName) : ""
+          }}
+          valueExpr="CODE_CD"
+        />
+      </Column>
+
+      <Column dataField="CUSTOMER_NM_VIET" caption={t("CUSTOMER_NM_VIET", "Customer Name (VI)")} width={widthMap.CUSTOMER_NM_VIET}>
+        <RequiredRule message={t("MSG_MUST_ITEM", "CUSTOMER_NM_VIET không được để trống")} />
+      </Column>
+
+      <Column dataField="CUSTOMER_NM_ENG" caption={t("CUSTOMER_NM_ENG", "Customer Name (ENG)")} width={widthMap.CUSTOMER_NM_ENG} />
+      <Column dataField="TEL" caption={t("TEL", "Telephone")} width={widthMap.TEL} />
+      <Column dataField="EMAIL" caption={t("EMAIL", "Email")} width={widthMap.EMAIL} />
+      <Column dataField="TAX_CD" caption={t("TAX_CD", "Tax Code")} width={widthMap.TAX_CD} />
+      <Column dataField="BANK_CD" caption={t("BANK_CD", "Bank Code")} width={widthMap.BANK_CD} />
+    </>
+  )
+}
+
+export default CustomerColumns

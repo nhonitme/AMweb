@@ -1,0 +1,306 @@
+import { useCallback, useMemo, useState } from "react"
+import Popup from "devextreme-react/popup"
+import SelectBox, {
+  Button as SelectBoxButton,
+  DropDownOptions,
+  type SelectBoxTypes,
+} from "devextreme-react/select-box"
+
+import CustomerExtManager from "@/pages/Module/CustomerManagementPage/CustomerExtManager"
+import type { CustomerExt } from "@/types/customerExt"
+import { customerLookupStore } from "./customerLookupStore"
+import { useLookupPopupHost } from "./LookupPopupHost"
+import {
+  firstLookupText,
+  hasLookupRowField,
+  setLookupGridCellValue,
+  toLookupNumber,
+  trimLookupText,
+} from "./lookupHelpers"
+
+type CustomerDataSource = SelectBoxTypes.Properties["dataSource"]
+
+type Props = {
+  dataSource?: CustomerDataSource
+  value: number | null | undefined
+  rowData: Record<string, unknown>
+  rowIndex: number
+  grid: any
+  setValue: (value: number | null) => void
+  customerIdField?: string
+  customerCdField?: string
+  customerCdFieldCaption?: string
+  customerNmField?: string
+  customerNmFieldCaption?: string
+  taxCdField?: string
+  taxCdFieldCaption?: string
+  addressField?: string
+  addressFieldCaption?: string
+  placeholder?: string
+  popupTitle?: string
+  buttonHint?: string
+}
+
+export default function CustomerLookupCellEditor({
+  dataSource = customerLookupStore,
+  value,
+  rowData,
+  rowIndex,
+  grid,
+  setValue,
+  customerIdField = "CUSTOMER_ID",
+  customerCdField = "CUSTOMER_CD",
+  customerCdFieldCaption = "Customer code",
+  customerNmField = "CUSTOMER_NM_VIET",
+  customerNmFieldCaption = "Customer name",
+  taxCdField = "TAX_CD",
+  taxCdFieldCaption = "Tax code",
+  addressField = "ADDRESS",
+  addressFieldCaption = "Address",
+  placeholder = "Select customer",
+  popupTitle = "Select customer",
+  buttonHint = "Open customer list",
+}: Props) {
+  const [opened, setOpened] = useState(false)
+  const [popupVisible, setPopupVisible] = useState(false)
+  const lookupPopupHost = useLookupPopupHost()
+
+  const getCustomerName = useCallback(
+    (item?: Partial<CustomerExt> | Record<string, unknown> | null) => {
+      if (!item) {
+        return ""
+      }
+
+      const record = item as Record<string, unknown>
+      return firstLookupText(
+        typeof customerNmField === "string" ? record[customerNmField] : null,
+        record.CUSTOMER_NM_VIET,
+        record.CUSTOMER_NM_ENG,
+        record.CUSTOMER_NM_KOR,
+        record.CUSTOMER_NM_CHINA,
+      )
+    },
+    [customerNmField],
+  )
+
+  const displayExpr = useCallback(
+    (item: CustomerExt | null) => {
+      const customerCd = trimLookupText(item?.CUSTOMER_CD)
+      const customerName = getCustomerName(item)
+
+      if (customerCd && customerName) {
+        return `${customerCd} - ${customerName}`
+      }
+
+      return customerCd || customerName
+    },
+    [getCustomerName],
+  )
+
+  const searchExpr = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          "CUSTOMER_CD",
+          customerNmField,
+          "CUSTOMER_NM_VIET",
+          "CUSTOMER_NM_ENG",
+          "CUSTOMER_NM_KOR",
+          "CUSTOMER_NM_CHINA",
+        ].filter((field): field is string => Boolean(field))),
+      ),
+    [customerNmField],
+  )
+
+  const applyCustomer = useCallback(
+    (customer: CustomerExt | null | undefined) => {
+      if (!customer) {
+        return
+      }
+
+      const customerId = toLookupNumber(customer.CUSTOMER_ID)
+      const customerCd = trimLookupText(customer.CUSTOMER_CD)
+      const customerName = getCustomerName(customer)
+
+      setValue(customerId)
+      setLookupGridCellValue(grid, rowIndex, customerIdField, customerId)
+      setLookupGridCellValue(grid, rowIndex, customerCdField, customerCd)
+      setLookupGridCellValue(grid, rowIndex, customerNmField, customerName)
+
+      if (hasLookupRowField(rowData, taxCdField)) {
+        setLookupGridCellValue(grid, rowIndex, taxCdField, trimLookupText(customer.TAX_CD))
+      }
+
+      if (hasLookupRowField(rowData, addressField)) {
+        setLookupGridCellValue(grid, rowIndex, addressField, trimLookupText(customer.ADDRESS))
+      }
+
+      lookupPopupHost?.closeLookupPopup()
+      setOpened(false)
+      setPopupVisible(false)
+    },
+    [
+      addressField,
+      customerCdField,
+      customerIdField,
+      customerNmField,
+      getCustomerName,
+      grid,
+      rowData,
+      rowIndex,
+      setValue,
+      taxCdField,
+      lookupPopupHost,
+    ],
+  )
+
+  const clearCustomer = useCallback(() => {
+    setValue(null)
+    setLookupGridCellValue(grid, rowIndex, customerIdField, null)
+    setLookupGridCellValue(grid, rowIndex, customerCdField, "")
+    setLookupGridCellValue(grid, rowIndex, customerNmField, "")
+
+    if (hasLookupRowField(rowData, taxCdField)) {
+      setLookupGridCellValue(grid, rowIndex, taxCdField, "")
+    }
+
+    if (hasLookupRowField(rowData, addressField)) {
+      setLookupGridCellValue(grid, rowIndex, addressField, "")
+    }
+  }, [
+    addressField,
+    customerCdField,
+    customerIdField,
+    customerNmField,
+    grid,
+    rowData,
+    rowIndex,
+    setValue,
+    taxCdField,
+  ])
+
+  const handleValueChanged = useCallback(
+    (event: any) => {
+      if (event.value == null || event.value === "") {
+        clearCustomer()
+        return
+      }
+
+      const selectedItem = (event.component?.option?.("selectedItem") ?? event.itemData) as CustomerExt | null | undefined
+      if (selectedItem) {
+        applyCustomer(selectedItem)
+      }
+    },
+    [applyCustomer, clearCustomer],
+  )
+
+  const renderCustomerItem = useCallback(
+    (item: CustomerExt | null) => {
+      if (!item) {
+        return null
+      }
+
+      const customerCd = trimLookupText(item.CUSTOMER_CD)
+      const customerName = getCustomerName(item)
+      const taxCd = trimLookupText(item.TAX_CD)
+      const address = trimLookupText(item.ADDRESS)
+
+      return (
+        <div className="flex flex-col gap-1 py-2 leading-tight">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="font-semibold text-slate-900">{customerCd || "-"}</span>
+            <span className="text-slate-600">{customerName || "-"}</span>
+          </div>
+          <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+            <span>{`${taxCdFieldCaption}: ${taxCd || "-"}`}</span>
+            <span>{`${addressFieldCaption}: ${address || "-"}`}</span>
+          </div>
+        </div>
+      )
+    },
+    [addressFieldCaption, getCustomerName, taxCdFieldCaption],
+  )
+
+  const handleOpenPopup = useCallback(() => {
+    if (lookupPopupHost) {
+      lookupPopupHost.openLookupPopup({
+        title: popupTitle,
+        width: "95vw",
+        height: "90vh",
+        renderContent: ({ closePopup }) => (
+          <CustomerExtManager
+            mode="lookup"
+            hideToolbar={false}
+            onPickCustomer={applyCustomer}
+            onCloseLookup={closePopup}
+          />
+        ),
+      })
+      return
+    }
+
+    setPopupVisible(true)
+  }, [applyCustomer, lookupPopupHost, popupTitle])
+
+  return (
+    <>
+      <SelectBox
+        dataSource={dataSource}
+        value={value ?? null}
+        valueExpr="CUSTOMER_ID"
+        displayExpr={displayExpr as (item: unknown) => string}
+        itemRender={renderCustomerItem}
+        opened={opened}
+        openOnFieldClick={true}
+        deferRendering={false}
+        showClearButton={true}
+        showDataBeforeSearch={true}
+        minSearchLength={0}
+        searchEnabled={true}
+        searchExpr={searchExpr}
+        searchMode="contains"
+        searchTimeout={0}
+        placeholder={placeholder}
+        noDataText="No matching customers"
+        onOpenedChange={setOpened}
+        onInput={() => {
+          setOpened(true)
+        }}
+        onValueChanged={handleValueChanged}
+      >
+        <DropDownOptions width={920} maxHeight={360} />
+        <SelectBoxButton name="dropDown" location="after" />
+        <SelectBoxButton
+          name="openCustomerPopup"
+          location="after"
+          options={{
+            icon: "search",
+            stylingMode: "text",
+            hint: buttonHint,
+            onClick: handleOpenPopup,
+          }}
+        />
+      </SelectBox>
+
+      {!lookupPopupHost && popupVisible ? (
+        <Popup
+          visible={popupVisible}
+          title={popupTitle}
+          showTitle={true}
+          width="95vw"
+          height="90vh"
+          dragEnabled={false}
+          hideOnOutsideClick={false}
+          onHiding={() => setPopupVisible(false)}
+        >
+          <CustomerExtManager
+            mode="lookup"
+            hideToolbar={false}
+            onPickCustomer={applyCustomer}
+            onCloseLookup={() => setPopupVisible(false)}
+          />
+        </Popup>
+      ) : null}
+    </>
+  )
+}

@@ -1,0 +1,58 @@
+import type { MaterialKind } from "@/types/material";
+import API_BASE_URL from "../../config/apiConfig";
+
+const API_LIST = `${API_BASE_URL}/ProductKind/getAllProductKind`;
+const API_ADD = `${API_BASE_URL}/ProductKind/insert`;
+const API_EDIT = `${API_BASE_URL}/ProductKind/update`;
+const API_DELETE = `${API_BASE_URL}/ProductKind/delete`;
+
+function mapMaterialGroupToApiFormat(material: MaterialKind): any {
+  return {
+    Lag: "VIET",
+    PRODUCTKIND_CD: material.PRODUCTKIND_CD,
+    PRODUCTKIND_NM: material.PRODUCTKIND_NM,
+    PRODUCTKIND_NM_ENG: material.PRODUCTKIND_NM_ENG,
+    PRODUCTKIND_NM_KOR: material.PRODUCTKIND_NM_KOR,
+    REMARK: material.REMARK,
+    COUNT: material.COUNT,
+  };
+}
+
+export async function getMaterialGroupList() {
+  const response = await fetch(API_LIST, {
+    credentials: "include",
+  });
+  return response.json();
+}
+
+export async function addMaterialGroupAPI(newMaterial: MaterialKind) {
+  const apiData = mapMaterialGroupToApiFormat(newMaterial);
+  const response = await fetch(API_ADD, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(apiData),
+  });
+  return response.json();
+}
+
+export async function updateMaterialGroupAPI(updatedMaterial: MaterialKind) {
+  const apiData = mapMaterialGroupToApiFormat(updatedMaterial);
+  const response = await fetch(API_EDIT, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(apiData),
+  });
+  return response.json();
+}
+
+export async function deleteMaterialGroupAPI(id: string) {
+  const response = await fetch(API_DELETE, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ Lag: "VIET", PRODUCTKIND_CD: id }),
+  });
+  return response.json();
+}

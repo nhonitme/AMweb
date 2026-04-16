@@ -1,0 +1,76 @@
+import { loadMessages, locale } from 'devextreme/localization';
+import { getCurrentLang } from '@/utils/language';
+
+// Base messages for supported languages
+export const messages: Record<string, Record<string, string>> = {
+  vi: {
+    "dxDataGrid-editingSaveAllChanges": "Lưu",
+    "dxDataGrid-editingCancelAllChanges": "Hủy",
+    "dxDataGrid-editingSaveRowChanges": "Lưu",
+    "dxDataGrid-editingCancelRowChanges": "Hủy",
+    "dxPopup-ok": "Lưu",
+    "dxPopup-cancel": "Hủy",
+    "dxDataGrid-editingEditRow": "Sửa",
+    "dxDataGrid-editingDeleteRow": "Xóa",
+    "dxDataGrid-editingAddRow": "Thêm",
+    "dxDataGrid-confirmDeleteMessage": "Bạn có chắc muốn xóa không?"
+  },
+  en: {
+    "dxDataGrid-editingSaveAllChanges": "Save",
+    "dxDataGrid-editingCancelAllChanges": "Cancel",
+    "dxDataGrid-editingSaveRowChanges": "Save",
+    "dxDataGrid-editingCancelRowChanges": "Cancel",
+    "dxPopup-ok": "Save",
+    "dxPopup-cancel": "Cancel",
+    "dxDataGrid-editingEditRow": "Edit",
+    "dxDataGrid-editingDeleteRow": "Delete",
+    "dxDataGrid-editingAddRow": "Add",
+    "dxDataGrid-confirmDeleteMessage": "Are you sure you want to delete?"
+  },
+  zh: {
+    "dxDataGrid-editingSaveAllChanges": "保存",
+    "dxDataGrid-editingCancelAllChanges": "取消",
+    "dxDataGrid-editingSaveRowChanges": "保存",
+    "dxDataGrid-editingCancelRowChanges": "取消",
+    "dxPopup-ok": "保存",
+    "dxPopup-cancel": "取消",
+    "dxDataGrid-editingEditRow": "编辑",
+    "dxDataGrid-editingDeleteRow": "删除",
+    "dxDataGrid-editingAddRow": "新增",
+    "dxDataGrid-confirmDeleteMessage": "您确定要删除吗？"
+  },
+  ko: {
+    "dxDataGrid-editingSaveAllChanges": "저장",
+    "dxDataGrid-editingCancelAllChanges": "취소",
+    "dxDataGrid-editingSaveRowChanges": "저장",
+    "dxDataGrid-editingCancelRowChanges": "취소",
+    "dxPopup-ok": "저장",
+    "dxPopup-cancel": "취소",
+    "dxDataGrid-editingEditRow": "수정",
+    "dxDataGrid-editingDeleteRow": "삭제",
+    "dxDataGrid-editingAddRow": "추가",
+    "dxDataGrid-confirmDeleteMessage": "정말로 삭제하시겠습니까?"
+  },
+  ja: {
+    "dxDataGrid-editingSaveAllChanges": "保存",
+    "dxDataGrid-editingCancelAllChanges": "キャンセル",
+    "dxDataGrid-editingSaveRowChanges": "保存",
+    "dxDataGrid-editingCancelRowChanges": "キャンセル",
+    "dxPopup-ok": "保存",
+    "dxPopup-cancel": "キャンセル",
+    "dxDataGrid-editingEditRow": "編集",
+    "dxDataGrid-editingDeleteRow": "削除",
+    "dxDataGrid-editingAddRow": "追加",
+    "dxDataGrid-confirmDeleteMessage": "削除してもよろしいですか？"
+  }
+};
+
+export function initMessagesDevex() {
+  try {
+    loadMessages(messages);
+      // re-apply current locale to ensure UI picks up new strings
+      locale(getCurrentLang());
+  } catch (err) {
+    // ignore cache errors
+  }
+}

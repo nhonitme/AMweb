@@ -1,0 +1,11 @@
+.my-toolbar {
+    margin-top: 12px;
+    padding: 0px 24px;
+    border-radius: 8px;
+    background: white;
+    box-shadow: 0 4px 4px rgba(0, 0, 0, 0.1);
+}
+
+.toolbar-label {
+    font-size: 22px;
+}

@@ -1,0 +1,73 @@
+import { useContext, type ReactNode } from "react"
+import DataGrid, {
+  FilterRow,
+  HeaderFilter,
+  Pager,
+  Paging,
+  SearchPanel,
+} from "devextreme-react/data-grid"
+import type { InitializedEvent } from "devextreme/ui/data_grid"
+
+import { LanguageContext } from "@/lib/i18nLoader"
+
+interface DetailGridProps<TData> {
+  dataSource: TData[]
+  keyExpr: string
+  children: ReactNode
+  height?: number | string
+  noDataText?: string
+  onInitialized?: (event: InitializedEvent<TData, string | number>) => void
+  filterRowVisible?: boolean
+  searchPanelVisible?: boolean
+}
+
+export function DetailGrid<TData>({
+  dataSource,
+  keyExpr,
+  children,
+  noDataText,
+  onInitialized,
+  filterRowVisible = false,
+  searchPanelVisible = false,
+}: DetailGridProps<TData>) {
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+
+  return (
+    <div className="data-grid-container h-full w-full">
+    <DataGrid<TData, string | number>
+      dataSource={dataSource}
+      keyExpr={keyExpr}
+      width="100%"
+      height="100%"
+      showBorders={true}
+      columnAutoWidth={true}
+      allowColumnResizing={true}
+      allowColumnReordering={true}
+      rowAlternationEnabled={true}
+      hoverStateEnabled={true}
+      wordWrapEnabled={true}
+      noDataText={noDataText ?? t("NO_DETAIL_DATA", "No detail data")}
+      onInitialized={onInitialized}
+    >
+      <HeaderFilter visible={true} />
+      <FilterRow visible={filterRowVisible} showOperationChooser={true} />
+      <SearchPanel visible={searchPanelVisible} placeholder={t("Search detail...", "Search detail...")} />
+      <Paging defaultPageSize={10} />
+      <Pager
+        visible={true}
+        showPageSizeSelector={true}
+        allowedPageSizes={[10, 20, 50]}
+        showInfo={true}
+        showNavigationButtons={true}
+        infoText={t("PAGE_TEXT", "Page {0} / {1} ({2} rows)")}
+      />
+      {children}
+    </DataGrid></div>
+  )
+}
+
+export default DetailGrid

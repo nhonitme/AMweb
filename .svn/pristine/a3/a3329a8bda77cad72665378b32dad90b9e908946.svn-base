@@ -1,0 +1,67 @@
+import { useContext } from "react";
+import { Column } from "devextreme-react/data-grid";
+import { LanguageContext } from '@/lib/i18nLoader';
+
+export const CustomerColumns: React.FC = () => {
+  const { translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string };
+  const t = (k: string, f: string) => translate(k, f);
+
+  return (
+    <>
+      {/* primary key now comes from backend; hide by default */}
+      <Column dataField="CUSTOMER_ID" caption={t('CUSTOMER_ID','Customer ID')} visible={false} />
+      <Column dataField="CUSTOMER_EXT_ID" caption={t('CUSTOMER_EXT_ID','Ext Row ID')} visible={false} />
+
+      {/* company_cd is hidden by default; user can unhide via column chooser */}
+      <Column dataField="COMPANY_CD" caption={t('COMPANY_CD','Company')} visible={false} />
+      <Column dataField="CUSTOMER_CD" caption={
+        (() => {
+          const cap = t('CUSTOMER_CD','Customer Code');
+          console.debug('translating CUSTOMER_CD ->', cap);
+          return cap;
+        })()
+      } />
+      <Column dataField="CATEGORY_CD" caption={t('CATEGORY_CD','Category')} />
+      <Column dataField="CUSTOMER_TYPE" caption={t('CUSTOMER_TYPE','Type')} />
+      <Column dataField="CUSTOMER_NM_VIET" caption={t('CUSTOMER_NM_VIET','Customer Name (VI)')} />
+      <Column dataField="BUYER_NM" caption={t('BUYER_NM','Buyer Name')} />
+      <Column dataField="CUSTOMER_USER_CD" caption={t('CUSTOMER_USER_CD','User Code')} />
+      <Column dataField="BRN" caption={t('BRN','BRN')} />
+      <Column dataField="SSN" caption={t('SSN','SSN')} />
+      <Column dataField="OWNER_NM" caption={t('OWNER_NM','Owner Name')} />
+      <Column dataField="BUSINESS_TYPE" caption={t('BUSINESS_TYPE','Business Type')} />
+      <Column dataField="KIND_BUSINESS" caption={t('KIND_BUSINESS','Kind Business')} />
+      <Column dataField="ZIP_CODE" caption={t('ZIP_CODE','Zip Code')} />
+      <Column dataField="ADDRESS_DO" caption={t('ADDRESS_DO','Address (DO)')} />
+      <Column dataField="ADDRESS" caption={t('ADDRESS','Address')} />
+      <Column dataField="TEL" caption={t('TEL','Tel')} />
+      {/* hide deletion flag by default similar to other list pages */}
+      <Column dataField="ISDEL" caption={t('ISDEL','Deleted')} visible={false} />
+      <Column dataField="CUSTOMER_EXT_CD" caption={t('CUSTOMER_EXT_CD','Customer Ext Code')} />
+      <Column dataField="CREATED_AT" caption={t('CREATED_AT','Created At')} />
+      <Column dataField="UPDATED_AT" caption={t('UPDATED_AT','Updated At')} />
+
+      <Column dataField="FAX" caption={t('FAX','Fax')} />
+      <Column dataField="TAX_CD" caption={t('TAX_CD','Tax Code')} />
+      <Column dataField="BANK_CD" caption={t('BANK_CD','Bank Code')} />
+      <Column dataField="EMAIL" caption={t('EMAIL','Email')} />
+      <Column dataField="ISTEMP" caption={t('ISTEMP','Is Temp')} />
+      <Column dataField="NOTE" caption={t('NOTE','Note')} />
+      <Column dataField="INQUIRY_IN" caption={t('INQUIRY_IN','Inquiry In')} />
+      <Column dataField="INDIVIDUAL" caption={t('INDIVIDUAL','Individual')} />
+      <Column dataField="NATIONALITY" caption={t('NATIONALITY','Nationality')} />
+      <Column dataField="IDNUMBER" caption={t('IDNUMBER','ID Number')} />
+      <Column dataField="SHChieu" caption={t('SHChieu','Passport No')} />
+      <Column dataField="PLACE_ISSUE" caption={t('PLACE_ISSUE','Place Issue')} />
+      <Column dataField="DATE_ISSUE" caption={t('DATE_ISSUE','Date Issue')} />
+      <Column dataField="CUSTOMER_RECEIVE" caption={t('CUSTOMER_RECEIVE','Customer Receive')} />
+      <Column dataField="ADDRESS_RECEIVE" caption={t('ADDRESS_RECEIVE','Address Receive')} />
+      <Column dataField="TAX_CD_RECEIVE" caption={t('TAX_CD_RECEIVE','Tax Code Receive')} />
+      <Column dataField="PAYMENT_TERM" caption={t('PAYMENT_TERM','Payment Term')} />
+      <Column dataField="TenDVQHNhsach" caption={t('TenDVQHNhsach','Unit Name')} />
+      <Column dataField="MDVQHNhsach" caption={t('MDVQHNhsach','Unit Code')} />
+    </>
+  );
+};
+
+export default CustomerColumns;

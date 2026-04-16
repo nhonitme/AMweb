@@ -1,0 +1,7 @@
+import type { ExcelImportConfig } from "@/types/modal"
+
+export const costObjectImportConfig: ExcelImportConfig = {
+  templateName: "mau-doi-tuong-tap-hop-chi-phi.xlsx"
+  
+  
+}

@@ -1,0 +1,117 @@
+import { forwardRef, useCallback, useContext, useImperativeHandle, useRef } from "react"
+import DataGrid, {Toolbar, Item, Editing, Popup } from "devextreme-react/data-grid"
+import type dxDataGrid from "devextreme/ui/data_grid"
+import type { InitializedEvent, SavedEvent } from "devextreme/ui/data_grid"
+
+import { LanguageContext } from "@/lib/i18nLoader"
+import type { ChitDetail } from "@/types/voucher"
+import {
+  calculateChitAmount,
+  cloneChitDetail,
+  createDefaultChitDetail,
+  normalizeChitDetailRows,
+} from "../chitUtils"
+export interface ChitDetailGridHandle {
+  savePendingChanges: () => Promise<ChitDetail[]>
+}
+
+interface ChitDetailGridProps {
+  companyCd: string
+  details: ChitDetail[]
+  onChange: (rows: ChitDetail[], amount: number) => void,
+  height?: number,
+  ChitDetailColumns?: () => React.ReactNode | undefined;
+}
+
+export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGridProps>(
+  function ChitDetailGrid({ companyCd, details, onChange, height, ChitDetailColumns }, ref) {
+    const gridRef = useRef<dxDataGrid<ChitDetail, string> | null>(null)
+    const { translate } = useContext(LanguageContext) as {
+      translate?: (key: string, fallback?: string) => string
+    }
+
+    const t = useCallback(
+      (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
+      [translate],
+    )
+
+    const syncRows = useCallback(() => {
+      const source = gridRef.current?.option("dataSource")
+      const rows = Array.isArray(source)
+        ? normalizeChitDetailRows(source).map((item) => cloneChitDetail(item))
+        : details.map((item) => cloneChitDetail(item))
+      onChange(rows, calculateChitAmount(rows))
+      return rows
+    }, [details, onChange])
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        savePendingChanges: async () => {
+          if (gridRef.current) {
+            await gridRef.current.saveEditData()
+          }
+
+          return syncRows()
+        },
+      }),
+      [syncRows],
+    )
+
+    const handleInitialized = useCallback((event: InitializedEvent<ChitDetail, string>) => {
+      gridRef.current = event.component ?? null
+    }, [])
+
+    const handleSaved = useCallback(
+      (_event: SavedEvent<ChitDetail, string>) => {
+        syncRows()
+      },
+      [syncRows],
+    )
+
+    return (
+      <div className="h-full w-full data-grid-container">
+        <DataGrid<ChitDetail, string>
+          dataSource={details}
+          keyExpr="CHITDETAIL_ID"
+          width="100%"
+          height={height ?? "100%"}
+          showBorders
+          columnAutoWidth
+          rowAlternationEnabled
+          allowColumnResizing
+          allowColumnReordering
+          onInitialized={handleInitialized}
+          onSaved={handleSaved}
+          onInitNewRow={(event) => {
+            event.data = createDefaultChitDetail(details.length + 1)
+          }}
+        >
+          <Editing
+            mode="row"
+            allowAdding={true}
+            allowUpdating={true}
+            allowDeleting={true}
+            confirmDelete={false}
+          >
+            {/* <Popup
+              title={t("DETAIL_INFO", "Detail Line")}
+              showTitle={true}
+              width="90%"
+              maxWidth={1080}
+              height="auto"
+            />
+            <ChitDetailForm isUpdate={true} /> */}
+          </Editing>
+           <Toolbar>
+              <Item name="addRowButton" location="before" />
+              <Item name="searchPanel" location="after" />
+            </Toolbar>
+          {ChitDetailColumns && <ChitDetailColumns />}
+        </DataGrid>
+      </div>
+    )
+  },
+)
+
+export default ChitDetailGridPopup

@@ -1,0 +1,56 @@
+export type UserInfoFlag = "0" | "1" | boolean | null | undefined
+export type UserInfoText = string | null | undefined
+
+export interface UserInfoApi {
+  USER_PK_ID?: number
+  COMPANY_CD: UserInfoText
+  USERID: UserInfoText
+  PASSWD?: UserInfoText
+  PASSWD_LV2?: UserInfoText
+  USERNM?: UserInfoText
+  DEPARTMENT_CD?: UserInfoText
+  USERLV?: number | null
+  USER_ACCESS_MENU?: UserInfoText
+  USER_ACCESS_BUTTON?: UserInfoText
+  USER_TEL?: UserInfoText
+  USER_INPUT_YMD?: UserInfoText
+  CANLOGIN?: UserInfoFlag
+  USERID_MODIFY?: UserInfoText
+  USER_MODIFY_YMD?: UserInfoText
+  CAN_LOCK?: UserInfoFlag
+  TEAM_NUMBER?: UserInfoText
+  IS_MANAGER?: UserInfoFlag
+  ISDEL?: UserInfoFlag
+  CREATED_AT?: UserInfoText
+  UPDATED_AT?: UserInfoText
+  HAS_PASSWORD?: boolean
+  HAS_PASSWORD_LV2?: boolean
+  USER_DETAILS_RAW?: UserInfoText
+}
+
+export interface UserInfo {
+  USER_PK_ID?: number
+  COMPANY_CD: string
+  USERID: string
+  PASSWD?: string
+  PASSWD_LV2?: string
+  USERNM?: string
+  DEPARTMENT_CD?: string
+  USERLV?: number
+  USER_ACCESS_MENU?: string
+  USER_ACCESS_BUTTON?: string
+  USER_TEL?: string
+  USER_INPUT_YMD?: string
+  CANLOGIN?: boolean
+  USERID_MODIFY?: string
+  USER_MODIFY_YMD?: string
+  CAN_LOCK?: boolean
+  TEAM_NUMBER?: string
+  IS_MANAGER?: boolean
+  ISDEL?: boolean
+  CREATED_AT?: string
+  UPDATED_AT?: string
+  HAS_PASSWORD?: boolean
+  HAS_PASSWORD_LV2?: boolean
+  USER_DETAILS_RAW?: string
+}

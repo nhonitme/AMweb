@@ -1,0 +1,117 @@
+import type { UserInfo, UserInfoApi, UserInfoFlag, UserInfoText } from "@/types/userInfo";
+
+function trimDefined(value: UserInfoText): string | undefined {
+  if (value == null) {
+    return undefined;
+  }
+
+  return value.trim();
+}
+
+function normalizeText(value: UserInfoText): string | undefined {
+  const trimmed = trimDefined(value);
+  return trimmed === undefined ? undefined : trimmed;
+}
+
+function normalizeNumber(value: number | null | undefined): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  return undefined;
+}
+
+export function isEnabledFlag(value: UserInfoFlag): boolean {
+  return value === true || value === 1 || value === "1" || value === "true";
+}
+
+export function toFlagValue(value: boolean | undefined, fallback: "0" | "1" = "0"): "0" | "1" {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  return value ? "1" : "0";
+}
+
+export function normalizeUserInfo(record: UserInfoApi): UserInfo {
+  return {
+    USER_PK_ID: record.USER_PK_ID,
+    COMPANY_CD: normalizeText(record.COMPANY_CD) ?? "",
+    USERID: normalizeText(record.USERID) ?? "",
+    PASSWD: "",
+    PASSWD_LV2: "",
+    USERNM: normalizeText(record.USERNM) ?? "",
+    DEPARTMENT_CD: normalizeText(record.DEPARTMENT_CD),
+    USERLV: normalizeNumber(record.USERLV) ?? 1,
+    USER_ACCESS_MENU: normalizeText(record.USER_ACCESS_MENU),
+    USER_ACCESS_BUTTON: normalizeText(record.USER_ACCESS_BUTTON),
+    USER_TEL: normalizeText(record.USER_TEL),
+    USER_INPUT_YMD: normalizeText(record.USER_INPUT_YMD),
+    CANLOGIN: isEnabledFlag(record.CANLOGIN),
+    USERID_MODIFY: normalizeText(record.USERID_MODIFY),
+    USER_MODIFY_YMD: normalizeText(record.USER_MODIFY_YMD),
+    CAN_LOCK: isEnabledFlag(record.CAN_LOCK),
+    TEAM_NUMBER: normalizeText(record.TEAM_NUMBER),
+    IS_MANAGER: isEnabledFlag(record.IS_MANAGER),
+    ISDEL: isEnabledFlag(record.ISDEL),
+    CREATED_AT: normalizeText(record.CREATED_AT),
+    UPDATED_AT: normalizeText(record.UPDATED_AT),
+    HAS_PASSWORD: record.HAS_PASSWORD ?? false,
+    HAS_PASSWORD_LV2: record.HAS_PASSWORD_LV2 ?? false,
+    USER_DETAILS_RAW: normalizeText(record.USER_DETAILS_RAW),
+  };
+}
+
+export function normalizeUserInfoRows(records: UserInfoApi[]): UserInfo[] {
+  return records
+    .filter((record): record is UserInfoApi => record != null)
+    .map((record) => normalizeUserInfo(record));
+}
+
+export function mapUserInfoToApiPayload(record: Partial<UserInfo>): Partial<UserInfoApi> {
+  const payload: Partial<UserInfoApi> = {};
+
+  if (record.USER_PK_ID !== undefined) payload.USER_PK_ID = record.USER_PK_ID;
+  if (record.COMPANY_CD !== undefined) payload.COMPANY_CD = trimDefined(record.COMPANY_CD) ?? "";
+  if (record.USERID !== undefined) payload.USERID = trimDefined(record.USERID) ?? "";
+  if (record.PASSWD !== undefined) payload.PASSWD = trimDefined(record.PASSWD) ?? "";
+  if (record.PASSWD_LV2 !== undefined) payload.PASSWD_LV2 = trimDefined(record.PASSWD_LV2) ?? "";
+  if (record.USERNM !== undefined) payload.USERNM = trimDefined(record.USERNM) ?? "";
+  if (record.DEPARTMENT_CD !== undefined) payload.DEPARTMENT_CD = trimDefined(record.DEPARTMENT_CD) ?? "";
+  if (record.USERLV !== undefined) payload.USERLV = record.USERLV;
+  if (record.USER_ACCESS_MENU !== undefined) payload.USER_ACCESS_MENU = trimDefined(record.USER_ACCESS_MENU) ?? "";
+  if (record.USER_ACCESS_BUTTON !== undefined) payload.USER_ACCESS_BUTTON = trimDefined(record.USER_ACCESS_BUTTON) ?? "";
+  if (record.USER_TEL !== undefined) payload.USER_TEL = trimDefined(record.USER_TEL) ?? "";
+  if (record.CANLOGIN !== undefined) payload.CANLOGIN = toFlagValue(record.CANLOGIN, "1");
+  if (record.USERID_MODIFY !== undefined) payload.USERID_MODIFY = trimDefined(record.USERID_MODIFY) ?? "";
+  if (record.CAN_LOCK !== undefined) payload.CAN_LOCK = toFlagValue(record.CAN_LOCK, "0");
+  if (record.TEAM_NUMBER !== undefined) payload.TEAM_NUMBER = trimDefined(record.TEAM_NUMBER) ?? "";
+  if (record.IS_MANAGER !== undefined) payload.IS_MANAGER = toFlagValue(record.IS_MANAGER, "0");
+  if (record.ISDEL !== undefined) payload.ISDEL = toFlagValue(record.ISDEL, "0");
+  if (record.USER_DETAILS_RAW !== undefined) payload.USER_DETAILS_RAW = trimDefined(record.USER_DETAILS_RAW) ?? "";
+
+  return payload;
+}
+
+export function createDefaultUserInfo(companyCd: string, modifierUserId: string): UserInfo {
+  return {
+    COMPANY_CD: companyCd,
+    USERID: "",
+    PASSWD: "",
+    PASSWD_LV2: "",
+    USERNM: "",
+    DEPARTMENT_CD: "",
+    USERLV: 1,
+    USER_ACCESS_MENU: "",
+    USER_ACCESS_BUTTON: "",
+    USER_TEL: "",
+    CANLOGIN: true,
+    USERID_MODIFY: modifierUserId,
+    CAN_LOCK: false,
+    TEAM_NUMBER: "",
+    IS_MANAGER: false,
+    ISDEL: false,
+    HAS_PASSWORD: false,
+    HAS_PASSWORD_LV2: false,
+  };
+}

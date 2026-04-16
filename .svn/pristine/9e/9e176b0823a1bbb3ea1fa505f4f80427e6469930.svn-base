@@ -1,0 +1,33 @@
+export interface Product {
+    PRODUCT_ID: number
+    PRODUCT_CD: string
+    COMPANY_CD: string,
+    PRODUCT_NM: string,
+    PRODUCT_NM_ENG: string,
+    PRODUCT_NM_KOR: string,
+    PRODUCT_KIND_ID: number,
+    PRODUCT_KIND_CD: string,
+    PRODUCTKIND_NM: string,
+    UNIT_ID: number,
+    UNIT_CD: string,
+    UNIT_NM: string,
+    STORE_CD: string,
+    DIVISION: string,
+    DIVISION_C99: string,
+    UNIT_PRICE_CC: number,
+    UNIT_PRICE_FC: number,
+    FC_TYPE: string,
+    EX_RATE: number,
+    VAT_RATE: number,
+    SUMMARY: string,
+    ORIGIN: string,
+    CUSTOMS_CODE: string,
+    ISUSE: string,
+    USERID: string,
+    ISDEL: string,
+};
+
+export interface PlanningProps {
+    dataSource: Product[];
+    changePopupVisibility?: () => void;
+}

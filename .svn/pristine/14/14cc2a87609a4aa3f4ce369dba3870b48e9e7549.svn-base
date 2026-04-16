@@ -1,0 +1,22 @@
+import "@devexpress/analytics-core/dist/css/dx-analytics.common.css";
+import "@devexpress/analytics-core/dist/css/dx-analytics.light.css";
+import "devexpress-reporting/dist/css/dx-webdocumentviewer.css";
+import { DxReportViewer, RequestOptions } from "devexpress-reporting-react/dx-report-viewer";
+
+import { configureReportViewerRequests, getReportViewerHost } from "./reportViewerConfig";
+
+type ReportViewerShellProps = {
+  reportUrl: string;
+};
+
+configureReportViewerRequests();
+
+export default function ReportViewerShell({ reportUrl }: ReportViewerShellProps) {
+  return (
+    <div style={{ width: "100%", height: "100vh" }}>
+      <DxReportViewer reportUrl={reportUrl}>
+        <RequestOptions host={getReportViewerHost()} invokeAction="DXXRDV" />
+      </DxReportViewer>
+    </div>
+  );
+}

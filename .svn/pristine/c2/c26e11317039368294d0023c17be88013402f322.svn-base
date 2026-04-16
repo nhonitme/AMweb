@@ -1,0 +1,337 @@
+import { useCallback, useContext, type ComponentType } from "react"
+
+import { Column } from "devextreme-react/data-grid"
+
+import AcclistLookupCellEditor from "@/components/lookup/AcclistLookupCellEditor"
+import { LookupStore } from "@/components/lookup/AcclistLookupStore"
+import CustomerLookupCellEditor from "@/components/lookup/CustomerLookupCellEditor"
+import { customerLookupStore } from "@/components/lookup/customerLookupStore"
+import { LanguageContext } from "@/lib/i18nLoader"
+import type { ChitType } from "@/types/voucher"
+import { getCurrentLangCode } from "@/utils/language"
+
+type VoucherDetailColumnsComponent = ComponentType
+
+function useVoucherDetailEditors() {
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback: string) => string
+  }
+  const t = useCallback(
+    (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
+    [translate],
+  )
+
+  const renderCustomerEditor = useCallback(
+    (cellInfo: any) => (
+      <CustomerLookupCellEditor
+        dataSource={customerLookupStore}
+        value={cellInfo.data?.CUSTOMER_ID ?? null}
+        rowData={cellInfo.data}
+        rowIndex={cellInfo.row?.rowIndex ?? -1}
+        grid={cellInfo.component}
+        setValue={(customerId) => {
+          cellInfo.component.cellValue(cellInfo.row.rowIndex, "CUSTOMER_ID", customerId)
+        }}
+        customerIdField="CUSTOMER_ID"
+        customerCdField="CUSTOMER_CD"
+        customerNmField="CUSTOMER_NM_VIET"
+        taxCdField="TAX_CD"
+        addressField="ADDRESS"
+        customerCdFieldCaption={t("CUSTOMER_CD", "Mã KH")}
+        customerNmFieldCaption={t("CUSTOMER_NM", "Tên KH")}
+        taxCdFieldCaption={t("TAX_CD", "Mã số thuế")}
+        addressFieldCaption={t("ADDRESS", "Địa chỉ")}
+        placeholder={t("CustomerSelect", "Chọn khách hàng")}
+        popupTitle={t("CustomerSelect", "Chọn khách hàng")}
+        buttonHint={t("LIST_CUSTOMER", "Mở danh sách khách hàng")}
+      />
+    ),
+    [t],
+  )
+
+  const createAccEditor = useCallback(
+    ({
+      valueField,
+      nameField,
+      idField,
+      placeholder,
+      popupTitle,
+      buttonHint,
+    }: {
+      valueField: string
+      nameField: string
+      idField?: string
+      placeholder?: string
+      popupTitle?: string
+      buttonHint?: string
+    }) =>
+      (cellInfo: any) => (
+        <AcclistLookupCellEditor
+          dataSource={LookupStore}
+          value={cellInfo.data?.[valueField] ?? null}
+          rowData={cellInfo.data}
+          rowIndex={cellInfo.row?.rowIndex ?? -1}
+          grid={cellInfo.component}
+          setValue={(accCd) => {
+            cellInfo.component.cellValue(cellInfo.row.rowIndex, valueField, accCd)
+          }}
+          ValueField={valueField}
+          NameField={nameField}
+          IdField={idField}
+          LookupCodeField="ACC_CD"
+          LookupNameField={`ACCTITLE_NM_${getCurrentLangCode()}`}
+          AccNmFieldCaption={t("ACCTITLE_NM_VIET", "Tên TK")}
+          AccCdFieldCaption={t("ACC_CD", "Mã TK")}
+          placeholder={placeholder ?? t("ACC_SELECT", "Chọn tài khoản")}
+          popupTitle={popupTitle ?? t("ACC_SELECT", "Chọn tài khoản")}
+          buttonHint={buttonHint ?? t("lblACC", "Mở danh sách tài khoản")}
+        />
+      ),
+    [t],
+  )
+
+  return {
+    t,
+    createAccEditor,
+    renderCustomerEditor,
+  }
+}
+
+function DetailMetaColumns() {
+  return (
+    <>
+      <Column type="buttons" width={80} showInColumnChooser={false} />
+      <Column dataField="CHIT_ID" visible={false} />
+      <Column dataField="CHITDETAIL_ID" visible={false} />
+      <Column dataField="CHITDETAIL_CD" visible={false} />
+      <Column dataField="CHIT_YMD" visible={false} />
+      <Column dataField="CUSTOMER_ID" visible={false} />
+    </>
+  )
+}
+
+function CustomerColumns({
+  renderCustomerEditor,
+  t,
+}: {
+  renderCustomerEditor: (cellInfo: any) => JSX.Element
+  t: (key: string, fallback: string) => string
+}) {
+  return (
+    <>
+      <Column
+        dataField="CUSTOMER_CD"
+        caption={t("CUSTOMER_CD", "Khách hàng")}
+        width={200}
+        editCellRender={renderCustomerEditor}
+      />
+      <Column
+        dataField="CUSTOMER_NM_VIET"
+        caption={t("CUSTOMER_NM", "Tên khách hàng")}
+        minWidth={220}
+        allowEditing={false}
+      />
+    </>
+  )
+}
+
+function AccountingColumns({
+  createAccEditor,
+  t,
+}: {
+  createAccEditor: (config: {
+    valueField: string
+    nameField: string
+    idField?: string
+    placeholder?: string
+    popupTitle?: string
+    buttonHint?: string
+  }) => (cellInfo: any) => JSX.Element
+  t: (key: string, fallback: string) => string
+}) {
+  return (
+    <>
+      <Column
+        dataField="DEBIT"
+        caption={t("DEBIT", "Tài khoản nợ")}
+        width={150}
+        editCellRender={createAccEditor({
+          valueField: "DEBIT",
+          nameField: "DEBIT_NM_VIET",
+          idField: "ACC_ID",
+        })}
+      />
+      <Column
+        dataField="DEBIT_NM_VIET"
+        caption={t("ACC_NM_DEBIT", "Tên tài khoản nợ")}
+        minWidth={220}
+        allowEditing={false}
+      />
+      <Column
+        dataField="CREDIT"
+        caption={t("CREDIT", "Tài khoản có")}
+        width={150}
+        editCellRender={createAccEditor({
+          valueField: "CREDIT",
+          nameField: "CREDIT_NM_VIET",
+          idField: "ACC_ID",
+        })}
+      />
+      <Column
+        dataField="CREDIT_NM_VIET"
+        caption={t("ACC_NM_CREDIT", "Tên tài khoản có")}
+        minWidth={220}
+        allowEditing={false}
+      />
+    </>
+  )
+}
+
+export function CashVoucherDetailColumns() {
+  const { t, createAccEditor, renderCustomerEditor } = useVoucherDetailEditors()
+
+  return (
+    <>
+      <DetailMetaColumns />
+      <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
+      <AccountingColumns createAccEditor={createAccEditor} t={t} />
+      <Column dataField="AMOUNT" caption={t("AMOUNT", "Số tiền")} dataType="number" format="#,##0.00" width={140} />
+      <Column dataField="FC_TYPE" caption={t("FC_TYPE", "Loại tiền")} width={120} />
+      <Column dataField="FC_RATE" caption={t("FC_RATE", "Tỷ giá")} dataType="number" format="#,##0.000000" width={130} />
+      <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Diễn giải")} minWidth={240} />
+    </>
+  )
+}
+
+export function BankVoucherDetailColumns() {
+  const { t, createAccEditor, renderCustomerEditor } = useVoucherDetailEditors()
+
+  return (
+    <>
+      <DetailMetaColumns />
+      <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
+      <Column dataField="BANK_CD" caption={t("BANK_CD", "Ngân hàng")} width={140} />
+      <Column dataField="BANK_OWN_CD" caption={t("BANK_OWN_CD", "Ngân hàng đối ứng")} width={150} />
+      <AccountingColumns createAccEditor={createAccEditor} t={t} />
+      <Column dataField="AMOUNT" caption={t("AMOUNT", "Số tiền")} dataType="number" format="#,##0.00" width={140} />
+      <Column dataField="FC_TYPE" caption={t("FC_TYPE", "Loại tiền")} width={120} />
+      <Column dataField="FC_RATE" caption={t("FC_RATE", "Tỷ giá")} dataType="number" format="#,##0.000000" width={130} />
+      <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Diễn giải ngân hàng")} minWidth={240} />
+    </>
+  )
+}
+
+export function PurchaseVoucherDetailColumns() {
+  const { t, createAccEditor, renderCustomerEditor } = useVoucherDetailEditors()
+
+  return (
+    <>
+      <DetailMetaColumns />
+      <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
+      <Column dataField="PRODUCT_NM" caption={t("PRODUCT_NM", "Hàng hóa")} minWidth={200} />
+      <Column dataField="UNIT_NM" caption={t("UNIT_NM", "Đơn vị")} width={110} />
+      <Column dataField="QUANTITY" caption={t("QUANTITY", "Số lượng")} dataType="number" format="#,##0.###" width={120} />
+      <Column dataField="UNIT_PRICE" caption={t("UNIT_PRICE", "Đơn giá")} dataType="number" format="#,##0.00" width={140} />
+      <Column dataField="PRODUCT_AMOUNT" caption={t("PRODUCT_AMOUNT", "Thành tiền hàng")} dataType="number" format="#,##0.00" width={150} />
+      <Column dataField="VAT_TYPE" caption={t("VAT_TYPE", "Loại VAT")} width={110} />
+      <Column dataField="VAT_AMOUNT" caption={t("VAT_AMOUNT", "Tiền VAT")} dataType="number" format="#,##0.00" width={130} />
+      <Column dataField="VAT_CHIT_NO" caption={t("VAT_CHIT_NO", "Số hóa đơn")} width={150} />
+      <AccountingColumns createAccEditor={createAccEditor} t={t} />
+      <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Diễn giải mua hàng")} minWidth={240} />
+    </>
+  )
+}
+
+export function PurchaseServiceVoucherDetailColumns() {
+  const { t, createAccEditor, renderCustomerEditor } = useVoucherDetailEditors()
+
+  return (
+    <>
+      <DetailMetaColumns />
+      <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
+      <Column dataField="PRODUCT_NM" caption={t("SERVICE_NM", "Dịch vụ")} minWidth={220} />
+      <Column dataField="PRODUCT_NOTE" caption={t("PRODUCT_NOTE", "Phạm vi dịch vụ")} minWidth={220} />
+      <Column dataField="PRODUCT_AMOUNT" caption={t("PRODUCT_AMOUNT", "Tiền dịch vụ")} dataType="number" format="#,##0.00" width={150} />
+      <Column dataField="VAT_TYPE" caption={t("VAT_TYPE", "Loại VAT")} width={110} />
+      <Column dataField="VAT_AMOUNT" caption={t("VAT_AMOUNT", "Tiền VAT")} dataType="number" format="#,##0.00" width={130} />
+      <Column dataField="VAT_CHIT_NO" caption={t("VAT_CHIT_NO", "Số hóa đơn dịch vụ")} width={160} />
+      <AccountingColumns createAccEditor={createAccEditor} t={t} />
+      <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Diễn giải dịch vụ")} minWidth={240} />
+    </>
+  )
+}
+
+export function SalesVoucherDetailColumns() {
+  const { t, createAccEditor, renderCustomerEditor } = useVoucherDetailEditors()
+
+  return (
+    <>
+      <DetailMetaColumns />
+      <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
+      <Column dataField="PRODUCT_NM" caption={t("PRODUCT_NM", "Hàng hóa / Dịch vụ")} minWidth={200} />
+      <Column dataField="UNIT_NM" caption={t("UNIT_NM", "Đơn vị")} width={110} />
+      <Column dataField="QUANTITY" caption={t("QUANTITY", "Số lượng")} dataType="number" format="#,##0.###" width={120} />
+      <Column dataField="UNIT_PRICE" caption={t("UNIT_PRICE", "Đơn giá")} dataType="number" format="#,##0.00" width={140} />
+      <Column dataField="PRODUCT_AMOUNT" caption={t("PRODUCT_AMOUNT", "Doanh thu")} dataType="number" format="#,##0.00" width={140} />
+      <Column dataField="VAT_TYPE" caption={t("VAT_TYPE", "Loại VAT")} width={110} />
+      <Column dataField="PRODUCT_VAT_AMOUNT" caption={t("PRODUCT_VAT_AMOUNT", "VAT đầu ra")} dataType="number" format="#,##0.00" width={140} />
+      <Column dataField="VAT_CHIT_NO" caption={t("VAT_CHIT_NO", "Số hóa đơn bán ra")} width={160} />
+      <AccountingColumns createAccEditor={createAccEditor} t={t} />
+      <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Diễn giải bán hàng")} minWidth={240} />
+    </>
+  )
+}
+
+export function OffsetVoucherDetailColumns() {
+  const { t, createAccEditor, renderCustomerEditor } = useVoucherDetailEditors()
+
+  return (
+    <>
+      <DetailMetaColumns />
+      <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
+      <Column dataField="MR_CD" caption={t("MR_CD", "Mã cấn trừ 1")} width={140} />
+      <Column dataField="MR_CD2" caption={t("MR_CD2", "Mã cấn trừ 2")} width={140} />
+      <AccountingColumns createAccEditor={createAccEditor} t={t} />
+      <Column dataField="AMOUNT" caption={t("AMOUNT", "Số tiền")} dataType="number" format="#,##0.00" width={140} />
+      <Column dataField="FC_TYPE" caption={t("FC_TYPE", "Loại tiền")} width={120} />
+      <Column dataField="FC_RATE" caption={t("FC_RATE", "Tỷ giá")} dataType="number" format="#,##0.000000" width={130} />
+      <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Diễn giải cấn trừ")} minWidth={240} />
+    </>
+  )
+}
+
+export function OtherVoucherDetailColumns() {
+  const { t, createAccEditor, renderCustomerEditor } = useVoucherDetailEditors()
+
+  return (
+    <>
+      <DetailMetaColumns />
+      <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
+      <Column dataField="MG_CD" caption={t("MG_CD", "Mã quản trị")} width={140} />
+      <Column dataField="DEPARTMENT_CD" caption={t("DEPARTMENT_CD", "Bộ phận")} width={140} />
+      <AccountingColumns createAccEditor={createAccEditor} t={t} />
+      <Column dataField="AMOUNT" caption={t("AMOUNT", "Số tiền")} dataType="number" format="#,##0.00" width={140} />
+      <Column dataField="FC_TYPE" caption={t("FC_TYPE", "Loại tiền")} width={120} />
+      <Column dataField="FC_RATE" caption={t("FC_RATE", "Tỷ giá")} dataType="number" format="#,##0.000000" width={130} />
+      <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Diễn giải")} minWidth={240} />
+    </>
+  )
+}
+
+const detailColumnsMap: Record<ChitType, VoucherDetailColumnsComponent> = {
+  RC: CashVoucherDetailColumns,
+  PM: CashVoucherDetailColumns,
+  DN: BankVoucherDetailColumns,
+  CN: BankVoucherDetailColumns,
+  PO: PurchaseVoucherDetailColumns,
+  PS: PurchaseServiceVoucherDetailColumns,
+  SO: SalesVoucherDetailColumns,
+  CO: OffsetVoucherDetailColumns,
+  OT: OtherVoucherDetailColumns,
+}
+
+export function getVoucherDetailColumnsComponent(chitType: ChitType): VoucherDetailColumnsComponent {
+  return detailColumnsMap[chitType]
+}
+
+export default CashVoucherDetailColumns

@@ -1,0 +1,134 @@
+import axios from './axiosClient';
+import API_BASE_URL from '../config/apiConfig';
+import type { StoreKindInfo } from "@/types/storeKind"
+import { convertCodeToLang, convertLangToCode } from '@/utils/language';
+
+const BASE_URL = `${API_BASE_URL}/StoreKindInfo`;
+
+
+// GET all (optionally filtered by storeKind)
+export async function getStoreKindInfos(
+  storeKindId?: number
+): Promise<{ data: StoreKindInfo[] }> {
+  try {
+    const resp = await axios.get(`${BASE_URL}`, {
+      params: { STORE_KIND_ID: storeKindId },
+    });
+
+    if (resp.status !== 200) {
+      throw new Error(`Unexpected HTTP status ${resp.status}`);
+    }
+
+    // the controller may return several wrapper shapes. normalize to { data, labels }
+    const payload = resp.data;
+    if (!payload || typeof payload !== "object") {
+      throw new Error("Invalid response format from getStoreInfos");
+    }
+
+    // possible shapes:
+    // { data: [...], labels: {...} }
+    // { Data: { data: [...], labels: {...} } }
+    // { data: { data: [...], labels: {...} } }
+    const inner = payload.Data ?? payload.data ?? payload;
+
+    // If inner is the array itself, there are no labels
+    if (Array.isArray(inner)) {
+      return { data: inner as StoreKindInfo[]};
+    }
+
+    const list = inner.data ?? inner;
+
+    if (!Array.isArray(list)) {
+      throw new Error("Response did not contain an array of customer exts");
+    }
+
+    return { data: list as StoreKindInfo[]};
+  } catch (err: any) {
+    console.error("Error in getStoreInfos:", err);
+    if (err.response) {
+      console.error("Response data:", err.response.data);
+      console.error("Response status:", err.response.status);
+    }
+    throw err; // rethrow so caller can handle
+  }
+}
+
+// POST create
+export async function createStoreKindInfo(
+  payload: Partial<StoreKindInfo>
+): Promise<any> {
+  const resp = await axios.post(`${BASE_URL}`, payload);
+  return resp.data;
+}
+
+// PUT update
+export async function updateStoreKindInfo(
+  payload: Partial<StoreKindInfo>
+): Promise<any> {
+  const resp = await axios.put(`${BASE_URL}`, payload);
+  return resp.data;
+}
+
+// DELETE by STORE_CD
+export async function deleteStoreKindInfo(
+  storeKindId: number
+): Promise<any> {
+  const resp = await axios.delete(`${BASE_URL}`, {
+    params: { STORE_KIND_ID: storeKindId },
+  });
+  return resp.data;
+}
+
+
+export async function deleteStoreKindInfos(
+  StoreKindIds: (number)[]
+): Promise<any> {
+  const resp = await axios.post(`${BASE_URL}/DeleteMany`, { StoreKindIds });
+  return resp.data;
+}
+
+export async function LookupAsync(
+   storeKindID?: number,
+  lang?: string
+): Promise<any> {
+  const resp = await axios.get(`${BASE_URL}/Lookup`, {
+    params: { storeKindID, lang}
+  });
+  return resp.data;
+}
+
+// Export to Excel (optionally filter by store ID)
+export async function exportToExcel(
+  storeKindID?: number,
+  lang?: string
+): Promise<Blob> {
+  const params: any = {};
+  if (storeKindID) params.STORE_KIND_ID = storeKindID;
+  if (lang) params.lang = convertLangToCode(lang);
+
+  const resp = await axios.get(`${BASE_URL}/export`, {
+    params,
+    responseType: 'blob',
+  });
+  return resp.data;
+}
+
+export async function importFromExcel(
+  file: File,
+  lang?: string
+): Promise<any> {
+  const form = new FormData();
+  form.append('file', file);
+
+  const url = `${BASE_URL}/import${lang ? `?lang=${encodeURIComponent(convertLangToCode(lang))}` : ''}`;
+  const resp = await axios.post(url, form);
+  return resp.data;
+}
+
+export async function checkExists(
+  STORE_KIND_ID: number,
+  STORE_KIND_CD: string
+): Promise<any> {
+  const resp = await axios.get(`${BASE_URL}/CheckExists`, { params: { STORE_KIND_ID, STORE_KIND_CD } });
+  return resp.data;
+}

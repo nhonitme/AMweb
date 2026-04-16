@@ -1,0 +1,268 @@
+import React, { useCallback, useContext, useState } from "react";
+import { Toolbar, Button } from "devextreme-react";
+import TextBox from "devextreme-react/text-box";
+import { Item } from "devextreme-react/toolbar";
+import type dxTreeList from "devextreme/ui/tree_list";
+import { confirm } from "devextreme/ui/dialog";
+import { LanguageContext } from '@/lib/i18nLoader';
+import type { ShowTextMode } from "devextreme/ui/toolbar";
+import "./TreeListToolbar.scss";
+
+export type ToolbarCustomItem = {
+  key?: string;
+  icon?: string;
+  text?: string;
+  hint?: string;
+  type?: 'default' | 'normal' | 'danger';
+  stylingMode?: 'contained' | 'text' | 'outlined';
+  showText?: ShowTextMode;
+  disabled?: boolean;
+  onClick?: () => void;
+};
+
+export type TreeListToolbarProps = {
+  title?: string;
+  titleKey?: string;
+
+  treeListRef: React.RefObject<dxTreeList | null>;
+
+  onAdd?: () => void;
+  onRefresh?: () => void;
+
+  onExportPdf?: () => void;
+  onExportXlsx?: () => void;
+  onImport?: () => void;
+  onDelete?: () => void;
+  customItems?: ToolbarCustomItem[];
+
+  showAdd?: boolean;
+  showRefresh?: boolean;
+  showColumnChooser?: boolean;
+  showExportPdf?: boolean;
+  showExportXlsx?: boolean;
+  showImport?: boolean;
+  showDelete?: boolean;
+  showSearch?: boolean;
+
+};
+
+export function TreeListToolbar({
+  title = "Tree List",
+  titleKey,
+  treeListRef,
+  onAdd,
+  onRefresh,
+  onExportPdf,
+  onExportXlsx,
+  onImport,
+  onDelete,
+  customItems,
+  showAdd = true,
+  showRefresh = true,
+  showColumnChooser = true,
+  showExportPdf = true,
+  showExportXlsx = true,
+  showImport = true,
+  showDelete = true,
+  showSearch = true,
+}: TreeListToolbarProps) {
+  const { translate } = useContext(LanguageContext) as { translate?: (k: string, f?: string) => string };
+  const label = titleKey ? (translate ? translate(titleKey, title) : title) : title;
+  const renderLabel = () => <div className="toolbar-label">{label}</div>;
+  const [searchText, setSearchText] = useState("");
+
+  const handleAdd = () => {
+    if (onAdd) return onAdd();
+    treeListRef.current?.addRow();
+  };
+
+  const handleRefresh = () => {
+    if (onRefresh) return onRefresh();
+  };
+
+  const handleColumnChooser = () => {
+    treeListRef.current?.showColumnChooser();
+  };
+
+  const updateSearchFilterVisibility = useCallback((value: string) => {
+    const hasSearchValue = value.trim().length > 0;
+    const searchableTreeList = treeListRef.current as
+      | { option?: (name: string, value?: boolean | string) => void }
+      | null;
+
+    searchableTreeList?.option?.("filterRow.visible", hasSearchValue);
+    searchableTreeList?.option?.("filterPanel.visible", hasSearchValue);
+  }, [treeListRef]);
+
+  const handleSearchTextChange = useCallback((value: string) => {
+    setSearchText(value);
+    updateSearchFilterVisibility(value);
+
+    const searchableTreeList = treeListRef.current as
+      | { searchByText?: (text: string) => void; option?: (name: string, value?: string) => void }
+      | null;
+
+    searchableTreeList?.searchByText?.(value);
+    searchableTreeList?.option?.("searchPanel.text", value);
+  }, [treeListRef, updateSearchFilterVisibility]);
+
+  const performTreeListDelete = () => {
+    const keys = (treeListRef.current?.getSelectedRowKeys() ?? []) as unknown[];
+    keys.forEach((key) => {
+      const idx = treeListRef.current?.getRowIndexByKey(key);
+      if (idx !== undefined && idx !== -1) {
+        treeListRef.current?.deleteRow(idx);
+      }
+    });
+  };
+
+  const handleDelete = async () => {
+    treeListRef.current?.option('editing.confirmDelete', false);
+    if (onDelete) {
+      onDelete();
+      return;
+    }
+    const confirmText =
+      translate
+        ? translate('Are you sure you want to delete the selected rows?', 'Are you sure you want to delete the selected rows?')
+        : 'Are you sure you want to delete the selected rows?';
+    const confirmTitle = translate ? translate('btnOK', 'Confirm') : 'Confirm';
+    const isConfirmed = await confirm(confirmText, confirmTitle);
+    if (isConfirmed) {
+      performTreeListDelete();
+    }
+  };
+
+  return (
+    <Toolbar className="my-toolbar">
+      <Item location="before" locateInMenu="never" render={renderLabel} />
+
+      {showAdd && (
+        <Item location="after" widget="dxButton" locateInMenu="auto">
+          <Button
+            type="default"
+            stylingMode="contained"
+            onClick={handleAdd}
+            icon="plus"
+            hint={translate ? translate('lblAddNew', 'Add') : 'Add'}
+            text={translate ? translate('lblAddNew', 'Add') : 'Add'}
+          />
+        </Item>
+      )}
+
+      {showSearch && (
+        <Item location="after" locateInMenu="never">
+          <TextBox
+            width={260}
+            mode="search"
+            stylingMode="outlined"
+            value={searchText}
+            showClearButton={true}
+            placeholder={translate ? translate("Search...", "Search...") : "Search..."}
+            onValueChanged={(e) => handleSearchTextChange(String(e.value ?? ""))}
+            onEnterKey={() => updateSearchFilterVisibility(searchText)}
+          />
+        </Item>
+      )}
+
+      {showRefresh && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={handleRefresh}
+            icon="refresh"
+            hint={translate ? translate('btnRefresh', 'Refresh') : 'Refresh'}
+            text={translate ? translate('btnRefresh', 'Refresh') : 'Refresh'}
+          />
+        </Item>
+      )}
+
+      {showColumnChooser && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={handleColumnChooser}
+            icon="columnchooser"
+            hint={translate ? translate('AUDIT_SETTING_SHOW_HIDE', 'Column Chooser') : 'Column Chooser'}
+            text={translate ? translate('AUDIT_SETTING_SHOW_HIDE', 'Column Chooser') : 'Column Chooser'}
+          />
+        </Item>
+      )}
+
+      {(showDelete || showImport || showExportPdf || showExportXlsx) && (
+        <Item location="after" locateInMenu="auto">
+          <div className="separator" />
+        </Item>
+      )}
+
+      {customItems?.map((item, index) => (
+        <Item
+          key={item.key ?? index}
+          location="after"
+          widget="dxButton"
+          showText={item.showText ?? "inMenu"}
+          locateInMenu="auto"
+          options={{
+            icon: item.icon,
+            text: item.text,
+            hint: item.hint,
+            type: item.type,
+            stylingMode: item.stylingMode,
+            disabled: item.disabled,
+            onClick: item.onClick,
+          }}
+        />
+      ))}
+
+      {showDelete && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            type="danger"
+            onClick={handleDelete}
+            icon="trash"
+            hint={translate ? translate('btndelete', 'Delete selected') : 'Delete selected'}
+            text={translate ? translate('btndelete', 'Delete selected') : 'Delete selected'}
+          />
+        </Item>
+      )}
+
+      {showImport && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={onImport}
+            icon="upload"
+            hint={translate ? translate('history_action75', 'Import from Excel') : 'Import from Excel'}
+            text={translate ? translate('history_action75', 'Import from Excel') : 'Import from Excel'}
+          />
+        </Item>
+      )}
+
+      {showExportPdf && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={onExportPdf}
+            icon="exportpdf"
+            hint={translate ? translate('EXPORT_PDF_FILE', 'Export PDF') : 'Export PDF'}
+            text={translate ? translate('EXPORT_PDF_FILE', 'Export PDF') : 'Export PDF'}
+          />
+        </Item>
+      )}
+
+      {showExportXlsx && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            stylingMode="text"
+            onClick={onExportXlsx}
+            icon="download"
+            hint={translate ? translate('btnExport', 'Export Excel') : 'Export Excel'}
+            text={translate ? translate('btnExport', 'Export Excel') : 'Export Excel'}
+          />
+        </Item>
+      )}
+    </Toolbar>
+  );
+}
+export default TreeListToolbar;

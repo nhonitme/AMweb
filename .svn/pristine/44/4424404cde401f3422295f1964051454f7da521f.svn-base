@@ -1,0 +1,81 @@
+import axios from 'axios';
+import API_BASE_URL from '../config/apiConfig';
+import { getAccessToken, refreshToken, logout } from '@/lib/login';
+
+axios.defaults.baseURL = API_BASE_URL;
+axios.defaults.withCredentials = true; // allow refresh token cookie to be sent
+
+let isRefreshing = false;
+let refreshPromise: Promise<string | null> | null = null;
+
+function subscribeTokenRefresh(cb: (token: string | null) => void) {
+  refreshPromise?.then(cb).catch(() => cb(null));
+}
+
+axios.interceptors.request.use(
+  (config) => {
+    const token = getAccessToken();
+    if (token && config && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+axios.interceptors.response.use(
+  (resp) => resp,
+  async (error) => {
+    const originalRequest = error.config;
+    if (!originalRequest) return Promise.reject(error);
+
+    // If 401, try to refresh token once
+    if (error.response && error.response.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      if (!isRefreshing) {
+        isRefreshing = true;
+        refreshPromise = refreshToken();
+        try {
+          const newToken = await refreshPromise;
+          isRefreshing = false;
+          refreshPromise = null;
+          if (newToken) {
+            // update header for original request and retry
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            return axios(originalRequest);
+          } else {
+            // refresh failed -> logout
+            await logout();
+            window.location.href = '/login';
+            return Promise.reject(error);
+          }
+        } catch (refreshErr) {
+          isRefreshing = false;
+          refreshPromise = null;
+          await logout();
+          window.location.href = '/login';
+          return Promise.reject(refreshErr);
+        }
+      } else {
+        // wait for ongoing refresh
+        return new Promise((resolve, reject) => {
+          subscribeTokenRefresh((token) => {
+            if (token) {
+              originalRequest.headers = originalRequest.headers || {};
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              resolve(axios(originalRequest));
+            } else {
+              reject(error);
+            }
+          });
+        });
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+export default axios;

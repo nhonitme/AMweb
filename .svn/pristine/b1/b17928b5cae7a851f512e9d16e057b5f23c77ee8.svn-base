@@ -1,0 +1,103 @@
+import React from "react";
+import DataGrid, {
+    Paging,
+    Pager,
+    FilterRow,
+    HeaderFilter,
+    FilterBuilderPopup,
+    FilterPanel,
+    Selection,
+    ColumnChooser,
+    ColumnChooserSearch,
+} from "devextreme-react/data-grid";
+
+import type {
+    InitializedEvent,
+    ToolbarPreparingEvent,
+    ContextMenuPreparingEvent,
+    RowInsertingEvent,
+    RowUpdatingEvent,
+    RowRemovingEvent,
+    EditingStartEvent,
+    InitNewRowEvent,
+} from "devextreme/ui/data_grid";
+
+import "./BaseDataGrid.scss";
+
+interface BaseDataGridProps<T> {
+    dataSource: T[];
+    keyExpr: string;
+    children: React.ReactNode;
+
+    onInitialized?: (e: InitializedEvent) => void;
+    onToolbarPreparing?: (e: ToolbarPreparingEvent) => void;
+    onContextMenuPreparing?: (e: ContextMenuPreparingEvent) => void;
+    onRowInserting?: (e: RowInsertingEvent) => void;
+    onRowUpdating?: (e: RowUpdatingEvent) => void;
+    onRowRemoving?: (e: RowRemovingEvent) => void;
+    onEditingStart?: (e: EditingStartEvent) => void;
+    onInitNewRow?: (e: InitNewRowEvent) => void;
+}
+
+const onToolbarPreparing = (e: ToolbarPreparingEvent) => {
+    e.toolbarOptions.items = e.toolbarOptions.items?.filter(
+        (item) => item.name !== 'addRowButton' && item.name !== 'columnChooserButton'
+    );
+};
+
+export function BaseDataGrid<T>({
+  dataSource,
+  keyExpr,
+  children,
+  onInitialized,
+  onContextMenuPreparing,
+  onRowInserting,
+  onRowUpdating,
+  onRowRemoving,
+  onEditingStart,
+  onInitNewRow
+}: BaseDataGridProps<T>) {
+  return (
+    <DataGrid
+        dataSource={dataSource}
+        keyExpr={keyExpr}
+        showBorders
+        columnAutoWidth
+        onInitialized={onInitialized}
+        onToolbarPreparing={onToolbarPreparing}
+        onContextMenuPreparing={onContextMenuPreparing}
+        onRowInserting={onRowInserting}
+        onRowUpdating={onRowUpdating}
+        onRowRemoving={onRowRemoving}
+        onEditingStart={onEditingStart}
+        onInitNewRow={onInitNewRow}
+    >
+        <HeaderFilter visible />
+        <FilterRow visible />
+        <FilterPanel visible />
+        <FilterBuilderPopup />
+
+        <Selection
+            mode="multiple"
+            selectAllMode="allPages"
+            showCheckBoxesMode="always"
+        />
+
+        <ColumnChooser enabled mode="select">
+            <ColumnChooserSearch
+                enabled
+                timeout={800}
+                editorOptions={{
+                    placeholder: "Search column",
+                    mode: "text",
+                }}
+            />
+        </ColumnChooser>
+
+        <Paging defaultPageSize={10} />
+        <Pager showInfo showPageSizeSelector showNavigationButtons />
+
+        {children}
+    </DataGrid>
+  );
+}

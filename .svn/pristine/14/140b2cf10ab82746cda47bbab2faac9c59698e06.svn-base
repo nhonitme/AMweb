@@ -1,0 +1,173 @@
+import { useContext, useMemo } from "react";
+import { AsyncRule, Column, Lookup, RequiredRule } from "devextreme-react/data-grid";
+
+import { checkCustomerCdExists } from "@/api/customerExtApi";
+import type { SysCode } from "@/api/sysCodeService";
+import { LanguageContext } from "@/lib/i18nLoader";
+
+export type CustomerFieldGroup = "basic" | "contact" | "address" | "id" | "tax" | "other";
+
+export type CustomerField = {
+  caption: string;
+  key: string;
+};
+
+export const customerFields: CustomerField[] = [
+  { key: "CUSTOMER_ID", caption: "Customer ID" },
+  { key: "CUSTOMER_EXT_ID", caption: "Ext Row ID" },
+  { key: "COMPANY_CD", caption: "Company" },
+  { key: "CUSTOMER_CD", caption: "Customer Code" },
+  { key: "CATEGORY_CD", caption: "Category" },
+  { key: "CUSTOMER_TYPE", caption: "Customer Type" },
+  { key: "CUSTOMER_NM_VIET", caption: "Customer Name (VI)" },
+  { key: "BUYER_NM", caption: "Buyer Name" },
+  { key: "CUSTOMER_USER_CD", caption: "User Code" },
+  { key: "BRN", caption: "BRN" },
+  { key: "SSN", caption: "SSN" },
+  { key: "OWNER_NM", caption: "Owner Name" },
+  { key: "BUSINESS_TYPE", caption: "Business Type" },
+  { key: "KIND_BUSINESS", caption: "Kind Business" },
+  { key: "ZIP_CODE", caption: "Zip Code" },
+  { key: "ADDRESS_DO", caption: "Address (DO)" },
+  { key: "ADDRESS", caption: "Address" },
+  { key: "TEL", caption: "Tel" },
+  { key: "FAX", caption: "Fax" },
+  { key: "EMAIL", caption: "Email" },
+  { key: "ISDEL", caption: "Deleted" },
+  { key: "CUSTOMER_EXT_CD", caption: "Customer Ext Code" },
+  { key: "CREATED_AT", caption: "Created At" },
+  { key: "UPDATED_AT", caption: "Updated At" },
+  { key: "TAX_CD", caption: "Tax Code" },
+  { key: "BANK_CD", caption: "Bank Code" },
+  { key: "ISTEMP", caption: "Is Temp" },
+  { key: "NOTE", caption: "Note" },
+  { key: "INQUIRY_IN", caption: "Inquiry In" },
+  { key: "INDIVIDUAL", caption: "Individual" },
+  { key: "NATIONALITY", caption: "Nationality" },
+  { key: "IDNUMBER", caption: "ID Number" },
+  { key: "SHChieu", caption: "Passport No" },
+  { key: "PLACE_ISSUE", caption: "Place Issue" },
+  { key: "DATE_ISSUE", caption: "Date Issue" },
+  { key: "CUSTOMER_RECEIVE", caption: "Customer Receive" },
+  { key: "ADDRESS_RECEIVE", caption: "Address Receive" },
+  { key: "TAX_CD_RECEIVE", caption: "Tax Code Receive" },
+  { key: "PAYMENT_TERM", caption: "Payment Term" },
+  { key: "TenDVQHNhsach", caption: "Unit Name" },
+  { key: "MDVQHNhsach", caption: "Unit Code" },
+];
+
+export const customerFieldGroups: Record<CustomerFieldGroup, string[]> = {
+  basic: [
+    "CUSTOMER_CD",
+    "CATEGORY_CD",
+    "CUSTOMER_TYPE",
+    "CUSTOMER_NM_VIET",
+    "BUYER_NM",
+    "CUSTOMER_USER_CD",
+    "CUSTOMER_RECEIVE",
+  ],
+  contact: ["TEL", "FAX", "EMAIL"],
+  address: ["ZIP_CODE", "ADDRESS_DO", "ADDRESS", "ADDRESS_RECEIVE"],
+  id: ["IDNUMBER", "SHChieu", "PLACE_ISSUE", "DATE_ISSUE"],
+  tax: ["TAX_CD", "BANK_CD", "PAYMENT_TERM", "TAX_CD_RECEIVE"],
+  other: [
+    "BRN",
+    "SSN",
+    "OWNER_NM",
+    "BUSINESS_TYPE",
+    "KIND_BUSINESS",
+    "CUSTOMER_EXT_CD",
+    "NOTE",
+    "INQUIRY_IN",
+    "NATIONALITY",
+    "TenDVQHNhsach",
+    "MDVQHNhsach",
+  ],
+};
+
+type CustomerColumnsProps = {
+  customerTypeCodes?: SysCode[];
+};
+
+type CustomerValidationEvent = {
+  data?: {
+    CUSTOMER_ID?: number;
+  };
+  value: unknown;
+};
+
+const validateCustomerCd = async (event: CustomerValidationEvent) => {
+  const customerCd = String(event.value ?? "").trim();
+
+  if (!customerCd) {
+    return true;
+  }
+
+  try {
+    const customerId = event.data?.CUSTOMER_ID;
+    const exists = await checkCustomerCdExists(customerId, customerCd);
+
+    return {
+      isValid: !exists,
+    };
+  } catch (error) {
+    console.error("Error validating customer code:", error);
+    return {
+      isValid: false,
+      message: "Kh\u00f4ng ki\u1ec3m tra \u0111\u01b0\u1ee3c d\u1eef li\u1ec7u",
+    };
+  }
+};
+
+export const CustomerColumns = ({ customerTypeCodes = [] }: CustomerColumnsProps) => {
+  const { translate } = useContext(LanguageContext) as { translate: (key: string, fallback?: string) => string };
+  const t = (key: string, fallback: string) => translate(key, fallback);
+
+  const visibleColumns = useMemo(
+    () =>
+      new Set<string>([
+        "CUSTOMER_CD",
+        "CUSTOMER_TYPE",
+        "CUSTOMER_NM_VIET",
+        "TAX_CD",
+        "TEL",
+        "EMAIL",
+      ]),
+    [],
+  );
+
+  return (
+    <>
+      {customerFields
+        .filter((field) => visibleColumns.has(field.key))
+        .map((field) =>
+          field.key === "CUSTOMER_TYPE" ? (
+            <Column
+              key={field.key}
+              dataField={field.key}
+              caption={t(field.key, field.caption)}
+            >
+              <Lookup
+                dataSource={customerTypeCodes}
+                displayExpr={(item: SysCode) => {
+                  const rawName = (item?.CODE_NAME ?? "") as string;
+                  if (!rawName) return "";
+                  return t(rawName, rawName);
+                }}
+                valueExpr="CODE_CD"
+              />
+            </Column>
+          ) : field.key === "CUSTOMER_CD" ? (
+            <Column key={field.key} dataField={field.key} caption={t(field.key, field.caption)}>
+              <RequiredRule message={t("MSG_MUST_ITEM", "CUSTOMER_CD kh\u00f4ng \u0111\u01b0\u1ee3c \u0111\u1ec3 tr\u1ed1ng")} />
+              <AsyncRule message={t("MsgEqualCode", "CUSTOMER_CD \u0111\u00e3 t\u1ed3n t\u1ea1i")} validationCallback={validateCustomerCd} />
+            </Column>
+          ) : (
+            <Column key={field.key} dataField={field.key} caption={t(field.key, field.caption)} />
+          ),
+        )}
+    </>
+  );
+};
+
+export default CustomerColumns;

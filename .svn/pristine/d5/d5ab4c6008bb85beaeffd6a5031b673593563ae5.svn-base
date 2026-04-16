@@ -1,0 +1,455 @@
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { LoadPanel } from "devextreme-react";
+import notify from 'devextreme/ui/notify'; // revert to Dx notify for messages
+import { Editing, Column } from "devextreme-react/data-grid";
+import Popup from 'devextreme-react/popup';
+import Button from 'devextreme-react/button';
+import {
+  ContextMenuPreparingEvent,
+  RowInsertingEvent,
+  RowUpdatingEvent,
+  RowRemovingEvent,
+} from "devextreme/ui/data_grid";
+import type dxDataGrid from "devextreme/ui/data_grid";
+
+import DxPage from "@/dx/DxPage";
+import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid";
+import { GridToolbar } from "@/components/toolbar/GridToolbar";
+import Form, { GroupItem, SimpleItem } from "devextreme-react/form";
+
+import {
+  CustomerExt,
+  getCustomerExts,
+  createCustomerExt,
+  updateCustomerExt,
+  deleteCustomerExt,
+} from "@/api/customerExtApi";
+
+// note: you may want to create separate components for columns and form;
+// for brevity they're defined inline below.
+
+// The editing form is generated dynamically from the labels returned by the API.
+// We'll render a DevExtreme Form with grouped sections (cards) so the side panel
+// looks like a multi-section card layout.
+
+
+type RowInsertingEventWithPromise = RowInsertingEvent & { promise?: Promise<void> };
+type RowUpdatingEventWithPromise = RowUpdatingEvent & { promise?: Promise<void> };
+type RowRemovingEventWithPromise = RowRemovingEvent & { promise?: Promise<void> };
+
+export default function CustomerExtPage() {
+  const [loading, setLoading] = useState(true);
+  const [gridData, setGridData] = useState<CustomerExt[]>([]);
+  const [colLabels, setColLabels] = useState<Record<string,string>>({});
+  const gridRef = useRef<dxDataGrid | null>(null);
+  const [isUpdate, setIsUpdate] = useState(false);
+
+  // columns constructed from label object; memo to avoid recreating on every render
+  const excludedFields = useMemo(() => new Set<string>([
+    // Do NOT exclude COMPANY_CD here - backend requires it in payload. We'll hide it from UI but include when sending.
+    //'COMPANY_CD', 'COMPANYCODE',
+    // Hide customer codes from user (backend generates `CUSTOMER_CD` automatically)
+    'CUSTOMER_CD', 'CUSTOMER_EXT_CD',
+    'CREATED_AT', 'CREATE_AT', 'CREATEDAT', 'CREATED',
+    'UPDATED_AT', 'UPDATE_AT', 'UPDATEDAT', 'UPDATED',
+    'ISTEMP', 'IS_TEMP', 'IS_TEMPORARY',
+    'ISDEL', 'IS_DELETED', 'DELETED',
+  ]), []);
+
+  const columns = useMemo(() => {
+    return Object.entries(colLabels)
+      .filter(([field]) => !excludedFields.has(field.toUpperCase()))
+      .map(([field, caption]) => ({ dataField: field, caption }));
+  }, [colLabels, excludedFields]);
+
+  // (removed debug to avoid TDZ issues)
+
+  // key used to force a full re‑mount of the grid when the column set changes
+  const gridKey = useMemo(() => Object.keys(colLabels).join(","), [colLabels]);
+
+  // build grouped form items from labels
+  const formGroups = useMemo(() => {
+    const groups: Record<string, { caption: string; items: any[] }> = {
+      basic: { caption: "Basic", items: [] },
+      contact: { caption: "Contact", items: [] },
+      address: { caption: "Address", items: [] },
+      id: { caption: "Identification", items: [] },
+      tax: { caption: "Tax / Bank", items: [] },
+      other: { caption: "Other", items: [] },
+    };
+
+    const fieldKeys = Object.keys(colLabels || {}).filter((f) => !excludedFields.has(f.toUpperCase()));
+    // more specific classification sets to avoid overmatching common tokens like CD/NM
+    const basicKeys = new Set(["CUSTOMER_EXT_CD","CUSTOMER_CD","CUSTOMER_NM_VIET","BUYER_NM","CUSTOMER_USER_CD","OWNER_NM","CUSTOMER_RECEIVE"]);
+    const contactKeys = new Set(["TEL","FAX","EMAIL","CUSTOMER_RECEIVE"]);
+    const addressKeys = new Set(["ADDRESS","ADDRESS_DO","ADDRESS_RECEIVE","ZIP_CODE"]);
+    const idKeys = new Set(["IDNUMBER","SSN","SHCHIEU","PLACE_ISSUE","DATE_ISSUE"]);
+    const taxKeys = new Set(["TAX_CD","TAX_CD_RECEIVE","BANK_CD","PAYMENT_TERM","BRN"]);
+
+    fieldKeys.forEach((f) => {
+      const name = f.toUpperCase();
+      const caption = colLabels[f] ?? f;
+      const item = { dataField: f, label: { text: caption } };
+
+      if (basicKeys.has(name) || /^(CUSTOMER_|CUSTOMER$|EXT$)/.test(name)) {
+        groups.basic.items.push(item);
+        return;
+      }
+      if (contactKeys.has(name) || /TEL|FAX|EMAIL/.test(name)) {
+        groups.contact.items.push(item);
+        return;
+      }
+      if (addressKeys.has(name) || /ADDRESS|ZIP/.test(name)) {
+        groups.address.items.push(item);
+        return;
+      }
+      if (idKeys.has(name) || /IDNUMBER|SSN|SHCHIEU/.test(name)) {
+        groups.id.items.push(item);
+        return;
+      }
+      if (taxKeys.has(name) || /TAX|BANK|PAYMENT|BRN/.test(name)) {
+        groups.tax.items.push(item);
+        return;
+      }
+
+      // fallback: if field name looks like an internal technical column, put into other
+      groups.other.items.push(item);
+    });
+
+    // return only groups that have items and preserve order
+    return ["basic", "contact", "address", "id", "tax", "other"].map((k) => groups[k]).filter(g => g.items.length > 0);
+  }, [colLabels]);
+
+  const [selectedTab, setSelectedTab] = useState(0);
+  const [editVisible, setEditVisible] = useState(false);
+  const [formData, setFormData] = useState<any>({});
+
+  // Build tabs that contain one or more group sections. This mapping controls which
+  // groups appear under each tab in the side-panel.
+  const tabs = useMemo(() => {
+    const lookup = (caption: string) => formGroups.find((g) => g.caption.toLowerCase() === caption.toLowerCase());
+    const defs = [
+      { title: "General", groups: ["Basic", "Contact"] },
+      { title: "Address", groups: ["Address"] },
+      { title: "Legal", groups: ["Identification", "Tax / Bank"] },
+      { title: "Other", groups: ["Other"] },
+    ];
+
+    return defs.map((d) => ({ title: d.title, groups: d.groups.map(lookup).filter(Boolean) })).filter(t => t.groups.length > 0);
+  }, [formGroups]);
+
+  function EditForm({ tabs, selectedTab, setSelectedTab, formData }: { tabs: Array<{ title: string; groups: any[] }>; selectedTab: number; setSelectedTab: (n: number) => void; formData: any }) {
+    useEffect(() => {
+      console.debug('EditForm mounted or tabs changed', { tabsLength: tabs.length, selectedTab });
+    }, [tabs, selectedTab]);
+
+    if (!tabs || tabs.length === 0) return <div style={{ color: '#666', padding: 12 }}>No form sections available.</div>;
+
+    const displayCustomerCd = formData?.CUSTOMER_CD ?? formData?.CUSTOMERCD ?? null;
+    const displayExtCd = formData?.CUSTOMER_EXT_CD ?? formData?.CUSTOMER_EXT_CD ?? null;
+
+    const current = tabs[selectedTab] ?? tabs[0];
+
+    return (
+      <div style={{ padding: 12, minWidth: 520, maxWidth: 720 }}>
+        {(displayCustomerCd || displayExtCd) && (
+          <div style={{ marginBottom: 12, display: 'flex', gap: 12, alignItems: 'center' }}>
+            {displayCustomerCd && (
+              <div style={{ fontSize: 13, color: '#444' }}><strong>Mã KH:</strong> {displayCustomerCd}</div>
+            )}
+            {displayExtCd && (
+              <div style={{ fontSize: 13, color: '#444' }}><strong>Mã Ext:</strong> {displayExtCd}</div>
+            )}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {tabs.map((t, idx) => (
+            <button
+              key={t.title}
+              type="button"
+              onClick={() => setSelectedTab(idx)}
+              style={{
+                padding: '8px 12px',
+                borderRadius: 6,
+                border: selectedTab === idx ? '1px solid #1976d2' : '1px solid transparent',
+                background: selectedTab === idx ? '#eef6ff' : 'transparent',
+                cursor: 'pointer',
+                fontWeight: 700,
+              }}
+            >
+              {t.title}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
+          {current.groups.map((g: any, gi: number) => (
+            <div
+              key={gi}
+              style={{
+                background: '#ffffff',
+                borderRadius: 8,
+                border: '1px solid #ececec',
+                padding: 12,
+                boxShadow: '0 4px 10px rgba(0,0,0,0.04)',
+              }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: '#333' }}>{g.caption}</div>
+              <Form
+                formData={formData}
+                onFieldDataChanged={(e) => setFormData((prev: any) => ({ ...prev, [e.dataField]: e.value }))}
+                colCount={2}
+                labelMode="floating"
+                items={g.items}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const handleAddClick = useCallback(() => {
+    setFormData({});
+    setIsUpdate(false);
+    setSelectedTab(0);
+    setEditVisible(true);
+  }, []);
+
+  const handlePopupCancel = useCallback(() => {
+    setEditVisible(false);
+  }, []);
+
+  const handlePopupSave = useCallback(async () => {
+    try {
+      const payload: any = { ...(formData || {}) };
+      // Ensure company code is present in payload (hide from UI but include for backend)
+      const companyCd = localStorage.getItem('lastCompanyCD') || localStorage.getItem('companyCd') || undefined;
+      if (companyCd) {
+        payload.COMPANY_CD = payload.COMPANY_CD || companyCd;
+        payload.COMPANYCODE = payload.COMPANYCODE || companyCd;
+      }
+      // remove excluded/system fields before sending to API (but keep COMPANY_CD)
+      excludedFields.forEach((k) => {
+        if (k === 'COMPANY_CD') return;
+        delete payload[k];
+      });
+      console.debug('Saving payload to API:', payload);
+      if (isUpdate) {
+        await updateCustomerExt(payload as CustomerExt);
+        notify('Updated successfully', 'success', 2000);
+        setEditVisible(false);
+      } else {
+        const resp = await createCustomerExt(payload as Partial<CustomerExt>);
+        // normalize response payload to created record
+        const created = resp?.Data ?? resp?.data ?? resp;
+        if (created && typeof created === 'object') {
+          setFormData(created);
+          setIsUpdate(true);
+          notify(`Created successfully — CUSTOMER_CD=${created.CUSTOMER_CD ?? created.customer_cd ?? ''}`, 'success', 3000);
+        } else {
+          notify('Created successfully', 'success', 2000);
+        }
+      }
+      await loadData();
+    } catch (err: any) {
+      console.error('Save failed', err);
+      const serverMsg = err?.response?.data ?? err?.message ?? String(err);
+      notify(`Save error: ${typeof serverMsg === 'string' ? serverMsg : JSON.stringify(serverMsg)}`, 'error', 6000);
+    }
+  }, [formData, isUpdate]);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const resp = await getCustomerExts();
+      console.debug("labels received", resp.labels);
+      setGridData(resp.data);
+      setColLabels(resp.labels);
+      gridRef.current?.clearSelection();
+      // compute columns locally to avoid stale closure
+      const newCols = Object.entries(resp.labels).map(([field, caption]) => ({
+        dataField: field,
+        caption,
+      }));
+      console.debug("computed columns", newCols);
+      if (gridRef.current) {
+        gridRef.current.option("columns", newCols);
+        gridRef.current.refresh();
+      }
+    } catch (err: any) {
+      console.error("Failed to load customer ext data", err);
+      if (err.response) {
+        console.error("Server response:", err.response.status, err.response.data);
+        notify(`Load error: ${err.response.status} ${JSON.stringify(err.response.data)}`, 'error', 5000);
+      } else {
+        notify(`Load error: ${err.message || err}`, 'error', 5000);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ensure labels are loaded before opening the edit popup for new rows
+  const handleInitNewRow = async (e: any) => {
+    console.debug("onInitNewRow fired, labels present:", Object.keys(colLabels).length);
+    if (!colLabels || Object.keys(colLabels).length === 0) {
+      // cancel current edit, load labels, then re-open add form
+      try {
+        e.component.cancelEditData();
+      } catch (err) {
+        console.debug('cancelEditData failed', err);
+      }
+      await loadData();
+      // re-open add row after a short delay so grid is ready
+      setTimeout(() => {
+        try {
+          e.component.addRow();
+        } catch (err) {
+          console.error('failed to re-open add row', err);
+        }
+      }, 100);
+      return;
+    }
+
+    // initialize default values
+    setIsUpdate(false);
+    e.data.ISDEL = false;
+  };
+
+  const onContextMenuPreparing = (e: ContextMenuPreparingEvent) => {
+    if (e.row && e.row.rowType === "data") {
+      e.items = [
+        {
+          text: "Update",
+          onItemClick: () => {
+            gridRef.current?.editRow(e.row!.rowIndex);
+          },
+        },
+        {
+          text: "Delete",
+          onItemClick: () => {
+            gridRef.current?.deleteRow(e.row!.rowIndex);
+          },
+        },
+      ];
+    }
+  };
+
+  const onRowInserting = (e: RowInsertingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        await createCustomerExt(e.data as Partial<CustomerExt>);
+        await loadData();
+      } catch (err) {
+        notify(`Insert error: ${err}`, 'error', 3000);
+      } finally {
+        if (e.component) (e.component as dxDataGrid).cancelEditData();
+      }
+    })();
+  };
+
+  const onRowUpdating = (e: RowUpdatingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        const payload = { ...(e.oldData as object), ...(e.newData as object) } as CustomerExt;
+        await updateCustomerExt(payload);
+        await loadData();
+      } catch (err) {
+        notify(`Update error: ${err}`, 'error', 3000);
+      } finally {
+        if (e.component) (e.component as dxDataGrid).cancelEditData();
+      }
+    })();
+  };
+
+  const onRowRemoving = (e: RowRemovingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        await deleteCustomerExt(e.key as string);
+        await loadData();
+      } catch (err) {
+        notify(`Delete error: ${err}`, 'error', 3000);
+      }
+    })();
+  };
+
+  // in React 18 StrictMode the effect runs twice in development; guard
+  // against duplicate network requests by using a ref flag.
+  const mountedRef = useRef(false);
+  console.debug("render columns", columns, "gridKey", gridKey);
+  useEffect(() => {
+    if (!mountedRef.current) {
+      loadData();
+      mountedRef.current = true;
+    }
+  }, []);
+
+  return (
+    <DxPage>
+      <GridToolbar
+        title="Customer Ext List"
+        gridRef={gridRef}
+        onAdd={handleAddClick}
+        onRefresh={loadData}
+        onExportPdf={() => alert("Export to PDF not implemented")}
+        onExportXlsx={() => alert("Export to XLSX not implemented")}
+      />
+
+      <div className="data-grid-container">
+        <BaseDataGrid<CustomerExt>
+          key={gridKey}
+          dataSource={gridData}
+          keyExpr="CUSTOMER_EXT_CD"
+          columns={columns}
+          onInitialized={(e) => {
+            gridRef.current = e.component ?? null;
+          }}
+          onRowInserting={onRowInserting}
+          onRowUpdating={onRowUpdating}
+          onRowRemoving={onRowRemoving}
+          onContextMenuPreparing={onContextMenuPreparing}
+          onEditingStart={() => setIsUpdate(true)}
+          onInitNewRow={handleInitNewRow}
+        >
+          <Editing
+            mode="popup"
+            allowUpdating={true}
+            allowAdding={true}
+            allowDeleting={true}
+            confirmDelete={false}
+          />
+        </BaseDataGrid>
+
+        <LoadPanel
+          shadingColor="rgba(0, 0, 0, 0.4)"
+          visible={loading}
+          showIndicator={true}
+          shading={true}
+          showPane={true}
+        />
+      </div>
+      <Popup
+        visible={editVisible}
+        onHiding={handlePopupCancel}
+        title={isUpdate ? 'Edit Customer Ext' : 'Add Customer Ext'}
+        showTitle={true}
+        width={520}
+        height={'100%'}
+        showCloseButton={true}
+        shading={true}
+        position={{ of: window, at: 'right top', my: 'right top' }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <div style={{ flex: '1 1 auto', overflow: 'auto' }}>
+            <EditForm tabs={tabs} selectedTab={selectedTab} setSelectedTab={setSelectedTab} formData={formData} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: 12 }}>
+            <Button text="Cancel" onClick={handlePopupCancel} />
+            <Button text="Save" type="success" onClick={handlePopupSave} />
+          </div>
+        </div>
+      </Popup>
+    </DxPage>
+  );
+}

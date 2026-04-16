@@ -1,0 +1,230 @@
+import { useCallback } from "react"
+import ProductPage from "@/pages/Module/ProductManagement/ProductPage"
+import type { Product } from "@/types/product"
+import BaseLookupCellEditor, { type LookupDataSource, type LookupValue } from "./BaseLookupCellEditor"
+import { inventoryLookupStore } from "./inventoryLookupStore"
+import {
+  firstLookupText,
+  hasLookupRowField,
+  setLookupGridCellValue,
+  toLookupNumber,
+  trimLookupText,
+} from "./lookupHelpers"
+
+type Props = {
+  dataSource?: LookupDataSource
+  value: LookupValue
+  rowData: Record<string, unknown>
+  rowIndex: number
+  grid: any
+  setValue: (value: string | number | null) => void
+  valueMode?: "id" | "code"
+  productIdField?: string
+  productCdField?: string
+  productNmField?: string
+  productGroupIdField?: string
+  productGroupCdField?: string
+  productGroupNmField?: string
+  unitIdField?: string
+  unitCdField?: string
+  unitNmField?: string
+  warehouseIdField?: string
+  warehouseNmField?: string
+  productCdFieldCaption?: string
+  productNmFieldCaption?: string
+  placeholder?: string
+  popupTitle?: string
+  buttonHint?: string
+}
+
+export default function InventoryLookupCellEditor({
+  dataSource = inventoryLookupStore,
+  value,
+  rowData,
+  rowIndex,
+  grid,
+  setValue,
+  valueMode = "id",
+  productIdField = "PRODUCT_ID",
+  productCdField = "PRODUCT_CD",
+  productNmField = "PRODUCT_NM",
+  productGroupIdField = "PRODUCT_KIND_ID",
+  productGroupCdField = "PRODUCT_KIND_CD",
+  productGroupNmField = "PRODUCTKIND_NM",
+  unitIdField = "UNIT_ID",
+  unitCdField = "UNIT_CD",
+  unitNmField = "UNIT_NM",
+  warehouseIdField = "STORE_ID",
+  warehouseNmField = "STORE_NM_VIET",
+  productCdFieldCaption = "Mã vật tư",
+  productNmFieldCaption = "Tên vật tư",
+  placeholder = "Chọn vật tư",
+  popupTitle = "Chọn vật tư",
+  buttonHint = "Mở danh sách vật tư",
+}: Props) {
+  const getProductName = useCallback(
+    (item?: Partial<Product> | null) => firstLookupText(item?.PRODUCT_NM, item?.PRODUCT_NM_ENG, item?.PRODUCT_NM_KOR),
+    [],
+  )
+
+  const displayExpr = useCallback(
+    (item: Product | null) => {
+      const productCd = trimLookupText(item?.PRODUCT_CD)
+      const productName = getProductName(item)
+
+      if (productCd && productName) {
+        return `${productCd} - ${productName}`
+      }
+
+      return productCd || productName
+    },
+    [getProductName],
+  )
+
+  const applyProduct = useCallback(
+    (product: Product) => {
+      const productId = toLookupNumber(product.PRODUCT_ID)
+      const productCd = trimLookupText(product.PRODUCT_CD)
+
+      setValue(valueMode === "code" ? productCd || null : productId)
+      setLookupGridCellValue(grid, rowIndex, productIdField, productId)
+      setLookupGridCellValue(grid, rowIndex, productCdField, productCd)
+      setLookupGridCellValue(grid, rowIndex, productNmField, trimLookupText(product.PRODUCT_NM))
+
+      if (hasLookupRowField(rowData, productGroupIdField)) {
+        setLookupGridCellValue(grid, rowIndex, productGroupIdField, toLookupNumber(product.PRODUCT_KIND_ID))
+      }
+
+      if (hasLookupRowField(rowData, productGroupCdField)) {
+        setLookupGridCellValue(grid, rowIndex, productGroupCdField, trimLookupText(product.PRODUCT_KIND_CD))
+      }
+
+      if (hasLookupRowField(rowData, productGroupNmField)) {
+        setLookupGridCellValue(grid, rowIndex, productGroupNmField, trimLookupText(product.PRODUCTKIND_NM))
+      }
+
+      if (hasLookupRowField(rowData, unitIdField)) {
+        setLookupGridCellValue(grid, rowIndex, unitIdField, toLookupNumber(product.UNIT_ID))
+      }
+
+      if (hasLookupRowField(rowData, unitCdField)) {
+        setLookupGridCellValue(grid, rowIndex, unitCdField, trimLookupText(product.UNIT_CD))
+      }
+
+      if (hasLookupRowField(rowData, unitNmField)) {
+        setLookupGridCellValue(grid, rowIndex, unitNmField, trimLookupText(product.UNIT_NM))
+      }
+
+      if (hasLookupRowField(rowData, warehouseIdField)) {
+        setLookupGridCellValue(grid, rowIndex, warehouseIdField, toLookupNumber(product.STORE_ID))
+      }
+
+      if (hasLookupRowField(rowData, warehouseNmField)) {
+        setLookupGridCellValue(grid, rowIndex, warehouseNmField, trimLookupText(product.STORE_NM_VIET))
+      }
+    },
+    [
+      grid,
+      productCdField,
+      productGroupCdField,
+      productGroupIdField,
+      productGroupNmField,
+      productIdField,
+      productNmField,
+      rowData,
+      rowIndex,
+      setValue,
+      unitCdField,
+      unitIdField,
+      unitNmField,
+      valueMode,
+      warehouseIdField,
+      warehouseNmField,
+    ],
+  )
+
+  const clearProduct = useCallback(() => {
+    setValue(null)
+    setLookupGridCellValue(grid, rowIndex, productIdField, null)
+    setLookupGridCellValue(grid, rowIndex, productCdField, "")
+    setLookupGridCellValue(grid, rowIndex, productNmField, "")
+
+    if (hasLookupRowField(rowData, productGroupIdField)) {
+      setLookupGridCellValue(grid, rowIndex, productGroupIdField, null)
+    }
+
+    if (hasLookupRowField(rowData, productGroupCdField)) {
+      setLookupGridCellValue(grid, rowIndex, productGroupCdField, "")
+    }
+
+    if (hasLookupRowField(rowData, productGroupNmField)) {
+      setLookupGridCellValue(grid, rowIndex, productGroupNmField, "")
+    }
+
+    if (hasLookupRowField(rowData, unitIdField)) {
+      setLookupGridCellValue(grid, rowIndex, unitIdField, null)
+    }
+
+    if (hasLookupRowField(rowData, unitCdField)) {
+      setLookupGridCellValue(grid, rowIndex, unitCdField, "")
+    }
+
+    if (hasLookupRowField(rowData, unitNmField)) {
+      setLookupGridCellValue(grid, rowIndex, unitNmField, "")
+    }
+
+    if (hasLookupRowField(rowData, warehouseIdField)) {
+      setLookupGridCellValue(grid, rowIndex, warehouseIdField, null)
+    }
+
+    if (hasLookupRowField(rowData, warehouseNmField)) {
+      setLookupGridCellValue(grid, rowIndex, warehouseNmField, "")
+    }
+  }, [
+    grid,
+    productCdField,
+    productGroupCdField,
+    productGroupIdField,
+    productGroupNmField,
+    productIdField,
+    productNmField,
+    rowData,
+    rowIndex,
+    setValue,
+    unitCdField,
+    unitIdField,
+    unitNmField,
+    warehouseIdField,
+    warehouseNmField,
+  ])
+
+  return (
+    <BaseLookupCellEditor<Product>
+      dataSource={dataSource}
+      value={value}
+      valueExpr={valueMode === "code" ? "PRODUCT_CD" : "PRODUCT_ID"}
+      displayExpr={displayExpr}
+      filterFocusField="PRODUCT_CD"
+      searchExpr={["PRODUCT_CD", "PRODUCT_NM", "PRODUCT_NM_ENG", "PRODUCT_NM_KOR", "PRODUCTKIND_NM", "UNIT_NM", "STORE_NM_VIET"]}
+      placeholder={placeholder}
+      popupTitle={popupTitle}
+      buttonHint={buttonHint}
+      onApply={applyProduct}
+      onClear={clearProduct}
+      renderPopupContent={({ closePopup }) => (
+        <ProductPage
+          mode="lookup"
+          onPickProduct={applyProduct}
+          onCloseLookup={closePopup}
+        />
+      )}
+      columns={[
+        { dataField: "PRODUCT_CD", caption: productCdFieldCaption, width: 160 },
+        { dataField: "PRODUCT_NM", caption: productNmFieldCaption, minWidth: 260 },
+        { dataField: "PRODUCTKIND_NM", caption: "Nhóm vật tư", width: 220 },
+        { dataField: "UNIT_NM", caption: "Đơn vị tính", width: 160 },
+        { dataField: "STORE_NM_VIET", caption: "Kho", width: 200 },
+      ]}
+    />
+  )
+}

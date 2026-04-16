@@ -1,0 +1,43 @@
+import type { Column } from 'devextreme-react/data-grid';
+import type { ManagementInfo } from '@/types/managementInfo';
+
+export const ManagementInfoColumns: (Column<ManagementInfo, any> | string)[] = [
+  {
+    dataField: 'MG_CD',
+    caption: 'Mã quản lý',
+    width: 150,
+    validationRules: [{ type: 'required' }],
+  },
+  {
+    dataField: 'MG_DESC_KOR',
+    caption: 'Mô tả (KOR)',
+    width: 220,
+  },
+  {
+    dataField: 'MG_DESC_ENG',
+    caption: 'Mô tả (ENG)',
+    width: 220,
+  },
+  {
+    dataField: 'MG_DESC_VIET',
+    caption: 'Mô tả (VIET)',
+    width: 220,
+  },
+  {
+    dataField: 'MG_CD_ROOT',
+    caption: 'MG_CD Root',
+    width: 150,
+  },
+  {
+    dataField: 'USERID',
+    caption: 'User',
+    width: 150,
+  },
+  {
+    dataField: 'ISDEL',
+    caption: 'Is Deleted',
+    width: 100,
+    visible: false,
+    formItem: { visible: false },
+  },
+];

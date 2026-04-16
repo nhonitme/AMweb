@@ -1,0 +1,32 @@
+export interface BankInfoApi {
+  BANK_ID?: number;
+  COMPANY_CD?: string;
+  BANK_CD?: string;
+  BANK_NM?: string;
+  ACC_CD?: string;
+  PASSBOOK_NM?: string;
+  ACCOUNT_NUM?: string;
+  CITAD_CODE?: string;
+  REMARK?: string;
+  USERID?: string;
+  ISDEL?: string;
+  CREATED_AT?: string;
+  UPDATED_AT?: string;
+}
+
+export interface BankInfo {
+  id: string;
+  companyCd?: string;
+  bankCd: string;
+  bankNm?: string;
+  accCd?: string;
+  passbookNm?: string;
+  accountNum?: string;
+  citadCode?: string;
+  remark?: string;
+  userId?: string;
+  isDel?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  raw?: BankInfoApi;
+}

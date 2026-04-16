@@ -1,0 +1,27 @@
+import * as React from "react"
+import ButtonDX, { Properties as DxButtonProps } from "devextreme-react/button";
+
+
+import { cn } from "@/lib/utils";
+
+export interface ButtonProps extends DxButtonProps {
+ 
+}
+
+
+const Button = React.forwardRef<any, ButtonProps>((props, ref) => {
+  const { className, icon, text, ...rest } = props;
+  return (
+    <ButtonDX
+      ref={ref}
+      icon={icon}
+      text={text}
+      {...rest}
+      className={cn(className)}
+    />
+  );
+});
+Button.displayName = "Button";
+
+export { Button };
+

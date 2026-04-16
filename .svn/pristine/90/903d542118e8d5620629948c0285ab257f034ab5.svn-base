@@ -1,0 +1,10 @@
+import "devextreme/dist/css/dx.material.blue.light.css";
+import DxViewport from "./DxViewport";
+
+export default function DxPage({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return <DxViewport>{children}</DxViewport>;
+}

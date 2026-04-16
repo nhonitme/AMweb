@@ -1,0 +1,30 @@
+import type { ExcelImportConfig } from "@/types/modal"
+import type { ChitType } from "@/types/voucher"
+
+const excelModuleConfig: Record<Extract<ChitType, "PM">, { key: string; fallback: string; moduleCd: string }> = {
+  PM: {
+    key: "PAYMENT_VOUCHER",
+    fallback: "Payment Voucher",
+    moduleCd: "PaymentVoucherAp",
+  },
+}
+
+export function createChitImportConfig(
+  noteType: ChitType,
+  translate: (key: string, fallback: string) => string,
+): ExcelImportConfig | null {
+  const config = excelModuleConfig[noteType as keyof typeof excelModuleConfig]
+  if (!config) {
+    return null
+  }
+
+  const fileLabel = translate(config.key, config.fallback)
+    .trim()
+    .replace(/\s+/g, "_")
+    .toLowerCase()
+
+  return {
+    templateName: `${fileLabel}_template.xlsx`,
+    moduleCd: config.moduleCd,
+  }
+}

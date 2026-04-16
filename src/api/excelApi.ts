@@ -1,0 +1,22 @@
+import axios from './axiosClient';
+
+import { convertLangToCode } from '@/utils/language';
+
+// Download a generic Excel template for the given module code. The server
+// will look up the column keys using the stored procedure and return a
+// workbook containing only the header row(s).
+export async function downloadExcelTemplate(
+  moduleCd: string,
+  lang?: string
+): Promise<Blob> {
+  if (!moduleCd) {
+    throw new Error('moduleCd is required to download template');
+  }
+  const params: any = { moduleCd };
+  if (lang) params.lang = convertLangToCode(lang);
+  const resp = await axios.get(`/System/DownloadTemplate`, {
+    params,
+    responseType: 'blob',
+  });
+  return resp.data;
+}

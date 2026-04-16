@@ -1,0 +1,41 @@
+export interface Product {
+    PRODUCT_CD: string,
+    PRODUCTKIND_CD: string,
+    DIVISION: string,
+    DIVISION_C99: string,
+    PRODUCT_NM: string,
+    PRODUCT_NM_ENG: string,
+    PRODUCT_NM_KOR: string,
+    PRODUCT_NM_CHINA: string,
+    MR_CD: string,
+    PRODUCT_CODE: string,
+    INBOUND_UNIT: string,
+    OUTBOUND_UNIT: string,
+    INBOUND_QUANTITY: number,
+    OUTBOUND_QUANTITY: number,
+    MATERIALINPUT_QUANTITY: number,
+    STORE_CD: string,
+    STANDARD_CD: string,
+    UNIT: string,
+    STANDARD: string,
+    FITNESS_STOCK: number,
+    UNIT_PRICE_CC: number,
+    UNIT_PRICE_FC: number,
+    EX_RATE: number,
+    VAT_RATE: number,
+    CC_TYPE: string,
+    FC_TYPE: string,
+    SUMMARY: string,
+    HAVECHILDBOM: string,
+    ISUSE: string,
+    ISDEL: string,
+    USERID: string,
+    ORIGIN: string,
+    AUDIT_NOTE: string,
+    CUSTOMS_CODE: string,
+};
+
+export interface PlanningProps {
+    dataSource: Product[];
+    changePopupVisibility?: () => void;
+}

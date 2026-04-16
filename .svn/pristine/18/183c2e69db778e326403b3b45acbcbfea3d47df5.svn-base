@@ -1,0 +1,80 @@
+import type { ExcelImportConfig } from "@/types/modal";
+
+export const customerImportConfig: ExcelImportConfig = {
+  templateName: "mau-customer-ext.xlsx",
+  columnMappings: [
+    { softwareColumn: "CUSTOMER_ID", excelColumn: "", required: false, description: "Customer ID (optional)" },
+    { softwareColumn: "CUSTOMER_EXT_CD", excelColumn: "", required: true, description: "Customer Ext Code (required)" },
+    { softwareColumn: "CUSTOMER_CD", excelColumn: "", required: true, description: "Customer Code (required)" },
+    { softwareColumn: "CATEGORY_CD", excelColumn: "", required: false, description: "Category Code" },
+    { softwareColumn: "CUSTOMER_TYPE", excelColumn: "", required: false, description: "Customer Type" },
+    { softwareColumn: "CUSTOMER_NM_VIET", excelColumn: "", required: true, description: "Customer Name (VI) (required)" },
+    { softwareColumn: "BUYER_NM", excelColumn: "", required: false, description: "Buyer Name" },
+    { softwareColumn: "CUSTOMER_USER_CD", excelColumn: "", required: false, description: "User Code" },
+    { softwareColumn: "BRN", excelColumn: "", required: false, description: "BRN" },
+    { softwareColumn: "SSN", excelColumn: "", required: false, description: "SSN" },
+    { softwareColumn: "OWNER_NM", excelColumn: "", required: false, description: "Owner Name" },
+    { softwareColumn: "BUSINESS_TYPE", excelColumn: "", required: false, description: "Business Type" },
+    { softwareColumn: "KIND_BUSINESS", excelColumn: "", required: false, description: "Kind of Business" },
+    { softwareColumn: "ZIP_CODE", excelColumn: "", required: false, description: "Zip Code" },
+    { softwareColumn: "ADDRESS_DO", excelColumn: "", required: false, description: "Address DO" },
+    { softwareColumn: "ADDRESS", excelColumn: "", required: false, description: "Address" },
+    { softwareColumn: "TEL", excelColumn: "", required: false, description: "Telephone" },
+    { softwareColumn: "ISDEL", excelColumn: "", required: false, description: "Is Deleted" },
+    { softwareColumn: "FAX", excelColumn: "", required: false, description: "Fax" },
+    { softwareColumn: "TAX_CD", excelColumn: "", required: false, description: "Tax Code" },
+    { softwareColumn: "BANK_CD", excelColumn: "", required: false, description: "Bank Code" },
+    { softwareColumn: "EMAIL", excelColumn: "", required: false, description: "Email" },
+    { softwareColumn: "ISTEMP", excelColumn: "", required: false, description: "Is Temporary" },
+    { softwareColumn: "NOTE", excelColumn: "", required: false, description: "Note" },
+    { softwareColumn: "INQUIRY_IN", excelColumn: "", required: false, description: "Inquiry In" },
+    { softwareColumn: "INDIVIDUAL", excelColumn: "", required: false, description: "Individual" },
+    { softwareColumn: "NATIONALITY", excelColumn: "", required: false, description: "Nationality" },
+    { softwareColumn: "IDNUMBER", excelColumn: "", required: false, description: "ID Number" },
+    { softwareColumn: "SHChieu", excelColumn: "", required: false, description: "Passport" },
+    { softwareColumn: "PLACE_ISSUE", excelColumn: "", required: false, description: "Place of Issue" },
+    { softwareColumn: "DATE_ISSUE", excelColumn: "", required: false, description: "Date of Issue" },
+    { softwareColumn: "CUSTOMER_RECEIVE", excelColumn: "", required: false, description: "Customer Receive" },
+    { softwareColumn: "ADDRESS_RECEIVE", excelColumn: "", required: false, description: "Address Receive" },
+    { softwareColumn: "TAX_CD_RECEIVE", excelColumn: "", required: false, description: "Tax Code Receive" },
+    { softwareColumn: "PAYMENT_TERM", excelColumn: "", required: false, description: "Payment Term" },
+    { softwareColumn: "TENDVQHNHSACH", excelColumn: "", required: false, description: "TENDVQHNHSACH" },
+    { softwareColumn: "MDVQHNHSACH", excelColumn: "", required: false, description: "MDVQHNHSACH" },
+  ],
+  uniqueColumn: "CUSTOMER_EXT_CD",
+  sampleData: [
+    ["ID123","EXT001", "CUST001", "Khách hàng A", "Buyer A", "U001", "0123456789", "a@example.com", "123 Đường"]
+  ],
+  instructions: [
+    "Fill required fields and provide data in correct format.",
+    "CUSTOMER_EXT_CD must be unique (ID is assigned by the system)."
+  ],
+  validationRules: {
+    CUSTOMER_EXT_CD: (value: any, allData: any[], existingData: any[]) => {
+      const errors: string[] = [];
+      if (!value || String(value).trim() === "") {
+        errors.push("Customer Ext Code is required");
+      } else {
+        const duplicate = [...allData, ...existingData].filter((item) => item.CUSTOMER_EXT_CD === value);
+        if (duplicate.length > 1) {
+          errors.push(`Customer Ext Code "${value}" already exists`);
+        }
+      }
+      return errors;
+    },
+    CUSTOMER_ID: (value: any) => {
+      const errors: string[] = [];
+      if (value && String(value).trim() === "") {
+        errors.push("Customer ID, if provided, cannot be empty");
+      }
+      return errors;
+    },
+    CUSTOMER_CD: (value: any) => {
+      const errors: string[] = [];
+      if (!value || String(value).trim() === "") {
+        errors.push("Customer Code is required");
+      }
+      return errors;
+    },
+  },
+};

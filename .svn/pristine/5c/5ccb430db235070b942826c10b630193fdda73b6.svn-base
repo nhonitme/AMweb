@@ -1,0 +1,155 @@
+import { useCallback } from "react"
+import type { BankInfo } from "@/types/bankInfo"
+import BaseLookupCellEditor, { type LookupDataSource, type LookupValue } from "./BaseLookupCellEditor"
+import { bankLookupStore } from "./bankLookupStore"
+import {
+  hasLookupRowField,
+  setLookupGridCellValue,
+  toLookupNumber,
+  trimLookupText,
+} from "./lookupHelpers"
+
+type Props = {
+  dataSource?: LookupDataSource
+  value: LookupValue
+  rowData: Record<string, unknown>
+  rowIndex: number
+  grid: any
+  setValue: (value: string | number | null) => void
+  valueMode?: "id" | "code"
+  bankIdField?: string
+  bankCdField?: string
+  bankNmField?: string
+  accCdField?: string
+  passbookNmField?: string
+  accountNumField?: string
+  citadCodeField?: string
+  bankCdFieldCaption?: string
+  bankNmFieldCaption?: string
+  placeholder?: string
+  popupTitle?: string
+  buttonHint?: string
+}
+
+export default function BankLookupCellEditor({
+  dataSource = bankLookupStore,
+  value,
+  rowData,
+  rowIndex,
+  grid,
+  setValue,
+  valueMode = "id",
+  bankIdField = "BANK_ID",
+  bankCdField = "BANK_CD",
+  bankNmField = "BANK_NM",
+  accCdField = "ACC_CD",
+  passbookNmField = "PASSBOOK_NM",
+  accountNumField = "ACCOUNT_NUM",
+  citadCodeField = "CITAD_CODE",
+  bankCdFieldCaption = "Mã ngân hàng",
+  bankNmFieldCaption = "Tên ngân hàng",
+  placeholder = "Chọn ngân hàng",
+  popupTitle = "Chọn ngân hàng",
+  buttonHint = "Mở danh sách ngân hàng",
+}: Props) {
+  const displayExpr = useCallback((item: BankInfo | null) => trimLookupText(item?.BANK_CD), [])
+
+  const applyBank = useCallback(
+    (bank: BankInfo) => {
+      const bankId = toLookupNumber(bank.BANK_ID)
+      const bankCd = trimLookupText(bank.BANK_CD)
+      const bankName = trimLookupText(bank.BANK_NM)
+
+      setValue(valueMode === "code" ? bankCd || null : bankId)
+      setLookupGridCellValue(grid, rowIndex, bankIdField, bankId)
+      setLookupGridCellValue(grid, rowIndex, bankCdField, bankCd)
+      setLookupGridCellValue(grid, rowIndex, bankNmField, bankName)
+
+      if (hasLookupRowField(rowData, accCdField)) {
+        setLookupGridCellValue(grid, rowIndex, accCdField, trimLookupText(bank.ACC_CD))
+      }
+
+      if (hasLookupRowField(rowData, passbookNmField)) {
+        setLookupGridCellValue(grid, rowIndex, passbookNmField, trimLookupText(bank.PASSBOOK_NM))
+      }
+
+      if (hasLookupRowField(rowData, accountNumField)) {
+        setLookupGridCellValue(grid, rowIndex, accountNumField, trimLookupText(bank.ACCOUNT_NUM))
+      }
+
+      if (hasLookupRowField(rowData, citadCodeField)) {
+        setLookupGridCellValue(grid, rowIndex, citadCodeField, trimLookupText(bank.CITAD_CODE))
+      }
+    },
+    [
+      accCdField,
+      accountNumField,
+      bankCdField,
+      bankIdField,
+      bankNmField,
+      citadCodeField,
+      grid,
+      passbookNmField,
+      rowData,
+      rowIndex,
+      setValue,
+      valueMode,
+    ],
+  )
+
+  const clearBank = useCallback(() => {
+    setValue(null)
+    setLookupGridCellValue(grid, rowIndex, bankIdField, null)
+    setLookupGridCellValue(grid, rowIndex, bankCdField, "")
+    setLookupGridCellValue(grid, rowIndex, bankNmField, "")
+
+    if (hasLookupRowField(rowData, accCdField)) {
+      setLookupGridCellValue(grid, rowIndex, accCdField, "")
+    }
+
+    if (hasLookupRowField(rowData, passbookNmField)) {
+      setLookupGridCellValue(grid, rowIndex, passbookNmField, "")
+    }
+
+    if (hasLookupRowField(rowData, accountNumField)) {
+      setLookupGridCellValue(grid, rowIndex, accountNumField, "")
+    }
+
+    if (hasLookupRowField(rowData, citadCodeField)) {
+      setLookupGridCellValue(grid, rowIndex, citadCodeField, "")
+    }
+  }, [
+    accCdField,
+    accountNumField,
+    bankCdField,
+    bankIdField,
+    bankNmField,
+    citadCodeField,
+    grid,
+    passbookNmField,
+    rowData,
+    rowIndex,
+    setValue,
+  ])
+
+  return (
+    <BaseLookupCellEditor<BankInfo>
+      dataSource={dataSource}
+      value={value}
+      valueExpr={valueMode === "code" ? "BANK_CD" : "BANK_ID"}
+      displayExpr={displayExpr}
+      filterFocusField="BANK_CD"
+      placeholder={placeholder}
+      popupTitle={popupTitle}
+      buttonHint={buttonHint}
+      onApply={applyBank}
+      onClear={clearBank}
+      columns={[
+        { dataField: "BANK_CD", caption: bankCdFieldCaption, width: 160 },
+        { dataField: "BANK_NM", caption: bankNmFieldCaption, minWidth: 260 },
+        { dataField: "ACCOUNT_NUM", caption: "Số tài khoản", width: 180 },
+        { dataField: "ACC_CD", caption: "Tài khoản kế toán", width: 160 },
+      ]}
+    />
+  )
+}

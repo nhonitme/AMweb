@@ -1,0 +1,237 @@
+import { useCallback, useContext, useMemo } from "react"
+import DataGrid, { Column, Editing, Pager, Paging } from "devextreme-react/data-grid"
+import dayjs from "dayjs"
+import { LanguageContext } from "@/lib/i18nLoader"
+import type { ChitDateValue, InventoryOutputLine } from "@/types/voucher"
+
+interface ChitInventoryOutputGridPopupProps {
+  companyCd?: string
+  chitDetailId?: number | null
+  chitDetailCd?: string | null
+  detailRowKey?: string | null
+  detailAmount?: number | null
+  detailLabel?: string
+  inventoryYmd?: ChitDateValue
+  rows: InventoryOutputLine[]
+  disabled?: boolean
+  onChange: (rows: InventoryOutputLine[]) => void
+}
+
+function createRowKey(detailRowKey?: string | null) {
+  return `output_${detailRowKey ?? "detail"}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+function toNumber(value: unknown) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function normalizeOutputLine(
+  row: Partial<InventoryOutputLine>,
+  options: {
+    companyCd?: string
+    chitDetailId?: number | null
+    chitDetailCd?: string | null
+    detailRowKey?: string | null
+    inventoryYmd?: ChitDateValue
+  },
+): InventoryOutputLine {
+  const quantity = row.QUANTITY == null ? null : toNumber(row.QUANTITY)
+  const unitPrice = row.UNIT_PRICE_CC == null ? null : toNumber(row.UNIT_PRICE_CC)
+  const amount =
+    row.AMOUNT_CC != null
+      ? toNumber(row.AMOUNT_CC)
+      : quantity != null && unitPrice != null
+        ? quantity * unitPrice
+        : null
+
+  return {
+    ROW_KEY: row.ROW_KEY || createRowKey(options.detailRowKey),
+    OUTPUT_ID: row.OUTPUT_ID ?? null,
+    OUTPUT_CD: String(row.OUTPUT_CD ?? ""),
+    COMPANY_CD: String(row.COMPANY_CD ?? options.companyCd ?? ""),
+    PRODUCT_ID: row.PRODUCT_ID ?? null,
+    PRODUCT_CD: String(row.PRODUCT_CD ?? ""),
+    STORE_ID: row.STORE_ID ?? null,
+    STORE_CD: String(row.STORE_CD ?? ""),
+    UNIT_ID: row.UNIT_ID ?? null,
+    UNIT_CD: String(row.UNIT_CD ?? ""),
+    QUANTITY: quantity,
+    UNIT_PRICE_CC: unitPrice,
+    UNIT_PRICE_FC: row.UNIT_PRICE_FC == null ? 0 : toNumber(row.UNIT_PRICE_FC),
+    EXCHANGE_RATES: row.EXCHANGE_RATES == null ? 0 : toNumber(row.EXCHANGE_RATES),
+    AMOUNT_CC: amount,
+    AMOUNT_FC: row.AMOUNT_FC == null ? 0 : toNumber(row.AMOUNT_FC),
+    SUMMARY: String(row.SUMMARY ?? ""),
+    INVENTORY_YMD: row.INVENTORY_YMD ?? options.inventoryYmd ?? dayjs().toISOString(),
+    STATE: String(row.STATE ?? "1"),
+    CHITDETAIL_ID: row.CHITDETAIL_ID ?? options.chitDetailId ?? null,
+    CHITDETAIL_CD: String(row.CHITDETAIL_CD ?? options.chitDetailCd ?? ""),
+    SORT: row.SORT ?? null,
+    ISDEL: Boolean(row.ISDEL ?? false),
+  }
+}
+
+function mergeInsertedRow(rows: InventoryOutputLine[], nextRow: InventoryOutputLine) {
+  const key = String(nextRow.ROW_KEY)
+  const exists = rows.some((row) => String(row.ROW_KEY) === key)
+
+  if (exists) {
+    return rows.map((row) => (String(row.ROW_KEY) === key ? nextRow : row))
+  }
+
+  return [...rows, nextRow]
+}
+
+export function ChitInventoryOutputGridPopup({
+  companyCd,
+  chitDetailId,
+  chitDetailCd,
+  detailRowKey,
+  detailAmount,
+  detailLabel,
+  inventoryYmd,
+  rows,
+  disabled,
+  onChange,
+}: ChitInventoryOutputGridPopupProps) {
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+
+  const t = useCallback(
+    (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
+    [translate],
+  )
+
+  const normalizedRows = useMemo(
+    () =>
+      rows.map((row) =>
+        normalizeOutputLine(row, {
+          companyCd,
+          chitDetailId,
+          chitDetailCd,
+          detailRowKey,
+          inventoryYmd,
+        }),
+      ),
+    [rows, companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd],
+  )
+
+  const totalQuantity = useMemo(
+    () => normalizedRows.reduce((sum, row) => sum + toNumber(row.QUANTITY), 0),
+    [normalizedRows],
+  )
+
+  const totalAmount = useMemo(
+    () => normalizedRows.reduce((sum, row) => sum + toNumber(row.AMOUNT_CC), 0),
+    [normalizedRows],
+  )
+
+  const handleRowInserted = useCallback(
+    (e: any) => {
+      const nextRow = normalizeOutputLine(e.data, {
+        companyCd,
+        chitDetailId,
+        chitDetailCd,
+        detailRowKey,
+        inventoryYmd,
+      })
+      onChange(mergeInsertedRow(normalizedRows, nextRow))
+    },
+    [normalizedRows, companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd, onChange],
+  )
+
+  const handleRowUpdated = useCallback(
+    (e: any) => {
+      const key = String(e.key)
+      const nextRows = normalizedRows.map((row) => {
+        if (String(row.ROW_KEY) !== key) return row
+        return normalizeOutputLine(
+          { ...row, ...e.data },
+          { companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd },
+        )
+      })
+      onChange(nextRows)
+    },
+    [normalizedRows, companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd, onChange],
+  )
+
+  const handleRowRemoved = useCallback(
+    (e: any) => {
+      const key = String(e.key)
+      onChange(normalizedRows.filter((row) => String(row.ROW_KEY) !== key))
+    },
+    [normalizedRows, onChange],
+  )
+
+  const handleInitNewRow = useCallback(
+    (e: any) => {
+      Object.assign(
+        e.data,
+        normalizeOutputLine(
+          { SORT: normalizedRows.length + 1 },
+          { companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd },
+        ),
+      )
+    },
+    [normalizedRows.length, companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd],
+  )
+
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="grid gap-3 rounded-lg border border-gray-200 bg-slate-50 p-3 lg:grid-cols-4">
+        <div>
+          <div className="text-xs font-medium uppercase tracking-wide text-gray-500">{t("DETAIL_ROW", "Detail Row")}</div>
+          <div className="mt-1 text-sm font-semibold text-gray-800">{detailLabel || "-"}</div>
+        </div>
+        <div>
+          <div className="text-xs font-medium uppercase tracking-wide text-gray-500">{t("DETAIL_AMOUNT", "Detail Amount")}</div>
+          <div className="mt-1 text-sm font-semibold text-gray-800">{Number(detailAmount ?? 0).toLocaleString()}</div>
+        </div>
+        <div>
+          <div className="text-xs font-medium uppercase tracking-wide text-gray-500">{t("TOTAL_OUTPUT_QTY", "Total Output Qty")}</div>
+          <div className="mt-1 text-sm font-semibold text-gray-800">{totalQuantity.toLocaleString()}</div>
+        </div>
+        <div>
+          <div className="text-xs font-medium uppercase tracking-wide text-gray-500">{t("TOTAL_OUTPUT_AMOUNT", "Total Output Amount")}</div>
+          <div className="mt-1 text-sm font-semibold text-gray-800">{totalAmount.toLocaleString()}</div>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <DataGrid
+          dataSource={normalizedRows}
+          keyExpr="ROW_KEY"
+          columnAutoWidth={true}
+          repaintChangesOnly={true}
+          hoverStateEnabled={true}
+          rowAlternationEnabled={true}
+          height="100%"
+          onInitNewRow={handleInitNewRow}
+          onRowInserted={handleRowInserted}
+          onRowUpdated={handleRowUpdated}
+          onRowRemoved={handleRowRemoved}
+          noDataText={t("NO_INVENTORY_OUTPUT", "No inventory output lines")}
+        >
+          <Editing mode="row" allowAdding={!disabled} allowUpdating={!disabled} allowDeleting={!disabled} useIcons={true} />
+          <Paging defaultPageSize={20} />
+          <Pager visible={true} showPageSizeSelector={true} allowedPageSizes={[20, 50, 100]} showInfo={true} />
+
+          <Column dataField="INPUT_ID" caption={t("INPUT_ID", "Input ID")} visible={false} />
+          <Column dataField="INPUT_CD" caption={t("INPUT_CD", "Input Code")} visible={false} />
+          <Column dataField="PRODUCT_CD" caption={t("PRODUCT_CD", "Product Code")} minWidth={140} />
+          <Column dataField="STORE_CD" caption={t("STORE_CD", "Store Code")} minWidth={120} />
+          <Column dataField="UNIT_CD" caption={t("UNIT_CD", "Unit Code")} width={110} />
+          <Column dataField="QUANTITY" caption={t("QUANTITY", "Quantity")} dataType="number" format="#,##0.###" minWidth={110} />
+          <Column dataField="UNIT_PRICE_CC" caption={t("UNIT_PRICE_CC", "Unit Price")} dataType="number" format="#,##0.00" minWidth={120} />
+          <Column dataField="AMOUNT_CC" caption={t("AMOUNT_CC", "Amount")} dataType="number" format="#,##0.00" minWidth={130} />
+          <Column dataField="INVENTORY_YMD" caption={t("INVENTORY_YMD", "Inventory Date")} visible={false} />
+          <Column dataField="SUMMARY" caption={t("SUMMARY", "Summary")} minWidth={180} />
+        </DataGrid>
+      </div>
+    </div>
+  )
+}
+
+export default ChitInventoryOutputGridPopup

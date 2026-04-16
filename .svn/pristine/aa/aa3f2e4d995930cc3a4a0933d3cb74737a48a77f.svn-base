@@ -1,0 +1,5 @@
+import BankNoteManagementPage from "./BankNoteManagementPage"
+
+export default function DebitNotePage() {
+  return <BankNoteManagementPage ledger="AP" noteType="DEBIT_NOTE" />
+}

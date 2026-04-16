@@ -1,0 +1,35 @@
+export type BankInfoText = string | null | undefined
+
+export interface BankInfoApi {
+  BANK_ID?: number | null
+  COMPANY_CD?: BankInfoText
+  BANK_CD?: BankInfoText
+  BANK_NM?: BankInfoText
+  ACC_CD?: BankInfoText
+  PASSBOOK_NM?: BankInfoText
+  ACCOUNT_NUM?: BankInfoText
+  CITAD_CODE?: BankInfoText
+  REMARK?: BankInfoText
+  ISDEL?: BankInfoText
+  CREATE_BY?: BankInfoText
+  UPDATE_BY?: BankInfoText
+}
+
+export interface BankInfo {
+  BANK_ID: number | null
+  COMPANY_CD: string
+  BANK_CD: string
+  BANK_NM: string
+  ACC_CD: string
+  PASSBOOK_NM: string
+  ACCOUNT_NUM: string
+  CITAD_CODE: string
+  REMARK: string
+  ISDEL: boolean
+  CREATE_BY: string
+  UPDATE_BY: string
+}
+
+export interface DeleteBankInfosRequest {
+  BankIds: number[]
+}

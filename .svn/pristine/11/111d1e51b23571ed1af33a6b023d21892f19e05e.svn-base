@@ -1,0 +1,61 @@
+import DateBox from 'devextreme-react/date-box'
+
+export interface DatePickerProps {
+  id?: string
+  value?: Date | string | null
+  placeholder?: string
+  isLoading?: boolean
+  onValueChanged?: (value: Date | null) => void
+  showClearButton?: boolean
+  type?: 'date' | 'datetime'
+  displayFormat?: string
+}
+
+export function dateEditorOptions(opts: {
+  type?: 'date' | 'datetime'
+  displayFormat?: string
+  placeholder?: string
+  showClearButton?: boolean
+}) {
+  return {
+    type: opts.type ?? 'date',
+    displayFormat: opts.displayFormat ?? 'dd/MM/yyyy',
+    showClearButton: opts.showClearButton ?? true,
+    elementAttr: { class: 'standard-date-picker' },
+  }
+}
+
+export default function DatePicker({
+  id,
+  value,
+  placeholder,
+  isLoading,
+  onValueChanged,
+  showClearButton = true,
+  type = 'date',
+  displayFormat = 'dd/MM/yyyy',
+}: DatePickerProps) {
+  return (
+    <div>
+      <style>{`.standard-date-picker .dx-clear-button{width:18px;height:18px;padding:0;margin:0}.standard-date-picker .dx-clear-button .dx-icon{font-size:12px}.standard-date-picker .dx-texteditor-input{caret-color:auto}`}</style>
+      {isLoading ? (
+        <div className="w-full px-3 py-2 border rounded-lg bg-gray-50 text-sm text-gray-500">Đang tải...</div>
+      ) : (
+        <DateBox
+          id={id}
+          value={value instanceof Date ? value : value ? new Date(value) : undefined}
+          onValueChanged={(e: any) => {
+            const v = e && 'value' in e ? e.value : null
+            const d = v instanceof Date ? v : v ? new Date(v) : null
+            onValueChanged && onValueChanged(d)
+          }}
+          placeholder={placeholder}
+          type={type}
+          displayFormat={displayFormat}
+          showClearButton={showClearButton}
+          elementAttr={{ class: 'standard-date-picker' }}
+        />
+      )}
+    </div>
+  )
+}

@@ -1,0 +1,51 @@
+export type DepartmentInfoText = string | null | undefined
+
+export interface DepartmentInfoApi {
+  DEPARTMENT_ID?: number | null
+  COMPANY_CD?: DepartmentInfoText
+  DEPARTMENT_CD?: DepartmentInfoText
+  PARENT_CD?: DepartmentInfoText
+  PARENT_NM?: DepartmentInfoText
+  DEP_NAME_KOR?: DepartmentInfoText
+  DEP_NAME_ENG?: DepartmentInfoText
+  DEP_NAME_VIET?: DepartmentInfoText
+  DEP_NAME_JAPAN?: DepartmentInfoText
+  DEP_NAME_CHINA?: DepartmentInfoText
+  REMARK?: DepartmentInfoText
+  USERID?: DepartmentInfoText
+  ISDEL?: DepartmentInfoText
+  DEP_ORDER?: number | string | null
+  DEPARTMENT_USER_CD?: DepartmentInfoText
+  PRODUCT_CD?: DepartmentInfoText
+  ISPRODUCT?: DepartmentInfoText
+}
+
+export interface DepartmentInfo {
+  DEPARTMENT_ID: number | null
+  COMPANY_CD: string
+  DEPARTMENT_CD: string
+  PARENT_CD: string
+  PARENT_NM: string
+  DEP_NAME_KOR: string
+  DEP_NAME_ENG: string
+  DEP_NAME_VIET: string
+  DEP_NAME_JAPAN: string
+  DEP_NAME_CHINA: string
+  REMARK: string
+  USERID: string
+  ISDEL: boolean
+  DEP_ORDER: number | null
+  DEPARTMENT_USER_CD: string
+  PRODUCT_CD: string
+  ISPRODUCT: boolean
+}
+
+export interface DepartmentLookupItem {
+  VALUE: string
+  TEXT: string
+  PARENT_CD: string
+}
+
+export interface DeleteDepartmentInfosRequest {
+  DepartmentIds: number[]
+}

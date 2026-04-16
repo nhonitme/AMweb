@@ -1,0 +1,262 @@
+import { useContext, useEffect, useRef, useState } from "react";
+import { LoadPanel } from "devextreme-react";
+import { Editing, Popup } from "devextreme-react/data-grid";
+import { ContextMenuPreparingEvent, RowInsertingEvent, RowUpdatingEvent, RowRemovingEvent } from "devextreme/ui/data_grid";
+import type dxDataGrid from "devextreme/ui/data_grid";
+
+import "./StorePage.scss";
+
+import DxPage from "../../dx/DxPage";
+import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid";
+import { GridToolbar } from "@/components/toolbar/GridToolbar";
+
+import { StoreColumns } from "./Columns/StoreColumns";
+import { StoreForm } from "./Forms/StoreForm";
+
+import { getStoreInfos,createStoreInfo,updateStoreInfo,deleteStoreInfo, exportToExcel } from "@/api/storeAPI";
+import {StoreInfo } from "@/types/store";
+import notify from "devextreme/ui/notify";
+import { LanguageContext } from "@/lib/i18nLoader";
+
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import ExcelImportModal from "@/components/modals/ExcelImportModal";
+import { useStoreImportConfig } from "./Columns/StoreImportConfig";
+
+type RowInsertingEventWithPromise = RowInsertingEvent & { promise?: Promise<void> };
+type RowUpdatingEventWithPromise = RowUpdatingEvent & { promise?: Promise<void> };
+type RowRemovingEventWithPromise = RowRemovingEvent & { promise?: Promise<void> };
+
+export default function StoreList() {
+  const [loading, setLoading] = useState(true);
+  const [gridData, setGridData] = useState<StoreInfo[]>([]);
+  const gridRef = useRef<dxDataGrid | null>(null);
+  const { lang, translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string; lang: string };
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const importConfig = useStoreImportConfig();
+
+  const onContextMenuPreparing = (e: ContextMenuPreparingEvent) => {
+    if (e.row && e.row.rowType === "data") {
+      e.items = [
+        {
+          text: "Update",
+          onItemClick: () => {
+            gridRef.current?.editRow(e.row!.rowIndex);
+          },
+        },
+        {
+          text: "Delete",
+          onItemClick: () => {
+            gridRef.current?.deleteRow(e.row!.rowIndex);
+          },
+        },
+      ];
+    }
+  };
+
+  const loadStoreInfos = async () => {
+    try {
+      setLoading(true);
+      const response = await getStoreInfos();
+      setGridData(response.data);
+
+      gridRef.current?.clearSelection();
+    } catch (error) {
+      console.error("Tải danh sách hàng tồn kho thất bại", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRowInserting = (e: RowInsertingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        const newData = e.data;
+        newData.USERID = localStorage.getItem("lastUserId") || "unknown";
+        newData.ISUSE = true;
+        // Gọi API để thêm sản phẩm mới
+        // const result = await createStoreInfo(e.data);
+        await createStoreInfo(newData);
+        // Nếu thành công, có thể show thông báo hoặc reload lại danh sách
+        // Ví dụ:
+        // setNotification({ isOpen: true, type: "success", title: "Thành công!", message: "Đã thêm sản phẩm!" });
+        await loadStoreInfos(); // Reload lại danh sách
+      } catch (error) {
+        alert("Insert error:" + " " + error)
+        // Xử lý lỗi, ví dụ show thông báo
+        // setNotification({ isOpen: true, type: "error", title: "Thất bại!", message: "Thêm sản phẩm thất bại!" });
+      } finally {
+        // Đóng popup bằng cách hủy trạng thái edit
+        if (e.component) {
+          (e.component as dxDataGrid).cancelEditData();
+        }
+      }
+    })();
+  };
+
+  const onRowUpdating = (e: RowUpdatingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        // e.key là id, e.newData là dữ liệu mới, e.oldData là dữ liệu cũ
+        const payload = { ...e.oldData, ...e.newData }; // merge để có đủ dữ liệu
+        await updateStoreInfo(payload);
+        await loadStoreInfos();
+      } catch (error) {
+        alert("Update error: " + error);
+      } finally {
+        if (e.component) {
+          (e.component as dxDataGrid).cancelEditData();
+        }
+      }
+    })();
+  };
+
+  const onRowRemoving = (e: RowRemovingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        const id = e.key; // keyExpr
+        await deleteStoreInfo(id);
+        await loadStoreInfos();
+      } catch (error) {
+        alert("Delete error: " + error);
+      }
+    })();
+  };
+
+    const handleExportExcel = async () => {
+    try {
+      const keys = gridRef.current?.getSelectedRowKeys() || [];
+      const storeID = keys.length ? (keys[0] as string) : undefined;
+      const blob = await exportToExcel(storeID);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${translate('TSStore','Warehouse management management')}_${new Date().toISOString().replace(/[:.-]/g, '')}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export error', err);
+      notify(
+        translate ? translate('Export failed','Export failed') : 'Export failed',
+        'error',
+        3000
+      );
+    }
+  };
+
+  const handleImport = async (rows: any[], method: "add" | "update" | "overwrite") => {
+      try {
+        if (method === "overwrite" || method === "add") {
+          for (const r of rows) {
+            //await createCustomerExt(r as Partial<CustomerExt>);
+          }
+        } else if (method === "update") {
+          for (const r of rows) {
+            //if (r.CUSTOMER_EXT_CD) await updateCustomerExt(r as CustomerExt);
+          }
+        }
+      } catch (err) {
+        console.error("Import error", err);
+      }
+      await loadStoreInfos();
+    };
+
+  // Tải khi component khởi tạo
+  useEffect(() => {
+    loadStoreInfos();
+  }, []);
+
+  const [isUpdate, setIsUpdate] = useState(false);
+
+  return (
+    <DxPage>
+      <GridToolbar
+        title="Store List"
+        titleKey="TSStore" //Quản lý kho bãi
+        gridRef={gridRef}
+        onRefresh={loadStoreInfos}
+        onExportPdf={() => alert("Export To PDF clicked")}
+        onExportXlsx={handleExportExcel}
+        onImport={() => setIsExcelModalOpen(true)}
+      />
+
+       <ConfirmDialog
+        visible={confirmVisible}
+        title={translate ? translate('Confirm delete', 'Confirm delete') : 'Confirm delete'}
+        message={confirmMessage}
+        onConfirm={() => {
+          setConfirmVisible(false);
+          const keys = gridRef.current?.getSelectedRowKeys() || [];
+          keys.forEach((k) => {
+            const idx = gridRef.current?.getRowIndexByKey(k);
+            if (idx !== undefined && idx !== -1) {
+              gridRef.current?.deleteRow(idx);
+            }
+          });
+          notify(
+            translate
+              ? translate('Deleting selected rows...', 'Deleting selected rows...')
+              : 'Deleting selected rows...',
+            'info',
+            2000
+          );
+        }}
+        onCancel={() => setConfirmVisible(false)}
+      />
+      <ExcelImportModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        onImport={handleImport}
+        existingData={gridData}
+        config={importConfig}
+      />
+
+      <div className="data-grid-container">
+        <BaseDataGrid<StoreInfo>
+          dataSource={gridData}
+          keyExpr="STORE_ID"
+          onInitialized={(e) => {
+            gridRef.current = e.component ?? null;
+          }}
+          
+          onRowInserting={onRowInserting}
+          onRowUpdating={onRowUpdating}
+          onRowRemoving={onRowRemoving}
+
+          onContextMenuPreparing={onContextMenuPreparing}
+          
+          onEditingStart={() => setIsUpdate(true)}
+          onInitNewRow={(e) => {
+            setIsUpdate(false);
+
+            e.data.ISUSE = true;
+          }}
+        >
+          <Editing
+            mode="popup"
+            allowUpdating={true}
+            allowAdding={true}
+            allowDeleting={true}
+            confirmDelete={true} 
+          >
+            <Popup title="Store Info" showTitle={true} width={800} />
+            <StoreForm isUpdate={isUpdate} />
+          </Editing>
+
+          <StoreColumns/>
+        </BaseDataGrid>
+
+        <LoadPanel
+          shadingColor="rgba(0, 0, 0, 0.4)"
+          visible={loading}
+          showIndicator={true}
+          shading={true}
+          showPane={true}
+        />
+      </div>
+    </DxPage>
+  );
+}

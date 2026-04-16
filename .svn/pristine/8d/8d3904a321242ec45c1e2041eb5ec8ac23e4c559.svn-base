@@ -1,0 +1,252 @@
+import { useCallback, useMemo, useRef, useState } from "react"
+import DropDownBox, {
+  Button as DropDownBoxButton,
+  type DropDownBoxTypes,
+} from "devextreme-react/drop-down-box"
+import DataGrid, {
+  Column,
+  FilterRow,
+  Paging,
+  Scrolling,
+  Selection,
+} from "devextreme-react/data-grid"
+import Popup from "devextreme-react/popup"
+
+export type LookupDataSource = DropDownBoxTypes.Properties["dataSource"]
+export type LookupValue = string | number | null | undefined
+
+export type LookupGridColumn<T> = {
+  dataField: string
+  caption: string
+  width?: number | string
+  minWidth?: number
+  visible?: boolean
+  calculateCellValue?: (rowData: T) => unknown
+}
+
+type BaseLookupCellEditorProps<T> = {
+  dataSource: LookupDataSource
+  value: LookupValue
+  valueExpr: string
+  displayExpr: (item: T | null) => string
+  columns: LookupGridColumn<T>[]
+  placeholder?: string
+  popupTitle?: string
+  buttonHint?: string
+  filterFocusField?: string
+  onApply: (item: T) => void
+  onClear?: () => void
+  dropDownWidth?: number
+  dropDownHeight?: number
+  popupWidth?: number | string
+  popupHeight?: number | string
+  popupGridHeight?: number | string
+  popupPageSize?: number
+}
+
+export default function BaseLookupCellEditor<T extends Record<string, unknown>>({
+  dataSource,
+  value,
+  valueExpr,
+  displayExpr,
+  columns,
+  placeholder = "",
+  popupTitle = "",
+  buttonHint = "",
+  filterFocusField,
+  onApply,
+  onClear,
+  dropDownWidth = 920,
+  dropDownHeight = 320,
+  popupWidth = "95vw",
+  popupHeight = "90vh",
+  popupGridHeight = "calc(90vh - 92px)",
+  popupPageSize = 20,
+}: BaseLookupCellEditorProps<T>) {
+  const [opened, setOpened] = useState(false)
+  const [popupVisible, setPopupVisible] = useState(false)
+  const filterInputRef = useRef<HTMLInputElement | null>(null)
+  const shouldFocusFilterRef = useRef(false)
+
+  const selectedRowKeys = useMemo(() => {
+    if (value === null || value === undefined || value === "") {
+      return []
+    }
+
+    return [value]
+  }, [value])
+
+  const focusFilter = useCallback(() => {
+    const input = filterInputRef.current
+    if (!input) {
+      return
+    }
+
+    requestAnimationFrame(() => {
+      input.focus()
+      input.select?.()
+    })
+
+    shouldFocusFilterRef.current = false
+  }, [])
+
+  const queueFocusFilter = useCallback(() => {
+    shouldFocusFilterRef.current = true
+
+    setTimeout(() => {
+      focusFilter()
+    }, 0)
+  }, [focusFilter])
+
+  const closeLookup = useCallback(() => {
+    setOpened(false)
+    setPopupVisible(false)
+  }, [])
+
+  const handleApply = useCallback(
+    (item: T) => {
+      onApply(item)
+      closeLookup()
+    },
+    [closeLookup, onApply],
+  )
+
+  const handleOpenPopup = useCallback(() => {
+    queueFocusFilter()
+    setPopupVisible(true)
+  }, [queueFocusFilter])
+
+  const renderLookupGrid = useCallback(
+    (height: string | number) => (
+      <DataGrid
+        dataSource={dataSource}
+        keyExpr={valueExpr}
+        selectedRowKeys={selectedRowKeys}
+        hoverStateEnabled={true}
+        focusedRowEnabled={true}
+        height={height}
+        showBorders={true}
+        onContentReady={() => {
+          if (shouldFocusFilterRef.current) {
+            focusFilter()
+          }
+        }}
+        onEditorPrepared={(event: any) => {
+          if (event.parentType !== "filterRow") {
+            return
+          }
+
+          if (event.dataField !== filterFocusField) {
+            return
+          }
+
+          const input = event.editorElement?.querySelector?.("input") as HTMLInputElement | null
+          filterInputRef.current = input
+
+          if (shouldFocusFilterRef.current) {
+            focusFilter()
+          }
+        }}
+        onSelectionChanged={(event) => {
+          const selected = event.selectedRowsData?.[0] as T | undefined
+          if (selected) {
+            handleApply(selected)
+          }
+        }}
+        onRowDblClick={(event) => {
+          if (event.data) {
+            handleApply(event.data as T)
+          }
+        }}
+      >
+        <Selection mode="single" />
+        <FilterRow visible={true} />
+        <Scrolling mode="virtual" />
+        <Paging enabled={true} pageSize={popupPageSize} />
+
+        {columns.map((column, index) => (
+          <Column
+            key={`${column.dataField}-${index}`}
+            dataField={column.dataField}
+            caption={column.caption}
+            width={column.width}
+            minWidth={column.minWidth}
+            visible={column.visible}
+            calculateCellValue={column.calculateCellValue}
+          />
+        ))}
+      </DataGrid>
+    ),
+    [
+      columns,
+      dataSource,
+      filterFocusField,
+      focusFilter,
+      handleApply,
+      popupPageSize,
+      selectedRowKeys,
+      valueExpr,
+    ],
+  )
+
+  return (
+    <>
+      <DropDownBox
+        dataSource={dataSource}
+        value={value ?? null}
+        valueExpr={valueExpr}
+        displayExpr={displayExpr as (item: unknown) => string}
+        opened={opened}
+        deferRendering={false}
+        showClearButton={true}
+        placeholder={placeholder}
+        dropDownOptions={{ width: dropDownWidth }}
+        onOptionChanged={(event) => {
+          if (event.name !== "opened") {
+            return
+          }
+
+          const isOpened = Boolean(event.value)
+          setOpened(isOpened)
+
+          if (isOpened) {
+            queueFocusFilter()
+          }
+        }}
+        onValueChanged={(event) => {
+          if (event.value == null) {
+            onClear?.()
+          }
+        }}
+        contentRender={() => <div style={{ height: dropDownHeight }}>{renderLookupGrid("100%")}</div>}
+      >
+        <DropDownBoxButton name="dropDown" location="after" />
+        <DropDownBoxButton
+          name="openLookupPopup"
+          location="after"
+          options={{
+            icon: "search",
+            stylingMode: "text",
+            hint: buttonHint,
+            onClick: handleOpenPopup,
+          }}
+        />
+      </DropDownBox>
+
+      {popupVisible && (
+        <Popup
+          visible={popupVisible}
+          title={popupTitle}
+          showTitle={true}
+          width={popupWidth}
+          height={popupHeight}
+          dragEnabled={false}
+          hideOnOutsideClick={false}
+          onHiding={() => setPopupVisible(false)}
+        >
+          <div style={{ height: popupGridHeight }}>{renderLookupGrid("100%")}</div>
+        </Popup>
+      )}
+    </>
+  )
+}

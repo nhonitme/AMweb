@@ -1,0 +1,104 @@
+import { useContext } from "react";
+import { AsyncRule, Column, RequiredRule } from "devextreme-react/data-grid";
+
+import { LanguageContext } from "@/lib/i18nLoader";
+import type { AsyncValidationCallback } from "@/components/valid/validationUtils";
+
+export type UserInfoField = {
+  key: string;
+  caption: string;
+};
+
+export const userInfoFields: UserInfoField[] = [
+  { key: "COMPANY_CD", caption: "Company" },
+  { key: "USERID", caption: "User ID" },
+  { key: "USERNM", caption: "User Name" },
+  { key: "DEPARTMENT_CD", caption: "Department" },
+  { key: "USERLV", caption: "Level" },
+  { key: "USER_TEL", caption: "Phone" },
+  { key: "TEAM_NUMBER", caption: "Team" },
+  { key: "CANLOGIN", caption: "Can Login" },
+  { key: "CAN_LOCK", caption: "Locked" },
+  { key: "IS_MANAGER", caption: "Manager" },
+  { key: "USERLV_NAME", caption: "User Level Name" },
+  { key: "PASSWD", caption: "Password" },
+];
+
+export const userInfoFieldGroups: Record<"account" | "access" , string[]> = {
+  account: ["USERID","PASSWD", "USERNM", "DEPARTMENT_CD", "USERLV", "USER_TEL", "TEAM_NUMBER"],
+  access: ["CANLOGIN", "CAN_LOCK", "IS_MANAGER"]
+ 
+};
+
+type UserInfoColumnsProps = {
+  validateUserId: AsyncValidationCallback<{ USERID?: string; USER_PK_ID?: number }>;
+};
+
+export function UserInfoColumns({ validateUserId }: UserInfoColumnsProps) {
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string;
+  };
+
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback);
+
+  const widthMap: Record<string, number> = {
+    USERID: 180,
+    USERNM: 180,
+    DEPARTMENT_CD: 140,
+    USERLV: 90,
+    USERLV_NAME: 170,
+    USER_TEL: 140,
+    TEAM_NUMBER: 120,
+    CANLOGIN: 110,
+    CAN_LOCK: 90,
+    IS_MANAGER: 110,
+    PASSWD: 130,
+  };
+
+  return (
+    <>
+      {userInfoFields.map((field) =>
+        field.key === "USERID" ? (
+          <Column
+            key={field.key}
+            dataField={field.key}
+            caption={t(field.key, field.caption)}
+            minWidth={180}
+            allowReordering={true}
+            allowResizing={true}
+            alignment="left"
+          >
+            <RequiredRule message={t("MSG_MUST_ITEM", "User ID is required")} />
+            <AsyncRule message={t("MsgEqualCode", "User ID already exists")} validationCallback={validateUserId} />
+          </Column>
+        ) : (
+          <Column
+            key={field.key}
+            dataField={field.key}
+            caption={t(field.key, field.caption)}
+            width={widthMap[field.key]}
+            minWidth={widthMap[field.key] ? Math.max(widthMap[field.key], 200) : 200}
+            allowReordering={true}
+            allowResizing={true}
+            alignment="center"
+            dataType={field.key === "CANLOGIN" || field.key === "CAN_LOCK" || field.key === "IS_MANAGER" ? "boolean" : undefined}
+            visible={
+              field.key !== "COMPANY_CD" &&
+              field.key !== "USERLV" &&
+              field.key !== "CANLOGIN" &&
+              field.key !== "PASSWD" &&
+              field.key !== "CAN_LOCK"
+            }
+            cellRender={
+              field.key === "PASSWD"
+                ? ({ data }) => <span className="opacity-70">{data?.HAS_PASSWORD ? "********" : ""}</span>
+                : undefined
+            }
+          />
+        ),
+      )}
+    </>
+  );
+}
+
+export default UserInfoColumns;

@@ -1,0 +1,83 @@
+"use server"
+
+/**
+ * @deprecated This file has been replaced by customerExtApi.ts (CustomerInfoCustomerExt)
+ *             and will be removed in a future release.  Consumers should migrate
+ *             to the new API wrapper.  The old functions are kept here for
+ *             backward-compatibility but simply log a warning and forward to
+ *             the ext API where possible.
+ */
+import type { Customer } from "@/types/customer"
+import { getAccessToken } from "@/lib/login";
+import * as extApi from "./customerExtApi";
+
+// --- Cấu hình API ---
+import API_BASE_URL from "../config/apiConfig";
+import * as extApi from "./customerExtApi"; // new service
+
+
+const API_ADD_CUSTOMER = `${API_BASE_URL}/CustomerInfo/insert`
+const API_DELETE_CUSTOMER = `${API_BASE_URL}/CustomerInfo/delete`
+const API_UPDATE_CUSTOMER = `${API_BASE_URL}/CustomerInfo/update`
+
+// --- Hàm trợ giúp để ánh xạ Customer interface sang định dạng API mong muốn ---
+function mapCustomerToApiFormat(customer: Customer): any {
+  const apiData: any = {
+    Lag: "VIET",
+    CategoryCD: customer.categoryCode,
+    CustomerType: customer.customerType,
+    CustomerNM: customer.nameVi,
+    CustomerNM_EN: customer.nameEn,
+    CustomerNM_KOR: customer.nameKo,
+    BuyerNM: customer.buyerName,
+    CustomerUserCD: customer.customerUserCode,
+    TaxCD: customer.taxCode,
+    BankCD: "", // Assuming this is always empty or handled differently
+    OwnerNM: customer.ownerName,
+    BusinessType: customer.businessType,
+    KindBusiness: customer.kindBusiness,
+    Tel: customer.tel,
+    Fax: customer.fax,
+    ZipCD: customer.zipCode,
+    Address: customer.address,
+    Email: customer.email,
+    // Các trường khác từ Customer interface không có trong JSON mẫu của bạn
+    // hoặc không cần gửi lên API sẽ không được đưa vào đây.
+    // Ví dụ: createdDate, categoryNameKor, customerTypeNameKor, v.v.
+  }
+
+  // Chỉ bao gồm CustomerCD nếu customer.id có giá trị (tức là không phải chuỗi rỗng)
+  // Điều này đảm bảo rằng khi thêm mới (id rỗng), trường này sẽ không được gửi lên,
+  // cho phép API tự động tạo mã. Khi cập nhật, id sẽ có giá trị và được gửi đi.
+  if (customer.id) {
+    apiData.CustomerCD = customer.id
+  }
+
+  return apiData
+}
+
+// --- Server Action để thêm khách hàng mới ---
+export async function addCustomerAPI(newCustomer: Customer) {
+  console.warn("addCustomerAPI is deprecated. Use customerExtApi.createCustomerExt instead.");
+  // forward to new API using best guess of fields
+  const payload: any = {
+    CUSTOMER_CD: newCustomer.id,
+    CUSTOMER_NM_VIET: newCustomer.nameVi,
+    BUYER_NM: newCustomer.buyerName,
+    // ...map other fields as appropriate
+  };
+  return extApi.createCustomerExt(payload as any);
+}
+
+// --- Server Action để cập nhật khách hàng ---
+export async function updateCustomerAPI(updatedCustomer: Customer) {
+  console.warn("updateCustomerAPI is deprecated. Use customerExtApi.updateCustomerExt instead.");
+  const payload: any = { CUSTOMER_CD: updatedCustomer.id, CUSTOMER_NM_VIET: updatedCustomer.nameVi };
+  return extApi.updateCustomerExt(payload as any);
+}
+
+// --- Server Action để xóa khách hàng ---
+export async function deleteCustomerAPI(customerId: string) {
+  console.warn("deleteCustomerAPI is deprecated. Use customerExtApi.deleteCustomerExt instead.");
+  return extApi.deleteCustomerExt(customerId);
+}

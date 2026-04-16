@@ -1,0 +1,19 @@
+import { Form } from 'devextreme-react/data-grid';
+import { Item } from 'devextreme-react/form';
+import type { ITextBoxOptions } from 'devextreme-react/text-box';
+
+type StoreFormProps = {
+  isUpdate: boolean;
+};
+  
+export function StoreKindForm({isUpdate }: StoreFormProps) {
+  return (
+    <Form colCount={2}>
+      <Item dataField="STORE_KIND_CD" colSpan={2}/>
+      <Item dataField="STORE_KIND_NM_VIET" colSpan={2} />
+      <Item dataField="STORE_KIND_NM_ENG" colSpan={2} />
+      <Item dataField="STORE_KIND_NM_KOR" colSpan={2} />
+      <Item dataField="STORE_KIND_NM_CHINA" colSpan={2} />
+    </Form>
+  );
+}

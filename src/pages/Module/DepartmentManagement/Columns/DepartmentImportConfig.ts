@@ -1,0 +1,23 @@
+import { useContext } from "react"
+
+import { LanguageContext } from "@/lib/i18nLoader"
+import type { ExcelImportConfig } from "@/types/modal"
+
+type TranslateFn = (key: string, fallback?: string) => string
+
+export const createDepartmentImportConfig = (translate?: TranslateFn): ExcelImportConfig => {
+  const t: TranslateFn = (key, fallback) => (translate ? translate(key, fallback) : fallback ?? key)
+
+  return {
+    moduleCd: "DepartmentInfo",
+    templateName: `${t("DepartmentManager", "Department")}_${new Date().toISOString().replace(/[:.-]/g, "")}.xlsx`,
+  }
+}
+
+export const useDepartmentImportConfig = (): ExcelImportConfig => {
+  const context = useContext(LanguageContext) as {
+    translate?: TranslateFn
+  }
+
+  return createDepartmentImportConfig(context.translate)
+}

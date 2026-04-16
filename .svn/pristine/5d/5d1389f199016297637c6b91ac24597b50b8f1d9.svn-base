@@ -1,0 +1,20 @@
+.data-grid-container {
+    margin-top: 24px;
+    box-shadow: 0 4px 4px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+
+    .dx-datagrid {
+        border-radius: 8px;
+
+        .dx-datagrid-headers {
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+        }
+
+        .dx-datagrid-pager {
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+            
+        }
+    } 
+}

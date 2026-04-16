@@ -1,0 +1,129 @@
+import { convertCodeToLang } from "@/utils/language";
+import API_BASE_URL from "../config/apiConfig";
+import { clearLanguageCache } from "@/api/LanguagesApi";
+
+const API_URL = `${API_BASE_URL}/auth/login`;
+
+// Response from backend API
+interface LoginResponse {
+  accessToken: string;
+  tokenType: string;
+  expiresInSeconds: number;
+  lang: string;
+}
+
+// Request payload for backend API
+interface LoginRequest {
+  CompanyCD: string;
+  UserName: string;
+  Password: string;
+  Lang: string;
+}
+
+/**
+ * Đăng nhập và lấy JWT access token từ backend API.
+ * Backend sẽ tự động set refresh token vào HttpOnly cookie.
+ */
+export async function login(companyCD: string, userName: string, password: string, lang: string): Promise<LoginResponse> {
+  const requestBody: LoginRequest = {
+    CompanyCD: companyCD,
+    UserName: userName,
+    Password: password,
+    Lang: lang
+  };
+
+  const response = await fetch(API_URL, {
+    method: "POST",
+    headers: { 
+      "Content-Type": "application/json"
+    },
+    credentials: "include", // Important: send/receive cookies
+    body: JSON.stringify(requestBody)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || `Login failed with status ${response.status}`);
+  }
+
+  const data: LoginResponse = await response.json();
+  
+  // Store access token in localStorage
+  if (data.accessToken) {
+    localStorage.setItem("accessToken", data.accessToken);
+    localStorage.setItem("tokenType", data.tokenType || "Bearer");
+    localStorage.setItem("tokenExpiry", String(Date.now() + data.expiresInSeconds * 1000));
+
+    const langCode = convertCodeToLang(requestBody.Lang);
+    localStorage.setItem("lang", langCode);
+
+    // Clear cached language labels so they are reloaded after login (new lang or new user)
+    clearLanguageCache(langCode);
+  }
+  
+  return data;
+}
+
+/**
+ * Làm mới access token bằng refresh token (từ cookie)
+ */
+export async function refreshToken(): Promise<string | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: "POST",
+      credentials: "include"
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    if (data.accessToken) {
+      localStorage.setItem("accessToken", data.accessToken);
+      return data.accessToken;
+    }
+    return null;
+  } catch (err) {
+    console.error("Refresh token failed:", err);
+    return null;
+  }
+}
+
+/**
+ * Đăng xuất - xóa token và revoke refresh token
+ */
+export async function logout(): Promise<void> {
+  try {
+    await fetch(`${API_BASE_URL}/auth/logout`, {
+      method: "POST",
+      credentials: "include"
+    });
+  } catch (err) {
+    console.error("Logout API failed:", err);
+  } finally {
+    // Clear local storage
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("tokenType");
+    localStorage.removeItem("tokenExpiry");
+  }
+}
+
+/**
+ * Kiểm tra xem user đã đăng nhập chưa
+ */
+export function isAuthenticated(): boolean {
+  const token = localStorage.getItem("accessToken");
+  const expiry = localStorage.getItem("tokenExpiry");
+  
+  if (!token || !expiry) return false;
+  
+  // Check if token is expired
+  return Date.now() < Number(expiry);
+}
+
+/**
+ * Lấy access token hiện tại
+ */
+export function getAccessToken(): string | null {
+  return localStorage.getItem("accessToken");
+}
+

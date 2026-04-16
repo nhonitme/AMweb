@@ -1,0 +1,30 @@
+import type { ExcelImportConfig } from '@/types/modal'
+import { useContext } from 'react'
+import { LanguageContext } from '@/lib/i18nLoader'
+
+type TranslateFn = (key: string, fallback?: string) => string
+
+export const createManagementInfoImportConfig = (translate?: TranslateFn): ExcelImportConfig => {
+  const t: TranslateFn = (k, f) => (translate ? translate(k, f) : (f ?? k))
+  return {
+    moduleCd: 'ManagementInfo',
+    templateName: `${t('ManagementInfo', 'Management Info')}_${new Date().toISOString().replace(/[:.-]/g, '')}.xlsx`,
+    uniqueColumn: 'MG_CD',
+    columnMappings: [
+      { softwareColumn: 'MG_CD', excelColumn: '', required: true, description: t('MG_CD', 'MG_CD') },
+      { softwareColumn: 'MG_DESC_KOR', excelColumn: '', required: false, description: t('MG_DESC_KOR', 'MG_DESC_KOR') },
+      { softwareColumn: 'MG_DESC_ENG', excelColumn: '', required: false, description: t('MG_DESC_ENG', 'MG_DESC_ENG') },
+      { softwareColumn: 'MG_DESC_VIET', excelColumn: '', required: false, description: t('MG_DESC_VIET', 'MG_DESC_VIET') },
+      { softwareColumn: 'MG_CD_ROOT', excelColumn: '', required: false, description: t('MG_CD_ROOT', 'MG_CD_ROOT') },
+      { softwareColumn: 'USERID', excelColumn: '', required: false, description: t('USERID', 'USERID') },
+      { softwareColumn: 'ISDEL', excelColumn: '', required: false, description: t('ISDEL', 'ISDEL') },
+      { softwareColumn: 'COMPANY_CD', excelColumn: '', required: false, description: t('COMPANY_CD', 'COMPANY_CD') },
+    ],
+  }
+}
+
+export const useManagementInfoImportConfig = (): ExcelImportConfig => {
+  const ctx = useContext(LanguageContext) as any
+  const translate: TranslateFn | undefined = ctx?.translate
+  return createManagementInfoImportConfig(translate)
+}

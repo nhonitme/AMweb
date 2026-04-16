@@ -1,0 +1,295 @@
+import { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import Sidebar from './components/Sidebar';
+import Header from './components/Header';
+import DashboardOverview from './components/DashboardOverview';
+import ModuleContent from './components/ModuleContent';
+import BasicDataManagement from "./pages/BasicDataManagement";
+import LoginPage from './components/LoginPage';
+import CostObjectPage from './pages/CostCenter';
+import BankManagementPage from './pages/BankManagementPage';
+import CustomerManagementPage from "./pages/CustomerManagementPage"; // Adjust the path if necessary
+import Kho from "./pages/kho";
+import MaterialGroup from "./pages/MaterialGroup";
+import UnitManagementPage from "./pages/UnitManagement";
+import SummaryPage from "./pages/Summary";
+import UserManagementPage from "./pages/UserManagement";
+import CompanyManagementPage from "./pages/CompanyManagement";
+import CompanyManagement from "./pages/Company";
+import ReceiptManagementPage from "./pages/ReceiptManagement";
+import ReceiptDetailPage from "./pages/ReceiptManagement/ReceiptDetailPage";
+import Documents from "./pages/Documents";
+import ProductList from './pages/ProductManagement/ProductPage';
+import { isAuthenticated } from './lib/login';
+import { refreshLanguages } from '@/lib/i18nLoader';
+import { MenuTreeNode } from './types/menu';
+import { fetchMenuList, buildMenuTree, findMenuById } from '@/api/menuApi';
+// import WarehouseManagement from './pages/WarehouseManagement/WarehouseManagement';
+
+function AppContent({ onLogout }: { onLogout: () => void }) {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Thêm useEffect để lắng nghe sự kiện resize
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    // Cleanup function để gỡ bỏ event listener khi component unmount
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []); // Mảng rỗng đảm bảo effect này chỉ chạy một lần khi mount
+
+  // 2. State để lưu cây menu
+  const [menuTree, setMenuTree] = useState<MenuTreeNode[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // 3. Fetch và build cây menu một lần
+  useEffect(() => {
+    const loadMenu = async () => {
+      try {
+        setLoading(true);
+        const menuItems = await fetchMenuList(); // Gọi API
+        const tree = buildMenuTree(menuItems);
+        setMenuTree(tree);
+      } catch (error) {
+        console.error('Failed to load menu:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadMenu();
+  }, []);
+
+  // 4. Sửa hàm getActiveMenuFromPath để tìm theo routePath
+  const getActiveMenuFromPath = (
+    pathname: string,
+    tree: MenuTreeNode[]
+  ): string => {
+    if (pathname === '/') return 'dashboard'; // Trang chủ mặc định
+
+    const findActive = (nodes: MenuTreeNode[]): MenuTreeNode | null => {
+      for (const node of nodes) {
+        if (node.routePath && pathname.startsWith(node.routePath)) {
+          return node;
+        }
+        if (node.children && node.children.length > 0) {
+          const found = findActive(node.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    const activeNode = findActive(tree);
+    return activeNode ? activeNode.id : ''; // Vẫn trả về ID để highlight
+  };
+
+  const activeMenu = getActiveMenuFromPath(location.pathname, menuTree);
+  const currentMenuItem = findMenuById(menuTree, activeMenu);
+  const currentMenuTitle = currentMenuItem ? currentMenuItem.name : 'Tổng quan';
+
+  // Persist sidebarCollapsed to localStorage when it changes (desktop only)
+  useEffect(() => {
+    if (!isMobile) {
+      localStorage.setItem('sidebar-collapsed', sidebarCollapsed ? 'true' : 'false');
+    }
+  }, [sidebarCollapsed, isMobile]);
+
+  const handleLogout = () => {
+    // ✅ Clear authentication and redirect to login
+    // Clear tokens from localStorage
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('tokenType');
+    localStorage.removeItem('tokenExpiry');
+    // Call parent logout handler
+    onLogout();
+  };
+
+  const handleMenuSelect = (menuItem: MenuTreeNode) => {
+    if (menuItem.routePath) {
+      navigate(menuItem.routePath);
+    }
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  };
+
+  const toggleSidebar = () => {
+    if (isMobile) {
+      setSidebarOpen(!sidebarOpen);
+    } else {
+      setSidebarCollapsed((prev) => {
+        localStorage.setItem('sidebar-collapsed', !prev ? 'true' : 'false');
+        return !prev;
+      });
+    }
+  };
+
+  const closeSidebar = () => {
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-gray-50 relative">
+      {/* Mobile Overlay */}
+      {isMobile && sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          onClick={closeSidebar}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div className={`
+        ${isMobile 
+          ? `fixed left-0 top-0 h-full z-50 transform transition-transform duration-300 ease-in-out ${
+              sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+            }`
+          : `relative transition-all duration-300 ease-in-out ${
+              sidebarCollapsed ? 'w-16' : 'w-64'
+            }`
+        }
+      `}>
+        <Sidebar
+          menuTree={menuTree}
+          activeMenu={activeMenu}
+          onMenuSelect={handleMenuSelect}
+          isCollapsed={!isMobile && sidebarCollapsed}
+          isMobile={isMobile}
+          loading={loading}
+        />
+      </div>
+      
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header 
+          onToggleSidebar={toggleSidebar} 
+          onLogout={handleLogout}
+          onMenuSelect={handleMenuSelect}
+          currentMenuTitle={currentMenuTitle}
+        />
+        
+        <main className="flex-1 overflow-auto p-3">
+          <Routes>
+            <Route path="/" element={<DashboardOverview />} />
+            <Route path="/dashboard" element={<Navigate to="/" replace />} />
+            <Route path="/cost-center" element={<CostObjectPage />} />
+
+            <Route path="/bank-management" element={<BankManagementPage />} />
+            <Route path="/company" element={<CompanyManagement />} />
+            <Route path="/company-management" element={<CompanyManagementPage />} />
+            <Route path="/profile" element={<ModuleContent moduleId="profile" />} />
+            <Route path="/help-support" element={<ModuleContent moduleId="help-support" />} />
+            
+            {/* All other routes */}
+            <Route path="/basic-data" element={<BasicDataManagement />} />
+            <Route path="/user-management" element={<UserManagementPage />} />
+            <Route path="/customer-management" element={<CustomerManagementPage />} />
+            <Route path="/code-registration" element={<ModuleContent moduleId="code-registration" />} />
+            <Route path="/account-management" element={<ModuleContent moduleId="account-management" />} />
+            <Route path="/warehouse-management" element={<Kho />} />
+            <Route path="/warehouse-category" element={<ModuleContent moduleId="warehouse-category" />} />
+            <Route path="/master/inventory" element={<ProductList />} />
+            {/* <Route path="/master/warehouse-management" element={<WarehouseManagement/>} /> */}
+            <Route path="/material-group" element={<MaterialGroup />} />
+            <Route path="/unit-management" element={<UnitManagementPage />} />
+            <Route path="/standard-management" element={<ModuleContent moduleId="standard-management" />} />
+            <Route path="/note-management" element={<ModuleContent moduleId="note-management" />} />
+            <Route path="/contract-management" element={<ModuleContent moduleId="contract-management" />} />
+            <Route path="/summary" element={<SummaryPage />} />
+            <Route path="/journal" element={<ModuleContent moduleId="journal" />} />
+            <Route path="/cash" element={<ModuleContent moduleId="cash" />} />
+            <Route path="/cash/receipt" element={<ModuleContent moduleId="cash-receipt" />} />
+            <Route path="/cash/payment" element={<ModuleContent moduleId="cash-payment" />} />
+            <Route path="/cash/recalc-cash-rate" element={<ModuleContent moduleId="cash-recalc-cash-rate" />} />
+            <Route path="/cash/cash-book" element={<ModuleContent moduleId="cash-cash-book" />} />
+            <Route path="/banking" element={<ModuleContent moduleId="banking" />} />
+            <Route path="/purchasing" element={<ModuleContent moduleId="purchasing" />} />
+            <Route path="/sales" element={<ModuleContent moduleId="sales" />} />
+            <Route path="/costing" element={<ModuleContent moduleId="costing" />} />
+            <Route path="/inventory" element={<ModuleContent moduleId="inventory" />} />
+            <Route path="/vat" element={<ModuleContent moduleId="vat" />} />
+            <Route path="/assets" element={<ModuleContent moduleId="assets" />} />
+            <Route path="/invoices" element={<ModuleContent moduleId="invoices" />} />
+            <Route path="/reports" element={<ModuleContent moduleId="reports" />} />
+            <Route path="/firmbanking" element={<ModuleContent moduleId="firmbanking" />} />
+            <Route path="/e-documents" element={<ModuleContent moduleId="e-documents" />} />
+            <Route path="/utilities" element={<ModuleContent moduleId="utilities" />} />
+            
+            {/* Add routes for the submenus under 'summary' */}
+            <Route path="/documents" element={<Documents />} />
+            <Route path="/receipt" element={<ReceiptManagementPage />} />
+            <Route path="/receipt-management/receipt-detail" element={<ReceiptDetailPage />} />
+            <Route path="/payment" element={<ModuleContent moduleId="payment" />} />
+            <Route path="/debt-note" element={<ModuleContent moduleId="debt-note" />} />
+            <Route path="/credit-note" element={<ModuleContent moduleId="credit-note" />} />
+            <Route path="/purchase-order" element={<ModuleContent moduleId="purchase-order" />} />
+            <Route path="/service-order" element={<ModuleContent moduleId="service-order" />} />
+            <Route path="/sales-order" element={<ModuleContent moduleId="sales-order" />} />
+            <Route path="/offset-order" element={<ModuleContent moduleId="offset-order" />} />
+            <Route path="/other-order" element={<ModuleContent moduleId="other-order" />} />
+            <Route path="/opening-balance" element={<ModuleContent moduleId="opening-balance" />} />
+            <Route path="/transfer" element={<ModuleContent moduleId="transfer" />} />
+            <Route path="/check-transfer" element={<ModuleContent moduleId="check-transfer" />} />
+            <Route path="/lock" element={<ModuleContent moduleId="lock" />} />
+            
+            {/* Catch all route - redirect to dashboard */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+// ✅ Main App Router Component
+function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(() => isAuthenticated());
+  
+  const handleLoginSuccess = () => {
+    console.log('App: handleLoginSuccess called');
+    const authenticated = isAuthenticated();
+    console.log('App: isAuthenticated =', authenticated);
+    
+    if (authenticated) {
+      setIsLoggedIn(true);
+  // Fetch protected app labels (requires auth token) after successful login
+  // run in background - non-blocking
+  void refreshLanguages();
+      // Don't navigate here - let the routing handle it
+    }
+  };
+
+  const handleLogoutSuccess = () => {
+    setIsLoggedIn(false);
+  };
+
+  return (
+    <Router>
+      <Routes>
+        {isLoggedIn ? (
+          // Authenticated - show app content
+          <Route path="/*" element={<AppContent onLogout={handleLogoutSuccess} />} />
+        ) : (
+          // Not authenticated - show login
+          <>
+            <Route path="/login" element={<LoginPage onLogin={handleLoginSuccess} />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </>
+        )}
+      </Routes>
+    </Router>
+  );
+}
+
+export default App;

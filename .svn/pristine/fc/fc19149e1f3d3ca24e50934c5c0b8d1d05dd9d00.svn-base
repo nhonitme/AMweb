@@ -1,0 +1,21 @@
+import CustomStore from "devextreme/data/custom_store"
+
+type LookupEntity = Record<string, unknown>
+
+export function createLookupStore<T extends LookupEntity>(key: string, loadRows: () => Promise<T[]>) {
+  const store = new CustomStore({
+    key,
+    loadMode: "raw",
+    cacheRawData: false,
+    load: async () => await loadRows(),
+    byKey: async (lookupKey) => {
+      const rows = await loadRows()
+      return rows.find((row) => row[key] === lookupKey) ?? null
+    },
+  })
+
+  return {
+    store,
+    clearCache: () => {},
+  }
+}

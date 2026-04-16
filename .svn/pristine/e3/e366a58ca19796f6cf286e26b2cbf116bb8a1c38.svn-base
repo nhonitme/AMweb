@@ -1,0 +1,88 @@
+import type { Product } from "@/types/product";
+import { getAccessToken } from "@/lib/login";
+
+const API_URL = "https://localhost:7108/api/ProductInfo";
+
+function unwrapArray<T>(json: unknown): T[] {
+  // json không phải null/undefined
+  // json phải là object và có thuộc tính Data
+  if (json && typeof json === "object" && "Data" in json) {
+    const data = json.Data;
+    return Array.isArray(data) ? (data as T[]) : [];
+  }
+
+  throw new Error("API response format invalid (expected {data:[...]} or [...])");
+}
+
+async function request<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+  const res = await fetch(input, {
+    ...init,
+    headers: {
+      Accept: "application/json",
+      ...(init?.headers ?? {}),
+    },
+    // Nếu API cần cookie/Windows auth thì bật:
+    // credentials: "include",
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`${res.status} ${res.statusText} - ${text}`);
+  }
+
+  try {
+    return (await res.json()) as T;
+  } catch {
+    throw new Error("Invalid JSON response");
+  }
+}
+
+// GET
+export async function getProducts(): Promise<Product[]> {
+    const token = getAccessToken();
+
+    const json = await request<unknown>(API_URL, { 
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
+    });
+    return unwrapArray<Product>(json);
+}
+
+export async function createProduct(payload: Partial<Product>) {
+  const token = getAccessToken();
+
+  return request<unknown>(API_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateProduct(id: string, payload: Partial<Product>) {
+  const token = getAccessToken();
+
+  return request<unknown>(`${API_URL}/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteProduct(id: string) {
+  const token = getAccessToken();
+
+  return request<unknown>(`${API_URL}/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+    },
+  });
+}

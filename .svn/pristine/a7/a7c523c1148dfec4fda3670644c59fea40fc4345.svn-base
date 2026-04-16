@@ -1,0 +1,27 @@
+export interface AcclistInfo {
+  COMPANY_CD: string;
+  ACC_ID: string;
+  ACC_CD: string;
+  ACC_PARENT_ID: string;
+
+  ACCTITLE_NM_VIET: string;
+  ACCTITLE_NM_ENG: string;
+  ACCTITLE_NM_KOR: string;
+  ACCTITLE_NM_JAPAN: string;
+  ACCTITLE_NM_CHINA: string;
+
+  ISCUSTOMER: string;
+  ISABLETYPE: number;
+  ISABLEINPUT: string;
+  ISUSERADD: string;
+
+  LEVEL: number;
+  DECISION: string;
+  DESTINATION_ACC_CD: string;
+
+  CREATE_BY: string;
+  CREATE_DT: Date | string;
+  UPDATE_BY: string;
+  UPDATE_DT: Date | string;
+  ISDEL: string;
+}

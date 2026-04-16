@@ -1,0 +1,72 @@
+import { useContext } from "react";
+import { Column } from "devextreme-react/data-grid";
+
+import { LanguageContext } from "@/lib/i18nLoader";
+
+export type UserInfoField = {
+  key: string;
+  caption: string;
+};
+
+export const userInfoFields: UserInfoField[] = [
+  { key: "COMPANY_CD", caption: "Company" },
+  { key: "USERID", caption: "User ID" },
+  { key: "USERNM", caption: "User Name" },
+  { key: "DEPARTMENT_CD", caption: "Department" },
+  { key: "USERLV", caption: "Level" },
+  { key: "USER_TEL", caption: "Phone" },
+  { key: "TEAM_NUMBER", caption: "Team" },
+  { key: "CANLOGIN", caption: "Can Login" },
+  { key: "CAN_LOCK", caption: "Locked" },
+  { key: "IS_MANAGER", caption: "Manager" },
+  { key: "PASSWD", caption: "Password" },
+];
+
+export const userInfoFieldGroups: Record<"account" | "access" | "audit", string[]> = {
+  account: ["USERID", "USERNM", "DEPARTMENT_CD", "USERLV", "USER_TEL", "TEAM_NUMBER"],
+  access: ["CANLOGIN", "CAN_LOCK", "IS_MANAGER"],
+  audit: ["COMPANY_CD", "PASSWD"],
+};
+
+export function UserInfoColumns() {
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string;
+  };
+
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback);
+
+  const widthMap: Record<string, number> = {
+    USERID: 180,
+    USERNM: 180,
+    DEPARTMENT_CD: 140,
+    USERLV: 90,
+    USER_TEL: 140,
+    TEAM_NUMBER: 120,
+    CANLOGIN: 110,
+    CAN_LOCK: 90,
+    IS_MANAGER: 110,
+    PASSWD: 130,
+  };
+
+  return (
+    <>
+      {userInfoFields.map((field) => (
+        <Column
+          key={field.key}
+          dataField={field.key}
+          caption={t(field.key, field.caption)}
+          width={widthMap[field.key]}
+          dataType={field.key === "CANLOGIN" || field.key === "CAN_LOCK" || field.key === "IS_MANAGER" ? "boolean" : undefined}
+          visible={field.key !== "COMPANY_CD"}
+          cellRender={
+            field.key === "PASSWD"
+              ? ({ data }) => <span className="opacity-70">{data?.HAS_PASSWORD ? "********" : ""}</span>
+              : undefined
+          }
+        />
+      ))}
+    </>
+  );
+}
+
+export default UserInfoColumns;

@@ -1,0 +1,149 @@
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+
+import Button from "devextreme-react/button"
+import LoadPanel from "devextreme-react/load-panel"
+
+import { LanguageContext } from "@/lib/i18nLoader"
+import type { ChitInfo, ChitType } from "@/types/voucher"
+
+import { calculateChitAmount, cloneChit, getChitTypeLabel, prepareChitForEdit } from "../chitUtils"
+import { getVoucherBusinessFormComponent } from "../forms/business"
+import { ChitDetailGridPopup, type ChitDetailGridHandle } from "./ChitDetailGridPopup"
+import { getVoucherDetailColumnsComponent } from "./ChitDetailColumnsPopup"
+
+interface VoucherEditorContentProps {
+  value: ChitInfo
+  chitType: ChitType
+  isUpdate: boolean
+  loading: boolean
+  onCancel: () => void
+  onSave: (record: ChitInfo) => Promise<void>
+}
+
+export function VoucherEditorContent({
+  value,
+  chitType,
+  isUpdate,
+  loading,
+  onCancel,
+  onSave,
+}: VoucherEditorContentProps) {
+  const [draft, setDraft] = useState<ChitInfo>(() => cloneChit(value))
+  const detailGridRef = useRef<ChitDetailGridHandle | null>(null)
+  const formRef = useRef<any>(null)
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+
+  const t = useCallback(
+    (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
+    [translate],
+  )
+
+  useEffect(() => {
+    setDraft(prepareChitForEdit(cloneChit(value)))
+  }, [value])
+
+  const chitLabel = useMemo(() => getChitTypeLabel(chitType, t), [chitType, t])
+  const formData = useMemo(
+    () => ({
+      ...draft,
+      CHIT_TYPE_LABEL: chitLabel,
+    }),
+    [draft, chitLabel],
+  )
+  const BusinessForm = getVoucherBusinessFormComponent(chitType)
+  const DetailColumns = getVoucherDetailColumnsComponent(chitType)
+
+  const handleFieldDataChanged = useCallback((event: { dataField?: string; value?: unknown }) => {
+    if (typeof event.dataField !== "string") {
+      return
+    }
+
+    setDraft((current) => ({
+      ...current,
+      [event.dataField as keyof ChitInfo]: event.value as never,
+    }))
+  }, [])
+
+  const handleDetailsChange = useCallback((rows: ChitInfo["DETAILS"], amount: number) => {
+    setDraft((current) => ({
+      ...current,
+      DETAILS: rows,
+      DETAIL_COUNT: rows.length,
+      AMOUNT: amount,
+    }))
+  }, [])
+
+  const handleSave = useCallback(async () => {
+    const validationResult = formRef.current?.instance().validate()
+
+    if (validationResult && !validationResult.isValid) {
+      return
+    }
+
+    const syncedDetails = detailGridRef.current
+      ? await detailGridRef.current.savePendingChanges()
+      : draft.DETAILS
+    const totalAmount = calculateChitAmount(syncedDetails)
+    const normalizedChitNo = String(draft.CHIT_NO ?? "").trim()
+
+    await onSave({
+      ...draft,
+      CHIT_NO: normalizedChitNo,
+      DETAILS: syncedDetails,
+      DETAIL_COUNT: syncedDetails.length,
+      AMOUNT: totalAmount,
+    })
+  }, [draft, onSave])
+
+  return (
+    <div className="relative h-full w-full overflow-hidden">
+      <LoadPanel visible={loading} showPane={true} showIndicator={true} shading={true} />
+
+      <div className="flex h-full flex-col gap-3 overflow-hidden">
+        <div className="min-h-[280px] overflow-auto rounded-lg border border-gray-200 bg-white p-4">
+          <div className="mb-3 text-sm font-semibold text-gray-800">{chitLabel}</div>
+          <BusinessForm
+            formData={formData}
+            isUpdate={isUpdate}
+            onFieldDataChanged={handleFieldDataChanged}
+            formRef={formRef}
+            t={t}
+          />
+        </div>
+
+        <div className="min-h-[260px] flex-1 overflow-hidden rounded-lg border border-gray-200 bg-white p-3">
+          <div className="mb-2 text-sm font-semibold text-gray-800">
+            {t("lblDetail", "Danh sách chi tiết")}
+          </div>
+          <ChitDetailGridPopup
+            ref={detailGridRef}
+            companyCd={draft.COMPANY_CD}
+            details={draft.DETAILS}
+            onChange={handleDetailsChange}
+            ChitDetailColumns={DetailColumns}
+          />
+        </div>
+
+        <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
+          <Button
+            text={t("TIT_SAVE", "Lưu")}
+            type="default"
+            stylingMode="contained"
+            onClick={handleSave}
+            disabled={loading || draft.DETAILS.length === 0}
+          />
+          <Button
+            text={t("CANCEL", "Hủy")}
+            stylingMode="outlined"
+            onClick={onCancel}
+            disabled={loading}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default VoucherEditorContent

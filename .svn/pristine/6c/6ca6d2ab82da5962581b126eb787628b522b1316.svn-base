@@ -1,0 +1,54 @@
+import { useContext } from "react"
+import { Column } from "devextreme-react/data-grid"
+
+import { LanguageContext } from "@/lib/i18nLoader"
+import CustomerLookupCellEditor from "@/components/lookup/CustomerLookupCellEditor"
+import { customerLookupStore } from "@/components/lookup/customerLookupStore";
+
+export function ChitNoteDetailColumns() {
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+
+  return (
+    <>
+      <Column dataField="CHIT_ID" visible={false} />
+      <Column dataField="CHITDETAIL_ID" visible={false} />
+      <Column dataField="CHITDETAIL_CD" visible={false} />
+      <Column dataField="CHIT_YMD" visible={false} />
+      <Column dataField="CUSTOMER_ID" caption={t("CUSTOMER_ID", "Customer")} visible={false} />
+      <Column
+          dataField="CUSTOMER_CD"
+          caption="Khách hàng"
+          width={400}
+          calculateDisplayValue={(row) =>
+            [row.CUSTOMER_CD, row.CUSTOMER_NM].filter(Boolean).join(" - ")
+          }
+          editCellRender={(cellInfo) => (
+            <CustomerLookupCellEditor
+              dataSource={customerLookupStore}
+              value={cellInfo.data?.CUSTOMER_ID ?? null}
+              rowData={cellInfo.data}
+              rowIndex={cellInfo.row?.rowIndex ?? -1}
+              grid={cellInfo.component} 
+              setValue={(customerId) => {
+                cellInfo.component.cellValue(cellInfo.row.rowIndex, "CUSTOMER_ID", customerId);
+              }}
+              customerIdField="CUSTOMER_ID"
+              customerCdField="CUSTOMER_CD"
+              customerNmField="CUSTOMER_NM_VIET"
+            />
+          )}
+        />
+      <Column dataField="CUSTOMER_NM_VIET" caption={t("CUSTOMER_NM", "Customer NM")} minWidth={200}  visible={false} />
+      <Column dataField="DEBIT" caption={t("DEBIT", "Debit")} width={120} />
+      <Column dataField="CREDIT" caption={t("CREDIT", "Credit")} width={120} />
+      <Column dataField="AMOUNT" caption={t("AMOUNT", "Amount")} dataType="number" format="#,##0.00" minWidth={130} />
+      <Column dataField={"DETAIL_DESCRIPTION_VIET"} caption={t("DESCRIPTION2", "Description")} minWidth={220} />
+    </>
+  )
+}
+
+export default ChitNoteDetailColumns

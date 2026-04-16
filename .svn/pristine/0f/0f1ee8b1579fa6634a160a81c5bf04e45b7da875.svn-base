@@ -1,0 +1,244 @@
+import * as React from "react";
+import { Form as DxForm } from "devextreme-react/data-grid";
+import { GroupItem, Item, Tab, TabbedItem } from "devextreme-react/form";
+import type { FieldDataChangedEvent } from "devextreme/ui/form";
+
+import type { SysCode } from "@/api/sysCodeService";
+import type { CustomerExt } from "@/types/customerExt";
+import { customerFields, customerFieldGroups } from "./Columns/CustomerColumns";
+
+export type CustomerExtFormGroupOptions = {
+  excludedFields: Set<string>;
+  sysCodes: SysCode[];
+  sysCodeLabels: Record<string, string>;
+  translate: (key: string, fallback?: string) => string;
+};
+
+export type CustomerExtFormData = CustomerExt & Record<string, unknown>;
+
+type FormItemConfig<TFormData extends Record<string, unknown>> = {
+  colSpan?: number;
+  dataField: keyof TFormData & string;
+  editorOptions?: Record<string, unknown>;
+  editorType?: string;
+  label: string;
+  visible?: boolean | ((formData: TFormData) => boolean);
+};
+
+export type FormGroup<TFormData extends Record<string, unknown> = CustomerExtFormData> = {
+  caption: string;
+  colCount?: number;
+  items: FormItemConfig<TFormData>[];
+  key: string;
+};
+
+type FormTabConfig<TFormData extends Record<string, unknown>> = {
+  groups: FormGroup<TFormData>[];
+  key: string;
+  title: string;
+};
+
+const BASIC_GROUP_KEYS = new Set(["basic", "contact"]);
+
+const createTextBoxOptions = (options: Record<string, unknown> = {}): Record<string, unknown> => ({
+  stylingMode: "outlined",
+  ...options,
+});
+
+const createDateBoxOptions = (options: Record<string, unknown> = {}): Record<string, unknown> => ({
+  stylingMode: "outlined",
+  ...options,
+});
+
+const createSelectBoxOptions = (options: Record<string, unknown> = {}): Record<string, unknown> => ({
+  searchEnabled: true,
+  searchMode: "contains",
+  stylingMode: "outlined",
+  ...options,
+});
+
+function getCustomerTypeLabel(entry: unknown, sysCodeLabels: Record<string, string>): string {
+  if (!entry || typeof entry !== "object") {
+    return "";
+  }
+
+  const code = entry as SysCode;
+  return sysCodeLabels[code.CODE_NAME] ?? code.CODE_NAME ?? code.CODE_CD;
+}
+
+
+export function getCustomerExtFormGroups<TFormData extends Record<string, unknown>>({
+  excludedFields,
+  sysCodes,
+  sysCodeLabels,
+  translate,
+}: CustomerExtFormGroupOptions): FormGroup<TFormData>[] {
+  const groups: Record<string, FormGroup<TFormData>> = {
+    basic: { key: "basic", caption: translate("group.basic", "Thông tin cơ bản"), items: [] },
+    contact: { key: "contact", caption: translate("group.contact", "Thông tin liên hệ"), items: [] },
+    address: { key: "address", caption: translate("group.address", "Địa chỉ"), items: [] },
+    id: { key: "id", caption: translate("group.id", "Chứng minh"), items: [] },
+    tax: { key: "tax", caption: translate("group.tax", "Thuế / Ngân hàng"), items: [] },
+    other: { key: "other", caption: translate("group.other", "Khác"), items: [] },
+  };
+
+  const formHiddenKeys = new Set(["CUSTOMER_ID", "CUSTOMER_EXT_ID", "COMPANY_CD", "CUSTOMER_TYPE_NAME"]);
+
+  const fieldEditorTypeMap: Record<string, "dxTextBox" | "dxSelectBox" | "dxDateBox" | "dxCheckBox"> = {
+    CUSTOMER_TYPE: "dxSelectBox",
+    DATE_ISSUE: "dxDateBox",
+    ISTEMP: "dxCheckBox",
+    ISDEL: "dxCheckBox",
+  };
+
+  const createFieldItem = (field: typeof customerFields[number]): FormItemConfig<TFormData> => {
+    const caption = translate(field.key, field.caption);
+    const item: FormItemConfig<TFormData> = {
+      dataField: field.key as keyof TFormData & string,
+      label: caption,
+    };
+
+    const editorType = fieldEditorTypeMap[field.key] ?? "dxTextBox";
+
+    if (editorType === "dxDateBox") {
+      item.editorType = "dxDateBox";
+      item.editorOptions = createDateBoxOptions({
+        type: "date",
+        displayFormat: "dd/MM/yyyy",
+        placeholder: caption,
+        showClearButton: true,
+      });
+    } else if (editorType === "dxSelectBox") {
+      item.editorType = "dxSelectBox";
+      item.editorOptions = createSelectBoxOptions({
+        dataSource: sysCodes,
+        valueExpr: "CODE_CD",
+        displayExpr: (entry: unknown) => getCustomerTypeLabel(entry, sysCodeLabels),
+        placeholder: caption,
+        showClearButton: true,
+        showDropDownButton: true,
+      });
+    } else if (editorType === "dxCheckBox") {
+      item.editorType = "dxCheckBox";
+    } else {
+      item.editorType = "dxTextBox";
+      item.editorOptions = createTextBoxOptions({
+        placeholder: caption,
+      });
+    }
+
+    if (typeof field.colSpan !== "undefined") {
+      item.colSpan = field.colSpan;
+    }
+
+    return item;
+  };
+
+  Object.entries(customerFieldGroups).forEach(([groupKey, keys]) => {
+    keys.forEach((key) => {
+      if (excludedFields.has(key.toUpperCase())) return;
+      if (formHiddenKeys.has(key)) return;
+      const field = customerFields.find((it) => it.key === key);
+      if (!field) return;
+
+      const item = createFieldItem(field);
+      groups[groupKey].items.push(item);
+    });
+  });
+
+  return ["basic", "contact", "address", "id", "tax", "other"]
+    .map((key) => groups[key])
+    .filter((group) => group.items.length > 0);
+}
+
+type CustomerExtFormProps<TFormData extends Record<string, unknown>> = {
+  formData?: TFormData;
+  formGroups: FormGroup<TFormData>[];
+  onFormDataChange?: (next: TFormData) => void;
+  translate: (key: string, fallback?: string) => string;
+};
+
+export default function CustomerExtForm<TFormData extends Record<string, unknown>>({
+  translate,
+  formGroups,
+  formData,
+  onFormDataChange,
+}: CustomerExtFormProps<TFormData>) {
+  const basicGroups = React.useMemo(
+    () => formGroups.filter((group) => BASIC_GROUP_KEYS.has(group.key)),
+    [formGroups],
+  );
+
+  const extendedGroups = React.useMemo(
+    () => formGroups.filter((group) => !BASIC_GROUP_KEYS.has(group.key)),
+    [formGroups],
+  );
+
+  const tabs = React.useMemo<FormTabConfig<TFormData>[]>(
+    () => [
+      { key: "basic", title: translate("tab.basic", "Cơ bản"), groups: basicGroups },
+      { key: "extended", title: translate("tab.extended", "Mở rộng"), groups: extendedGroups },
+    ],
+    [basicGroups, extendedGroups, translate],
+  );
+
+  const emptyFormDataRef = React.useRef<TFormData>({} as TFormData);
+  const resolvedFormData = formData ?? emptyFormDataRef.current;
+
+  const handleFieldDataChanged = React.useCallback(
+    (event: FieldDataChangedEvent) => {
+      const field = event.dataField as (keyof TFormData & string) | undefined;
+      if (!field || !onFormDataChange) {
+        return;
+      }
+
+      const currentFormData = (event.component.option("formData") ?? resolvedFormData) as TFormData;
+      onFormDataChange({
+        ...currentFormData,
+        [field]: event.value,
+      });
+    },
+    [onFormDataChange, resolvedFormData],
+  );
+
+  return (
+    <div className="customer-ext-form">
+      <DxForm
+        {...(formData === undefined ? {} : { formData })}
+        colCount={1}
+        labelLocation="top"
+        width="100%"
+        onFieldDataChanged={onFormDataChange ? handleFieldDataChanged : undefined}
+      >
+        <TabbedItem>
+          {tabs.map((tab) => (
+            <Tab key={tab.key} title={tab.title}>
+              {tab.groups.map((group) => (
+                <GroupItem key={group.key} caption={group.caption} colCount={group.colCount ?? 2}>
+                  {group.items.map((item) => {
+                    const isVisible =
+                      typeof item.visible === "function" ? item.visible(resolvedFormData) : item.visible !== false;
+                    if (!isVisible) {
+                      return null;
+                    }
+
+                    return (
+                      <Item
+                        key={item.dataField}
+                        dataField={item.dataField}
+                        label={{ text: item.label }}
+                        editorType={item.editorType}
+                        editorOptions={item.editorOptions}
+                        colSpan={item.colSpan}
+                      />
+                    );
+                  })}
+                </GroupItem>
+              ))}
+            </Tab>
+          ))}
+        </TabbedItem>
+      </DxForm>
+    </div>
+  );
+}

@@ -1,0 +1,306 @@
+import { useContext, useEffect, useRef, useState } from "react";
+import { DataGrid, LoadPanel } from "devextreme-react";
+import { Editing, Popup as DxPopup,Pager } from 'devextreme-react/tree-list';
+import { ContextMenuPreparingEvent, RowInsertingEvent, RowUpdatingEvent, RowRemovingEvent } from "devextreme/ui/tree_list";
+import type dxTreeList  from "devextreme/ui/tree_list";
+
+import "./AcclistPage.scss";
+
+import DxPage from "../../dx/DxPage";
+import BaseTreeList from "@/components/datagrid/BaseTreeList";
+import { GridToolbar } from "@/components/toolbar/GridToolbar";
+
+import { AcclistColumns} from "./Columns/AcclistColumns";
+import { AcclistForm } from "./Forms/AcclistForm";
+
+import { getAcclistInfos,createAcclistInfo,updateAcclistInfo, exportToExcel, importFromExcel, deleteAcclistInfos, deleteAcclistInfo } from "@/api/acclistAPI";
+import notify from "devextreme/ui/notify";
+import { LanguageContext } from "@/lib/i18nLoader";
+import ExcelImportModal from "@/components/modals/ExcelImportModal";
+import { useAcclistImportConfig } from "./Columns/AcclistImportConfig";
+import { confirm } from "devextreme/ui/dialog";
+import { AcclistInfo } from "@/types/acclist";
+
+type RowInsertingEventWithPromise = RowInsertingEvent & { promise?: Promise<void> };
+type RowUpdatingEventWithPromise = RowUpdatingEvent & { promise?: Promise<void> };
+type RowRemovingEventWithPromise = RowRemovingEvent & { promise?: Promise<void> };
+
+export default function AcclistPage() {
+  const [loading, setLoading] = useState(true);
+  const [gridData, setGridData] = useState<AcclistInfo[]>([]);
+  const gridRef = useRef<dxTreeList | null>(null);
+  const { lang, translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string; lang: string };
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
+  const importConfig = useAcclistImportConfig();
+  const [isUpdate, setIsUpdate] = useState(false);
+  const popupTitle = translate ? translate(isUpdate ? "lblEdit" : "lblAddNew", "Acclist info") : "Acclist info";
+  const [isEditPopupOpen, setIsEditPopupOpen] = useState(false);
+
+  const onContextMenuPreparing = (e: ContextMenuPreparingEvent) => {
+    if (e.row && e.row.rowType === "data") {
+      e.items = [
+        {
+          text: "Update",
+          onItemClick: () => {
+            gridRef.current?.editRow(e.row!.rowIndex);
+          },
+        },
+        {
+          text: "Delete",
+          onItemClick: () => {
+            gridRef.current?.deleteRow(e.row!.rowIndex);
+          },
+        },
+      ];
+    }
+  };
+
+  useEffect(() => {
+      if (!isEditPopupOpen) return;
+  
+      const onKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape' || event.key === 'Esc') {
+          const grid = gridRef.current as any;
+          grid?.cancelEditData?.();
+          grid?.closeEditCell?.(); 
+          event.preventDefault(); 
+          return;
+        }
+
+      };
+  
+      window.addEventListener('keydown', onKeyDown, true);
+      return () => window.removeEventListener('keydown', onKeyDown, true);
+    }, [isEditPopupOpen]);
+
+  const loadAcclistInfos = async () => {
+    try {
+      setLoading(true);
+      const response = await getAcclistInfos();
+      setGridData(response.data);
+
+      gridRef.current?.clearSelection();
+    } catch (error) {
+      console.error("Tải danh sách hàng tồn kho thất bại", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRowInserting = (e: RowInsertingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        const newData = e.data;
+        newData.USERID = localStorage.getItem("lastUserId") || "unknown";
+        newData.ISUSE = true;
+        
+        await createAcclistInfo(newData);
+        notify( translate ? translate("MSG_INSERT_SUCCESS", "success") : "Insert successful", "success", 1000);
+
+        await loadAcclistInfos(); // Reload lại danh sách
+      } catch (error) {
+        alert("Insert error:" + " " + error)
+       
+      } finally {
+        // Đóng popup bằng cách hủy trạng thái edit
+        if (e.component) {
+          (e.component as dxTreeList).cancelEditData();
+        }
+      }
+    })();
+  };
+
+  const onRowUpdating = (e: RowUpdatingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        // e.key là id, e.newData là dữ liệu mới, e.oldData là dữ liệu cũ
+        const payload = { ...e.oldData, ...e.newData }; // merge để có đủ dữ liệu
+        await updateAcclistInfo(payload);
+        notify( translate ? translate("MSG_EDIT_SUCCESS", "success") : "Edit successful", "success", 1000);
+        await loadAcclistInfos();
+      } catch (error) {
+        alert("Update error: " + error);
+      } finally {
+        if (e.component) {
+          (e.component as dxTreeList).cancelEditData();
+        }
+      }
+    })();
+  };
+
+  const onRowRemoving = (e: RowRemovingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        const id = e.key; // keyExpr
+        await deleteAcclistInfo(id);
+        notify( translate ? translate("MSG_DELETE_SUCCESS", "success") : "Delete successful", "success", 1000);
+        await loadAcclistInfos();
+      } catch (error) {
+        notify(translate ? translate("MSG_DELETE_ERROR", "error") :  "Delete failed", "error", 1000);
+      }
+    })();
+  };
+
+    const handleExportExcel = async () => {
+    try {
+      const keys = gridRef.current?.getSelectedRowKeys() || [];
+      const storeID = keys.length ? (keys[0] as string) : undefined;
+      const blob = await exportToExcel(storeID, lang);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${translate('Menu_AcclistInfo','Warehouse Classification Management')}_${new Date().toISOString().replace(/[:.-]/g, '')}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export error', err);
+      notify(
+        translate ? translate('Export failed','Export failed') : 'Export failed',
+        'error',
+        3000
+      );
+    }
+  };
+
+  const handleImport = async (
+      rows: any[],
+      method: "add" | "update" | "overwrite",
+      file?: File
+    ) => {
+      console.debug('handleImport called', { rows, method, file, lang });
+      try {
+        if (file) {
+          // prefer server bulk upload when file available
+          console.debug('calling importCustomerExtExcel with file', file.name, file.size, lang);
+          const resp = await importFromExcel(file, lang);
+          console.debug('server import response', resp);
+        } else {
+          if (method === "overwrite" || method === "add") {
+            for (const r of rows) {
+              await createAcclistInfo(r as Partial<AcclistInfo>);
+            }
+          } else if (method === "update") {
+            for (const r of rows) {
+              if (r.ACC_ID) await updateAcclistInfo(r as AcclistInfo);
+            }
+          }
+        }
+      } catch (err: any) {
+        console.error("Import error", err);
+        let msg = translate ? translate('Import failed','Import failed') : 'Import failed';
+        if (err?.response?.data) {
+          // server might send { Message: '', Errors: [] } or simple string
+          const data = err.response.data;
+          if (typeof data === 'string') {
+            msg += `: ${data}`;
+          } else if (data.Message) {
+            msg += `: ${data.Message}`;
+          } else if (data.error) {
+            msg += `: ${data.error}`;
+          }
+        }
+        notify(msg, 'error', 5000);
+      }
+      await loadAcclistInfos();
+    };
+
+  const handleRowDblClick = (e: any) => {
+    if (!gridRef.current) {
+      console.warn('gridRef not initialized when double-click occurred');
+      return;
+    }
+    let idx: number | undefined | null = e?.rowIndex;
+    if (idx === undefined && e?.row) {
+      idx = e.row.rowIndex;
+    }
+    if ((idx === undefined || idx === null) && e?.key !== undefined) {
+      idx = gridRef.current.getRowIndexByKey(e.key as any);
+    }
+    if (idx !== undefined && idx !== null && idx !== -1) {
+      gridRef.current.editRow(idx);
+    } else {
+      console.warn('unable to determine row index from dblclick event', e);
+    }
+  };
+
+  // Tải khi component khởi tạo
+  useEffect(() => {
+    loadAcclistInfos();
+  }, []);
+
+  const handleToolbarDelete = async () => {
+    const keys = (gridRef.current?.getSelectedRowKeys() || []) as (string)[];
+    if (!keys.length) {
+        notify(
+          translate
+            ? translate("Please select rows to delete", "Please select rows to delete")
+            : "Please select rows to delete",
+          "warning",
+          1000
+        );
+        return;
+      }
+
+    const result = await confirm(
+      translate ? translate("MSG_CONFIRM_DELETE_RECORD", "Are you sure you want to delete {0} record?").replace("{0}", String(keys.length)) : "Are you sure you want to delete this record?",
+      translate ? translate("MSG_CONFIRM_DELETE", "Confirm delete") : "Confirm delete"
+    );
+
+    if (!result) return;
+
+    try {
+      await deleteAcclistInfos(keys);
+      notify( translate ? translate("MSG_DELETE_SUCCESS", "success") : "Delete successful", "success", 1000);
+      await loadAcclistInfos();
+    } catch (error) {
+      notify(translate ? translate("MSG_DELETE_ERROR", "error") :  "Delete failed", "error", 1000);
+    }
+};
+
+  return (
+    <DxPage>
+      <GridToolbar
+        title="acc List"
+        titleKey="TSAccitemAdd" //Quản lý kho bãi
+        gridRef={gridRef}
+        onRefresh={loadAcclistInfos}
+        onExportPdf={() => alert("Export To PDF clicked")}
+        onExportXlsx={handleExportExcel}
+        onImport={() => setIsExcelModalOpen(true)}
+        onDelete={handleToolbarDelete}
+      />
+
+      <ExcelImportModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        onImport={handleImport}
+        existingData={gridData}
+        config={importConfig}
+        hideUpdateOverwrite={true}
+      />
+
+      <div className="data-tree-list-container">
+        <BaseTreeList<AcclistInfo>
+            dataSource={gridData}
+            keyExpr="ACC_ID"
+            parentIdExpr="ACC_PARENT_ID"
+            rootValue={"0"}
+            // defaultExpandedRowKeys={["1"]}
+            columnAutoWidth={false}
+        >
+        <AcclistColumns />
+      </BaseTreeList>
+
+        <LoadPanel
+          shadingColor="rgba(0, 0, 0, 0.4)"
+          visible={loading}
+          showIndicator={true}
+          shading={true}
+          showPane={true}
+        />
+      </div>
+    </DxPage>
+  );
+}

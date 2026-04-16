@@ -1,0 +1,53 @@
+import { getCurrencies } from "@/api/systemApi"
+import { getCurrentCompanyCd } from "@/lib/login"
+import type { CurrencyInfo, CurrencyInfoApi } from "@/types/currencyInfo"
+import { createLookupStore } from "./createLookupStore"
+
+const trimText = (value: unknown) => (typeof value === "string" ? value.trim() : "")
+
+const normalizeNumber = (value: number | string | null | undefined, fallback = 0): number => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === "string") {
+    const parsedValue = Number(value)
+    return Number.isFinite(parsedValue) ? parsedValue : fallback
+  }
+
+  return fallback
+}
+
+const normalizeFlag = (value: unknown): boolean =>
+  value === true || value === 1 || `${value ?? ""}`.trim().toLowerCase() === "1" || `${value ?? ""}`.trim().toLowerCase() === "true"
+
+const normalizeCurrency = (record: CurrencyInfoApi): CurrencyInfo => ({
+  CURRENCY_ID: typeof record.CURRENCY_ID === "number" && Number.isFinite(record.CURRENCY_ID) ? record.CURRENCY_ID : null,
+  COMPANY_CD: trimText(record.COMPANY_CD),
+  CURRENCY_CD: trimText(record.CURRENCY_CD),
+  CURRENCY_NM: trimText(record.CURRENCY_NM),
+  SYMBOL: trimText(record.SYMBOL),
+  DECIMAL_DIGITS: normalizeNumber(record.DECIMAL_DIGITS, 0),
+  EXCHANGE_RATE_DECIMAL: normalizeNumber(record.EXCHANGE_RATE_DECIMAL, 2),
+  IS_BASE_CURRENCY: normalizeFlag(record.IS_BASE_CURRENCY),
+  SORT_ORDER: normalizeNumber(record.SORT_ORDER, 0),
+  IS_ACTIVE: normalizeFlag(record.IS_ACTIVE),
+  IS_SYSTEM: normalizeFlag(record.IS_SYSTEM),
+  ISDEL: normalizeFlag(record.ISDEL),
+  CREATE_BY: trimText(record.CREATE_BY),
+  UPDATE_BY: trimText(record.UPDATE_BY),
+})
+
+async function loadCurrencies(): Promise<CurrencyInfo[]> {
+  const response = await getCurrencies()
+  return (Array.isArray(response.data) ? response.data : []).map(normalizeCurrency)
+}
+
+const { store, clearCache } = createLookupStore<CurrencyInfo>(
+  "CURRENCY_CD",
+  loadCurrencies,
+  () => getCurrentCompanyCd(),
+)
+
+export const currencyLookupStore = store
+export const clearCurrencyLookupCache = clearCache

@@ -1,0 +1,31 @@
+import { useContext } from "react";
+import { Column } from "devextreme-react/data-grid";
+import { LanguageContext } from '@/lib/i18nLoader';
+
+export const CompanyInfoColumns: React.FC = () => {
+  const { translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string };
+  const t = (k: string, f: string) => translate(k, f);
+
+  return (
+    <>
+      
+      <Column dataField="COMPANY_CD" caption={t('COMPANY_CD','Company')}  />  
+      <Column dataField="TAX_CD" caption={t('TAX_CD','MST')}  />  
+      <Column dataField="COMPANY_NM" caption={t('lblCOMPANYNAME','COMPANY Name (VI)')} />
+      <Column dataField="OWNER_NM" caption={t('OWNER_NM','Director')}  />  
+      <Column dataField="TEL" caption={t('TEL','TEL')}  />  
+      <Column dataField="OPEN_YMD" caption={t('OPEN_YMD','Open Date')}  />  
+
+      <Column dataField="ADDRESS" caption={t('ADDRESS','Address')}  />  
+               
+      
+      
+      
+      
+
+
+    </>
+  );
+};
+
+export default CompanyInfoColumns;

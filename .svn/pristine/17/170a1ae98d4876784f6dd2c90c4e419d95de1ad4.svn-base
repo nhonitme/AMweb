@@ -1,0 +1,41 @@
+import type { AcclistInfo } from "@/types/acclist";
+import { getAcclistInfos } from "@/api/acclistAPI";
+import CustomStore from "devextreme/data/custom_store";
+
+let cache: any;
+let loadingPromise: Promise<AcclistInfo[]> | null | any = null;
+
+async function fetchAcclistsOnce(): Promise<AcclistInfo[]> {
+  if (cache) return cache;
+  if (loadingPromise) return loadingPromise;
+
+  loadingPromise = getAcclistInfos()
+    .then((resp) => {
+      cache = resp.data || [];
+      return cache;
+    })
+    .finally(() => {
+      loadingPromise = null;
+    });
+
+  return loadingPromise;
+}
+
+export function clearAcclistLookupCache() {
+  cache = null;
+}
+
+export const AcclistLookupStore = new CustomStore({
+  key: "ACC_CD",
+  loadMode: "raw",
+  cacheRawData: true,
+
+  load: async () => {
+    return await fetchAcclistsOnce();
+  },
+
+  byKey: async (key) => {
+    const items = await fetchAcclistsOnce();
+    return items.find((x) => x.ACC_CD === key) ?? null;
+  },
+});

@@ -1,0 +1,27 @@
+import React, { useContext } from "react";
+import { Column } from "devextreme-react/data-grid";
+import { LanguageContext } from '@/lib/i18nLoader';
+
+export const StoreColumns: React.FC = () => {
+  const { translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string };
+  return (
+    <>
+      <Column 
+        type="buttons"
+        width={100}
+        //caption={translate('btnSelect4', 'Choose')}
+      />
+  
+      {<Column dataField="STORE_CD" caption={translate('STORE_CD', 'Store Code')} />}
+      {<Column dataField="STORE_NM_VIET" caption={translate('STORE_NM_VIET', 'Store Name (VN)')} />}
+      {<Column dataField="STORE_NM_ENG" caption={translate('STORE_NM_ENG', 'Store Name (ENG)')} />}
+      {<Column dataField="STORE_NM_KOR" caption={translate('STORE_NM_KOR', 'Store Name (KOR)')} />}
+      {<Column dataField="STORE_NM_CHINA" caption={translate('STORE_NM_CHINA', 'Store Name (CHINA)')} />}
+      {<Column dataField="STORE_KIND_CD" caption={translate('StoreKindCD', 'Kind')} />}
+      {<Column dataField="STORE_KIND_NM_VIET" caption={translate('STORE_KIND_NM_VIET', 'STORE_KIND_NM_VIET')} />}
+      {<Column dataField="STORE_KIND_NM_ENG" caption={translate('STORE_KIND_NM_ENG', 'STORE_KIND_NM_ENG')} />}
+      {<Column dataField="STORE_KIND_NM_KOR" caption={translate('STORE_KIND_NM_KOR', 'STORE_KIND_NM_KOR')} />}
+      {<Column dataField="STORE_KIND_NM_CHINA" caption={translate('STORE_KIND_NM_CHINA', 'STORE_KIND_NM_CHINA')} />}
+    </>
+  );
+}

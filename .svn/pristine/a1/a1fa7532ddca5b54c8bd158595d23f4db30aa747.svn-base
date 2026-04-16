@@ -1,0 +1,241 @@
+// PM = Payment Voucher
+export type ChitType = "DEBIT_NOTE" | "CREDIT_NOTE" | "PURCHASE_VOUCHER" | "PM"
+export type ChitLedger = "AP" | "AR"
+export type ChitText = string | null | undefined
+export type ChitFlag = "0" | "1" | boolean | null | undefined
+export type ChitDateValue = string | Date | null | undefined
+
+export interface ChitDetailApi {
+  CHITDETAIL_ID?: number | null
+  COMPANY_CD?: ChitText
+  CHIT_ID?: number | null
+  CHITDETAIL_CD?: ChitText
+  CHIT_YMD?: ChitDateValue
+  CHIT_VMD?: ChitDateValue
+  DEBIT?: ChitText
+  CREDIT?: ChitText
+  DEBIT_NM_VIET?: ChitText
+  DEBIT_NM_ENG?: ChitText
+  DEBIT_NM_KOR?: ChitText
+  DEBIT_NM_CHINA?: ChitText
+  CREDIT_NM_VIET?: ChitText
+  CREDIT_NM_ENG?: ChitText
+  CREDIT_NM_KOR?: ChitText
+  CREDIT_NM_CHINA?: ChitText
+  AMOUNT?: number | null
+  FC_AMOUNT?: number | null
+  FC_TYPE?: ChitText
+  FC_RATE?: number | null
+  FC_DATETIME?: ChitDateValue
+  SORT?: number | null
+  ISDEL?: ChitFlag
+  CHITDETAIL_VAT_CD?: ChitText
+  MG_CD?: ChitText
+  MG_CD_2?: ChitText
+  MR_CD?: ChitText
+  MR_CD2?: ChitText
+  BANK_CD?: ChitText
+  BANK_OWN_CD?: ChitText
+  CUSTOMER_ID?: number | null
+  CUSTOMER_CD?: ChitText
+  CUSTOMER_NM_VIET?: ChitText
+  CUSTOMER_NM_ENG?: ChitText
+  CUSTOMER_NM_KOR?: ChitText
+  CUSTOMER_NM_CHINA?: ChitText
+  CUSTOMER_OWN_CD?: ChitText
+  DEPARTMENT_CD?: ChitText
+  DEPARTMENT_CD_2?: ChitText
+  HASINVENTORY?: ChitFlag
+  INVENTORY_YMD?: ChitDateValue
+  ISPAY?: ChitFlag
+  ISCOLLECT?: ChitFlag
+  VAT_INPUT_CD?: ChitText
+  VAT_INPUT_CD2?: ChitText
+  PRODUCT_NM?: ChitText
+  UNIT_NM?: ChitText
+  QUANTITY?: number | null
+  UNIT_PRICE?: number | null
+  PRODUCT_AMOUNT?: number | null
+  VAT_TYPE?: ChitText
+  PERCENT?: number | null
+  PRODUCT_VAT_AMOUNT?: number | null
+  PRODUCT_NOTE?: ChitText
+  VAT_SERIAL_NO?: ChitText
+  VAT_CHIT_NO?: ChitText
+  VAT_CHIT_NO_2?: ChitText
+  VAT_AMOUNT?: number | null
+  VAT_TAXABLE_AMOUNT?: number | null
+  FO_VAT_AMOUNT?: number | null
+  VAT_ISFREE?: ChitFlag
+  VAT_INVOICE_CD?: ChitText
+  VAT_INVOICE_NM?: ChitText
+  VAT_INFO_TYPE?: ChitText
+  VAT_COMPANY_ISSUE?: ChitText
+  VAT_COMPANY_ISSUE_ADDRESS?: ChitText
+  VAT_COMPANY_ISSUE_CD?: ChitText
+  VAT_COMPANY_TAXCD?: ChitText
+  VAT_PRODUCT_NM?: ChitText
+  VAT_ETC?: ChitText
+  VAT_YMD?: ChitDateValue
+  VAT_YMD_2?: ChitDateValue
+  VAT_INQUIRY_IN?: ChitText
+  VAT_INQUIRY_CODE?: ChitText
+  IS_NEXTVAT?: ChitFlag
+  UNDEFINE?: ChitText
+  DETAIL_DESCRIPTION_VIET?: ChitText
+  DETAIL_DESCRIPTION_ENG?: ChitText
+  DETAIL_DESCRIPTION_KOR?: ChitText
+  CREATE_BY?: ChitText
+  CREATE_DT?: ChitDateValue
+  MODIFY_BY?: ChitText
+  MODIFY_DT?: ChitDateValue
+}
+
+export interface ChitApi {
+  CHIT_ID?: number | null
+  COMPANY_CD?: ChitText
+  CHIT_CD?: ChitText
+  CHIT_NO?: ChitText
+  CHIT_YMD?: ChitDateValue
+  CHIT_TYPE?: ChitType | ChitText
+  AMOUNT?: number | null
+  PAYER_INFO?: ChitText
+  ISDEL?: ChitFlag
+  USERID?: ChitText
+  CREATE_BY?: ChitText
+  CREATE_DT?: ChitDateValue
+  MODIFY_BY?: ChitText
+  MODIFY_DT?: ChitDateValue
+  IS_LOCK?: ChitFlag
+  ISEXCEL?: ChitFlag
+  EMAIL_EPAY?: ChitText
+  IS_CONFIRMED?: ChitFlag
+  NOTE?: ChitText
+  DAY_OF_PAYMENT?: number | null
+  TIME_FOR_PAYMENT?: ChitText
+  IS_PAYMENT?: ChitFlag
+  CHIT_CD_COGS?: ChitText
+  DESCRIPTION_VIET?: ChitText
+  DESCRIPTION_ENG?: ChitText
+  DESCRIPTION_KOR?: ChitText
+  DETAIL_COUNT?: number | null
+  DETAILS?: ChitDetailApi[] | null
+}
+
+export interface ChitDetail {
+  ROW_KEY: string
+  CHITDETAIL_ID: number | null
+  COMPANY_CD: string
+  CHIT_ID: number | null
+  CHITDETAIL_CD: string
+  CHIT_YMD: ChitDateValue
+  CHIT_VMD: ChitDateValue
+  DEBIT: string
+  CREDIT: string
+  DEBIT_NM_VIET: string
+  DEBIT_NM_ENG: string
+  DEBIT_NM_KOR: string
+  DEBIT_NM_CHINA: string
+  CREDIT_NM_VIET: string
+  CREDIT_NM_ENG: string
+  CREDIT_NM_KOR: string
+  CREDIT_NM_CHINA: string
+  AMOUNT: number | null
+  FC_AMOUNT: number | null
+  FC_TYPE: string
+  FC_RATE: number | null
+  FC_DATETIME: ChitDateValue
+  SORT: number | null
+  ISDEL: boolean
+  CHITDETAIL_VAT_CD: string
+  MG_CD: string
+  MG_CD_2: string
+  MR_CD: string
+  MR_CD2: string
+  BANK_CD: string
+  BANK_OWN_CD: string
+  CUSTOMER_ID: number | null
+  CUSTOMER_CD: string
+  CUSTOMER_NM_VIET: string
+  CUSTOMER_NM_ENG: string
+  CUSTOMER_NM_KOR: string
+  CUSTOMER_NM_CHINA: string
+  CUSTOMER_OWN_CD: string
+  DEPARTMENT_CD: string
+  DEPARTMENT_CD_2: string
+  HASINVENTORY: boolean
+  INVENTORY_YMD: ChitDateValue
+  ISPAY: boolean
+  ISCOLLECT: boolean
+  VAT_INPUT_CD: string
+  VAT_INPUT_CD2: string
+  PRODUCT_NM: string
+  UNIT_NM: string
+  QUANTITY: number | null
+  UNIT_PRICE: number | null
+  PRODUCT_AMOUNT: number | null
+  VAT_TYPE: string
+  PERCENT: number | null
+  PRODUCT_VAT_AMOUNT: number | null
+  PRODUCT_NOTE: string
+  VAT_SERIAL_NO: string
+  VAT_CHIT_NO: string
+  VAT_CHIT_NO_2: string
+  VAT_AMOUNT: number | null
+  VAT_TAXABLE_AMOUNT: number | null
+  FO_VAT_AMOUNT: number | null
+  VAT_ISFREE: boolean
+  VAT_INVOICE_CD: string
+  VAT_INVOICE_NM: string
+  VAT_INFO_TYPE: string
+  VAT_COMPANY_ISSUE: string
+  VAT_COMPANY_ISSUE_ADDRESS: string
+  VAT_COMPANY_ISSUE_CD: string
+  VAT_COMPANY_TAXCD: string
+  VAT_PRODUCT_NM: string
+  VAT_ETC: string
+  VAT_YMD: ChitDateValue
+  VAT_YMD_2: ChitDateValue
+  VAT_INQUIRY_IN: string
+  VAT_INQUIRY_CODE: string
+  IS_NEXTVAT: boolean
+  UNDEFINE: string
+  DETAIL_DESCRIPTION_VIET: string
+  DETAIL_DESCRIPTION_ENG: string
+  DETAIL_DESCRIPTION_KOR: string
+  CREATE_BY: string
+  CREATE_DT: ChitDateValue
+  MODIFY_BY: string
+  MODIFY_DT: ChitDateValue
+}
+
+export interface ChitInfo {
+  CHIT_ID: number | null
+  COMPANY_CD: string
+  CHIT_CD: string
+  CHIT_NO: string
+  CHIT_YMD: ChitDateValue
+  CHIT_TYPE: ChitType
+  AMOUNT: number | null
+  PAYER_INFO: string
+  ISDEL: boolean
+  USERID: string
+  CREATE_BY: string
+  CREATE_DT: ChitDateValue
+  MODIFY_BY: string
+  MODIFY_DT: ChitDateValue
+  IS_LOCK: boolean
+  ISEXCEL: boolean
+  EMAIL_EPAY: string
+  IS_CONFIRMED: boolean
+  NOTE: string
+  DAY_OF_PAYMENT: number | null
+  TIME_FOR_PAYMENT: string
+  IS_PAYMENT: boolean
+  CHIT_CD_COGS: string
+  DESCRIPTION_VIET: string
+  DESCRIPTION_ENG: string
+  DESCRIPTION_KOR: string
+  DETAIL_COUNT: number
+  DETAILS: ChitDetail[]
+}

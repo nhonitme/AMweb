@@ -1,0 +1,53 @@
+export type DepartmentFieldKey =
+  | "DEPARTMENT_ID"
+  | "COMPANY_CD"
+  | "DEPARTMENT_CD"
+  | "PARENT_CD"
+  | "PARENT_NM"
+  | "DEP_NAME_VIET"
+  | "DEP_NAME_ENG"
+  | "DEP_NAME_KOR"
+  | "DEP_NAME_JAPAN"
+  | "DEP_NAME_CHINA"
+  | "DEPARTMENT_USER_CD"
+  | "PRODUCT_CD"
+  | "DEP_ORDER"
+  | "ISPRODUCT"
+  | "REMARK"
+  | "USERID"
+  | "ISDEL"
+  | "CREATED_AT"
+  | "UPDATED_AT"
+
+export interface DepartmentField {
+  key: DepartmentFieldKey
+  caption: string
+}
+
+export const departmentFields: DepartmentField[] = [
+  { key: "DEPARTMENT_ID", caption: "Department ID" },
+  { key: "COMPANY_CD", caption: "Company" },
+  { key: "DEPARTMENT_CD", caption: "Department Code" },
+  { key: "PARENT_CD", caption: "Parent Department" },
+  { key: "PARENT_NM", caption: "Parent Department Name" },
+  { key: "DEP_NAME_VIET", caption: "Department Name (VI)" },
+  { key: "DEP_NAME_ENG", caption: "Department Name (EN)" },
+  { key: "DEP_NAME_KOR", caption: "Department Name (KO)" },
+  { key: "DEP_NAME_JAPAN", caption: "Department Name (JA)" },
+  { key: "DEP_NAME_CHINA", caption: "Department Name (ZH)" },
+  { key: "DEPARTMENT_USER_CD", caption: "Department User Code" },
+  { key: "PRODUCT_CD", caption: "Product Code" },
+  { key: "DEP_ORDER", caption: "Order" },
+  { key: "ISPRODUCT", caption: "Product Department" },
+  { key: "REMARK", caption: "Remark" },
+  { key: "USERID", caption: "User" },
+  { key: "ISDEL", caption: "Deleted" },
+  { key: "CREATED_AT", caption: "Created At" },
+  { key: "UPDATED_AT", caption: "Updated At" },
+]
+
+export const departmentFieldGroups: Record<"basic" | "names" | "other", DepartmentFieldKey[]> = {
+  basic: ["DEPARTMENT_CD", "PARENT_CD", "DEPARTMENT_USER_CD", "PRODUCT_CD", "ISPRODUCT"],
+  names: ["DEP_NAME_VIET", "DEP_NAME_ENG", "DEP_NAME_KOR", "DEP_NAME_JAPAN", "DEP_NAME_CHINA", "REMARK"],
+  other: ["DEPARTMENT_ID", "COMPANY_CD", "USERID", "ISDEL", "DEP_ORDER"],
+}

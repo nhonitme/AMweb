@@ -1,0 +1,454 @@
+﻿import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { LoadPanel } from "devextreme-react"
+import { AsyncRule, Column, Editing, Popup, RequiredRule } from "devextreme-react/data-grid"
+import {
+  RowDblClickEvent,
+  RowInsertingEvent,
+  RowRemovingEvent,
+  RowUpdatingEvent,
+} from "devextreme/ui/data_grid"
+import { confirm } from "devextreme/ui/dialog"
+import notify from "devextreme/ui/notify"
+import type dxDataGrid from "devextreme/ui/data_grid"
+
+import "./ManagementInfoPage.scss"
+
+import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid"
+import ExcelImportModal from "@/components/modals/ExcelImportModal"
+import { GridToolbar } from "@/components/toolbar/GridToolbar"
+import DxPage from "@/dx/DxPage"
+import {
+  checkManagementCdExists,
+  createManagementInfo,
+  deleteManagementInfo,
+  deleteManagementInfos,
+  exportManagementInfoExcel,
+  getManagementInfos,
+  importManagementInfoExcel,
+  updateManagementInfo,
+} from "@/api/managementInfoApi"
+import { downloadBlobFile } from "@/lib/fileUtils"
+import { LanguageContext } from "@/lib/i18nLoader"
+import { getCurrentCompanyCd, getCurrentUserId } from "@/lib/login"
+import type { ManagementInfo, ManagementInfoApi } from "@/types/managementInfo"
+import { resolveGridValidationRowId } from "@/utils/gridValidation"
+import { managementInfoFields } from "./Columns/ManagementInfoColumns"
+import { ManagementInfoForm } from "./Forms/ManagementInfoForm"
+import { createManagementInfoImportConfig } from "./ManagementInfoImportConfig"
+import {
+  createDefaultManagementInfo,
+  mapManagementInfoToApiPayload,
+  normalizeManagementInfoRows,
+} from "./managementInfoUtils"
+
+type TKey = string | number
+
+type RowInsertingEventWithPromise = RowInsertingEvent<ManagementInfo, TKey> & { promise?: Promise<void> }
+type RowUpdatingEventWithPromise = RowUpdatingEvent<ManagementInfo, TKey> & { promise?: Promise<void> }
+type RowRemovingEventWithPromise = RowRemovingEvent<ManagementInfo, TKey> & { promise?: Promise<void> }
+
+export default function ManagementInfoPage() {
+  const [loading, setLoading] = useState(true)
+  const [gridData, setGridData] = useState<ManagementInfo[]>([])
+  const [isUpdate, setIsUpdate] = useState(false)
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false)
+  const [searchVisible, setSearchVisible] = useState(false)
+  const gridRef = useRef<dxDataGrid | null>(null)
+
+  const { lang, translate } = useContext(LanguageContext) as {
+    translate: (key: string, fallback?: string) => string
+    lang: string
+  }
+
+  const t = useCallback(
+    (key: string, fallback?: string) => (translate ? translate(key, fallback || key) : fallback || key),
+    [translate],
+  )
+
+  const importConfig = useMemo(() => createManagementInfoImportConfig(translate), [translate])
+  const popupTitle = t(isUpdate ? "lblEdit" : "lblAddNew", isUpdate ? "Edit Management Info" : "Add Management Info")
+
+  const excludedFields = useMemo(
+    () =>
+      new Set<string>([
+        "MG_ID",
+        "COMPANY_CD",
+        "ISDEL",
+        "CREATE_BY",
+        "UPDATE_BY",
+      ]),
+    [],
+  )
+
+  const widthMap: Record<string, number> = useMemo(
+    () => ({
+      MG_CD: 180,
+      MG_DESC_KOR: 220,
+      MG_DESC_ENG: 220,
+      MG_DESC_VIET: 220,
+      MG_CD_ROOT: 180,
+    }),
+    [],
+  )
+
+  const loadData = useCallback(async () => {
+    setLoading(true)
+
+    try {
+      const response = await getManagementInfos(undefined, lang)
+      setGridData(normalizeManagementInfoRows(response.data || []))
+      gridRef.current?.clearSelection()
+    } catch (error) {
+      console.error("Failed to load management info", error)
+      notify(t("Load failed", "Load failed"), "error", 5000)
+    } finally {
+      setLoading(false)
+    }
+  }, [lang, t])
+
+  useEffect(() => {
+    void loadData()
+  }, [loadData])
+
+  const validateManagementCd = useCallback(
+    async (event: {
+      data?: { MG_ID?: number | null }
+      value: unknown
+      row?: { key?: number | string; data?: { MG_ID?: number | null } }
+    }) => {
+      const mgCd = String(event.value ?? "").trim()
+      if (!mgCd) {
+        return true
+      }
+
+      const managementId = resolveGridValidationRowId(event, "MG_ID")
+
+      try {
+        const exists = await checkManagementCdExists(managementId ?? undefined, mgCd)
+        return { isValid: !exists }
+      } catch {
+        return {
+          isValid: false,
+          message: t("MSG_VALIDATE_FAILED", "Unable to validate management code"),
+        }
+      }
+    },
+    [t],
+  )
+
+  const buildCreatePayload = useCallback((data: Partial<ManagementInfo>): Partial<ManagementInfoApi> => {
+    const currentCompanyCd = getCurrentCompanyCd()
+    const currentUserId = getCurrentUserId()
+    const nextRow: ManagementInfo = {
+      ...createDefaultManagementInfo(currentCompanyCd, currentUserId),
+      ...data,
+      COMPANY_CD: data.COMPANY_CD || currentCompanyCd,
+      MG_CD: typeof data.MG_CD === "string" ? data.MG_CD.trim() : "",
+    }
+
+    return mapManagementInfoToApiPayload(nextRow)
+  }, [])
+
+  const buildUpdatePayload = useCallback((event: RowUpdatingEventWithPromise): Partial<ManagementInfoApi> => {
+    const currentCompanyCd = event.oldData?.COMPANY_CD || getCurrentCompanyCd()
+    const currentUserId = getCurrentUserId()
+    const mergedRow: ManagementInfo = {
+      ...createDefaultManagementInfo(currentCompanyCd, currentUserId),
+      ...(event.oldData ?? {}),
+      ...(event.newData ?? {}),
+      COMPANY_CD: currentCompanyCd,
+    }
+
+    return mapManagementInfoToApiPayload(mergedRow)
+  }, [])
+
+  const onRowInserting = useCallback(
+    (event: RowInsertingEventWithPromise) => {
+      event.promise = (async () => {
+        try {
+          const payload = buildCreatePayload({ ...(event.data ?? {}) })
+          await createManagementInfo(payload, lang)
+            notify(t("MSG_INSERT_SUCCESS", "Created successfully"), "success", 3000)
+          await loadData()
+        } catch (error) {
+          console.error("Create management info error", error)
+          notify(t("Insert failed", "Insert failed"), "error", 3000)
+        } finally {
+          if (event.component) {
+            ;(event.component as dxDataGrid<ManagementInfo, TKey>).cancelEditData()
+          }
+        }
+      })()
+    },
+    [buildCreatePayload, lang, loadData, t],
+  )
+
+  const onRowUpdating = useCallback(
+    (event: RowUpdatingEventWithPromise) => {
+      event.promise = (async () => {
+        try {
+          const payload = buildUpdatePayload(event)
+          await updateManagementInfo(payload, lang)
+          notify(t("MSG_EDIT_SUCCESS", "Updated successfully"), "success", 3000)
+          await loadData()
+        } catch (error) {
+          console.error("Update management info error", error)
+          notify(t("Update failed", "Update failed"), "error", 3000)
+        } finally {
+          if (event.component) {
+            ;(event.component as dxDataGrid<ManagementInfo, TKey>).cancelEditData()
+          }
+        }
+      })()
+    },
+    [buildUpdatePayload, lang, loadData, t],
+  )
+
+  const onRowRemoving = useCallback(
+    (event: RowRemovingEventWithPromise) => {
+      event.promise = (async () => {
+        try {
+          const managementId = Number(event.key)
+          if (!Number.isFinite(managementId) || managementId <= 0) {
+            throw new Error("Invalid management id")
+          }
+
+          await deleteManagementInfo(managementId, lang)
+          notify(t("DELETE_SUCCESS", "Deleted successfully"), "success", 3000)
+          await loadData()
+        } catch (error) {
+          console.error("Delete management info error", error)
+          notify(t("Delete failed", "Delete failed"), "error", 3000)
+        }
+      })()
+    },
+    [lang, loadData, t],
+  )
+
+  const handleToolbarDelete = useCallback(async () => {
+    const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
+    const managementIds = selectedKeys
+      .map((key) => Number(key))
+      .filter((value) => Number.isFinite(value) && value > 0)
+
+    if (!managementIds.length) {
+      notify(t("No rows selected", "No rows selected"), "warning", 2000)
+      return
+    }
+
+    const confirmText = t(
+      "MSG_CONFIRM_DELETE_RECORD",
+      "Are you sure you want to delete {0} record?",
+    ).replace("{0}", String(managementIds.length))
+
+    const isConfirmed = await confirm(confirmText, t("MSG_CONFIRM_DELETE", "Confirm delete"))
+    if (!isConfirmed) {
+      return
+    }
+
+    try {
+      await deleteManagementInfos({ ManagementIds: managementIds })
+      notify(t("DELETE_SUCCESS", "Deleted successfully"), "success", 3000)
+      await loadData()
+    } catch (error) {
+      console.error("Bulk delete management info error", error)
+      notify(t("Delete failed", "Delete failed"), "error", 3000)
+    }
+  }, [loadData, t])
+
+  const handleExportExcel = useCallback(async () => {
+    try {
+      const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
+      const selectedManagementId = selectedKeys.length > 0 ? Number(selectedKeys[0]) : undefined
+      const managementId =
+        typeof selectedManagementId === "number" && Number.isFinite(selectedManagementId) && selectedManagementId > 0
+          ? selectedManagementId
+          : undefined
+
+      const blob = await exportManagementInfoExcel(managementId, lang)
+      downloadBlobFile(blob, `management_info_${new Date().toISOString().replace(/[:.-]/g, "")}.xlsx`)
+    } catch (error) {
+      console.error("Export management info error", error)
+      notify(t("Export failed", "Export failed"), "error", 3000)
+    }
+  }, [lang, t])
+
+  const handleExportPdf = useCallback(() => {
+    const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
+    const selectedManagementId = selectedKeys.length > 0 ? Number(selectedKeys[0]) : undefined
+    const managementId =
+      typeof selectedManagementId === "number" && Number.isFinite(selectedManagementId) && selectedManagementId > 0
+        ? selectedManagementId
+        : undefined
+
+    const companyCd = getCurrentCompanyCd()
+    const params = new URLSearchParams()
+
+    if (companyCd) {
+      params.set("companyCd", companyCd)
+    }
+
+    if (managementId) {
+      params.set("managementId", String(managementId))
+    }
+
+    params.set("reportCode", "MANAGEMENT_INFO")
+
+    const targetUrl = `${window.location.origin}/report-viewer${params.toString() ? `?${params.toString()}` : ""}`
+    const viewerWindow = window.open(targetUrl, "_blank", "noopener,noreferrer")
+
+    if (!viewerWindow) {
+      notify(t("Unable to open report viewer", "Unable to open report viewer"), "error", 3000)
+    }
+  }, [t])
+
+  const handleImport = useCallback(
+    async (rows: Array<Record<string, unknown>>, method: "add" | "update" | "overwrite", file?: File) => {
+      try {
+        if (file) {
+          await importManagementInfoExcel(file, lang)
+        } else if (method === "update") {
+          for (const row of rows) {
+            const importedMgCd = typeof row.MG_CD === "string" ? row.MG_CD.trim() : ""
+            const existingRow = gridData.find((item) => item.MG_CD.trim().toUpperCase() === importedMgCd.toUpperCase())
+
+            if (!existingRow?.MG_ID) {
+              continue
+            }
+
+            const payload = mapManagementInfoToApiPayload({
+              ...createDefaultManagementInfo(getCurrentCompanyCd(), getCurrentUserId()),
+              ...existingRow,
+              ...(row as Partial<ManagementInfo>),
+              MG_ID: existingRow.MG_ID,
+              COMPANY_CD: getCurrentCompanyCd(),
+            })
+
+            await updateManagementInfo(payload, lang)
+          }
+        } else {
+          for (const row of rows) {
+            const payload = buildCreatePayload(row as Partial<ManagementInfo>)
+            await createManagementInfo(payload, lang)
+          }
+        }
+
+        await loadData()
+      } catch (error) {
+        console.error("Import management info error", error)
+        notify(t("Import failed", "Import failed"), "error", 5000)
+      }
+    },
+    [buildCreatePayload, gridData, lang, loadData, t],
+  )
+
+  const onRowDblClick = useCallback((event: RowDblClickEvent<ManagementInfo, TKey>) => {
+    if (!gridRef.current) {
+      return
+    }
+
+    const rowIndex =
+      typeof (event as RowDblClickEvent<ManagementInfo, TKey> & { rowIndex?: number }).rowIndex === "number"
+        ? (event as RowDblClickEvent<ManagementInfo, TKey> & { rowIndex?: number }).rowIndex
+        : gridRef.current.getRowIndexByKey(event.key as TKey)
+
+    if (rowIndex !== undefined && rowIndex !== -1) {
+      gridRef.current.editRow(rowIndex)
+    }
+  }, [])
+
+  return (
+    <DxPage>
+      <GridToolbar
+        gridRef={gridRef}
+        onRefresh={loadData}
+        onDelete={handleToolbarDelete}
+        onSearch={() => setSearchVisible((prev) => !prev)}
+        onImport={() => setIsExcelModalOpen(true)}
+        onExportPdf={handleExportPdf}
+        onExportXlsx={handleExportExcel}
+      />
+
+      <ExcelImportModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        onImport={handleImport}
+        existingData={gridData}
+        config={importConfig}
+        serverImport={true}
+        hideUpdateOverwrite={true}
+      />
+
+      <div className="data-grid-container">
+        <BaseDataGrid<ManagementInfo>
+          dataSource={gridData}
+          keyExpr="MG_ID"
+          copyExcludeFields={Array.from(excludedFields)}
+          actionButtons
+          actionButtonsPosition="start"
+          filterRowVisible={searchVisible}
+          searchPanelVisible={searchVisible}
+          filterPanelVisible={searchVisible}
+          onRowDblClick={onRowDblClick}
+          onEditingStart={() => setIsUpdate(true)}
+          onInitialized={(event) => {
+            gridRef.current = event.component ?? null
+          }}
+          onRowInserting={onRowInserting}
+          onRowUpdating={onRowUpdating}
+          onRowRemoving={onRowRemoving}
+          onInitNewRow={(event) => {
+            setIsUpdate(false)
+            event.data = {
+              ...createDefaultManagementInfo(getCurrentCompanyCd(), getCurrentUserId()),
+              ...(event.data ?? {}),
+            }
+          }}
+        >
+          <Editing
+            mode="popup"
+            allowUpdating={true}
+            allowAdding={true}
+            allowDeleting={true}
+            confirmDelete={true}
+            startEditAction="dblClick"
+          >
+            <Popup
+              key={lang}
+              title={popupTitle}
+              showTitle={true}
+              width="90%"
+              maxWidth={980}
+              deferRendering={true}
+            />
+            <ManagementInfoForm />
+          </Editing>
+
+          {managementInfoFields.map((field) => (
+            <Column
+              key={field.key}
+              dataField={field.key}
+              caption={t(field.key, field.caption)}
+              width={widthMap[field.key]}
+            >
+              {field.key === "MG_CD" && (
+                <>
+                  <RequiredRule message={t("MSG_MUST_ITEM", "MG_CD is required")} />
+                  <AsyncRule message={t("MsgEqualCode", "MG_CD already exists")} validationCallback={validateManagementCd} />
+                </>
+              )}
+            </Column>
+          ))}
+        </BaseDataGrid>
+
+        <LoadPanel
+          shadingColor="rgba(0, 0, 0, 0.4)"
+          visible={loading}
+          showIndicator={true}
+          shading={true}
+          showPane={true}
+        />
+      </div>
+    </DxPage>
+  )
+}

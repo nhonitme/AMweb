@@ -1,0 +1,85 @@
+import { useContext } from "react"
+import { AsyncRule, Column, RequiredRule } from "devextreme-react/data-grid"
+
+import { checkUserIdExists } from "@/api/userInfoApi"
+import { LanguageContext } from "@/lib/i18nLoader"
+import { resolveGridValidationRowId } from "@/utils/gridValidation"
+
+export type UserInfoField = {
+  key: string
+  caption: string
+}
+
+export const userInfoFields: UserInfoField[] = [
+  { key: "USERID", caption: "User ID" },
+  { key: "PASSWD", caption: "Password" },
+  { key: "USERNM", caption: "User Name" },
+  { key: "USERLV", caption: "User Level" },
+]
+
+export const userInfoFieldGroups = {
+  account: ["USERID", "PASSWD", "USERNM", "USERLV"],
+} as const
+
+type UserValidationEvent = {
+  data?: {
+    USER_PK_ID?: number | null
+  }
+  value: unknown
+  row?: {
+    key?: number | string
+    data?: {
+      USER_PK_ID?: number | null
+    }
+  }
+}
+
+const widthMap = {
+  USERID: 180,
+  USERNM: 220,
+  USERLV_NAME: 140,
+} as const
+
+const validateUserId = async (event: UserValidationEvent) => {
+  const userId = String(event.value ?? "").trim()
+
+  if (!userId) {
+    return true
+  }
+
+  try {
+    const userPkId = resolveGridValidationRowId(event, "USER_PK_ID")
+    const exists = await checkUserIdExists(userPkId, userId)
+    return { isValid: !exists }
+  } catch {
+    return {
+      isValid: false,
+      message: "Khong kiem tra duoc du lieu",
+    }
+  }
+}
+
+export function UserInfoColumns() {
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+
+  return (
+    <>
+      <Column dataField="USERID" caption={t("USERID", "User ID")} width={widthMap.USERID}>
+        <RequiredRule message={t("MSG_MUST_ITEM", "USERID khong duoc de trong")} />
+        <AsyncRule message={t("MsgEqualCode", "USERID da ton tai")} validationCallback={validateUserId} />
+      </Column>
+
+      <Column dataField="USERNM" caption={t("USERNM", "User Name")} width={widthMap.USERNM}>
+        <RequiredRule message={t("MSG_MUST_ITEM", "USERNM khong duoc de trong")} />
+      </Column>
+
+      <Column dataField="USERLV_NAME" caption={t("USERLV", "User Level")} width={widthMap.USERLV_NAME} />
+    </>
+  )
+}
+
+export default UserInfoColumns

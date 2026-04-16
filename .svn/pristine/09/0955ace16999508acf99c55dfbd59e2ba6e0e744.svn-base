@@ -1,0 +1,63 @@
+import React, { useContext } from "react";
+import { Column, RequiredRule, AsyncRule } from "devextreme-react/data-grid";
+import { LanguageContext } from '@/lib/i18nLoader';
+import { checkProductExists } from "@/api/productApi";
+
+const validateProductCd = async (e: { value: unknown; data?: Record<string, unknown>; }) => {
+  const productCd = String(e.value ?? "").trim();
+
+  if (!productCd) {
+    return true;
+  }
+
+  try {
+    const productId = Number(e.data?.PRODUCT_ID ?? 0);
+    const res = await checkProductExists(productId, productCd);
+
+    return {
+      isValid: !res.Data,
+    };
+  } catch (err) {
+    console.error("Error CheckExists:", err);
+  }
+    return {
+      isValid: false,
+      message: "Không kiểm tra được dữ liệu",
+    };
+};
+
+export const ProductColumns: React.FC = () => {
+  const { translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string };
+
+  return (
+    <>
+      <Column 
+        type="buttons"
+        width={80}
+      />
+      <Column dataField="PRODUCT_CD" caption={translate('PRODUCT_CD', 'Product Code')}> 
+        <RequiredRule message={translate ? translate("MSG_MUST_ITEM", "PRODUCT_CD không được để trống") : "PRODUCT_CD không được để trống"} />
+        <AsyncRule message={translate ? translate("MsgEqualCode", "PRODUCT_CD đã tồn tại") : "PRODUCT_CD đã tồn tại"} validationCallback={validateProductCd} />
+      </Column>
+      <Column dataField="PRODUCT_NM" caption={translate('PRODUCT_NM', 'Product Name')}>
+        <RequiredRule message={translate ? translate("MSG_MUST_ITEM", "PRODUCT_NM không được để trống") : "PRODUCT_NM không được để trống"} />
+      </Column>
+      <Column dataField="PRODUCT_NM_ENG" caption={translate('PRODUCT_NM_ENG', 'Name (ENG)')} />
+      <Column dataField="PRODUCT_NM_KOR" caption={translate('PRODUCT_NM_KOR', 'Name (KOR)')} />
+      <Column dataField="PRODUCT_KIND_ID" caption={translate('PRODUCT_KIND_ID', 'Kind')} visible={false} >
+        <RequiredRule message={translate ? translate("MSG_MUST_ITEM", "PRODUCT_KIND_ID không được để trống") : "PRODUCT_KIND_ID không được để trống"} />
+      </Column>
+      <Column dataField="PRODUCTKIND_NM" caption={translate('PRODUCTKIND_NM', 'Kind Name')} />
+      <Column dataField="UNIT_ID" caption={translate('UNIT_ID', 'Unit')} visible={false} >
+        <RequiredRule message={translate ? translate("MSG_MUST_ITEM", "UNIT_ID không được để trống") : "UNIT_ID không được để trống"} />
+      </Column>
+      <Column dataField="UNIT_NM" caption={translate('UNIT_NM', 'Unit Name')} />
+      <Column dataField="STORE_ID" caption={translate('STORE_ID', 'Store Code')} visible={false} >
+        <RequiredRule message={translate ? translate("MSG_MUST_ITEM", "STORE_ID không được để trống") : "STORE_ID không được để trống"} />
+      </Column>
+      <Column dataField="STORE_NM_VIET" caption={translate('STORE_NM_VIET', 'Store Name')} />
+      <Column dataField="DIVISION" caption={translate('DIVISION_CD', 'Account Code')} />
+      <Column dataField="SUMMARY" caption={translate('SUMMARY', 'Summary')} />
+    </>
+  );
+};

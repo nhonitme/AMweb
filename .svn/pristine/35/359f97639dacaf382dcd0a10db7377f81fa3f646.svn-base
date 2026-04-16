@@ -1,0 +1,23 @@
+import { useContext } from "react";
+import { Column } from "devextreme-react/data-grid";
+import { LanguageContext } from '@/lib/i18nLoader';
+
+export interface UserInfoColumnsProps {
+  colLabels?: Record<string, string>;
+}
+
+export const UserInfoColumns: React.FC<UserInfoColumnsProps> = ({ colLabels = {} }) => {
+  const { translate } = useContext(LanguageContext) as { translate?: (k: string, f?: string) => string };
+  const t = (k: string, f: string) => (translate ? translate(k, f) : f);
+  const label = (field: string, fallback: string) => colLabels[field] ?? t(field, fallback);
+
+  return (
+    <>
+      <Column dataField="COMPANY_CD" caption={label('COMPANY_CD', 'Company')} visible={false} />
+      <Column dataField="USERID" caption={label('USERID', 'User ID')} width={220} />
+      <Column dataField="PASSWD" caption={label('PASSWD', 'Password')} width={250} visible={false} />
+    </>
+  );
+};
+
+export default UserInfoColumns;

@@ -1,0 +1,417 @@
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { LoadPanel } from "devextreme-react"
+import { Editing, Popup } from "devextreme-react/data-grid"
+import {
+  RowDblClickEvent,
+  RowInsertingEvent,
+  RowRemovingEvent,
+  RowUpdatingEvent,
+} from "devextreme/ui/data_grid"
+import { confirm } from "devextreme/ui/dialog"
+import notify from "devextreme/ui/notify"
+import type dxDataGrid from "devextreme/ui/data_grid"
+
+import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid"
+import ExcelImportModal from "@/components/modals/ExcelImportModal"
+import { GridToolbar } from "@/components/toolbar/GridToolbar"
+import DxPage from "@/dx/DxPage"
+import { downloadBlobFile } from "@/lib/fileUtils"
+import { LanguageContext } from "@/lib/i18nLoader"
+import { getCurrentCompanyCd, getCurrentUserId } from "@/lib/login"
+import {
+  createBankInfo,
+  deleteBankInfo,
+  deleteBankInfos,
+  exportBankInfoExcel,
+  getBankInfos,
+  importBankInfoExcel,
+  updateBankInfo,
+} from "@/api/bankInfoApi"
+import type { BankInfo, BankInfoApi } from "@/types/bankInfo"
+import BankForm from "./Form/BankForm"
+import { BankColumns } from "./Columns/BankColumns"
+import { bankImportConfig } from "./Columns/bankImportConfig"
+import {
+  createDefaultBankInfo,
+  mapBankInfoToApiPayload,
+  normalizeBankInfoRows,
+} from "./bankInfoUtils"
+
+type TKey = string | number
+
+type RowInsertingEventWithPromise = RowInsertingEvent<BankInfo, TKey> & { promise?: Promise<void> }
+type RowUpdatingEventWithPromise = RowUpdatingEvent<BankInfo, TKey> & { promise?: Promise<void> }
+type RowRemovingEventWithPromise = RowRemovingEvent<BankInfo, TKey> & { promise?: Promise<void> }
+
+export default function BankManagementPage() {
+  const [loading, setLoading] = useState(true)
+  const [gridData, setGridData] = useState<BankInfo[]>([])
+  const [isUpdate, setIsUpdate] = useState(false)
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false)
+  const [searchVisible, setSearchVisible] = useState(false)
+  const gridRef = useRef<dxDataGrid | null>(null)
+
+  const { lang, translate } = useContext(LanguageContext) as {
+    translate: (key: string, fallback?: string) => string
+    lang: string
+  }
+
+  const t = useCallback(
+    (key: string, fallback?: string) => (translate ? translate(key, fallback || key) : fallback || key),
+    [translate],
+  )
+
+  const popupTitle = t(isUpdate ? "lblEdit" : "lblAddNew", isUpdate ? "Edit Bank" : "Add Bank")
+
+  const excludedFields = useMemo(
+    () =>
+      new Set<string>([
+        "BANK_ID",
+        "COMPANY_CD",
+        "USERID",
+        "ISDEL",
+        "CREATE_AT",
+        "UPDATE_AT",
+        "CREATE_BY",
+        "UPDATE_BY",
+      ]),
+    [],
+  )
+
+  const loadData = useCallback(async () => {
+    setLoading(true)
+
+    try {
+      const response = await getBankInfos(undefined, lang)
+      setGridData(normalizeBankInfoRows(response.data || []))
+      gridRef.current?.clearSelection()
+    } catch (error) {
+      console.error("Failed to load banks", error)
+      notify(t("Load failed", "Load failed"), "error", 5000)
+    } finally {
+      setLoading(false)
+    }
+  }, [lang, t])
+
+  useEffect(() => {
+    void loadData()
+  }, [loadData])
+
+  const buildCreatePayload = useCallback((data: Partial<BankInfo>): Partial<BankInfoApi> => {
+    const currentCompanyCd = getCurrentCompanyCd()
+    const currentUserId = getCurrentUserId()
+    const nextRow: BankInfo = {
+      ...createDefaultBankInfo(currentCompanyCd, currentUserId),
+      ...data,
+      COMPANY_CD: data.COMPANY_CD || currentCompanyCd,
+      USERID: data.USERID || currentUserId,
+      BANK_CD: typeof data.BANK_CD === "string" ? data.BANK_CD.trim() : "",
+      BANK_NM: typeof data.BANK_NM === "string" ? data.BANK_NM.trim() : "",
+    }
+
+    return mapBankInfoToApiPayload(nextRow)
+  }, [])
+
+  const buildUpdatePayload = useCallback((event: RowUpdatingEventWithPromise): Partial<BankInfoApi> => {
+    const currentCompanyCd = event.oldData?.COMPANY_CD || getCurrentCompanyCd()
+    const currentUserId = getCurrentUserId()
+    const nextBankCd =
+      typeof event.newData?.BANK_CD === "string"
+        ? event.newData.BANK_CD.trim()
+        : typeof event.oldData?.BANK_CD === "string"
+          ? event.oldData.BANK_CD.trim()
+          : ""
+    const nextBankName =
+      typeof event.newData?.BANK_NM === "string"
+        ? event.newData.BANK_NM.trim()
+        : typeof event.oldData?.BANK_NM === "string"
+          ? event.oldData.BANK_NM.trim()
+          : ""
+    const mergedRow: BankInfo = {
+      ...createDefaultBankInfo(currentCompanyCd, currentUserId),
+      ...(event.oldData ?? {}),
+      ...(event.newData ?? {}),
+      BANK_ID: typeof event.oldData?.BANK_ID === "number" ? event.oldData.BANK_ID : null,
+      COMPANY_CD: currentCompanyCd,
+      USERID: currentUserId,
+      BANK_CD: nextBankCd,
+      BANK_NM: nextBankName,
+    }
+
+    return mapBankInfoToApiPayload(mergedRow)
+  }, [])
+
+  const onRowInserting = useCallback(
+    (event: RowInsertingEventWithPromise) => {
+      event.promise = (async () => {
+        try {
+          const payload = buildCreatePayload({ ...(event.data ?? {}) })
+          await createBankInfo(payload)
+          notify(t("CREATE_SUCCESS", "Created successfully"), "success", 3000)
+          await loadData()
+        } catch (error) {
+          console.error("Create bank error", error)
+          notify(t("Insert failed", "Insert failed"), "error", 3000)
+        } finally {
+          if (event.component) {
+            ;(event.component as dxDataGrid<BankInfo, TKey>).cancelEditData()
+          }
+        }
+      })()
+    },
+    [buildCreatePayload, loadData, t],
+  )
+
+  const onRowUpdating = useCallback(
+    (event: RowUpdatingEventWithPromise) => {
+      event.promise = (async () => {
+        try {
+          const payload = buildUpdatePayload(event)
+          await updateBankInfo(payload)
+          notify(t("UPDATE_SUCCESS", "Updated successfully"), "success", 3000)
+          await loadData()
+        } catch (error) {
+          console.error("Update bank error", error)
+          notify(t("Update failed", "Update failed"), "error", 3000)
+        } finally {
+          if (event.component) {
+            ;(event.component as dxDataGrid<BankInfo, TKey>).cancelEditData()
+          }
+        }
+      })()
+    },
+    [buildUpdatePayload, loadData, t],
+  )
+
+  const onRowRemoving = useCallback(
+    (event: RowRemovingEventWithPromise) => {
+      event.promise = (async () => {
+        try {
+          const bankId = Number(event.key)
+          if (!Number.isFinite(bankId) || bankId <= 0) {
+            throw new Error("Invalid bank id")
+          }
+
+          await deleteBankInfo(bankId)
+          notify(t("DELETE_SUCCESS", "Deleted successfully"), "success", 3000)
+          await loadData()
+        } catch (error) {
+          console.error("Delete bank error", error)
+          notify(t("Delete failed", "Delete failed"), "error", 3000)
+        }
+      })()
+    },
+    [loadData, t],
+  )
+
+  const handleToolbarDelete = useCallback(async () => {
+    const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
+    const bankIds = selectedKeys
+      .map((key) => Number(key))
+      .filter((value) => Number.isFinite(value) && value > 0)
+
+    if (!bankIds.length) {
+      notify(t("No rows selected", "No rows selected"), "warning", 2000)
+      return
+    }
+
+    const confirmText = t(
+      "MSG_CONFIRM_DELETE_RECORD",
+      "Are you sure you want to delete {0} record?",
+    ).replace("{0}", String(bankIds.length))
+
+    const isConfirmed = await confirm(confirmText, t("MSG_CONFIRM_DELETE", "Confirm delete"))
+    if (!isConfirmed) {
+      return
+    }
+
+    try {
+      await deleteBankInfos({ BankIds: bankIds })
+      notify(t("DELETE_SUCCESS", "Deleted successfully"), "success", 3000)
+      await loadData()
+    } catch (error) {
+      console.error("Bulk delete bank error", error)
+      notify(t("Delete failed", "Delete failed"), "error", 3000)
+    }
+  }, [loadData, t])
+
+  const handleExportExcel = useCallback(async () => {
+    try {
+      const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
+      const selectedBankId = selectedKeys.length > 0 ? Number(selectedKeys[0]) : undefined
+      const bankId =
+        typeof selectedBankId === "number" && Number.isFinite(selectedBankId) && selectedBankId > 0
+          ? selectedBankId
+          : undefined
+
+      const blob = await exportBankInfoExcel(bankId, lang)
+      downloadBlobFile(blob, `Bank_${new Date().toISOString().replace(/[:.-]/g, "")}.xlsx`)
+    } catch (error) {
+      console.error("Export bank error", error)
+      notify(t("Export failed", "Export failed"), "error", 3000)
+    }
+  }, [lang, t])
+
+  const handleExportPdf = useCallback(() => {
+    const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
+    const selectedBankId = selectedKeys.length > 0 ? Number(selectedKeys[0]) : undefined
+    const bankId =
+      typeof selectedBankId === "number" && Number.isFinite(selectedBankId) && selectedBankId > 0
+        ? selectedBankId
+        : undefined
+
+    const companyCd = getCurrentCompanyCd()
+    const params = new URLSearchParams()
+
+    if (companyCd) {
+      params.set("companyCd", companyCd)
+    }
+
+    if (bankId) {
+      params.set("bankId", String(bankId))
+    }
+
+    params.set("reportCode", "BANK_INFO")
+
+    const targetUrl = `${window.location.origin}/report-viewer${params.toString() ? `?${params.toString()}` : ""}`
+    const viewerWindow = window.open(targetUrl, "_blank", "noopener,noreferrer")
+
+    if (!viewerWindow) {
+      notify(t("Unable to open report viewer", "Unable to open report viewer"), "error", 3000)
+    }
+  }, [t])
+
+  const handleImport = useCallback(
+    async (rows: Array<Record<string, unknown>>, method: "add" | "update" | "overwrite", file?: File) => {
+      try {
+        if (file) {
+          await importBankInfoExcel(file, lang)
+        } else if (method === "update") {
+          for (const row of rows) {
+            const bankId = typeof row.BANK_ID === "number" ? row.BANK_ID : Number(row.BANK_ID)
+            if (!Number.isFinite(bankId) || bankId <= 0) {
+              continue
+            }
+
+            const importedRow = normalizeBankInfoRows([row as BankInfoApi])[0]
+            const payload = mapBankInfoToApiPayload({
+              ...createDefaultBankInfo(getCurrentCompanyCd(), getCurrentUserId()),
+              ...importedRow,
+              BANK_ID: bankId,
+              COMPANY_CD: getCurrentCompanyCd(),
+              USERID: getCurrentUserId(),
+            })
+
+            await updateBankInfo(payload)
+          }
+        } else {
+          for (const row of rows) {
+            const payload = buildCreatePayload(row as Partial<BankInfo>)
+            await createBankInfo(payload)
+          }
+        }
+
+        await loadData()
+      } catch (error) {
+        console.error("Import bank error", error)
+        notify(t("Import failed", "Import failed"), "error", 5000)
+      }
+    },
+    [buildCreatePayload, lang, loadData, t],
+  )
+
+  const onRowDblClick = useCallback((event: RowDblClickEvent<BankInfo, TKey>) => {
+    if (!gridRef.current) {
+      return
+    }
+
+    const rowIndex = typeof (event as any).rowIndex === "number"
+      ? (event as any).rowIndex
+      : gridRef.current.getRowIndexByKey(event.key as TKey)
+
+    if (rowIndex !== undefined && rowIndex !== -1) {
+      gridRef.current.editRow(rowIndex)
+    }
+  }, [])
+
+  return (
+    <DxPage>
+      <GridToolbar
+        gridRef={gridRef}
+        onRefresh={loadData}
+        onDelete={handleToolbarDelete}
+        onSearch={() => setSearchVisible((prev) => !prev)}
+        onImport={() => setIsExcelModalOpen(true)}
+        onExportPdf={handleExportPdf}
+        onExportXlsx={handleExportExcel}
+      />
+
+      <ExcelImportModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        onImport={handleImport}
+        existingData={gridData}
+        config={bankImportConfig}
+        serverImport={true}
+        hideUpdateOverwrite={true}
+      />
+
+      <div className="data-grid-container">
+        <BaseDataGrid<BankInfo>
+          dataSource={gridData}
+          keyExpr="BANK_ID"
+          copyExcludeFields={Array.from(excludedFields)}
+          actionButtons
+          actionButtonsPosition="start"
+          filterRowVisible={searchVisible}
+          searchPanelVisible={searchVisible}
+          filterPanelVisible={searchVisible}
+          onRowDblClick={onRowDblClick}
+          onEditingStart={() => setIsUpdate(true)}
+          onInitialized={(event) => {
+            gridRef.current = event.component ?? null
+          }}
+          onRowInserting={onRowInserting}
+          onRowUpdating={onRowUpdating}
+          onRowRemoving={onRowRemoving}
+          onInitNewRow={(event) => {
+            setIsUpdate(false)
+            event.data = {
+              ...createDefaultBankInfo(getCurrentCompanyCd(), getCurrentUserId()),
+              ...(event.data ?? {}),
+            }
+          }}
+        >
+          <Editing
+            mode="popup"
+            allowUpdating={true}
+            allowAdding={true}
+            allowDeleting={true}
+            confirmDelete={true}
+            startEditAction="dblClick"
+          >
+            <Popup
+              key={lang}
+              title={popupTitle}
+              showTitle={true}
+              width="90%"
+              maxWidth={900}
+              deferRendering={true}
+            />
+            <BankForm isUpdate={isUpdate} />
+          </Editing>
+
+          <BankColumns />
+        </BaseDataGrid>
+
+        <LoadPanel
+          shadingColor="rgba(0, 0, 0, 0.4)"
+          visible={loading}
+          showIndicator={true}
+          shading={true}
+          showPane={true}
+        />
+      </div>
+    </DxPage>
+  )
+}

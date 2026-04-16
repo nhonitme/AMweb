@@ -1,0 +1,214 @@
+export type ChitNoteType = "DN" | "CN" | "PO"
+export type ChitNoteLedger = "AP" | "AR"
+export type ChitNoteText = string | null | undefined
+export type ChitNoteFlag = "0" | "1" | boolean | null | undefined
+export type ChitNoteDateValue = string | Date | null | undefined
+
+export interface ChitNoteDetailApi {
+  CHITDETAIL_ID?: number | null
+  COMPANY_CD?: ChitNoteText
+  CHIT_ID?: number | null
+  CHITDETAIL_CD?: ChitNoteText
+  CHIT_YMD?: ChitNoteDateValue
+  CHIT_VMD?: ChitNoteDateValue
+  DEBIT?: ChitNoteText
+  CREDIT?: ChitNoteText
+  AMOUNT?: number | null
+  FC_AMOUNT?: number | null
+  FC_TYPE?: ChitNoteText
+  FC_RATE?: number | null
+  FC_DATETIME?: ChitNoteDateValue
+  SORT?: number | null
+  ISDEL?: ChitNoteFlag
+  CHITDETAIL_VAT_CD?: ChitNoteText
+  MG_CD?: ChitNoteText
+  MG_CD_2?: ChitNoteText
+  MR_CD?: ChitNoteText
+  MR_CD2?: ChitNoteText
+  BANK_CD?: ChitNoteText
+  BANK_OWN_CD?: ChitNoteText
+  CUSTOMER_CD?: ChitNoteText
+  CUSTOMER_OWN_CD?: ChitNoteText
+  DEPARTMENT_CD?: ChitNoteText
+  DEPARTMENT_CD_2?: ChitNoteText
+  HASINVENTORY?: ChitNoteFlag
+  INVENTORY_YMD?: ChitNoteDateValue
+  ISPAY?: ChitNoteFlag
+  ISCOLLECT?: ChitNoteFlag
+  VAT_INPUT_CD?: ChitNoteText
+  VAT_INPUT_CD2?: ChitNoteText
+  PRODUCT_NM?: ChitNoteText
+  UNIT_NM?: ChitNoteText
+  QUANTITY?: number | null
+  UNIT_PRICE?: number | null
+  PRODUCT_AMOUNT?: number | null
+  VAT_TYPE?: ChitNoteText
+  PERCENT?: number | null
+  PRODUCT_VAT_AMOUNT?: number | null
+  PRODUCT_NOTE?: ChitNoteText
+  VAT_SERIAL_NO?: ChitNoteText
+  VAT_CHIT_NO?: ChitNoteText
+  VAT_CHIT_NO_2?: ChitNoteText
+  VAT_AMOUNT?: number | null
+  VAT_TAXABLE_AMOUNT?: number | null
+  FO_VAT_AMOUNT?: number | null
+  VAT_ISFREE?: ChitNoteFlag
+  VAT_INVOICE_CD?: ChitNoteText
+  VAT_INVOICE_NM?: ChitNoteText
+  VAT_INFO_TYPE?: ChitNoteText
+  VAT_COMPANY_ISSUE?: ChitNoteText
+  VAT_COMPANY_ISSUE_ADDRESS?: ChitNoteText
+  VAT_COMPANY_ISSUE_CD?: ChitNoteText
+  VAT_COMPANY_TAXCD?: ChitNoteText
+  VAT_PRODUCT_NM?: ChitNoteText
+  VAT_ETC?: ChitNoteText
+  VAT_YMD?: ChitNoteDateValue
+  VAT_YMD_2?: ChitNoteDateValue
+  VAT_INQUIRY_IN?: ChitNoteText
+  VAT_INQUIRY_CODE?: ChitNoteText
+  IS_NEXTVAT?: ChitNoteFlag
+  UNDEFINE?: ChitNoteText
+  DETAIL_DESCRIPTION_VIET?: ChitNoteText
+  DETAIL_DESCRIPTION_ENG?: ChitNoteText
+  DETAIL_DESCRIPTION_KOR?: ChitNoteText
+  CREATE_BY?: ChitNoteText
+  CREATE_DT?: ChitNoteDateValue
+  UPDATE_BY?: ChitNoteText
+  UPDATE_DT?: ChitNoteDateValue
+}
+
+export interface ChitNoteApi {
+  CHIT_ID?: number | null
+  COMPANY_CD?: ChitNoteText
+  CHIT_CD?: ChitNoteText
+  CHIT_NO?: ChitNoteText
+  CHIT_YMD?: ChitNoteDateValue
+  CHIT_TYPE?: ChitNoteType | ChitNoteText
+  AMOUNT?: number | null
+  PAYER_INFO?: ChitNoteText
+  ISDEL?: ChitNoteFlag
+  USERID?: ChitNoteText
+  CREATE_BY?: ChitNoteText
+  CREATE_DT?: ChitNoteDateValue
+  UPDATE_BY?: ChitNoteText
+  UPDATE_DT?: ChitNoteDateValue
+  IS_LOCK?: ChitNoteFlag
+  ISEXCEL?: ChitNoteFlag
+  EMAIL_EPAY?: ChitNoteText
+  IS_CONFIRMED?: ChitNoteFlag
+  NOTE?: ChitNoteText
+  DAY_OF_PAYMENT?: number | null
+  TIME_FOR_PAYMENT?: ChitNoteText
+  IS_PAYMENT?: ChitNoteFlag
+  CHIT_CD_COGS?: ChitNoteText
+  DESCRIPTION_VIET?: ChitNoteText
+  DESCRIPTION_ENG?: ChitNoteText
+  DESCRIPTION_KOR?: ChitNoteText
+  DETAIL_COUNT?: number | null
+  DETAILS?: ChitNoteDetailApi[] | null
+}
+
+export interface ChitNoteDetail {
+  ROW_KEY: string
+  CHITDETAIL_ID: number | null
+  COMPANY_CD: string
+  CHIT_ID: number | null
+  CHITDETAIL_CD: string
+  CHIT_YMD: ChitNoteDateValue
+  CHIT_VMD: ChitNoteDateValue
+  DEBIT: string
+  CREDIT: string
+  AMOUNT: number | null
+  FC_AMOUNT: number | null
+  FC_TYPE: string
+  FC_RATE: number | null
+  FC_DATETIME: ChitNoteDateValue
+  SORT: number | null
+  ISDEL: boolean
+  CHITDETAIL_VAT_CD: string
+  MG_CD: string
+  MG_CD_2: string
+  MR_CD: string
+  MR_CD2: string
+  BANK_CD: string
+  BANK_OWN_CD: string
+  CUSTOMER_CD: string
+  CUSTOMER_OWN_CD: string
+  DEPARTMENT_CD: string
+  DEPARTMENT_CD_2: string
+  HASINVENTORY: boolean
+  INVENTORY_YMD: ChitNoteDateValue
+  ISPAY: boolean
+  ISCOLLECT: boolean
+  VAT_INPUT_CD: string
+  VAT_INPUT_CD2: string
+  PRODUCT_NM: string
+  UNIT_NM: string
+  QUANTITY: number | null
+  UNIT_PRICE: number | null
+  PRODUCT_AMOUNT: number | null
+  VAT_TYPE: string
+  PERCENT: number | null
+  PRODUCT_VAT_AMOUNT: number | null
+  PRODUCT_NOTE: string
+  VAT_SERIAL_NO: string
+  VAT_CHIT_NO: string
+  VAT_CHIT_NO_2: string
+  VAT_AMOUNT: number | null
+  VAT_TAXABLE_AMOUNT: number | null
+  FO_VAT_AMOUNT: number | null
+  VAT_ISFREE: boolean
+  VAT_INVOICE_CD: string
+  VAT_INVOICE_NM: string
+  VAT_INFO_TYPE: string
+  VAT_COMPANY_ISSUE: string
+  VAT_COMPANY_ISSUE_ADDRESS: string
+  VAT_COMPANY_ISSUE_CD: string
+  VAT_COMPANY_TAXCD: string
+  VAT_PRODUCT_NM: string
+  VAT_ETC: string
+  VAT_YMD: ChitNoteDateValue
+  VAT_YMD_2: ChitNoteDateValue
+  VAT_INQUIRY_IN: string
+  VAT_INQUIRY_CODE: string
+  IS_NEXTVAT: boolean
+  UNDEFINE: string
+  DETAIL_DESCRIPTION_VIET: string
+  DETAIL_DESCRIPTION_ENG: string
+  DETAIL_DESCRIPTION_KOR: string
+  CREATE_BY: string
+  CREATE_DT: ChitNoteDateValue
+  UPDATE_BY: string
+  UPDATE_DT: ChitNoteDateValue
+}
+
+export interface ChitNote {
+  CHIT_ID: number | null
+  COMPANY_CD: string
+  CHIT_CD: string
+  CHIT_NO: string
+  CHIT_YMD: ChitNoteDateValue
+  CHIT_TYPE: ChitNoteType
+  AMOUNT: number | null
+  PAYER_INFO: string
+  ISDEL: boolean
+  USERID: string
+  CREATE_BY: string
+  CREATE_DT: ChitNoteDateValue
+  UPDATE_BY: string
+  UPDATE_DT: ChitNoteDateValue
+  IS_LOCK: boolean
+  ISEXCEL: boolean
+  EMAIL_EPAY: string
+  IS_CONFIRMED: boolean
+  NOTE: string
+  DAY_OF_PAYMENT: number | null
+  TIME_FOR_PAYMENT: string
+  IS_PAYMENT: boolean
+  CHIT_CD_COGS: string
+  DESCRIPTION_VIET: string
+  DESCRIPTION_ENG: string
+  DESCRIPTION_KOR: string
+  DETAIL_COUNT: number
+  DETAILS: ChitNoteDetail[]
+}

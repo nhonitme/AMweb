@@ -1,0 +1,112 @@
+import { useCallback } from "react"
+import type { CurrencyInfo } from "@/types/currencyInfo"
+import BaseLookupCellEditor, { type LookupDataSource, type LookupValue } from "./BaseLookupCellEditor"
+import { currencyLookupStore } from "./currencyLookupStore"
+import {
+  firstLookupText,
+  hasLookupRowField,
+  setLookupGridCellValue,
+  trimLookupText,
+} from "./lookupHelpers"
+
+type Props = {
+  dataSource?: LookupDataSource
+  value: LookupValue
+  rowData: Record<string, unknown>
+  rowIndex: number
+  grid: any
+  setValue: (value: string | number | null) => void
+  currencyCdField?: string
+  currencyNmField?: string
+  symbolField?: string
+  currencyCdFieldCaption?: string
+  currencyNmFieldCaption?: string
+  symbolFieldCaption?: string
+  placeholder?: string
+  popupTitle?: string
+  buttonHint?: string
+}
+
+export default function CurrencyLookupCellEditor({
+  dataSource = currencyLookupStore,
+  value,
+  rowData,
+  rowIndex,
+  grid,
+  setValue,
+  currencyCdField = "FC_TYPE",
+  currencyNmField,
+  symbolField,
+  currencyCdFieldCaption = "Currency code",
+  currencyNmFieldCaption = "Currency name",
+  symbolFieldCaption = "Symbol",
+  placeholder = "Select currency",
+  popupTitle = "Select currency",
+  buttonHint = "Open currency list",
+}: Props) {
+  const displayExpr = useCallback((item: CurrencyInfo | null) => {
+    const currencyCd = trimLookupText(item?.CURRENCY_CD)
+    const currencyName = firstLookupText(item?.CURRENCY_NM)
+
+    if (currencyCd && currencyName) {
+      return `${currencyCd} - ${currencyName}`
+    }
+
+    return currencyCd || currencyName
+  }, [])
+
+  const applyCurrency = useCallback(
+    (currency: CurrencyInfo) => {
+      const currencyCd = trimLookupText(currency.CURRENCY_CD)
+      const currencyName = trimLookupText(currency.CURRENCY_NM)
+      const symbol = trimLookupText(currency.SYMBOL)
+
+      setValue(currencyCd || null)
+      setLookupGridCellValue(grid, rowIndex, currencyCdField, currencyCd)
+
+      if (hasLookupRowField(rowData, currencyNmField)) {
+        setLookupGridCellValue(grid, rowIndex, currencyNmField, currencyName)
+      }
+
+      if (hasLookupRowField(rowData, symbolField)) {
+        setLookupGridCellValue(grid, rowIndex, symbolField, symbol)
+      }
+    },
+    [currencyCdField, currencyNmField, grid, rowData, rowIndex, setValue, symbolField],
+  )
+
+  const clearCurrency = useCallback(() => {
+    setValue(null)
+    setLookupGridCellValue(grid, rowIndex, currencyCdField, "")
+
+    if (hasLookupRowField(rowData, currencyNmField)) {
+      setLookupGridCellValue(grid, rowIndex, currencyNmField, "")
+    }
+
+    if (hasLookupRowField(rowData, symbolField)) {
+      setLookupGridCellValue(grid, rowIndex, symbolField, "")
+    }
+  }, [currencyCdField, currencyNmField, grid, rowData, rowIndex, setValue, symbolField])
+
+  return (
+    <BaseLookupCellEditor<CurrencyInfo>
+      dataSource={dataSource}
+      value={value}
+      valueExpr="CURRENCY_CD"
+      displayExpr={displayExpr}
+      filterFocusField="CURRENCY_CD"
+      searchExpr={["CURRENCY_CD", "CURRENCY_NM", "SYMBOL"]}
+      placeholder={placeholder}
+      popupTitle={popupTitle}
+      buttonHint={buttonHint}
+      onApply={applyCurrency}
+      onClear={clearCurrency}
+      columns={[
+        { dataField: "CURRENCY_CD", caption: currencyCdFieldCaption, width: 140 },
+        { dataField: "CURRENCY_NM", caption: currencyNmFieldCaption, minWidth: 220 },
+        { dataField: "SYMBOL", caption: symbolFieldCaption, width: 100 },
+        { dataField: "DECIMAL_DIGITS", caption: "Decimals", width: 100 },
+      ]}
+    />
+  )
+}

@@ -1,0 +1,51 @@
+import CustomStore from "devextreme/data/custom_store";
+import { getEtData } from "@/api/systemApi";
+import { etcData } from "@/types/etcData";
+import { AcclistInfo } from "@/types/acclist";
+
+let cache: AcclistInfo[] | null = null;
+let loadingPromise: Promise<AcclistInfo[]> | null = null;
+
+const normalizeChitDetail = (record: etcData): Partial<AcclistInfo> => ({
+  ACC_CD: String((record as any).CD ?? "").trim(),
+  ACCTITLE_NM_VIET: String((record as any).NM_VIET ?? "").trim(),
+  ACCTITLE_NM_ENG: String((record as any).NM_ENG ?? "").trim(),
+  ACCTITLE_NM_KOR: String((record as any).NM_KOR ?? "").trim(),
+  ACCTITLE_NM_CHINA: String((record as any).NM_CHINA ?? "").trim()
+});
+
+async function fetchAcclistsOnce(): Promise<AcclistInfo[]> {
+  if (cache) return cache;
+  if (loadingPromise) return loadingPromise;
+    loadingPromise = getEtData("0")
+    .then((resp) => {
+      const payload = (resp as any)?.data ?? (resp as any) ?? [];
+      const normalized = (Array.isArray(payload) ? payload : []).map((item: any) => normalizeChitDetail(item));
+      cache = normalized as AcclistInfo[];
+      return cache;
+    })
+    .finally(() => {
+      loadingPromise = null;
+    });
+
+  return loadingPromise;
+}
+
+export function clearAcclistLookupCache() {
+  cache = null;
+}
+
+export const LookupStore = new CustomStore({
+  key: "ACC_CD",
+  loadMode: "raw",
+  cacheRawData: true,
+
+  load: async () => {
+    return await fetchAcclistsOnce();
+  },
+
+  byKey: async (key) => {
+    const items = await fetchAcclistsOnce();
+    return items.find((x) => x.ACC_CD === key) ?? null;
+  },
+});

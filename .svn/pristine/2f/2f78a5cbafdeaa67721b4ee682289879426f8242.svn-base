@@ -1,0 +1,506 @@
+import React, { useEffect, useRef, useState, useMemo, useContext } from "react";
+import { LoadPanel } from "devextreme-react";
+import notify from 'devextreme/ui/notify';
+import {
+  RowInsertingEvent,
+  RowUpdatingEvent,
+  RowRemovingEvent,
+} from "devextreme/ui/data_grid";
+import { Editing, Popup as DxPopup } from 'devextreme-react/data-grid';
+import { Form as DxForm } from 'devextreme-react/data-grid';
+import { Item as DxItem } from 'devextreme-react/form';
+import type dxDataGrid from "devextreme/ui/data_grid";
+
+import DxPage from "@/dx/DxPage";
+import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid";
+import { GridToolbar } from "@/components/toolbar/GridToolbar";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import ExcelImportModal from "@/components/modals/ExcelImportModal";
+import { customerImportConfig } from './Columns/customerImportConfig';
+import { LanguageContext } from '@/lib/i18nLoader';
+import axios from '@/api/axiosClient';
+import { CustomerColumns } from "./Columns/CustomerColumns";
+
+import ReadonlySelect, { readonlySelectEditorOptions } from '@/components/ui/ReadonlySelect'
+import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
+import DatePicker from '@/components/ui/calendar'
+
+import type { CustomerExt } from "@/types/customerExt";
+import {
+  getCustomerExts,
+  createCustomerExt,
+  updateCustomerExt,
+  deleteCustomerExt,
+  exportCustomerExtExcel,
+  importCustomerExtExcel,
+} from "@/api/customerExtApi";
+import { getSysCodes, SysCode } from '@/api/sysCodeService'
+import { dateEditorOptions } from '@/components/ui/calendar'
+import "./CustomerExtPage.scss"
+
+
+type RowInsertingEventWithPromise = RowInsertingEvent & { promise?: Promise<void> };
+type RowUpdatingEventWithPromise = RowUpdatingEvent & { promise?: Promise<void> };
+type RowRemovingEventWithPromise = RowRemovingEvent & { promise?: Promise<void> };
+
+export default function CustomerExtPage() {
+  const [loading, setLoading] = useState(true);
+  const [gridData, setGridData] = useState<CustomerExt[]>([]);
+  const { lang, translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string; lang: string };
+  const popupTitle = translate ? translate('CUSTOMER', 'Customer Ext') : 'Customer Ext';
+  const [colLabels, setColLabels] = useState<Record<string,string>>({});
+  const gridRef = useRef<dxDataGrid | null>(null);
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState('');
+
+  const excludedFields = useMemo(() => new Set<string>([
+    'COMPANY_CD', 'COMPANYCODE',
+    'CUSTOMER_CD', 'CUSTOMER_EXT_CD',
+    'CUSTOMER_ID', 'CUSTOMER_EXT_ID', 'EXT_CUSTOMER_ID',
+    'CREATED_AT', 'CREATE_AT', 'CREATEDAT', 'CREATED',
+    'UPDATED_AT', 'UPDATE_AT', 'UPDATEDAT', 'UPDATED',
+    'ISTEMP', 'IS_TEMP', 'IS_TEMPORARY',
+    'ISDEL', 'IS_DELETED', 'DELETED',
+  ]), []);
+
+
+  const [sysCodes, setSysCodes] = useState<SysCode[]>([]);
+  const [sysCodeLabels, setSysCodeLabels] = useState<Record<string,string>>({});
+
+  const formGroups = useMemo(() => {
+    const groups: Record<string, { caption: string; items: any[] }> = {
+      basic: { caption: "Basic", items: [] },
+      contact: { caption: "Contact", items: [] },
+      address: { caption: "Address", items: [] },
+      id: { caption: "Identification", items: [] },
+      tax: { caption: "Tax / Bank", items: [] },
+      other: { caption: "Other", items: [] },
+    };
+
+    const fieldKeys = Object.keys(colLabels || {}).filter((f) => !excludedFields.has(f.toUpperCase()));
+    const basicKeys = new Set(["CUSTOMER_EXT_CD","CUSTOMER_CD","CUSTOMER_NM_VIET","BUYER_NM","CUSTOMER_USER_CD","OWNER_NM","CUSTOMER_RECEIVE"]);
+    const contactKeys = new Set(["TEL","FAX","EMAIL","CUSTOMER_RECEIVE"]);
+    const addressKeys = new Set(["ADDRESS","ADDRESS_DO","ADDRESS_RECEIVE","ZIP_CODE"]);
+    const idKeys = new Set(["IDNUMBER","SSN","SHCHIEU","PLACE_ISSUE","DATE_ISSUE"]);
+    const taxKeys = new Set(["TAX_CD","TAX_CD_RECEIVE","BANK_CD","PAYMENT_TERM","BRN"]);
+
+    fieldKeys.forEach((f) => {
+      const name = f.toUpperCase();
+      const rawCaption = colLabels[f] ?? f;
+      const caption = translate ? translate(f, rawCaption) : rawCaption;
+      let item: any = { dataField: f, label: { text: caption } };
+
+      // determine editor type and options; also provide a template using shared UI components
+      if (/DATE(_|).*|\bDATE\b|DATEISSUE|DATE_ISSUE/i.test(name)) {
+        item.editorType = 'dxDateBox';
+        item.editorOptions = dateEditorOptions({
+          type: 'date',
+          displayFormat: 'dd/MM/yyyy',
+          placeholder: caption,
+          showClearButton: true,
+        });
+        item.editorTemplate = (data: any) => (
+          <DatePicker
+            value={data.value}
+            placeholder={caption}
+            onValueChanged={(e: any) => data.setValue(e.value)}
+            showClearButton={true}
+            type="date"
+            displayFormat="dd/MM/yyyy"
+          />
+        );
+      }
+
+      if (/CUSTOMER.*TYPE|TYPE.*CUSTOMER|\bTYPE\b/i.test(name)) {
+        item.editorType = 'dxSelectBox';
+        item.editorOptions = readonlySelectEditorOptions({
+          dataSource: sysCodes,
+          valueExpr: 'CODE_CD',
+          displayExpr: (it: any) => (it ? (sysCodeLabels[it.CODE_NAME] ?? it.CODE_NAME ?? it.CODE_CD) : ''),
+          placeholder: caption,
+          showClearButton: true,
+          showDropDownButton: true,
+        });
+        item.editorTemplate = (data: any) => (
+          <ReadonlySelect
+            dataSource={sysCodes}
+            value={data.value}
+            valueExpr="CODE_CD"
+            displayExpr={(it: any) => (it ? (sysCodeLabels[it.CODE_NAME] ?? it.CODE_NAME ?? it.CODE_CD) : '')}
+            placeholder={caption}
+            showClearButton={true}
+            showDropDownButton={true}
+            onValueChanged={(e: any) => data.setValue(e.value)}
+          />
+        );
+      }
+
+      // boolean fields get checkbox
+      if (/^ISUSE$|^IS_/.test(name) || /ISTEMP|ISDEL|IS_/.test(name)) {
+        item.editorType = 'dxCheckBox';
+        item.editorTemplate = (data: any) => (
+          <Checkbox
+            value={data.value}
+            onValueChanged={(e: any) => data.setValue(e.value)}
+          />
+        );
+      }
+
+      // fallback template for text inputs
+      if (!item.editorTemplate) {
+        item.editorTemplate = (data: any) => (
+          <Input
+            value={data.value}
+            onValueChanged={(e: any) => data.setValue(e.value)}
+          />
+        );
+      }
+
+      if (basicKeys.has(name) || /^(CUSTOMER_|CUSTOMER$|EXT$)/.test(name)) {
+        groups.basic.items.push(item);
+        return;
+      }
+      if (contactKeys.has(name) || /TEL|FAX|EMAIL/.test(name)) {
+        groups.contact.items.push(item);
+        return;
+      }
+      if (addressKeys.has(name) || /ADDRESS|ZIP/.test(name)) {
+        groups.address.items.push(item);
+        return;
+      }
+      if (idKeys.has(name) || /IDNUMBER|SSN|SHCHIEU/.test(name)) {
+        groups.id.items.push(item);
+        return;
+      }
+      if (taxKeys.has(name) || /TAX|BANK|PAYMENT|BRN/.test(name)) {
+        groups.tax.items.push(item);
+        return;
+      }
+
+      groups.other.items.push(item);
+    });
+
+    const result = ["basic", "contact", "address", "id", "tax", "other"].map((k) => groups[k]).filter(g => g.items.length > 0);
+    return result;
+  }, [colLabels, sysCodes, sysCodeLabels, translate]);
+
+
+
+
+  function CustomerExtForm() {
+    const tabs = formGroups.map((g) => ({
+      title: g.caption,
+      colCount: 2,
+      items: g.items.map((it: any) => ({
+        dataField: it.dataField,
+        editorType: it.editorType,
+        editorOptions: it.editorOptions,
+        label: { text: translate(it.dataField, (it.label && it.label.text) || it.dataField) },
+        colSpan: it.colSpan,
+      })),
+    }));
+
+    return (
+      <div className="customer-ext-form">
+        <DxForm
+          colCount={1}
+          labelLocation="top"
+          width="100%"
+        >
+          <DxItem itemType="tabbed" tabs={tabs} />
+        </DxForm>
+      </div>
+    );
+  }
+
+
+  const handleImport = async (
+    rows: any[],
+    method: "add" | "update" | "overwrite",
+    file?: File
+  ) => {
+    console.debug('handleImport called', { rows, method, file, lang });
+    try {
+      if (file) {
+        // prefer server bulk upload when file available
+        console.debug('calling importCustomerExtExcel with file', file.name, file.size, lang);
+        const resp = await importCustomerExtExcel(file, lang);
+        console.debug('server import response', resp);
+      } else {
+        if (method === "overwrite" || method === "add") {
+          for (const r of rows) {
+            await createCustomerExt(r as Partial<CustomerExt>);
+          }
+        } else if (method === "update") {
+          for (const r of rows) {
+            if (r.CUSTOMER_ID) await updateCustomerExt(r as CustomerExt);
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error("Import error", err);
+      let msg = translate ? translate('Import failed','Import failed') : 'Import failed';
+      if (err?.response?.data) {
+        // server might send { Message: '', Errors: [] } or simple string
+        const data = err.response.data;
+        if (typeof data === 'string') {
+          msg += `: ${data}`;
+        } else if (data.Message) {
+          msg += `: ${data.Message}`;
+        } else if (data.error) {
+          msg += `: ${data.error}`;
+        }
+      }
+      notify(msg, 'error', 5000);
+    }
+    await loadData();
+  };
+
+  const handleToolbarDelete = () => {
+    gridRef.current?.option('editing.confirmDelete', false);
+    const keys = gridRef.current?.getSelectedRowKeys() || [];
+    if (keys.length === 0) {
+      notify(
+        translate ? translate('KeyM_Nothing_Selected', 'No rows selected') : 'No rows selected',
+        'warning',
+        2000
+      );
+      return;
+    }
+    const msg =
+      translate
+        ? translate('MSG_CONFIRM_DELETE', 'Are you sure you want to delete the selected rows?')
+        : 'Are you sure you want to delete the selected rows?';
+    setConfirmMessage(msg);
+    setConfirmVisible(true);
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const keys = gridRef.current?.getSelectedRowKeys() || [];
+      const customerId = keys.length ? (keys[0] as string) : undefined;
+      const blob = await exportCustomerExtExcel(customerId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `customer_ext_${new Date().toISOString().replace(/[:.-]/g, '')}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export error', err);
+      notify(
+        translate ? translate('Export failed','Export failed') : 'Export failed',
+        'error',
+        3000
+      );
+    }
+  };
+
+
+  const handleRowDblClick = (e: any) => {
+    // debug: ensure we received payload and grid ref is available
+    console.debug('row dblclick event', e, 'gridRef', gridRef.current);
+    if (!gridRef.current) {
+      console.warn('gridRef not initialized when double-click occurred');
+      return;
+    }
+    // resolve row index from event, row object or key
+    let idx: number | undefined | null = e?.rowIndex;
+    if (idx === undefined && e?.row) {
+      idx = e.row.rowIndex;
+    }
+    if ((idx === undefined || idx === null) && e?.key !== undefined) {
+      idx = gridRef.current.getRowIndexByKey(e.key as any);
+      console.debug('lookup rowIndex by key', e.key, '=>', idx);
+    }
+    if (idx !== undefined && idx !== null && idx !== -1) {
+      gridRef.current.editRow(idx);
+    } else {
+      console.warn('unable to determine row index from dblclick event', e);
+    }
+  };
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      axios.defaults.headers.common['Accept-Language'] = lang;
+      const resp = await getCustomerExts(undefined, lang);
+      setGridData(resp.data);
+      setColLabels(resp.labels);
+      gridRef.current?.clearSelection();
+    } catch (err: any) {
+      console.error("Failed to load customer ext data", err);
+      if (err.response) {
+        console.error("Server response:", err.response.status, err.response.data);
+        notify(`Load error: ${err.response.status} ${JSON.stringify(err.response.data)}`, 'error', 5000);
+      } else {
+        notify(`Load error: ${err.message || err}`, 'error', 5000);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+
+  const onRowInserting = (e: RowInsertingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        await createCustomerExt(e.data as Partial<CustomerExt>);
+        await loadData();
+      } catch (err) {
+        notify(`Insert error: ${err}`, 'error', 3000);
+      } finally {
+        if (e.component) (e.component as dxDataGrid).cancelEditData();
+      }
+    })();
+  };
+
+  const onRowUpdating = (e: RowUpdatingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        const payload = { ...(e.oldData as object), ...(e.newData as object) } as CustomerExt;
+        await updateCustomerExt(payload);
+        await loadData();
+      } catch (err) {
+        notify(`Update error: ${err}`, 'error', 3000);
+      } finally {
+        if (e.component) (e.component as dxDataGrid).cancelEditData();
+      }
+    })();
+  };
+
+  const onRowRemoving = (e: RowRemovingEventWithPromise) => {
+    e.promise = (async () => {
+      try {
+        await deleteCustomerExt(e.key as string);
+        await loadData();
+      } catch (err) {
+        notify(`Delete error: ${err}`, 'error', 3000);
+      }
+    })();
+  };
+
+  const loadedLang = React.useRef<string | null>(null);
+
+  useEffect(() => {
+    // avoid duplicate when React StrictMode mounts twice
+    if (loadedLang.current !== lang) {
+      loadedLang.current = lang;
+      loadData();
+      (async () => {
+        try {
+          const l = localStorage.getItem('lang') || 'VIET';
+          const resp = await getSysCodes('CUSTOMER_TYPE', l);
+          setSysCodes(resp.data || []);
+          setSysCodeLabels(resp.labels || {});
+        } catch (err) {
+          console.error('Failed to load sys codes for editors', err);
+        }
+      })();
+    }
+  }, [lang]);
+
+  return (
+    <DxPage>
+      <GridToolbar
+        title={translate ? translate('CUSTOMER', 'Customer Ext List') : 'Customer Ext List'}
+        gridRef={gridRef}
+        onRefresh={loadData}
+        onDelete={handleToolbarDelete}
+        onImport={() => setIsExcelModalOpen(true)}
+        onExportPdf={() => alert("Export to PDF not implemented")}
+        onExportXlsx={handleExportExcel}
+      />
+      <ConfirmDialog
+        visible={confirmVisible}
+        title={translate ? translate('MSG_CONFIRM_DELETE', 'Confirm delete') : 'Confirm delete'}
+        message={confirmMessage}
+        onConfirm={async () => {
+          setConfirmVisible(false);
+          const keys = gridRef.current?.getSelectedRowKeys() || [];
+          if (keys.length === 0) return;
+          try {
+            await deleteCustomerExt(keys as string[]);
+            const msg = translate
+              ? translate('MSG_DELETE_SUCCESS', 'Deleted selected rows successfully')
+              : 'Deleted selected rows successfully';
+            notify(msg, 'success', 3000);
+            await loadData();
+            gridRef.current?.clearSelection();
+          } catch (err) {
+            console.error('Bulk delete error', err);
+            notify(
+              translate ? translate('MSG_DELETE_ERROR','Delete failed') : 'Delete failed',
+              'error',
+              3000
+            );
+          }
+        }}
+        onCancel={() => setConfirmVisible(false)}
+      />
+      <ExcelImportModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        onImport={handleImport}
+        existingData={gridData}
+        config={customerImportConfig}
+        serverImport={true}
+        hideUpdateOverwrite={true}
+      />
+
+      <div className="data-grid-container">
+        <BaseDataGrid<CustomerExt>
+          dataSource={gridData}
+          keyExpr="CUSTOMER_ID"
+          actionButtons={true}
+          onRowDblClick={handleRowDblClick}
+          onInitialized={(e) => {
+            gridRef.current = e.component ?? null;
+          }}
+          onRowInserting={onRowInserting}
+          onRowUpdating={onRowUpdating}
+          onRowRemoving={onRowRemoving}
+          onInitNewRow={(e) => {
+            e.data.ISUSE = true;
+            // ensure DATE_ISSUE is empty for new records
+            e.data.DATE_ISSUE = null;
+          }}
+        >
+          <CustomerColumns />
+          <Editing
+            mode="popup"
+            allowUpdating={true}
+            allowAdding={true}
+            allowDeleting={true}
+            confirmDelete={true}
+            startEditAction="dblClick"
+          >
+            <DxPopup
+              key={lang}
+              title={popupTitle}
+              showTitle={true}
+              width="90%"
+              maxWidth={1000}
+              deferRendering={true}
+            />
+            <CustomerExtForm />
+          </Editing>
+        </BaseDataGrid>
+
+        <LoadPanel
+          shadingColor="rgba(0, 0, 0, 0.4)"
+          visible={loading}
+          showIndicator={true}
+          shading={true}
+          showPane={true}
+        />
+      </div>
+      
+    </DxPage>
+  );
+}

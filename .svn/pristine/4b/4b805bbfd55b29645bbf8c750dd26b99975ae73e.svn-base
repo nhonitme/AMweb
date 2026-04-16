@@ -1,0 +1,79 @@
+import { useContext } from "react"
+import { AsyncRule, Column, RequiredRule } from "devextreme-react/data-grid"
+
+import { checkBankCdExists } from "@/api/bankInfoApi"
+import { LanguageContext } from "@/lib/i18nLoader"
+
+type BankValidationEvent = {
+  data?: {
+    BANK_ID?: number | null
+  }
+  value: unknown
+}
+
+const visibleColumns = [
+  "BANK_CD",
+  "BANK_NM",
+  "ACC_CD",
+  "PASSBOOK_NM",
+  "ACCOUNT_NUM",
+  "CITAD_CODE",
+  "REMARK",
+] as const
+
+const widthMap: Record<(typeof visibleColumns)[number], number> = {
+  BANK_CD: 140,
+  BANK_NM: 220,
+  ACC_CD: 140,
+  PASSBOOK_NM: 180,
+  ACCOUNT_NUM: 180,
+  CITAD_CODE: 140,
+  REMARK: 260,
+}
+
+const validateBankCd = async (event: BankValidationEvent) => {
+  const bankCd = String(event.value ?? "").trim()
+
+  if (!bankCd) {
+    return true
+  }
+
+  try {
+    const exists = await checkBankCdExists(event.data?.BANK_ID ?? undefined, bankCd)
+    return { isValid: !exists }
+  } catch {
+    return {
+      isValid: false,
+      message: "Khong kiem tra duoc du lieu",
+    }
+  }
+}
+
+export function BankColumns() {
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+
+  return (
+    <>
+      <Column dataField="BANK_CD" caption={t("BANK_CD", "Bank Code")} width={widthMap.BANK_CD}>
+        <RequiredRule message={t("MSG_MUST_ITEM", "BANK_CD khong duoc de trong")} />
+        <AsyncRule message={t("MsgEqualCode", "BANK_CD da ton tai")} validationCallback={validateBankCd} />
+      </Column>
+
+      <Column dataField="BANK_NM" caption={t("BANK_NM", "Bank Name")} width={widthMap.BANK_NM}>
+        <RequiredRule message={t("MSG_MUST_ITEM", "BANK_NM khong duoc de trong")} />
+      </Column>
+
+      <Column dataField="ACC_CD" caption={t("ACC_CD", "Account Code")} width={widthMap.ACC_CD} />
+      <Column dataField="PASSBOOK_NM" caption={t("PASSBOOK_NM", "Account Name")} width={widthMap.PASSBOOK_NM} />
+      <Column dataField="ACCOUNT_NUM" caption={t("ACCOUNT_NUM", "Account Number")} width={widthMap.ACCOUNT_NUM} />
+      <Column dataField="CITAD_CODE" caption={t("CITAD_CODE", "Citad Code")} width={widthMap.CITAD_CODE} />
+      <Column dataField="REMARK" caption={t("REMARK", "Remark")} width={widthMap.REMARK} />
+    </>
+  )
+}
+
+export default BankColumns

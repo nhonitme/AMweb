@@ -1,0 +1,43 @@
+import React, { useContext } from "react";
+import { Column, RequiredRule, AsyncRule } from "devextreme-react/data-grid";
+import { LanguageContext } from '@/lib/i18nLoader';
+import { checkProductUnitExists } from "@/api/productUnitApi";
+
+const validateUnitCd = async (e: { value: unknown; data?: Record<string, unknown>; }) => {
+  const unitCd = String(e.value ?? "").trim();
+
+  if (!unitCd) {
+    return true;
+  }
+
+  try {
+    const unitId = Number(e.data?.UNIT_ID ?? 0);
+    const res = await checkProductUnitExists(unitId, unitCd);
+
+    return {
+      isValid: !res.Data,
+    };
+  } catch (err) {
+    console.error("Error CheckExists:", err);
+  }
+    return {
+      isValid: false,
+      message: "Không kiểm tra được dữ liệu",
+    };
+};
+
+export const ProductUnitColumns: React.FC = () => {
+  const { translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string };
+
+  return (
+    <>
+      <Column dataField="UNIT_CD" caption={translate('UNIT_CD', 'UNIT_CD')}> 
+        <RequiredRule message={translate ? translate("MSG_MUST_ITEM", "UNIT_CD không được để trống") : "UNIT_CD không được để trống"} />
+        <AsyncRule message={translate ? translate("MsgEqualCode", "UNIT_CD đã tồn tại") : "UNIT_CD đã tồn tại"} validationCallback={validateUnitCd} />
+      </Column>
+      <Column dataField="UNIT_NM" caption={translate('UNIT_NM', 'UNIT_NM')}>
+        <RequiredRule message={translate ? translate("MSG_MUST_ITEM", "UNIT_NM không được để trống") : "UNIT_NM không được để trống"} />
+      </Column>
+    </>
+  );
+};

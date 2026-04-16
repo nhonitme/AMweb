@@ -1,0 +1,32 @@
+import { useContext } from "react"
+import { Column } from "devextreme-react/data-grid"
+
+import { LanguageContext } from "@/lib/i18nLoader"
+
+export function ChitNoteColumns() {
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+
+  return (
+    <>
+      <Column dataField="CHIT_ID" caption={t("CHIT_ID", "ID")} visible={false} />
+      <Column dataField="CHIT_TYPE" caption={t("CHIT_TYPE", "Type")} width={140} visible={false} />
+      <Column dataField="CHIT_CD" caption={t("CHIT_CD", "Note Code")} width={180} />
+      <Column dataField="CHIT_NO" caption={t("CHIT_NO", "Document No")} width={160} />
+      <Column dataField="CHIT_YMD" caption={t("CHIT_YMD", "Note Date")} dataType="date" width={130} />
+      <Column dataField="PAYER_INFO" caption={t("PAYER_INFO", "Payer Info")} minWidth={220} />
+      <Column dataField="AMOUNT" caption={t("AMOUNT", "Amount")} dataType="number" format="#,##0.00" width={140} />
+      <Column dataField="DAY_OF_PAYMENT" caption={t("DAY_OF_PAYMENT", "Payment Day")} width={120} />
+      <Column dataField="TIME_FOR_PAYMENT" caption={t("TIME_FOR_PAYMENT", "Payment Time")} width={140} />
+      <Column dataField="IS_CONFIRMED" caption={t("IS_CONFIRMED", "Confirmed")} dataType="boolean" width={110} />
+      <Column dataField="IS_PAYMENT" caption={t("IS_PAYMENT", "Paid")} dataType="boolean" width={90} />
+      <Column dataField="DETAIL_COUNT" caption={t("DETAIL_COUNT", "Lines")} width={90} alignment="center" />
+      <Column dataField="NOTE" caption={t("NOTE", "Note")} minWidth={220} />
+    </>
+  )
+}
+
+export default ChitNoteColumns

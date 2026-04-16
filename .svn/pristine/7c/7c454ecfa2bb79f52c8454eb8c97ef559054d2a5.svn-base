@@ -1,0 +1,15 @@
+import type { ExcelImportConfig } from "@/types/modal"
+
+export function createCreditNoteImportConfig(
+  translate: (key: string, fallback: string) => string,
+): ExcelImportConfig {
+  const fileLabel = translate("CREDIT_NOTE", "Credit Note")
+    .trim()
+    .replace(/\s+/g, "_")
+    .toLowerCase()
+
+  return {
+    templateName: `${fileLabel}_template.xlsx`,
+    moduleCd: "ChitNoteAr",
+  }
+}

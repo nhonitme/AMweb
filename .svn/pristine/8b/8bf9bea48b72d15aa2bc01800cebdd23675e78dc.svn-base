@@ -1,0 +1,49 @@
+import type { CustomerExt, CustomerExtApi } from "@/types/customerExt";
+import { getCustomerExts } from "@/api/customerExtApi";
+import CustomStore from "devextreme/data/custom_store";
+
+let cache: any;
+let loadingPromise: Promise<CustomerExt[]> | Promise<CustomerExtApi[]> | null | any = null;
+
+const normalizeCustomerExt = (record: CustomerExtApi): CustomerExt => {
+  // Basic conversion: if the shapes match, a cast is sufficient; adjust mapping if fields differ.
+  return record as unknown as CustomerExt;
+};
+
+const normalizeCustomerExtRows = (records: CustomerExtApi[]): CustomerExt[] =>
+  records.map(normalizeCustomerExt);
+
+async function fetchCustomersOnce(): Promise<CustomerExt[]> {
+  if (cache) return cache;
+  if (loadingPromise) return loadingPromise;
+
+  loadingPromise = getCustomerExts()
+    .then((resp) => {
+      cache = resp.data || [];
+      return cache;
+    })
+    .finally(() => {
+      loadingPromise = null;
+    });
+
+  return loadingPromise;
+}
+
+export function clearCustomerLookupCache() {
+  cache = null;
+}
+
+export const customerLookupStore = new CustomStore({
+  key: "CUSTOMER_ID",
+  loadMode: "raw",
+  cacheRawData: true,
+
+  load: async () => {
+    return await fetchCustomersOnce();
+  },
+
+  byKey: async (key) => { 
+    const items = await fetchCustomersOnce();
+    return items.find((x) => x.CUSTOMER_ID === key) ?? null;
+  },
+});

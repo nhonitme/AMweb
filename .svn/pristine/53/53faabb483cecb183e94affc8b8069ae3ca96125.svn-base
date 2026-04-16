@@ -1,0 +1,30 @@
+export type UserInfoText = string | null | undefined
+
+export interface UserInfoApi {
+  USER_PK_ID?: number | null
+  COMPANY_CD?: UserInfoText
+  USERID?: UserInfoText
+  PASSWD?: UserInfoText
+  USERNM?: UserInfoText
+  USERLV?: number | null
+  ISDEL?: UserInfoText
+  CREATE_BY?: UserInfoText
+  UPDATE_BY?: UserInfoText
+}
+
+export interface UserInfo {
+  USER_PK_ID: number | null
+  COMPANY_CD: string
+  USERID: string
+  PASSWD: string
+  USERNM: string
+  USERLV: number
+  USERLV_NAME?: string
+  ISDEL: boolean
+  CREATE_BY: string
+  UPDATE_BY: string
+}
+
+export interface DeleteUserInfosRequest {
+  UserPkIds: number[]
+}

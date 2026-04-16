@@ -1,0 +1,20 @@
+import { useMemo } from 'react'
+import { GroupItem, SimpleItem } from 'devextreme-react/form'
+import type { ManagementInfo } from '@/types/managementInfo'
+
+export function ManagementInfoForm({ data }: { data?: ManagementInfo }) {
+  const isNew = useMemo(() => !data?.ID, [data])
+
+  return (
+    <>
+      <GroupItem colCount={2} colCountByScreen={{ xs: 1, sm: 2 }}>
+        <SimpleItem dataField="MG_CD" editorOptions={{ readOnly: !isNew }} />
+        <SimpleItem dataField="MG_DESC_KOR" />
+        <SimpleItem dataField="MG_DESC_ENG" />
+        <SimpleItem dataField="MG_DESC_VIET" />
+        <SimpleItem dataField="MG_CD_ROOT" />
+        <SimpleItem dataField="USERID" editorOptions={{ readOnly: true }} />
+      </GroupItem>
+    </>
+  )
+}

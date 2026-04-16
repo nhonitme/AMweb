@@ -1,0 +1,20 @@
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App.tsx';
+import './index.css';
+import { loadMessages, locale } from 'devextreme/localization';
+import { getCurrentLang } from "./utils/language";
+import { initMessagesFromCache, messages } from '@/lib/i18nLoader';
+
+// Initialize messages from cache if available, then mount the app.
+const lang = getCurrentLang();
+initMessagesFromCache();
+
+// Apply messages and mount app immediately
+loadMessages(messages);
+locale(lang);
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>
+);

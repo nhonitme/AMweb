@@ -1,0 +1,59 @@
+import { useContext } from "react"
+import { Column } from "devextreme-react/data-grid"
+
+import { LanguageContext } from "@/lib/i18nLoader"
+import type { DepartmentInfo } from "@/types/departmentInfo"
+
+interface DepartmentInfoColumnsProps {
+  resolveParentName: (parentCd: string) => string
+}
+
+type DepartmentCellData = {
+  data?: DepartmentInfo
+}
+
+export function DepartmentInfoColumns({ resolveParentName }: DepartmentInfoColumnsProps) {
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+
+  return (
+    <>
+      <Column dataField="DEPARTMENT_ID" caption={t("DEPARTMENT_ID", "Department ID")} visible={false} />
+      <Column dataField="COMPANY_CD" caption={t("COMPANY_CD", "Company")} visible={false} />
+      <Column dataField="DEPARTMENT_CD" caption={t("DEPARTMENT_CD", "Department Code")} width={150} />
+      <Column
+        dataField="PARENT_CD"
+        caption={t("PARENT_CD", "Parent Department")}
+        width={220}
+        cellRender={({ data }: DepartmentCellData) => (
+          <span>{resolveParentName(data?.PARENT_CD ?? "")}</span>
+        )}
+      />
+      <Column dataField="DEP_NAME_VIET" caption={t("DEP_NAME_VIET", "Department Name (VI)")} minWidth={180} />
+      <Column dataField="DEP_NAME_ENG" caption={t("DEP_NAME_ENG", "Department Name (EN)")} minWidth={180} />
+      <Column dataField="DEP_NAME_KOR" caption={t("DEP_NAME_KOR", "Department Name (KO)")} minWidth={180} />
+      <Column
+        dataField="DEP_NAME_JAPAN"
+        caption={t("DEP_NAME_JAPAN", "Department Name (JA)")}
+        minWidth={180}
+        visible={false}
+      />
+      <Column
+        dataField="DEP_NAME_CHINA"
+        caption={t("DEP_NAME_CHINA", "Department Name (ZH)")}
+        minWidth={180}
+        visible={false}
+      />
+      <Column dataField="DEPARTMENT_USER_CD" caption={t("DEPARTMENT_USER_CD", "Department User Code")} width={170} />
+      <Column dataField="PRODUCT_CD" caption={t("PRODUCT_CD", "Product Code")} width={150} />
+      <Column dataField="DEP_ORDER" caption={t("DEP_ORDER", "Order")} width={90} alignment="center" />
+      <Column dataField="ISPRODUCT" caption={t("ISPRODUCT", "Product Department")} dataType="boolean" width={130} />
+      <Column dataField="REMARK" caption={t("REMARK", "Remark")} minWidth={220} />
+    </>
+  )
+}
+
+export default DepartmentInfoColumns

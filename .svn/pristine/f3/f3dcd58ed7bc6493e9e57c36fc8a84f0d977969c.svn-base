@@ -1,0 +1,71 @@
+// language.ts
+export const LANG_KEY = "lang";
+
+export interface Language {
+  code: string;
+  name: string;
+  flag: string;
+}
+
+export const languages: Language[] = [
+  { code: 'vi', name: 'Tiếng Việt', flag: '🇻🇳' },
+  { code: 'en', name: 'English', flag: '🇺🇸' },
+  { code: 'zh', name: '中文', flag: '🇨🇳' },
+  { code: 'ja', name: '日本語', flag: '🇯🇵' },
+  { code: 'ko', name: '한국어', flag: '🇰🇷' }
+];
+
+export const getCurrentLang = () =>
+  localStorage.getItem(LANG_KEY) || "vi";
+
+export const getCurrentLangArray = () =>
+{
+  const lang = localStorage.getItem(LANG_KEY) || "vi";
+  return languages.filter(l => l.code === lang);
+}
+
+export const setCurrentLang = (lang: string) =>
+  localStorage.setItem(LANG_KEY, lang);
+
+export const convertLangToCode = (lang: string) => {
+  const upper = lang.toUpperCase();
+
+
+  switch (upper) {
+    case 'VI':
+    case 'VIET':
+      return 'VIET';
+    case 'EN':
+    case 'ENG':
+      return 'ENG';
+    case 'ZH':
+    case 'CHN':
+      return 'CHN';
+    case 'JA':
+    case 'JPN':
+      return 'JPN';
+    case 'KO':
+    case 'KOR':
+      return 'KOR';
+    default:
+      return 'VIET';
+  }
+};
+
+export const convertCodeToLang = (lang: string) => {
+  switch (lang) {
+    case 'VIET':
+      return 'vi';
+    case 'ENG':
+      return 'en';
+    case 'CHN':
+      return 'zh';
+    case 'JPN':
+      return 'ja';
+    case 'KOR':
+      return 'ko';
+    default:
+      return 'vi';
+  }
+};
+

@@ -1,0 +1,60 @@
+import { useContext } from "react"
+import { AsyncRule, Column, RequiredRule } from "devextreme-react/data-grid"
+
+import { checkDepartmentCdExists } from "@/api/departmentInfoApi"
+import { LanguageContext } from "@/lib/i18nLoader"
+import { resolveGridValidationRowId } from "@/utils/gridValidation"
+import { departmentFields } from "./DepartmentFields"
+
+export function DepartmentInfoColumns() {
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+
+  const validateDepartmentCd = async (event: {
+    data?: { DEPARTMENT_ID?: number | null }
+    value: unknown
+    row?: { key?: number | string; data?: { DEPARTMENT_ID?: number | null } }
+  }) => {
+    const departmentCd = String(event.value ?? "").trim()
+
+    if (!departmentCd) {
+      return true
+    }
+
+    const rowId = resolveGridValidationRowId(event, "DEPARTMENT_ID")
+
+    try {
+      const exists = await checkDepartmentCdExists(rowId ?? undefined, departmentCd)
+      return { isValid: !exists }
+    } catch {
+      return {
+        isValid: false,
+        message: "Không kiểm tra được dữ liệu",
+      }
+    }
+  }
+
+  return (
+    <>
+      {departmentFields.map((field) => (
+        <Column
+          key={field.key}
+          dataField={field.key}
+          caption={t(field.key, field.caption)}
+        >
+          {field.key === "DEPARTMENT_CD" && (
+            <>
+              <RequiredRule message={t("MSG_MUST_ITEM", "DEPARTMENT_CD không được để trống")} />
+              <AsyncRule message={t("MsgEqualCode", "DEPARTMENT_CD đã tồn tại")} validationCallback={validateDepartmentCd} />
+            </>
+          )}
+        </Column>
+      ))}
+    </>
+  )
+}
+
+export default DepartmentInfoColumns

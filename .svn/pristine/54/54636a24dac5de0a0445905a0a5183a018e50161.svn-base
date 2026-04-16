@@ -1,0 +1,128 @@
+import React, { useContext } from "react";
+import { Toolbar, Button } from "devextreme-react";
+import { Item } from "devextreme-react/toolbar";
+import type dxDataGrid from "devextreme/ui/data_grid";
+import { LanguageContext } from '@/lib/i18nLoader';
+
+import "./GridToolbar.scss";
+
+export type GridToolbarProps = {
+  title?: string;
+  // optional translation key for the title - if provided, GridToolbar will call translate(key, title)
+  titleKey?: string;
+
+  gridRef: React.RefObject<dxDataGrid | null>;
+
+  onAdd?: () => void;
+  onRefresh?: () => void;
+
+  onExportPdf?: () => void;
+  onExportXlsx?: () => void;
+
+  // bật/tắt từng nút (tùy page)
+  showAdd?: boolean;
+  showRefresh?: boolean;
+  showColumnChooser?: boolean;
+  showExportPdf?: boolean;
+  showExportXlsx?: boolean;
+};
+
+export function GridToolbar({
+  title = "List",
+  titleKey,
+  gridRef,
+  onAdd,
+  onRefresh,
+  onExportPdf,
+  onExportXlsx,
+  showAdd = true,
+  showRefresh = true,
+  showColumnChooser = true,
+  showExportPdf = true,
+  showExportXlsx = true,
+}: GridToolbarProps) {
+  const { translate } = useContext(LanguageContext) as { translate?: (k: string, f?: string) => string };
+  const label = titleKey ? (translate ? translate(titleKey, title) : title) : title;
+  const renderLabel = () => <div className="toolbar-label">{label}</div>;
+
+  const handleAdd = () => {
+    if (onAdd) return onAdd();
+    gridRef.current?.addRow();
+  };
+
+  const handleRefresh = () => {
+    if (onRefresh) return onRefresh();
+  };
+
+  const handleColumnChooser = () => {
+    gridRef.current?.showColumnChooser();
+  };
+
+  return (
+    <Toolbar className="my-toolbar">
+      <Item location="before" locateInMenu="never" render={renderLabel} />
+
+      {showAdd && (
+        <Item location="after" widget="dxButton" locateInMenu="auto">
+          <Button
+            icon="plus"
+            text="Thêm"
+            type="default"
+            stylingMode="contained"
+            onClick={handleAdd}
+          />
+        </Item>
+      )}
+
+      {showRefresh && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            icon="refresh"
+            text="Refresh"
+            stylingMode="text"
+            onClick={handleRefresh}
+          />
+        </Item>
+      )}
+
+      {showColumnChooser && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            icon="columnchooser"
+            text="Column Chooser"
+            stylingMode="text"
+            onClick={handleColumnChooser}
+          />
+        </Item>
+      )}
+
+      {(showExportPdf || showExportXlsx) && (
+        <Item location="after" locateInMenu="auto">
+          <div className="separator" />
+        </Item>
+      )}
+
+      {showExportPdf && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            icon="exportpdf"
+            text="Export To PDF"
+            stylingMode="text"
+            onClick={onExportPdf}
+          />
+        </Item>
+      )}
+
+      {showExportXlsx && (
+        <Item location="after" widget="dxButton" showText="inMenu" locateInMenu="auto">
+          <Button
+            icon="exportxlsx"
+            text="Export To XLSX"
+            stylingMode="text"
+            onClick={onExportXlsx}
+          />
+        </Item>
+      )}
+    </Toolbar>
+  );
+}

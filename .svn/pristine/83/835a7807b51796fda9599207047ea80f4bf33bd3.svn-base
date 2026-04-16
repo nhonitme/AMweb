@@ -1,0 +1,139 @@
+import { useCallback, useContext } from "react"
+import { Column } from "devextreme-react/data-grid"
+
+import { LanguageContext } from "@/lib/i18nLoader"
+import CustomerLookupCellEditor from "@/components/lookup/CustomerLookupCellEditor"
+import { customerLookupStore } from "@/components/lookup/customerLookupStore";
+import AcclistLookupCellEditor from "@/components/lookup/AcclistLookupCellEditor";
+import { AcclistLookupStore } from "@/components/lookup/AcclistLookupStore";
+
+export function ChitNoteDetailColumns() {
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+
+  const renderCustomerEditor = useCallback(
+  (cellInfo: any) => (
+    <CustomerLookupCellEditor
+       dataSource={customerLookupStore}
+        value={cellInfo.data?.CUSTOMER_ID ?? null}
+        rowData={cellInfo.data}
+        rowIndex={cellInfo.row?.rowIndex ?? -1}
+        grid={cellInfo.component} 
+        setValue={(customerId) => {
+          cellInfo.component.cellValue(cellInfo.row.rowIndex, "CUSTOMER_ID", customerId);
+        }}
+        customerIdField="CUSTOMER_ID"
+        customerCdField="CUSTOMER_CD"
+        customerNmField="CUSTOMER_NM_VIET"
+        taxCdField="TAX_CD"
+        addressField="ADDRESS"
+        customerCdFieldCaption={t("CUSTOMER_CD", "Mã KH")}
+        customerNmFieldCaption={t("CUSTOMER_NM", "Tên KH")}
+        taxCdFieldCaption={t("TAX_CD", "Mã số thuế")}
+        addressFieldCaption={t("ADDRESS", "Địa chỉ")}
+        placeholder={t("CustomerSelect","Chọn khách hàng")}
+        popupTitle={t("CustomerSelect","Chọn khách hàng")}
+        buttonHint={t("LIST_CUSTOMER","Mở danh sách khách hàng")}
+    />
+  ),
+  [customerLookupStore],
+)
+
+const createAccEditor = ({
+  valueField,
+  nameField,
+  idField,
+  placeholder,
+  popupTitle,
+  buttonHint,
+}: {
+  valueField: string
+  nameField: string
+  idField?: string
+  placeholder?: string
+  popupTitle?: string
+  buttonHint?: string
+}) => {
+  return (cellInfo: any) => (
+    <AcclistLookupCellEditor
+      dataSource={AcclistLookupStore}
+      value={cellInfo.data?.[valueField] ?? null}
+      rowData={cellInfo.data}
+      rowIndex={cellInfo.row?.rowIndex ?? -1}
+      grid={cellInfo.component}
+      setValue={(accCd) => {
+        cellInfo.component.cellValue(cellInfo.row.rowIndex, valueField, accCd)
+      }}
+      ValueField={valueField}
+      NameField={nameField}
+      IdField={idField}
+      LookupCodeField="ACC_CD"
+      LookupNameField="ACCTITLE_NM_VIET"
+      AccNmFieldCaption={t("ACCTITLE_NM_VIET", "Tên TK")}
+      AccCdFieldCaption={t("ACC_CD", "Mã TK")}
+      placeholder={placeholder ?? t("ACC_SELECT", "Chọn tài khoản")}
+      popupTitle={popupTitle ?? t("ACC_SELECT", "Chọn tài khoản")}
+      buttonHint={buttonHint ?? t("lblACC", "Mở danh sách tài khoản")}
+    />
+  )
+}
+
+  return (
+    <>
+      <Column 
+              type="buttons"
+              width={80}
+              showInColumnChooser={false}
+            />
+      <Column dataField="CHIT_ID" visible={false} />
+      <Column dataField="CHITDETAIL_ID" visible={false} />
+      <Column dataField="CHITDETAIL_CD" visible={false} />
+      <Column dataField="CHIT_YMD" visible={false} />
+      <Column dataField="CUSTOMER_ID" visible={false} />
+      <Column dataField="CUSTOMER_CD" caption={t("CUSTOMER_CD", "Customer")} visible={false} />
+      <Column
+          dataField="CUSTOMER_CD"
+          caption={t("CUSTOMER_CD", "Customer")}
+          width={200}
+          // calculateDisplayValue={(row) =>
+          //   [row.CUSTOMER_CD, row.CUSTOMER_NM_VIET].filter(Boolean).join(" - ")
+          // }
+          editCellRender={renderCustomerEditor}
+        />
+      <Column dataField="CUSTOMER_NM_VIET" caption={t("CUSTOMER_NM", "Customer NM")} minWidth={200} allowEditing={false}/>
+      <Column dataField="DEBIT" 
+          caption={t("DEBIT", "Debit")} 
+          width={150} 
+          //  calculateDisplayValue={(row) =>
+          //   [row.DEBIT, row.DEBIT_NM_VIET].filter(Boolean).join(" - ")
+          // }
+          editCellRender={createAccEditor({
+            valueField: "DEBIT",
+            nameField: "DEBIT_NM_VIET",
+            idField: "ACC_ID",
+          })}
+        />
+        <Column dataField="DEBIT_NM_VIET" caption={t("ACC_NM_DEBIT", "DEBIT NM")} allowEditing={false} minWidth={200}/>
+      <Column dataField="CREDIT" 
+          caption={t("CREDIT", "Credit")} 
+          width={150} 
+          //  calculateDisplayValue={(row) =>
+          //   [row.CREDIT, row.CREDIT_NM_VIET].filter(Boolean).join(" - ")
+          // }
+          editCellRender={createAccEditor({
+            valueField: "CREDIT",
+            nameField: "CREDIT_NM_VIET",
+            idField: "ACC_ID",
+          })}
+        />
+        <Column dataField="CREDIT_NM_VIET" caption={t("ACC_NM_CREDIT", "CREDIT NM")}  minWidth={200} allowEditing={false} />
+      <Column dataField="AMOUNT" caption={t("AMOUNT", "Amount")} dataType="number" format="#,##0.00" minWidth={130}/>
+      <Column dataField={"DETAIL_DESCRIPTION_VIET"} caption={t("DESCRIPTION2", "Description")} minWidth={220} />
+    </>
+  )
+}
+
+export default ChitNoteDetailColumns

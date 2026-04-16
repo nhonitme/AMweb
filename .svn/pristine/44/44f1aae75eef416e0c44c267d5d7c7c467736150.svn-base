@@ -1,0 +1,41 @@
+import type { languages } from "@/types/languages";
+import { convertLangToCode } from '@/utils/language';
+import axios from "./axiosClient";
+
+// --- Cấu hình API ---
+import API_BASE_URL from "../config/apiConfig";
+
+const API_URL = `${API_BASE_URL}/Language`;
+
+function unwrapArray<T>(json: unknown): T[] {
+  // json không phải null/undefined
+  // json phải là object và có thuộc tính Data
+  if (json && typeof json === "object" && "Data" in json) {
+    const data = json.Data;
+    return Array.isArray(data) ? (data as T[]) : [];
+  }
+
+  throw new Error("API response format invalid (expected {data:[...]} or [...])");
+}
+
+// GET
+export async function getLanguages(): Promise<languages[]> {
+  const resp = await axios.get(API_URL);
+  return unwrapArray<languages>(resp.data);
+}
+
+// Build a key->value map for a single language by fetching the languages list
+export async function getLanguage(lang: string): Promise<Record<string, string>> {
+  // Normalize to code used in language rows (e.g. 'VIET','ENG','KOR',...)
+  const code = convertLangToCode(lang) || lang;
+
+  const list = await getLanguages();
+  const map: Record<string, string> = {};
+  for (const item of list) {
+    // item.KEY exists; pick property by code if present
+    // @ts-ignore
+    const v = (item as any)[code];
+    map[item.KEY] = v ?? "";
+  }
+  return map;
+}

@@ -1,0 +1,83 @@
+import type { AxiosResponse } from "axios"
+
+import axios from "./axiosClient"
+import API_BASE_URL from "../config/apiConfig"
+import type { UserInfoApi } from "@/types/userInfo"
+
+const BASE_URL = `${API_BASE_URL}/UserInfo`
+
+type ApiEnvelope<T> = {
+  Data?: T
+  Message?: string
+  Success?: boolean
+  data?: T
+  message?: string
+  success?: boolean
+}
+
+function unwrapPayload<T>(response: AxiosResponse<ApiEnvelope<T> | T>): ApiEnvelope<T> | T {
+  return response.data
+}
+
+function normalizeResponse<T>(response: AxiosResponse<ApiEnvelope<T> | T>): { data: T; message?: string } {
+  const payload = unwrapPayload(response)
+  const envelope = (payload as ApiEnvelope<T>).Data ?? (payload as ApiEnvelope<T>).data
+
+  return {
+    data: (envelope ?? payload) as T,
+    message: (payload as ApiEnvelope<T>).Message ?? (payload as ApiEnvelope<T>).message ?? "",
+  }
+}
+
+export async function getUserInfos(
+  userId?: string,
+  lang?: string,
+): Promise<{ data: UserInfoApi[] }> {
+  const params: Record<string, string> = {}
+
+  if (userId) {
+    params.USERID = userId
+  }
+
+  if (lang) {
+    params.lang = lang
+  }
+
+  const response = await axios.get<ApiEnvelope<UserInfoApi[]>>(`${BASE_URL}/Get`, {
+    params,
+  })
+  const { data } = normalizeResponse<UserInfoApi[]>(response)
+
+  return { data: Array.isArray(data) ? data : [] }
+}
+
+export async function createUserInfo(
+  payload: Partial<UserInfoApi>,
+  lang?: string,
+): Promise<{ data: UserInfoApi; message?: string }> {
+  const url = `${BASE_URL}/Create${lang ? `?lang=${encodeURIComponent(lang)}` : ""}`
+  const response = await axios.post<ApiEnvelope<UserInfoApi> | UserInfoApi>(url, payload)
+
+  return normalizeResponse<UserInfoApi>(response)
+}
+
+export async function updateUserInfo(
+  payload: Partial<UserInfoApi>,
+  lang?: string,
+): Promise<{ data: UserInfoApi; message?: string }> {
+  const url = `${BASE_URL}/Update${lang ? `?lang=${encodeURIComponent(lang)}` : ""}`
+  const response = await axios.put<ApiEnvelope<UserInfoApi> | UserInfoApi>(url, payload)
+
+  return normalizeResponse<UserInfoApi>(response)
+}
+
+export async function deleteUserInfo(userId: string): Promise<{ success: boolean; message?: string }> {
+  const params: Record<string, string> = { USERID: userId }
+  const response = await axios.delete<ApiEnvelope<string>>(`${BASE_URL}/Delete`, { params })
+  const payload = unwrapPayload(response) as ApiEnvelope<string>
+
+  return {
+    success: payload.Success ?? payload.success ?? true,
+    message: payload.Message ?? payload.message,
+  }
+}

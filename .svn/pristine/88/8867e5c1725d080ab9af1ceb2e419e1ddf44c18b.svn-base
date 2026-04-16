@@ -1,0 +1,8 @@
+import type { ExcelImportConfig } from "@/types/modal";
+
+// minimal config used by ExcelImportModal for store imports
+export const storeImportConfig: ExcelImportConfig = {
+  moduleCd: "StoreInfo",
+  templateName: "mau-kho.xlsx",
+  uniqueColumn: "STORE_CD",
+};

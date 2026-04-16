@@ -1,0 +1,274 @@
+import { useCallback, useContext, useMemo, useRef, useState } from "react";
+import DataGrid, {
+  Column,
+  ColumnFixing,
+  Editing,
+  FilterPanel,
+  FilterRow,
+  HeaderFilter,
+  Pager,
+  Paging,
+  SearchPanel,
+  StateStoring,
+} from "devextreme-react/data-grid";
+import Button from "devextreme-react/button";
+import Popup from "devextreme-react/popup";
+import type dxDataGrid from "devextreme/ui/data_grid";
+import type { InitializedEvent, RowUpdatingEvent } from "devextreme/ui/data_grid";
+
+import GridColumnSettingsPopup from "@/components/datagrid/GridColumnSettingsPopup";
+import { useGridColumnSettingState } from "@/components/datagrid/useGridColumnSettingState";
+import { LanguageContext } from "@/lib/i18nLoader";
+import type { GridColumnSettingEditorItem } from "@/types/sysGridColumnSetting";
+
+import {
+  PERMISSION_KEYS,
+  type PermissionRow,
+  type PermissionRowPatch,
+  updatePermissionRows,
+} from "./permissionUtils";
+
+export type { PermissionRow } from "./permissionUtils";
+
+type PermissionGridRow = PermissionRow & {
+  CAN_ALL: boolean;
+  MENU_LABEL: string;
+};
+
+export type PermissionsDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title?: string;
+  description?: string;
+  userLabel?: string;
+  permissions: PermissionRow[];
+  onChange: (newPermissions: PermissionRow[]) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  canSave?: boolean;
+  loading?: boolean;
+};
+
+export function PermissionsDialog({
+  open,
+  onOpenChange,
+  title = "Permissions",
+  description,
+  userLabel,
+  permissions,
+  onChange,
+  onSave,
+  onCancel,
+  canSave = false,
+  loading = false,
+}: PermissionsDialogProps) {
+  const { translate } = useContext(LanguageContext) as {
+    translate: (key: string, fallback?: string) => string;
+  };
+  const gridRef = useRef<dxDataGrid<PermissionGridRow, string> | null>(null);
+  const [columnSettingsVisible, setColumnSettingsVisible] = useState(false);
+  const [columnSettingsLoading, setColumnSettingsLoading] = useState(false);
+  const [columnSettingsItems, setColumnSettingsItems] = useState<GridColumnSettingEditorItem[]>([]);
+  const columnSettingState = useGridColumnSettingState({
+    screenCd: "/module/user-management",
+    gridId: "user-permissions-dialog-grid",
+  });
+
+  const rows = permissions ?? [];
+
+  const rowsWithLabels = useMemo<PermissionGridRow[]>(
+    () =>
+      rows.map((row) => ({
+        ...row,
+        CAN_ALL: PERMISSION_KEYS.every((key) => Boolean(row[key])),
+        MENU_LABEL: translate(row.MENU_CODE, row.MENU_CODE),
+      })),
+    [rows, translate],
+  );
+
+  const openColumnSettings = useCallback(async () => {
+    if (!columnSettingState.enabled || !gridRef.current) {
+      return;
+    }
+
+    setColumnSettingsVisible(true);
+    setColumnSettingsLoading(true);
+
+    try {
+      const items = await columnSettingState.loadEditorItems(gridRef.current);
+      setColumnSettingsItems(items);
+    } finally {
+      setColumnSettingsLoading(false);
+    }
+  }, [columnSettingState]);
+
+  const handleColumnSettingsSave = useCallback(async (items: GridColumnSettingEditorItem[]) => {
+    if (!columnSettingState.enabled) {
+      return;
+    }
+
+    const savedItems = gridRef.current
+      ? await columnSettingState.applyEditorItemsToComponent(gridRef.current, items)
+      : await columnSettingState.saveEditorItems(items);
+
+    setColumnSettingsItems(savedItems);
+    setColumnSettingsVisible(false);
+  }, [columnSettingState]);
+
+  const handleColumnSettingsReset = useCallback(async () => {
+    if (!columnSettingState.enabled) {
+      return;
+    }
+
+    const resetItems = await columnSettingState.resetEditorItems(gridRef.current);
+    setColumnSettingsItems(resetItems);
+  }, [columnSettingState]);
+
+  return (
+    <Popup
+      visible={open}
+      onHiding={() => onOpenChange(false)}
+      showTitle={true}
+      title={`${title}${userLabel ? ` - ${userLabel}` : ""}`}
+      dragEnabled={false}
+      hideOnOutsideClick={true}
+      width="min(50vw, calc(100vw - 2rem))"
+      minWidth={320}
+      maxWidth={1200}
+      height="auto"
+    >
+      <div className="w-full max-w-full bg-white shadow-xl">
+        <div className="border-b border-slate-200 pb-2">
+          <div className="flex w-full flex-col gap-2">
+            <div className="text-base font-semibold sm:text-lg">
+              {title}
+              {userLabel ? ` - ${userLabel}` : ""}
+            </div>
+            {description ? <div className="text-sm text-slate-500">{description}</div> : null}
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs text-slate-500">
+                {rows.length} permission{rows.length === 1 ? "" : "s"} loaded
+              </div>
+              <Button
+                stylingMode="text"
+                icon="columnchooser"
+                text={translate("AUDIT_SETTING_SHOW_HIDE", "Column Settings")}
+                onClick={() => {
+                  void openColumnSettings();
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 flex h-[50vh] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
+          {loading ? (
+            <div className="flex h-full items-center justify-center text-sm text-slate-500">
+              Loading permissions...
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-sm text-slate-500">
+              No permissions found.
+            </div>
+          ) : (
+            <div className="min-h-0 flex-1 overflow-auto">
+              <DataGrid
+                dataSource={rowsWithLabels}
+                keyExpr="MENU_CODE"
+                width="100%"
+                height="100%"
+                onInitialized={(event: InitializedEvent<PermissionGridRow, string>) => {
+                  gridRef.current = event.component ?? null;
+                }}
+                showBorders
+                columnAutoWidth={false}
+                allowColumnReordering
+                allowColumnResizing
+                hoverStateEnabled
+                rowAlternationEnabled
+                onRowUpdating={(event: RowUpdatingEvent<PermissionGridRow, string>) => {
+                  if (!event.key) {
+                    return;
+                  }
+
+                  const updatedRows = updatePermissionRows(
+                    rows,
+                    String(event.key),
+                    event.newData as PermissionRowPatch,
+                  );
+                  if (updatedRows === rows) {
+                    return;
+                  }
+
+                  onChange(updatedRows);
+                }}
+              >
+                <Paging defaultPageSize={200} />
+                <Pager visible={false} />
+                <HeaderFilter visible={false} />
+                <FilterRow visible={false} />
+                <FilterPanel visible={false} />
+                <ColumnFixing enabled />
+                <StateStoring
+                  enabled
+                  type="custom"
+                  customLoad={columnSettingState.customLoad}
+                  customSave={columnSettingState.customSave}
+                  savingTimeout={500}
+                />
+                <SearchPanel
+                  placeholder={translate('MSG_SEARCH', 'Search...')}
+                  searchExpr={["MENU_CODE", "MENU_LABEL"]}
+                  visible
+                />
+                <Editing mode="cell" allowUpdating />
+
+                <Column
+                  dataField="MENU_LABEL"
+                  caption={translate('MENU_CODE', 'Menu Code')}
+                  allowEditing={false}
+                />
+                <Column
+                  dataField="CAN_ALL"
+                  caption={translate("ALL_PERMISSIONS", "All permissions")}
+                  dataType="boolean"
+                />
+                <Column dataField="CAN_VIEW" caption="View" dataType="boolean" />
+                <Column dataField="CAN_ADD" caption="Add" dataType="boolean" />
+                <Column dataField="CAN_EDIT" caption="Edit" dataType="boolean" />
+                <Column dataField="CAN_DELETE" caption="Delete" dataType="boolean" />
+                <Column dataField="CAN_PRINT" caption="Print" dataType="boolean" />
+                <Column dataField="CAN_EXPORT" caption="Export" dataType="boolean" />
+                <Column dataField="CAN_IMPORT" caption="Import" dataType="boolean" />
+                <Column dataField="CAN_APPROVE" caption="Approve" dataType="boolean" />
+              </DataGrid>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 flex justify-end border-t border-slate-200 pt-3">
+          <div className="flex gap-2">
+            <Button
+              stylingMode="outlined"
+              text="Cancel"
+              onClick={() => {
+                onCancel();
+                onOpenChange(false);
+              }}
+            />
+            <Button text="Save" onClick={onSave} disabled={!canSave} />
+          </div>
+        </div>
+      </div>
+      <GridColumnSettingsPopup
+        visible={columnSettingsVisible}
+        title={translate("AUDIT_SETTING_SHOW_HIDE", "Column Settings")}
+        items={columnSettingsItems}
+        loading={columnSettingsLoading}
+        onClose={() => setColumnSettingsVisible(false)}
+        onReset={handleColumnSettingsReset}
+        onSave={handleColumnSettingsSave}
+      />
+    </Popup>
+  );
+}

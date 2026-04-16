@@ -1,0 +1,72 @@
+import type { Unit } from "@/types/unit";
+import API_BASE_URL from '../config/apiConfig';
+
+const API_URL = `${API_BASE_URL}/ProductUnit`;
+
+function unwrapArray<T>(json: unknown): T[] {
+  if (json && typeof json === "object" && "Data" in json) {
+    const data = json.Data;
+    return Array.isArray(data) ? (data as T[]) : [];
+  }
+
+  throw new Error("API response format invalid (expected {data:[...]} or [...])");
+}
+
+async function request<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+  const res = await fetch(input, {
+    ...init,
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      ...(init?.headers ?? {}),
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`${res.status} ${res.statusText} - ${text}`);
+  }
+
+  try {
+    return (await res.json()) as T;
+  } catch {
+    throw new Error("Invalid JSON response");
+  }
+}
+
+export async function getProductUnits(): Promise<Unit[]> {
+  const json = await request<unknown>(API_URL, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  return unwrapArray<Unit>(json);
+}
+
+export async function createProductUnits(payload: Partial<Unit>) {
+  return request<unknown>(API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateProductUnits(id: string, payload: Partial<Unit>) {
+  return request<unknown>(`${API_URL}/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteProductUnits(id: string) {
+  return request<unknown>(`${API_URL}/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}

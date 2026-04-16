@@ -1,0 +1,3 @@
+﻿import UserInfoPage from "../UserManagementPage/userInfo";
+
+export default UserInfoPage;

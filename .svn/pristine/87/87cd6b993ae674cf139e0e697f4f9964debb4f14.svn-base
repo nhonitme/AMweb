@@ -1,0 +1,88 @@
+import type { ProductKind } from "@/types/productKind";
+import { getAccessToken } from "@/lib/login";
+import API_BASE_URL from '../config/apiConfig';
+
+const API_URL = `${API_BASE_URL}/ProductKind`;
+
+function unwrapArray<T>(json: unknown): T[] {
+  // json không phải null/undefined
+  // json phải là object và có thuộc tính Data
+  if (json && typeof json === "object" && "Data" in json) {
+    const data = json.Data;
+    return Array.isArray(data) ? (data as T[]) : [];
+  }
+
+  throw new Error("API response format invalid (expected {data:[...]} or [...])");
+}
+
+async function request<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+  const res = await fetch(input, {
+    ...init,
+    headers: {
+      Accept: "application/json",
+      ...(init?.headers ?? {}),
+    },
+    // Nếu API cần cookie/Windows auth thì bật:
+    // credentials: "include",
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`${res.status} ${res.statusText} - ${text}`);
+  }
+
+  try {
+    return (await res.json()) as T;
+  } catch {
+    throw new Error("Invalid JSON response");
+  }
+}
+
+export async function getProductKinds(): Promise<ProductKind[]> {
+    const token = getAccessToken();
+
+    const json = await request<unknown>(API_URL, { 
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
+    });
+    return unwrapArray<ProductKind>(json);
+}
+
+export async function createProductKinds(payload: Partial<ProductKind>) {
+  const token = getAccessToken();
+
+  return request<unknown>(API_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateProductKinds(id: string, payload: Partial<ProductKind>) {
+  const token = getAccessToken();
+
+  return request<unknown>(`${API_URL}/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    headers: { 
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteProductKinds(id: string) {
+  const token = getAccessToken();
+
+  return request<unknown>(`${API_URL}/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+    },
+  });
+}

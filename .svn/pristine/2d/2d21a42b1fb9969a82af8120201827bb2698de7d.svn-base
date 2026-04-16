@@ -1,0 +1,23 @@
+import axios from './axiosClient'
+import API_BASE_URL from '../config/apiConfig'
+
+const BASE_URL = `${API_BASE_URL}/System`
+
+export async function getUserPermissions(menuCode?: string, userId?: string, companyCd?: string) {
+  const params: any = {}
+  if (menuCode) params.menuCode = menuCode
+  if (userId) params.userId = userId
+  if (companyCd) params.companyCd = companyCd
+
+  const resp = await axios.get(`${BASE_URL}/user-permissions`, { params })
+  const payload = resp.data
+  // Standard API response shape: { data | Data, message }
+  // Some endpoints return Data (Pascal) while others return data (camel).
+  return payload?.Data ?? payload?.data ?? payload
+}
+
+export async function updateUserPermission(data: any) {
+  const resp = await axios.put(`${BASE_URL}/user-permissions`, data)
+  const payload = resp.data
+  return payload?.Data ?? payload?.data ?? payload
+}

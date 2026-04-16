@@ -1,0 +1,138 @@
+import axios from './axiosClient';
+import API_BASE_URL from '../config/apiConfig';
+import type { CustomerExt } from '@/types/customerExt';
+
+const BASE_URL = `${API_BASE_URL}/CustomerInfoCustomerExt`;
+
+type CustomerExtsPayload = { data: CustomerExt[]; labels: Record<string, string> };
+
+export async function getCustomerExts(
+  customerIdentifier?: string,
+  lang?: string
+): Promise<CustomerExtsPayload> {
+  const resp = await axios.get(`${BASE_URL}/Get`, {
+    params: {
+      ...(customerIdentifier ? { CUSTOMER_CD: customerIdentifier, CUSTOMER_ID: customerIdentifier } : {}),
+      ...(lang ? { lang } : {}),
+    },
+  });
+
+  if (resp.status !== 200) {
+    throw new Error(`Unexpected HTTP status ${resp.status}`);
+  }
+
+  const payload = resp.data;
+  if (!payload || typeof payload !== "object") {
+    throw new Error("Invalid response format from getCustomerExts");
+  }
+
+  const inner = payload.Data ?? payload.data ?? payload;
+
+  if (Array.isArray(inner)) {
+    return { data: inner as CustomerExt[], labels: {} };
+  }
+
+  const list = inner.data ?? inner;
+  const labels = inner.labels ?? {};
+
+  if (!Array.isArray(list)) {
+    throw new Error("Response did not contain an array of customer exts");
+  }
+
+  return { data: list as CustomerExt[], labels: labels as Record<string, string> };
+}
+
+
+// POST create
+export async function createCustomerExt(
+  payload: Partial<CustomerExt>
+): Promise<unknown> {
+  const resp = await axios.post(`${BASE_URL}/Create`, payload);
+  clearCustomerExtCache();
+  return resp.data;
+}
+
+// PUT update
+export async function updateCustomerExt(
+  payload: Partial<CustomerExt>
+): Promise<unknown> {
+  if (!payload || !payload.CUSTOMER_ID) {
+    console.warn("updateCustomerExt called without CUSTOMER_ID", payload);
+  }
+
+  const resp = await axios.put(`${BASE_URL}/Update`, payload);
+  clearCustomerExtCache();
+  return resp.data;
+}
+
+// DELETE customer extension(s); backend accepts comma-separated CUSTOMER_ID list
+export async function deleteCustomerExt(
+  customerIdOrIds: string | string[]
+): Promise<unknown> {
+  const companyCd = localStorage.getItem("lastCompanyCD") || localStorage.getItem("companyCd") || undefined;
+  const params: Record<string, string | undefined> = { COMPANY_CD: companyCd };
+
+  if (!customerIdOrIds) {
+    throw new Error("No customer ID specified for deleteCustomerExt");
+  }
+
+  params.CUSTOMER_ID = Array.isArray(customerIdOrIds)
+    ? customerIdOrIds.join(",")
+    : customerIdOrIds;
+
+  const resp = await axios.delete(`${BASE_URL}/Delete`, {
+    params,
+  });
+
+  clearCustomerExtCache();
+  return resp.data;
+}
+export async function checkCustomerCdExists(
+  CUSTOMER_ID: number | undefined,
+  CUSTOMER_CD: string,
+): Promise<boolean> {
+  const params: Record<string, string | number | undefined> = {
+    CUSTOMER_ID,
+    CUSTOMER_CD,
+  };
+
+  const resp = await axios.get(`${BASE_URL}/CheckExists`, {
+    params,
+  });
+
+  const data = resp.data as { Data?: boolean; data?: boolean };
+  const exists = data?.Data ?? data?.data ?? false;
+
+  return exists;
+}
+
+// Export to Excel (optionally filter by customer code)
+export async function exportCustomerExtExcel(
+  customerIdOrCd?: string
+): Promise<Blob> {
+  const params: any = {};
+  if (customerIdOrCd) {
+    // backend may filter by either id or code
+    params.CUSTOMER_ID = customerIdOrCd;
+    params.CUSTOMER_CD = customerIdOrCd;
+  }
+    const resp = await axios.get(`${BASE_URL}/customer/export`, {
+    params,
+    responseType: 'blob',
+  });
+  return resp.data;
+}
+
+// Import workbook file for bulk insert
+export async function importCustomerExtExcel(
+  file: File,
+  lang?: string
+): Promise<any> {
+  const form = new FormData();
+  form.append('file', file);
+    const url = `${BASE_URL}/customer/import${lang ? `?lang=${encodeURIComponent(lang)}` : ''}`;
+  const resp = await axios.post(url, form);
+  return resp.data;
+}
+
+

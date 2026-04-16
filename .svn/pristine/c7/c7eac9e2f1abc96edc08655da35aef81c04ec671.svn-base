@@ -1,0 +1,143 @@
+import { useCallback, useContext, useEffect, useRef, type ReactNode } from "react"
+import { Button } from "devextreme-react"
+import DataGrid, {
+  FilterRow,
+  HeaderFilter,
+  Pager,
+  Paging,
+  FilterPanel,
+  Toolbar,
+  Item,
+} from "devextreme-react/data-grid"
+import TextBox from "devextreme-react/text-box"
+import type dxDataGrid from "devextreme/ui/data_grid"
+import type { InitializedEvent } from "devextreme/ui/data_grid"
+
+import { LanguageContext } from "@/lib/i18nLoader"
+import { useInlineGridSearch } from "./gridSearch"
+
+interface DetailGridProps<TData> {
+  dataSource: TData[]
+  keyExpr: string
+  children: ReactNode
+  height?: number | string
+  noDataText?: string
+  onInitialized?: (event: InitializedEvent<TData, string | number>) => void
+  searchVisible?: boolean
+  showSearchButton?: boolean
+}
+
+export function DetailGrid<TData>({
+  dataSource,
+  keyExpr,
+  children,
+  height,
+  noDataText,
+  onInitialized,
+  searchVisible: controlledSearchVisible,
+  showSearchButton = true,
+}: DetailGridProps<TData>) {
+  const gridRef = useRef<dxDataGrid<TData, string | number> | null>(null)
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+  const {
+    searchText,
+    searchVisible,
+    setSearchVisible,
+    showSearch,
+    handleSearchTextChange,
+    handleSearchEnter,
+    clearSearch,
+  } =
+    useInlineGridSearch(gridRef)
+
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+  const isSearchControlled = typeof controlledSearchVisible === "boolean"
+  const effectiveSearchVisible = controlledSearchVisible ?? searchVisible
+  const shouldRenderSearchToolbar = effectiveSearchVisible || showSearchButton
+
+  const handleInitialized = useCallback(
+    (event: InitializedEvent<TData, string | number>) => {
+      gridRef.current = event.component ?? null
+      onInitialized?.(event)
+    },
+    [onInitialized],
+  )
+
+  useEffect(() => {
+    if (!isSearchControlled) {
+      return
+    }
+
+    if (controlledSearchVisible) {
+      setSearchVisible(true)
+      return
+    }
+
+    clearSearch()
+  }, [clearSearch, controlledSearchVisible, isSearchControlled, setSearchVisible])
+
+  return (
+    <div className="data-grid-container h-full w-full">
+    <DataGrid<TData, string | number>
+      dataSource={dataSource}
+      keyExpr={keyExpr}
+      width="100%"
+      height={height ?? "100%"}
+      showBorders={true}
+      columnAutoWidth={true}
+      allowColumnResizing={true}
+      allowColumnReordering={true}
+      rowAlternationEnabled={true}
+      hoverStateEnabled={true}
+      wordWrapEnabled={true}
+      noDataText={noDataText ?? t("NO_DETAIL_DATA", "No detail data")}
+      onInitialized={handleInitialized}
+    >
+      <HeaderFilter visible={true} />
+      <FilterRow showOperationChooser={true} />
+      <FilterPanel />
+      {shouldRenderSearchToolbar ? (
+        <Toolbar>
+          <Item location="after" locateInMenu="never">
+            <div className="flex items-center gap-2">
+              {effectiveSearchVisible ? (
+                <TextBox
+                  width={260}
+                  mode="search"
+                  stylingMode="outlined"
+                  value={searchText}
+                  showClearButton={true}
+                  placeholder={t("Search detail...", "Search detail...")}
+                  onValueChanged={(event) => handleSearchTextChange(String(event.value ?? ""))}
+                  onEnterKey={handleSearchEnter}
+                />
+              ) : null}
+              {showSearchButton ? (
+                <Button
+                  stylingMode="text"
+                  icon="search"
+                  hint={t("Search detail", "Search detail")}
+                  onClick={showSearch}
+                />
+              ) : null}
+            </div>
+          </Item>
+        </Toolbar>
+      ) : null}
+      <Paging defaultPageSize={10} />
+      <Pager
+        visible={true}
+        showPageSizeSelector={true}
+        allowedPageSizes={[10, 20, 50]}
+        showInfo={true}
+        showNavigationButtons={true}
+        infoText={t("PAGE_TEXT", "Page {0} / {1} ({2} rows)")}
+      />
+      {children}
+    </DataGrid></div> 
+  )
+}
+
+export default DetailGrid

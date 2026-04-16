@@ -1,0 +1,424 @@
+﻿import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { LoadPanel } from "devextreme-react"
+import { Editing, Popup } from "devextreme-react/data-grid"
+import {
+  RowDblClickEvent,
+  RowInsertingEvent,
+  RowRemovingEvent,
+  RowUpdatingEvent,
+} from "devextreme/ui/data_grid"
+import { confirm } from "devextreme/ui/dialog"
+import notify from "devextreme/ui/notify"
+import type dxDataGrid from "devextreme/ui/data_grid"
+
+import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid"
+import ExcelImportModal from "@/components/modals/ExcelImportModal"
+import { GridToolbar } from "@/components/toolbar/GridToolbar"
+import DxPage from "@/dx/DxPage"
+import { downloadBlobFile } from "@/lib/fileUtils"
+import { LanguageContext } from "@/lib/i18nLoader"
+import { getCurrentCompanyCd, getCurrentUserId } from "@/lib/login"
+import {
+  createDepartmentInfo,
+  deleteDepartmentInfo,
+  deleteDepartmentInfos,
+  exportDepartmentInfoExcel,
+  getDepartmentInfos,
+  importDepartmentInfoExcel,
+  updateDepartmentInfo,
+} from "@/api/departmentInfoApi"
+import type { DepartmentInfo, DepartmentInfoApi } from "@/types/departmentInfo"
+import DepartmentInfoForm from "./DepartmentInfoForm"
+import { DepartmentInfoColumns } from "./Columns/DepartmentInfoColumns"
+import { useDepartmentImportConfig } from "./Columns/DepartmentImportConfig"
+import {
+  createDefaultDepartmentInfo,
+  mapDepartmentInfoToApiPayload,
+  normalizeDepartmentInfoRows,
+} from "./departmentInfoUtils"
+
+type TKey = string | number
+
+type RowInsertingEventWithPromise = RowInsertingEvent<DepartmentInfo, TKey> & { promise?: Promise<void> }
+type RowUpdatingEventWithPromise = RowUpdatingEvent<DepartmentInfo, TKey> & { promise?: Promise<void> }
+type RowRemovingEventWithPromise = RowRemovingEvent<DepartmentInfo, TKey> & { promise?: Promise<void> }
+
+export type DepartmentManagementPageMode = "page" | "lookup"
+
+export type DepartmentManagementPageProps = {
+  mode?: DepartmentManagementPageMode
+  hideToolbar?: boolean
+  onPickDepartment?: (row: DepartmentInfo) => void
+  onCloseLookup?: () => void
+}
+
+export default function DepartmentManagementPage({
+  mode = "page",
+  hideToolbar = false,
+  onPickDepartment,
+  onCloseLookup,
+}: DepartmentManagementPageProps) {
+  const isLookup = mode === "lookup"
+  const [loading, setLoading] = useState(true)
+  const [gridData, setGridData] = useState<DepartmentInfo[]>([])
+  const [isUpdate, setIsUpdate] = useState(false)
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false)
+  const gridRef = useRef<dxDataGrid | null>(null)
+
+  const { lang, translate } = useContext(LanguageContext) as {
+    translate: (key: string, fallback?: string) => string
+    lang: string
+  }
+
+  const t = useCallback(
+    (key: string, fallback?: string) => (translate ? translate(key, fallback || key) : fallback || key),
+    [translate],
+  )
+  const importConfig = useDepartmentImportConfig()
+
+  const popupTitle = t(isUpdate ? "lblEdit" : "lblAddNew", isUpdate ? "Edit Department" : "Add Department")
+
+  const excludedFields = useMemo(
+    () =>
+      new Set<string>([
+        "DEPARTMENT_ID",
+        "COMPANY_CD",
+        "ISDEL",
+        "UPDATE_BY",
+        "CREATE_BY",
+      ]),
+    [],
+  )
+
+  const loadData = useCallback(async () => {
+    setLoading(true)
+
+    try {
+      const departmentResponse = await getDepartmentInfos(undefined, lang)
+      setGridData(normalizeDepartmentInfoRows(departmentResponse.data || []))
+      gridRef.current?.clearSelection()
+    } catch (error) {
+      console.error("Failed to load departments", error)
+      notify(t("Load failed", "Load failed"), "error", 5000)
+    } finally {
+      setLoading(false)
+    }
+  }, [lang, t])
+
+  const hasLoadedDataRef = useRef(false)
+
+  useEffect(() => {
+    if (hasLoadedDataRef.current) return
+    hasLoadedDataRef.current = true
+    void loadData()
+  }, [loadData])
+
+  const buildCreatePayload = useCallback((data: Partial<DepartmentInfo>): Partial<DepartmentInfoApi> => {
+    const currentCompanyCd = getCurrentCompanyCd()
+    const currentUserId = getCurrentUserId()
+    const nextRow: DepartmentInfo = {
+      ...createDefaultDepartmentInfo(currentCompanyCd, currentUserId),
+      ...data,
+      COMPANY_CD: data.COMPANY_CD || currentCompanyCd,
+      DEPARTMENT_CD: typeof data.DEPARTMENT_CD === "string" ? data.DEPARTMENT_CD.trim() : "",
+    }
+
+    return mapDepartmentInfoToApiPayload(nextRow)
+  }, [])
+
+  const buildUpdatePayload = useCallback((event: RowUpdatingEventWithPromise): Partial<DepartmentInfoApi> => {
+    const currentCompanyCd = event.oldData?.COMPANY_CD || getCurrentCompanyCd()
+    const currentUserId = getCurrentUserId()
+    const mergedRow: DepartmentInfo = {
+      ...createDefaultDepartmentInfo(currentCompanyCd, currentUserId),
+      ...(event.oldData ?? {}),
+      ...(event.newData ?? {}),
+      COMPANY_CD: currentCompanyCd,
+    }
+
+    return mapDepartmentInfoToApiPayload(mergedRow)
+  }, [])
+
+  const onRowInserting = useCallback(
+    (event: RowInsertingEventWithPromise) => {
+      event.promise = (async () => {
+        try {
+          const payload = buildCreatePayload({ ...(event.data ?? {}) })
+          await createDepartmentInfo(payload)
+            notify(t("MSG_INSERT_SUCCESS", "Created successfully"), "success", 3000)
+          await loadData()
+        } catch (error) {
+          console.error("Create department error", error)
+          notify(t("Insert failed", "Insert failed"), "error", 3000)
+        } finally {
+          if (event.component) {
+            ;(event.component as dxDataGrid<DepartmentInfo, TKey>).cancelEditData()
+          }
+        }
+      })()
+    },
+    [buildCreatePayload, loadData, t],
+  )
+
+  const onRowUpdating = useCallback(
+    (event: RowUpdatingEventWithPromise) => {
+      event.promise = (async () => {
+        try {
+          const payload = buildUpdatePayload(event)
+          await updateDepartmentInfo(payload)
+          notify(t("MSG_EDIT_SUCCESS", "Updated successfully"), "success", 3000)
+          await loadData()
+        } catch (error) {
+          console.error("Update department error", error)
+          notify(t("Update failed", "Update failed"), "error", 3000)
+        } finally {
+          if (event.component) {
+            ;(event.component as dxDataGrid<DepartmentInfo, TKey>).cancelEditData()
+          }
+        }
+      })()
+    },
+    [buildUpdatePayload, loadData, t],
+  )
+
+  const onRowRemoving = useCallback(
+    (event: RowRemovingEventWithPromise) => {
+      event.promise = (async () => {
+        try {
+          const departmentId = Number(event.key)
+          if (!Number.isFinite(departmentId) || departmentId <= 0) {
+            throw new Error("Invalid department id")
+          }
+
+          await deleteDepartmentInfo(departmentId)
+          notify(t("DELETE_SUCCESS", "Deleted successfully"), "success", 3000)
+          await loadData()
+        } catch (error) {
+          console.error("Delete department error", error)
+          notify(t("Delete failed", "Delete failed"), "error", 3000)
+        }
+      })()
+    },
+    [loadData, t],
+  )
+
+  const handleToolbarDelete = useCallback(async () => {
+    const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
+    const departmentIds = selectedKeys
+      .map((key) => Number(key))
+      .filter((value) => Number.isFinite(value) && value > 0)
+
+    if (!departmentIds.length) {
+      notify(t("No rows selected", "No rows selected"), "warning", 2000)
+      return
+    }
+
+    const confirmText = t(
+      "MSG_CONFIRM_DELETE_RECORD",
+      "Are you sure you want to delete {0} record?",
+    ).replace("{0}", String(departmentIds.length))
+
+    const isConfirmed = await confirm(confirmText, t("MSG_CONFIRM_DELETE", "Confirm delete"))
+    if (!isConfirmed) {
+      return
+    }
+
+    try {
+      await deleteDepartmentInfos({ DepartmentIds: departmentIds })
+      notify(t("DELETE_SUCCESS", "Deleted successfully"), "success", 3000)
+      await loadData()
+    } catch (error) {
+      console.error("Bulk delete department error", error)
+      notify(t("Delete failed", "Delete failed"), "error", 3000)
+    }
+  }, [loadData, t])
+
+  const handleExportExcel = useCallback(async () => {
+    try {
+      const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
+      const selectedDepartmentId = selectedKeys.length > 0 ? Number(selectedKeys[0]) : undefined
+      const departmentId =
+        typeof selectedDepartmentId === "number" && Number.isFinite(selectedDepartmentId) && selectedDepartmentId > 0
+          ? selectedDepartmentId
+          : undefined
+
+      const blob = await exportDepartmentInfoExcel(departmentId, lang)
+      downloadBlobFile(blob, `Department_${new Date().toISOString().replace(/[:.-]/g, "")}.xlsx`)
+    } catch (error) {
+      console.error("Export department error", error)
+      notify(t("Export failed", "Export failed"), "error", 3000)
+    }
+  }, [lang, t])
+
+  const handleExportPdf = useCallback(() => {
+    const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
+    const selectedDepartmentId = selectedKeys.length > 0 ? Number(selectedKeys[0]) : undefined
+    const departmentId =
+      typeof selectedDepartmentId === "number" && Number.isFinite(selectedDepartmentId) && selectedDepartmentId > 0
+        ? selectedDepartmentId
+        : undefined
+
+    const companyCd = getCurrentCompanyCd()
+    const params = new URLSearchParams()
+
+    if (companyCd) {
+      params.set("companyCd", companyCd)
+    }
+
+    if (departmentId) {
+      params.set("departmentId", String(departmentId))
+    }
+
+    params.set("reportCode", "DEPARTMENT_INFO")
+
+    const targetUrl = `${window.location.origin}/report-viewer${params.toString() ? `?${params.toString()}` : ""}`
+    const viewerWindow = window.open(targetUrl, "_blank", "noopener,noreferrer")
+
+    if (!viewerWindow) {
+      notify(t("Unable to open report viewer", "Unable to open report viewer"), "error", 3000)
+    }
+  }, [t])
+
+  const handleImport = useCallback(
+    async (rows: Array<Record<string, unknown>>, method: "add" | "update" | "overwrite", file?: File) => {
+      try {
+        if (file) {
+          await importDepartmentInfoExcel(file, lang)
+        } else if (method === "update") {
+          for (const row of rows) {
+            const departmentId = typeof row.DEPARTMENT_ID === "number" ? row.DEPARTMENT_ID : Number(row.DEPARTMENT_ID)
+            if (!Number.isFinite(departmentId) || departmentId <= 0) {
+              continue
+            }
+
+            const importedRow = normalizeDepartmentInfoRows([row as DepartmentInfoApi])[0]
+            const payload = mapDepartmentInfoToApiPayload({
+              ...createDefaultDepartmentInfo(getCurrentCompanyCd(), getCurrentUserId()),
+              ...importedRow,
+              DEPARTMENT_ID: departmentId,
+              COMPANY_CD: getCurrentCompanyCd(),
+            })
+
+            await updateDepartmentInfo(payload)
+          }
+        } else {
+          for (const row of rows) {
+            const payload = buildCreatePayload(row as Partial<DepartmentInfo>)
+            await createDepartmentInfo(payload)
+          }
+        }
+
+        await loadData()
+      } catch (error) {
+        console.error("Import department error", error)
+        notify(t("Import failed", "Import failed"), "error", 5000)
+      }
+    },
+    [buildCreatePayload, lang, loadData, t],
+  )
+
+  const onRowDblClick = useCallback((event: RowDblClickEvent<DepartmentInfo, TKey>) => {
+    if (isLookup) {
+      if (event.data) {
+        onPickDepartment?.(event.data)
+        onCloseLookup?.()
+      }
+      return
+    }
+
+    if (!gridRef.current) {
+      return
+    }
+
+    const rowIndex = typeof (event as any).rowIndex === "number"
+      ? (event as any).rowIndex
+      : gridRef.current.getRowIndexByKey(event.key as TKey)
+
+    if (rowIndex !== undefined && rowIndex !== -1) {
+      gridRef.current.editRow(rowIndex)
+    }
+  }, [isLookup, onCloseLookup, onPickDepartment])
+
+  const content = (
+    <>
+      {!hideToolbar && (
+        <GridToolbar
+          gridRef={gridRef}
+          onRefresh={loadData}
+          onDelete={handleToolbarDelete}
+          onImport={() => setIsExcelModalOpen(true)}
+          onExportPdf={handleExportPdf}
+          onExportXlsx={handleExportExcel}
+        />
+      )}
+
+      <ExcelImportModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        onImport={handleImport}
+        existingData={gridData}
+        config={importConfig}
+        serverImport={true}
+        hideUpdateOverwrite={true}
+      />
+
+      <div className="data-grid-container">
+        <BaseDataGrid<DepartmentInfo>
+          dataSource={gridData}
+          keyExpr="DEPARTMENT_ID"
+          screenCd={mode === "lookup" ? "/module/department-management/lookup" : "/module/department-management"}
+          gridId={mode === "lookup" ? "department-lookup-grid" : "department-grid"}
+          copyExcludeFields={Array.from(excludedFields)}
+          actionButtons
+          actionButtonsPosition="start"
+          onRowDblClick={onRowDblClick}
+          onEditingStart={() => setIsUpdate(true)}
+          onInitialized={(event) => {
+            gridRef.current = event.component ?? null
+          }}
+          onRowInserting={onRowInserting}
+          onRowUpdating={onRowUpdating}
+          onRowRemoving={onRowRemoving}
+          onInitNewRow={(event) => {
+            setIsUpdate(false)
+            event.data = {
+              ...createDefaultDepartmentInfo(getCurrentCompanyCd(), getCurrentUserId()),
+              ...(event.data ?? {}),
+            }
+          }}
+        >
+          <Editing
+            mode="popup"
+            allowUpdating={true}
+            allowAdding={true}
+            allowDeleting={true}
+            confirmDelete={true}
+            startEditAction="dblClick"
+          >
+            <Popup
+              key={lang}
+              title={popupTitle}
+              showTitle={true}
+              width="90%"
+              maxWidth={980}
+              deferRendering={true}
+            />
+            <DepartmentInfoForm isUpdate={isUpdate} />
+          </Editing>
+
+          <DepartmentInfoColumns />
+        </BaseDataGrid>
+
+        <LoadPanel
+          shadingColor="rgba(0, 0, 0, 0.4)"
+          visible={loading}
+          showIndicator={true}
+          shading={true}
+          showPane={true}
+        />
+      </div>
+    </>
+  )
+
+  return isLookup ? content : <DxPage>{content}</DxPage>
+}

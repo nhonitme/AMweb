@@ -1,0 +1,60 @@
+import type { ReactNode } from "react"
+import type { InitializedEvent, RowDblClickEvent, SelectionChangedEvent, FocusedRowChangedEvent, CellClickEvent, FocusedRowChangingEvent, RowClickEvent} from "devextreme/ui/data_grid"
+
+import { BaseDataGrid } from "./BaseDataGrid"
+
+interface PageGridProps<TData> {
+  dataSource: TData[]
+  keyExpr: string
+  copyExcludeFields?: string[]
+  children: ReactNode
+  onInitialized?: (event: InitializedEvent<TData, string | number>) => void
+  onRowDblClick?: (event: RowDblClickEvent<TData, string | number>) => void
+  onSelectionChanged?: (event: SelectionChangedEvent<TData, string | number>) => void
+  onFocusedRowChanged?: (event: FocusedRowChangedEvent<TData, string | number>) => void
+  selectMode?: "single" | "multiple"
+  focusRowEnabled?: boolean
+  selectByClick?: boolean
+  onCellClick?: (event: CellClickEvent<TData, string | number>) => void
+  onFocusedRowChanging?: (event: FocusedRowChangingEvent<TData, string | number>) => void
+  onRowClick?: (event: RowClickEvent<TData, string | number>) => void
+}
+
+export function PageGrid<TData>({
+  dataSource,
+  keyExpr,
+  copyExcludeFields,
+  children,
+  onInitialized,
+  onRowDblClick,
+  onSelectionChanged,
+  onFocusedRowChanged,
+  selectMode,
+  focusRowEnabled,
+  selectByClick,
+  onCellClick,
+  onRowClick,
+  onFocusedRowChanging
+}: PageGridProps<TData>) {
+  return (
+    <BaseDataGrid<TData>
+      dataSource={dataSource}
+      keyExpr={keyExpr}
+      copyExcludeFields={copyExcludeFields}
+      onInitialized={onInitialized}
+      onRowDblClick={onRowDblClick}
+      onSelectionChanged={onSelectionChanged}
+      onFocusedRowChanged={onFocusedRowChanged}
+      selectMode={selectMode}
+      onRowClick={onRowClick}
+      focusRowEnabled={focusRowEnabled}
+      onCellClick={onCellClick}
+      onFocusedRowChanging={onFocusedRowChanging}
+      selectByClick={selectByClick}
+    >
+      {children}
+    </BaseDataGrid>
+  )
+}
+
+export default PageGrid

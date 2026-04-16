@@ -1,0 +1,459 @@
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { LoadPanel } from "devextreme-react"
+import { Editing, Popup } from "devextreme-react/data-grid"
+import type dxDataGrid from "devextreme/ui/data_grid"
+import {
+  RowDblClickEvent,
+  RowInsertingEvent,
+  RowRemovingEvent,
+  RowUpdatingEvent,
+} from "devextreme/ui/data_grid"
+import { confirm } from "devextreme/ui/dialog"
+import notify from "devextreme/ui/notify"
+
+import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid"
+import ExcelImportModal from "@/components/modals/ExcelImportModal"
+import { GridToolbar } from "@/components/toolbar/GridToolbar"
+import { downloadBlobFile } from "@/lib/fileUtils"
+import { LanguageContext } from "@/lib/i18nLoader"
+import { getCurrentCompanyCd, getCurrentUserId } from "@/lib/login"
+import {
+  createCustomerExt,
+  deleteCustomerExt,
+  deleteCustomerExts,
+  exportCustomerExtExcel,
+  getCustomerExts,
+  importCustomerExtExcel,
+  updateCustomerExt,
+} from "@/api/customerExtApi"
+import { getSysCodes, SysCode } from "@/api/sysCodeService"
+import type { CustomerExt, CustomerExtApi } from "@/types/customerExt"
+
+import CustomerExtForm from "./CustomerExtForm"
+import { CustomerColumns } from "./Columns/CustomerColumns"
+import { customerImportConfig } from "./Columns/customerImportConfig"
+import {
+  createDefaultCustomerExt,
+  mapCustomerExtToApiPayload,
+  normalizeCustomerExtRows,
+} from "./customerExtUtils"
+
+import "./CustomerExtPage.scss"
+
+type TKey = string | number
+
+type RowInsertingEventWithPromise = RowInsertingEvent<CustomerExt, TKey> & { promise?: Promise<void> }
+type RowUpdatingEventWithPromise = RowUpdatingEvent<CustomerExt, TKey> & { promise?: Promise<void> }
+type RowRemovingEventWithPromise = RowRemovingEvent<CustomerExt, TKey> & { promise?: Promise<void> }
+
+export type CustomerExtManagerMode = "page" | "lookup"
+
+export type CustomerExtManagerProps = {
+  mode?: CustomerExtManagerMode
+  hideToolbar?: boolean
+  onPickCustomer?: (row: CustomerExt) => void
+  onCloseLookup?: () => void
+}
+
+export default function CustomerExtManager({
+  mode = "page",
+  hideToolbar = false,
+  onPickCustomer,
+  onCloseLookup,
+}: CustomerExtManagerProps) {
+  const isLookup = mode === "lookup"
+
+  const [loading, setLoading] = useState(true)
+  const [gridData, setGridData] = useState<CustomerExt[]>([])
+  const [isUpdate, setIsUpdate] = useState(false)
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false)
+  const [searchVisible, setSearchVisible] = useState(false)
+  const [customerTypeCodes, setCustomerTypeCodes] = useState<SysCode[]>([])
+  const gridRef = useRef<dxDataGrid<CustomerExt, TKey> | null>(null)
+
+  const { lang, translate } = useContext(LanguageContext) as {
+    translate: (key: string, fallback?: string) => string
+    lang: string
+  }
+
+  const t = useCallback(
+    (key: string, fallback?: string) => (translate ? translate(key, fallback || key) : fallback || key),
+    [translate],
+  )
+
+  const popupTitle = t(isUpdate ? "lblEdit" : "lblAddNew", isUpdate ? "Edit Customer" : "Add Customer")
+
+  const excludedFields = useMemo(
+    () =>
+      new Set<string>([
+        "CUSTOMER_ID",
+        "CUSTOMER_EXT_ID",
+        "COMPANY_CD",
+        "ISDEL",
+        "CREATE_AT",
+        "CREATE_BY",
+        "UPDATE_AT",
+        "UPDATE_BY",
+      ]),
+    [],
+  )
+
+  const loadData = useCallback(async () => {
+    setLoading(true)
+
+    try {
+      const customerResponse = await getCustomerExts(undefined, lang)
+      setGridData(normalizeCustomerExtRows(customerResponse.data || []))
+      gridRef.current?.clearSelection()
+    } catch (error) {
+      console.error("Failed to load customers", error)
+      notify(t("Load failed", "Load failed"), "error", 5000)
+    } finally {
+      setLoading(false)
+    }
+  }, [lang, t])
+
+  useEffect(() => {
+    void loadData()
+  }, [loadData])
+
+  useEffect(() => {
+    const loadCustomerTypes = async () => {
+      try {
+        const response = await getSysCodes("CUSTOMER_TYPE")
+        setCustomerTypeCodes(response.data || [])
+      } catch (error) {
+        console.error("Failed to load customer type codes", error)
+        setCustomerTypeCodes([])
+      }
+    }
+
+    void loadCustomerTypes()
+  }, [])
+
+  const buildCreatePayload = useCallback((data: Partial<CustomerExt>): Partial<CustomerExtApi> => {
+    const currentCompanyCd = getCurrentCompanyCd()
+    const currentUserId = getCurrentUserId()
+
+    const nextRow: CustomerExt = {
+      ...createDefaultCustomerExt(currentCompanyCd, currentUserId),
+      ...data,
+      COMPANY_CD: data.COMPANY_CD || currentCompanyCd,
+      CUSTOMER_CD: typeof data.CUSTOMER_CD === "string" ? data.CUSTOMER_CD.trim() : "",
+      CUSTOMER_NM_VIET: typeof data.CUSTOMER_NM_VIET === "string" ? data.CUSTOMER_NM_VIET.trim() : "",
+    }
+
+    return mapCustomerExtToApiPayload(nextRow)
+  }, [])
+
+  const buildUpdatePayload = useCallback((event: RowUpdatingEventWithPromise): Partial<CustomerExtApi> => {
+    const currentCompanyCd = event.oldData?.COMPANY_CD || getCurrentCompanyCd()
+    const currentUserId = getCurrentUserId()
+
+    const mergedRow: CustomerExt = {
+      ...createDefaultCustomerExt(currentCompanyCd, currentUserId),
+      ...(event.oldData ?? {}),
+      ...(event.newData ?? {}),
+      COMPANY_CD: currentCompanyCd,
+    }
+
+    return mapCustomerExtToApiPayload(mergedRow)
+  }, [])
+
+  const onRowInserting = useCallback(
+    (event: RowInsertingEventWithPromise) => {
+      event.promise = (async () => {
+        try {
+          const payload = buildCreatePayload({ ...(event.data ?? {}) })
+          await createCustomerExt(payload)
+          notify(t("CREATE_SUCCESS", "Created successfully"), "success", 3000)
+          await loadData()
+        } catch (error) {
+          console.error("Create customer error", error)
+          notify(t("Insert failed", "Insert failed"), "error", 3000)
+        } finally {
+          if (event.component) {
+            ;(event.component as dxDataGrid<CustomerExt, TKey>).cancelEditData()
+          }
+        }
+      })()
+    },
+    [buildCreatePayload, loadData, t],
+  )
+
+  const onRowUpdating = useCallback(
+    (event: RowUpdatingEventWithPromise) => {
+      event.promise = (async () => {
+        try {
+          const payload = buildUpdatePayload(event)
+          await updateCustomerExt(payload)
+          notify(t("UPDATE_SUCCESS", "Updated successfully"), "success", 3000)
+          await loadData()
+        } catch (error) {
+          console.error("Update customer error", error)
+          notify(t("Update failed", "Update failed"), "error", 3000)
+        } finally {
+          if (event.component) {
+            ;(event.component as dxDataGrid<CustomerExt, TKey>).cancelEditData()
+          }
+        }
+      })()
+    },
+    [buildUpdatePayload, loadData, t],
+  )
+
+  const onRowRemoving = useCallback(
+    (event: RowRemovingEventWithPromise) => {
+      event.promise = (async () => {
+        try {
+          const customerId = Number(event.key)
+          if (!Number.isFinite(customerId) || customerId <= 0) {
+            throw new Error("Invalid customer id")
+          }
+
+          await deleteCustomerExt(customerId)
+          notify(t("DELETE_SUCCESS", "Deleted successfully"), "success", 3000)
+          await loadData()
+        } catch (error) {
+          console.error("Delete customer error", error)
+          notify(t("Delete failed", "Delete failed"), "error", 3000)
+        }
+      })()
+    },
+    [loadData, t],
+  )
+
+  const handleToolbarDelete = useCallback(async () => {
+    const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
+    const customerIds = selectedKeys
+      .map((key) => Number(key))
+      .filter((value) => Number.isFinite(value) && value > 0)
+
+    if (!customerIds.length) {
+      notify(t("No rows selected", "No rows selected"), "warning", 2000)
+      return
+    }
+
+    const confirmText = t(
+      "MSG_CONFIRM_DELETE_RECORD",
+      "Are you sure you want to delete {0} record?",
+    ).replace("{0}", String(customerIds.length))
+
+    const isConfirmed = await confirm(confirmText, t("MSG_CONFIRM_DELETE", "Confirm delete"))
+    if (!isConfirmed) {
+      return
+    }
+
+    try {
+      await deleteCustomerExts({ CustomerIds: customerIds })
+      notify(t("DELETE_SUCCESS", "Deleted successfully"), "success", 3000)
+      await loadData()
+    } catch (error) {
+      console.error("Bulk delete customer error", error)
+      notify(t("Delete failed", "Delete failed"), "error", 3000)
+    }
+  }, [loadData, t])
+
+  const handleExportExcel = useCallback(async () => {
+    try {
+      const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
+      const selectedCustomerId = selectedKeys.length > 0 ? Number(selectedKeys[0]) : undefined
+      const customerId =
+        typeof selectedCustomerId === "number" && Number.isFinite(selectedCustomerId) && selectedCustomerId > 0
+          ? selectedCustomerId
+          : undefined
+
+      const blob = await exportCustomerExtExcel(customerId, lang)
+      downloadBlobFile(blob, `Customer_${new Date().toISOString().replace(/[:.-]/g, "")}.xlsx`)
+    } catch (error) {
+      console.error("Export customer error", error)
+      notify(t("Export failed", "Export failed"), "error", 3000)
+    }
+  }, [lang, t])
+
+  const handleExportPdf = useCallback(() => {
+    const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
+    const selectedCustomerId = selectedKeys.length > 0 ? Number(selectedKeys[0]) : undefined
+    const customerId =
+      typeof selectedCustomerId === "number" && Number.isFinite(selectedCustomerId) && selectedCustomerId > 0
+        ? selectedCustomerId
+        : undefined
+
+    const companyCd = getCurrentCompanyCd()
+    const params = new URLSearchParams()
+
+    if (companyCd) {
+      params.set("companyCd", companyCd)
+    }
+
+    if (customerId) {
+      params.set("customerId", String(customerId))
+    }
+
+    params.set("reportCode", "CUSTOMER_INFO")
+
+    const targetUrl = `${window.location.origin}/report-viewer${params.toString() ? `?${params.toString()}` : ""}`
+    const viewerWindow = window.open(targetUrl, "_blank", "noopener,noreferrer")
+
+    if (!viewerWindow) {
+      notify(t("Unable to open report viewer", "Unable to open report viewer"), "error", 3000)
+    }
+  }, [t])
+
+  const handleImport = useCallback(
+    async (rows: Array<Record<string, unknown>>, method: "add" | "update" | "overwrite", file?: File) => {
+      try {
+        if (file) {
+          await importCustomerExtExcel(file, lang)
+        } else if (method === "update") {
+          for (const row of rows) {
+            const customerId = typeof row.CUSTOMER_ID === "number" ? row.CUSTOMER_ID : Number(row.CUSTOMER_ID)
+            if (!Number.isFinite(customerId) || customerId <= 0) {
+              continue
+            }
+
+            const importedRow = normalizeCustomerExtRows([row as CustomerExtApi])[0]
+            const payload = mapCustomerExtToApiPayload({
+              ...createDefaultCustomerExt(getCurrentCompanyCd(), getCurrentUserId()),
+              ...importedRow,
+              CUSTOMER_ID: customerId,
+              COMPANY_CD: getCurrentCompanyCd(),
+            })
+
+            await updateCustomerExt(payload)
+          }
+        } else {
+          for (const row of rows) {
+            const payload = buildCreatePayload(row as Partial<CustomerExt>)
+            await createCustomerExt(payload)
+          }
+        }
+
+        await loadData()
+      } catch (error) {
+        console.error("Import customer error", error)
+        notify(t("Import failed", "Import failed"), "error", 5000)
+      }
+    },
+    [buildCreatePayload, lang, loadData, t],
+  )
+
+  const onRowDblClick = useCallback(
+    (event: RowDblClickEvent<CustomerExt, TKey>) => {
+      if (isLookup) {
+        if (event.data) {
+          onPickCustomer?.(event.data)
+          onCloseLookup?.()
+        }
+        return
+      }
+
+      if (!gridRef.current) {
+        return
+      }
+
+      setIsUpdate(true)
+
+      const rowIndex =
+        typeof (event as { rowIndex?: number }).rowIndex === "number"
+          ? (event as { rowIndex?: number }).rowIndex
+          : gridRef.current.getRowIndexByKey(event.key as TKey)
+
+      if (rowIndex !== undefined && rowIndex !== -1) {
+        gridRef.current.editRow(rowIndex)
+      }
+    },
+    [isLookup, onCloseLookup, onPickCustomer],
+  )
+
+  return (
+    <>
+      {!hideToolbar && !isLookup && (
+        <GridToolbar
+          gridRef={gridRef}
+          onRefresh={loadData}
+          onDelete={handleToolbarDelete}
+          onSearch={() => setSearchVisible((prev) => !prev)}
+          onImport={() => setIsExcelModalOpen(true)}
+          onExportPdf={handleExportPdf}
+          onExportXlsx={handleExportExcel}
+        />
+      )}
+
+      {!isLookup && (
+        <ExcelImportModal
+          isOpen={isExcelModalOpen}
+          onClose={() => setIsExcelModalOpen(false)}
+          onImport={handleImport}
+          existingData={gridData}
+          config={customerImportConfig}
+          serverImport={true}
+          hideUpdateOverwrite={true}
+        />
+      )}
+
+      <div className="data-grid-container">
+        <BaseDataGrid<CustomerExt>
+          dataSource={gridData}
+          keyExpr="CUSTOMER_ID"
+          copyExcludeFields={Array.from(excludedFields)}
+          actionButtons={!isLookup}
+          actionButtonsPosition="start"
+          filterRowVisible={isLookup || searchVisible}
+          searchPanelVisible={isLookup || searchVisible}
+          filterPanelVisible={!isLookup && searchVisible}
+          onRowDblClick={onRowDblClick}
+          onEditingStart={!isLookup ? () => setIsUpdate(true) : undefined}
+          onInitialized={(event) => {
+            gridRef.current = event.component ?? null
+          }}
+          onRowInserting={!isLookup ? onRowInserting : undefined}
+          onRowUpdating={!isLookup ? onRowUpdating : undefined}
+          onRowRemoving={!isLookup ? onRowRemoving : undefined}
+          onInitNewRow={
+            !isLookup
+              ? (event) => {
+                  setIsUpdate(false)
+                  event.data = {
+                    ...createDefaultCustomerExt(getCurrentCompanyCd(), getCurrentUserId()),
+                    ...(event.data ?? {}),
+                  }
+                }
+              : undefined
+          }
+        >
+          {!isLookup && (
+            <Editing
+              mode="popup"
+              allowUpdating={true}
+              allowAdding={true}
+              allowDeleting={true}
+              confirmDelete={true}
+              startEditAction="dblClick"
+            >
+              <Popup
+                key={lang}
+                title={popupTitle}
+                showTitle={true}
+                width="90%"
+                maxWidth={1100}
+                deferRendering={true}
+              />
+              <CustomerExtForm isUpdate={isUpdate} customerTypeCodes={customerTypeCodes} />
+            </Editing>
+          )}
+
+          <CustomerColumns customerTypeCodes={customerTypeCodes} />
+        </BaseDataGrid>
+
+        <LoadPanel
+          shadingColor="rgba(0, 0, 0, 0.4)"
+          visible={loading}
+          showIndicator={true}
+          shading={true}
+          showPane={true}
+        />
+      </div>
+    </>
+  )
+}

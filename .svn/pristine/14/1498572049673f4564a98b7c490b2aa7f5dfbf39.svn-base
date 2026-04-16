@@ -1,0 +1,91 @@
+import type {
+  CompanySignatureInfo,
+  CompanySignatureInfoApi,
+} from "@/types/companySignatureInfo"
+
+const normalizeText = (value: unknown): string => {
+  if (value === null || value === undefined) {
+    return ""
+  }
+
+  return String(value).trim()
+}
+
+const normalizeNumber = (value: unknown): number => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+const normalizeFlag = (value: unknown, defaultValue = false): boolean => {
+  if (value === null || value === undefined || value === "") {
+    return defaultValue
+  }
+
+  if (typeof value === "boolean") {
+    return value
+  }
+
+  const normalized = String(value).trim().toLowerCase()
+  return normalized === "1" || normalized === "true" || normalized === "y"
+}
+
+export const createDefaultCompanySignatureInfo = (companyCd: string): CompanySignatureInfo => ({
+  ID: null,
+  COMPANY_CD: companyCd,
+  SIGN_CODE: "",
+  DISPLAY_LABEL: "",
+  SIGN_NAME: "",
+  SIGN_TITLE: "",
+  SIGN_IMAGE_URL: "",
+  SORT_ORDER: 0,
+  IS_ACTIVE: true,
+  ISDEL: false,
+  CREATE_BY: "",
+  CREATE_AT: "",
+  UPDATE_BY: "",
+  UPDATE_AT: "",
+})
+
+export const normalizeCompanySignatureRows = (
+  rows: CompanySignatureInfoApi[],
+): CompanySignatureInfo[] =>
+  rows.map((row) => ({
+    ID:
+      typeof row.ID === "number" && Number.isFinite(row.ID)
+        ? row.ID
+        : row.ID !== null && row.ID !== undefined && Number.isFinite(Number(row.ID))
+          ? Number(row.ID)
+          : null,
+    COMPANY_CD: normalizeText(row.COMPANY_CD),
+    SIGN_CODE: normalizeText(row.SIGN_CODE),
+    DISPLAY_LABEL: normalizeText(row.DISPLAY_LABEL),
+    SIGN_NAME: normalizeText(row.SIGN_NAME),
+    SIGN_TITLE: normalizeText(row.SIGN_TITLE),
+    SIGN_IMAGE_URL: normalizeText(row.SIGN_IMAGE_URL),
+    SORT_ORDER: normalizeNumber(row.SORT_ORDER),
+    IS_ACTIVE: normalizeFlag(row.IS_ACTIVE, true),
+    ISDEL: normalizeFlag(row.ISDEL, false),
+    CREATE_BY: normalizeText(row.CREATE_BY),
+    CREATE_AT: normalizeText(row.CREATE_AT),
+    UPDATE_BY: normalizeText(row.UPDATE_BY),
+    UPDATE_AT: normalizeText(row.UPDATE_AT),
+  }))
+
+export const mapCompanySignatureToApiPayload = (
+  row: CompanySignatureInfo,
+): Partial<CompanySignatureInfoApi> => ({
+  ID: row.ID,
+  COMPANY_CD: normalizeText(row.COMPANY_CD),
+  SIGN_CODE: normalizeText(row.SIGN_CODE),
+  DISPLAY_LABEL: normalizeText(row.DISPLAY_LABEL) || null,
+  SIGN_NAME: normalizeText(row.SIGN_NAME),
+  SIGN_TITLE: normalizeText(row.SIGN_TITLE) || null,
+  SIGN_IMAGE_URL: normalizeText(row.SIGN_IMAGE_URL) || null,
+  SORT_ORDER: normalizeNumber(row.SORT_ORDER),
+  IS_ACTIVE: row.IS_ACTIVE ? "1" : "0",
+  ISDEL: row.ISDEL ? "1" : "0",
+})

@@ -1,0 +1,36 @@
+import React, { useContext } from "react";
+import { Column } from "devextreme-react/data-grid";
+import { LanguageContext } from '@/lib/i18nLoader';
+
+export const ProductColumns: React.FC = () => {
+  const { translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string };
+
+  return (
+    <>
+      <Column 
+        type="buttons"
+        width={100}
+      />
+      <Column dataField="PRODUCT_CD" caption={translate('PRODUCT_CD', 'Product Code')} />
+      <Column dataField="PRODUCT_NM" caption={translate('PRODUCT_NM', 'Product Name')} />
+      <Column dataField="PRODUCT_NM_ENG" caption={translate('PRODUCT_NM_ENG', 'Name (ENG)')} />
+      <Column dataField="PRODUCT_NM_KOR" caption={translate('PRODUCT_NM_KOR', 'Name (KOR)')} />
+      <Column dataField="PRODUCT_KIND_ID" caption={translate('PRODUCT_KIND_ID', 'Kind')} visible={false} />
+      <Column dataField="PRODUCTKIND_NM" caption={translate('PRODUCTKIND_NM', 'Kind Name')} />
+      <Column dataField="UNIT_ID" caption={translate('UNIT_ID', 'Unit')} visible={false} />
+      <Column dataField="UNIT_NM" caption={translate('UNIT_NM', 'Unit Name')} />
+      <Column dataField="STORE_ID" caption={translate('STORE_ID', 'Store Code')} visible={false} />
+      <Column dataField="STORE_NM_VIET" caption={translate('STORE_NM_VIET', 'Store Name')} />
+      <Column dataField="DIVISION" caption={translate('DIVISION_CD', 'Account Code')} />
+      <Column dataField="DIVISION_C99" caption={translate('DIVISION_C99', 'Account Code C99')} />
+      <Column dataField="UNIT_PRICE_CC" caption={translate('UNIT_PRICE', 'Unit Price')} />
+      <Column dataField="UNIT_PRICE_FC" caption={translate('UNIT_PRICE_FC', 'Unit Price (FC)')} />
+      <Column dataField="FC_TYPE" caption={translate('FC_TYPE', 'FC Type')} />
+      <Column dataField="EX_RATE" caption={translate('EX_RATE', 'Exchange Rate')} />
+      <Column dataField="VAT_RATE" caption={translate('VAT_RATE', 'VAT Rate')} />
+      <Column dataField="SUMMARY" caption={translate('SUMMARY', 'Summary')} />
+      <Column dataField="ORIGIN" caption={translate('ORIGIN', 'Origin')} />
+      <Column dataField="CUSTOMS_CODE" caption={translate('CUSTOMS_CODE', 'Customs Code')} />
+    </>
+  );
+};

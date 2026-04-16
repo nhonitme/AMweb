@@ -1,0 +1,182 @@
+import type { AxiosResponse } from "axios"
+
+import axios from "./axiosClient"
+import API_BASE_URL from "../config/apiConfig"
+import type { ChitApi, ChitLedger, ChitType } from "@/types/voucher"
+
+type ApiEnvelope<T> = {
+  Data?: T
+  Message?: string
+  Success?: boolean
+  data?: T
+  message?: string
+  success?: boolean
+}
+
+type GetChitsParams = {
+  fromYmd?: string | null
+  toYmd?: string | null
+  chitType?: ChitType | null
+  chitId?: number | null
+  INCLUDE_DETAILS?: boolean
+}
+
+type ExportChitsParams = GetChitsParams & {
+  chitId?: number | null
+}
+
+function unwrapPayload<T>(response: AxiosResponse<ApiEnvelope<T> | T>): ApiEnvelope<T> | T {
+  return response.data
+}
+
+function normalizeResponse<T>(
+  response: AxiosResponse<ApiEnvelope<T> | T>,
+): { data: T; message?: string; success?: boolean } {
+  const payload = unwrapPayload(response)
+  const envelope = (payload as ApiEnvelope<T>).Data ?? (payload as ApiEnvelope<T>).data
+
+  return {
+    data: (envelope ?? payload) as T,
+    message: (payload as ApiEnvelope<T>).Message ?? (payload as ApiEnvelope<T>).message ?? "",
+    success: (payload as ApiEnvelope<T>).Success ?? (payload as ApiEnvelope<T>).success ?? true,
+  }
+}
+
+function getBaseUrl(ledger: ChitLedger, chitType?: ChitType): string {
+  if (ledger === "AP") {
+    if (chitType === "PURCHASE_VOUCHER") {
+      return `${API_BASE_URL}/PurchaseVoucherAp`
+    }
+  }
+
+  return `${API_BASE_URL}/${ledger === "AP" ? "ChitNoteAp" : "ChitNoteAr"}`
+}
+
+export async function getChits(
+  ledger: ChitLedger,
+  chitType?: ChitType,
+  filters: GetChitsParams = {},
+): Promise<{ data: ChitApi[] }> {
+  const params: Record<string, boolean | string | number> = {}
+
+  params.CHIT_TYPE = chitType ?? ""
+  
+  if (filters.chitId && filters.chitId > 0) {
+    params.CHIT_ID = filters.chitId ?? 0
+  }
+
+  if (filters.fromYmd) {
+    params.FROM_YMD = filters.fromYmd
+  }
+
+  if (filters.toYmd) {
+    params.TO_YMD = filters.toYmd
+  }
+
+  if (filters.chitId) {
+    params.CHIT_ID = filters.chitId
+  }
+
+  if (filters.INCLUDE_DETAILS) {
+    params.INCLUDE_DETAILS = filters.INCLUDE_DETAILS
+  }
+
+  const response = await axios.get<ApiEnvelope<ChitApi[]>>(`${getBaseUrl(ledger, chitType)}/Get`, {
+    params: Object.keys(params).length > 0 ? params : undefined,
+  })
+  const { data } = normalizeResponse<ChitApi[]>(response)
+
+  return { data: Array.isArray(data) ? data : [] }
+}
+
+export async function exportChitExcel(
+  ledger: ChitLedger,
+  chitType?: ChitType,
+  filters: ExportChitsParams = {},
+): Promise<Blob> {
+  const params: Record<string, string | number> = {}
+
+  if (filters.chitId && filters.chitId > 0) {
+    params.CHIT_ID = filters.chitId
+  }
+
+  if (filters.fromYmd) {
+    params.FROM_YMD = filters.fromYmd
+  }
+
+  if (filters.toYmd) {
+    params.TO_YMD = filters.toYmd
+  }
+
+  const response = await axios.get(`${getBaseUrl(ledger, chitType)}/ExportExcel`, {
+    params: Object.keys(params).length > 0 ? params : undefined,
+    responseType: "blob",
+  })
+
+  return response.data
+}
+
+export async function importChitExcel(
+  ledger: ChitLedger,
+  chitType: ChitType,
+  file: File,
+): Promise<unknown> {
+  const formData = new FormData()
+  formData.append("file", file)
+
+  const response = await axios.post(`${getBaseUrl(ledger, chitType)}/ImportExcel`, formData)
+  return response.data
+}
+
+export async function getChitById(
+  ledger: ChitLedger,
+  chitId: number,
+  chitType?: ChitType,
+): Promise<ChitApi | null> {
+  const response = await axios.get<ApiEnvelope<ChitApi[]>>(`${getBaseUrl(ledger, chitType)}/Get`, {
+    params: {
+      CHIT_TYPE: chitType,
+      CHIT_ID: chitId,
+      INCLUDE_DETAILS: true,
+    },
+  })
+  const { data } = normalizeResponse<ChitApi[]>(response)
+  const rows = Array.isArray(data) ? data : []
+
+  return rows.length > 0 ? rows[0] : null
+}
+
+export async function createChit(
+  ledger: ChitLedger,
+  payload: Partial<ChitApi>,
+  chitType?: ChitType,
+): Promise<{ data: ChitApi; message?: string }> {
+  const response = await axios.post<ApiEnvelope<ChitApi> | ChitApi>(`${getBaseUrl(ledger, chitType)}/Create`, payload)
+  const { data, message } = normalizeResponse<ChitApi>(response)
+
+  return { data, message }
+}
+
+export async function updateChit(
+  ledger: ChitLedger,
+  payload: Partial<ChitApi>,
+  chitType?: ChitType,
+): Promise<{ data: ChitApi; message?: string }> {
+  const response = await axios.put<ApiEnvelope<ChitApi> | ChitApi>(`${getBaseUrl(ledger, chitType)}/Update`, payload)
+  const { data, message } = normalizeResponse<ChitApi>(response)
+
+  return { data, message }
+}
+
+export async function deleteChit(
+  ledger: ChitLedger,
+  chitId: number,
+  chitType?: ChitType,
+): Promise<{ success: boolean; message?: string }> {
+  const response = await axios.delete<ApiEnvelope<number>>(`${getBaseUrl(ledger, chitType)}/Delete`, {
+    params: { CHIT_ID: chitId },
+  })
+  const { success, message } = normalizeResponse<number>(response)
+
+  return { success: success ?? true, message }
+}

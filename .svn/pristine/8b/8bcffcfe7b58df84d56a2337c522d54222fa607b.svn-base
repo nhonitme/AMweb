@@ -1,0 +1,56 @@
+import React from "react";
+import Popup from "devextreme-react/popup";
+import Button from "devextreme-react/button";
+
+export type ConfirmDialogProps = {
+  visible: boolean;
+  title?: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+};
+
+export function ConfirmDialog({
+  visible,
+  title = "Confirm",
+  message,
+  confirmText = "Yes",
+  cancelText = "No",
+  onConfirm,
+  onCancel,
+}: ConfirmDialogProps) {
+  return (
+    <Popup
+      visible={visible}
+      onHiding={onCancel}
+      showTitle={true}
+      title={title}
+      dragEnabled={false}
+      hideOnOutsideClick={false}
+      width={400}
+      // allow content to dictate height, but cap so long messages scroll
+      height={"auto" as any}
+    >
+      <div className="p-4 border border-gray-300 rounded-lg bg-white">
+        <div className="mb-4 text-center max-h-40 overflow-y-auto">
+          <p>{message}</p>
+        </div>
+        <div className="flex justify-end space-x-2">
+          <Button
+            stylingMode="contained"
+            type="danger"
+            text={confirmText}
+            onClick={onConfirm}
+          />
+          <Button
+            stylingMode="text"
+            text={cancelText}
+            onClick={onCancel}
+          />
+        </div>
+      </div>
+    </Popup>
+  );
+}

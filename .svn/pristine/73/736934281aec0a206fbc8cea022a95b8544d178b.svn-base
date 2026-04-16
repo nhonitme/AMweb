@@ -1,0 +1,269 @@
+import { useCallback, useMemo, useRef, useState } from "react"
+import DropDownBox, {
+  Button as DropDownBoxButton,
+  type DropDownBoxTypes,
+} from "devextreme-react/drop-down-box"
+import DataGrid, {
+  Column,
+  FilterRow,
+  Paging,
+  Scrolling,
+  Selection,
+} from "devextreme-react/data-grid"
+import Popup from "devextreme-react/popup"
+
+import AcclistManager from "@/pages/Module/AcclistManagement/AcclistManager"
+import type { AcclistInfo } from "@/types/acclist"
+
+type AccDataSource = DropDownBoxTypes.Properties["dataSource"]
+
+type Props = {
+  dataSource: AccDataSource
+  value: string | null | undefined
+  rowData: Record<string, unknown>
+  rowIndex: number
+  grid: any
+  setValue: (value: string | null) => void
+
+  ValueField?: string
+  NameField?: string
+  IdField?: string
+
+  LookupCodeField?: string
+  LookupNameField?: string
+
+  AccCdFieldCaption?: string
+  AccNmFieldCaption?: string
+  placeholder?: string
+  popupTitle?: string
+  buttonHint?: string
+}
+
+export default function AcclistLookupCellEditor({
+  dataSource,
+  value,
+  rowData,
+  rowIndex,
+  grid,
+  setValue,
+  ValueField = "DEBIT",
+  NameField = "DEBIT_NM_VIET",
+  IdField = "ACC_ID",
+  LookupCodeField = "ACC_CD",
+  LookupNameField = "ACCTITLE_NM_VIET",
+  AccCdFieldCaption = "Mã TK",
+  AccNmFieldCaption = "Tên TK",
+  placeholder = "Chọn tài khoản",
+  popupTitle = "Chọn tài khoản",
+  buttonHint = "Mở danh sách tài khoản",
+}: Props) {
+  const [opened, setOpened] = useState(false)
+  const [popupVisible, setPopupVisible] = useState(false)
+
+  const accCdFilterInputRef = useRef<HTMLInputElement | null>(null)
+  const shouldFocusAccCdFilterRef = useRef(false)
+
+  const selectedRowKeys = useMemo(
+    () => (typeof value === "string" && value.trim() ? [value] : []),
+    [value],
+  )
+
+  const getAccountCode = useCallback(
+    (item?: Partial<AcclistInfo> | null) => {
+      if (!item) return ""
+      return String(item[LookupCodeField as keyof AcclistInfo] ?? "").trim()
+    },
+    [LookupCodeField],
+  )
+
+  const getAccountName = useCallback(
+    (item?: Partial<AcclistInfo> | null) => {
+      if (!item) return ""
+      return String(item[LookupNameField as keyof AcclistInfo] ?? "").trim()
+    },
+    [LookupNameField],
+  )
+
+  const displayExpr = useCallback(
+    (item: AcclistInfo | null) => {
+      if (!item) return ""
+      const code = getAccountCode(item)
+      const name = getAccountName(item)
+      return code
+      // return [code, name].filter(Boolean).join(" - ")
+    },
+    [getAccountCode, getAccountName],
+  )
+
+  const setCellValue = useCallback(
+    (fieldName: string | undefined, fieldValue: unknown) => {
+      if (!fieldName) return
+      if (typeof rowIndex !== "number" || rowIndex < 0) return
+      grid?.cellValue?.(rowIndex, fieldName, fieldValue)
+    },
+    [grid, rowIndex],
+  )
+
+  const focusAccCdFilter = useCallback(() => {
+    const input = accCdFilterInputRef.current
+    if (!input) return
+
+    requestAnimationFrame(() => {
+      input.focus()
+      input.select?.()
+    })
+
+    shouldFocusAccCdFilterRef.current = false
+  }, [])
+
+  const queueFocusAccCdFilter = useCallback(() => {
+    shouldFocusAccCdFilterRef.current = true
+    setTimeout(() => {
+      focusAccCdFilter()
+    }, 0)
+  }, [focusAccCdFilter])
+
+  const applyAccount = useCallback(
+    (account: AcclistInfo) => {
+      const accId =
+        typeof account.ACC_ID === "number" && Number.isFinite(account.ACC_ID)
+          ? account.ACC_ID
+          : null
+
+      const accCd = getAccountCode(account)
+      const accNm = getAccountName(account)
+
+      setValue(accCd || null)
+      setCellValue(ValueField, accCd)
+      setCellValue(NameField, accNm)
+
+      if (IdField) {
+        setCellValue(IdField, accId)
+      }
+
+      setOpened(false)
+      setPopupVisible(false)
+    },
+    [IdField, NameField, ValueField, getAccountCode, getAccountName, setCellValue, setValue],
+  )
+
+  const clearAccount = useCallback(() => {
+    setValue(null)
+    setCellValue(ValueField, "")
+    setCellValue(NameField, "")
+    if (IdField) {
+      setCellValue(IdField, null)
+    }
+  }, [IdField, NameField, ValueField, setCellValue, setValue])
+
+  return (
+    <>
+      <DropDownBox
+        dataSource={dataSource}
+        value={value ?? null}
+        valueExpr={LookupCodeField}
+        displayExpr={displayExpr}
+        opened={opened}
+        deferRendering={false}
+        showClearButton={true}
+        placeholder={placeholder}
+        dropDownOptions={{ width: 920 }}
+        onOptionChanged={(e) => {
+          if (e.name === "opened") {
+            const isOpened = Boolean(e.value)
+            setOpened(isOpened)
+
+            if (isOpened) {
+              queueFocusAccCdFilter()
+            }
+          }
+        }}
+        onValueChanged={(e) => {
+          if (e.value == null) {
+            clearAccount()
+          }
+        }}
+        contentRender={() => (
+          <div style={{ height: 320 }}>
+            <DataGrid
+              dataSource={dataSource}
+              keyExpr={LookupCodeField}
+              selectedRowKeys={selectedRowKeys}
+              hoverStateEnabled={true}
+              focusedRowEnabled={true}
+              height="100%"
+              showBorders={true}
+              onContentReady={() => {
+                if (opened && shouldFocusAccCdFilterRef.current) {
+                  focusAccCdFilter()
+                }
+              }}
+              onEditorPrepared={(e: any) => {
+                if (e.parentType !== "filterRow") return
+                if (e.dataField !== LookupCodeField) return
+
+                const input = e.editorElement?.querySelector?.("input") as HTMLInputElement | null
+                accCdFilterInputRef.current = input
+
+                if (opened && shouldFocusAccCdFilterRef.current) {
+                  focusAccCdFilter()
+                }
+              }}
+              onSelectionChanged={(e) => {
+                const selected = e.selectedRowsData?.[0] as AcclistInfo | undefined
+                if (selected) {
+                  applyAccount(selected)
+                }
+              }}
+              onRowDblClick={(e) => {
+                if (e.data) {
+                  applyAccount(e.data as AcclistInfo)
+                }
+              }}
+            >
+              <Selection mode="single" />
+              <FilterRow visible={true} />
+              <Scrolling mode="virtual" />
+              <Paging enabled={true} pageSize={10} />
+
+              <Column dataField={LookupCodeField} caption={AccCdFieldCaption} width={130} />
+              <Column dataField={LookupNameField} caption={AccNmFieldCaption} />
+            </DataGrid>
+          </div>
+        )}
+      >
+        <DropDownBoxButton name="dropDown" location="after" />
+        <DropDownBoxButton
+          name="openCustomerPopup"
+          location="after"
+          options={{
+            icon: "search",
+            stylingMode: "text",
+            hint: buttonHint,
+            onClick: () => setPopupVisible(true),
+          }}
+        />
+      </DropDownBox>
+
+      {popupVisible && (
+        <Popup
+          visible={popupVisible}
+          title={popupTitle}
+          showTitle={true}
+          width="95vw"
+          height="90vh"
+          dragEnabled={false}
+          hideOnOutsideClick={false}
+          onHiding={() => setPopupVisible(false)}
+        >
+          <AcclistManager
+            mode="lookup"
+            hideToolbar={false}
+            onPickAcclist={applyAccount}
+            onCloseLookup={() => setPopupVisible(false)}
+          />
+        </Popup>
+      )}
+    </>
+  )
+}

@@ -1,0 +1,69 @@
+import { useContext } from 'react';
+import { ProductKind } from '@/types/productKind';
+import { Unit } from '@/types/unit';
+import { Form } from 'devextreme-react/data-grid';
+import { Item  } from 'devextreme-react/form';
+import { LanguageContext } from '@/lib/i18nLoader';
+import { StoreInfo } from '@/types/store';
+
+type ProductFormProps = {
+  productKinds: ProductKind[];
+  productUnits: Unit[];
+  stores: StoreInfo[];
+};
+
+export function ProductForm({productKinds, productUnits, stores}: ProductFormProps) {
+  const { translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string };
+
+  return (
+    <Form colCount={2}>
+      <Item dataField="PRODUCT_CD" ></Item>
+      <Item ></Item>
+      <Item dataField="PRODUCT_NM" colSpan={2} >
+      </Item>
+      <Item dataField="PRODUCT_NM_ENG" colSpan={2} />
+      <Item dataField="PRODUCT_NM_KOR" colSpan={2} />
+      <Item dataField="PRODUCT_KIND_ID"
+        editorType="dxSelectBox" 
+        label={{ text: translate('PRODUCTKIND_NM', 'Kind Name') }}
+        editorOptions={{
+          dataSource: productKinds ?? [],
+          valueExpr: "PRODUCT_KIND_ID",
+          displayExpr: "PRODUCTKIND_NM",
+          searchEnabled: true,
+          showClearButton: true,
+          placeholder: translate('SELECT', 'Select'),
+        }}
+      >
+      </Item>
+      <Item dataField="UNIT_ID"
+        editorType="dxSelectBox"
+        label={{ text: translate('UNIT_NM', 'Unit Name') }}
+        editorOptions={{
+          dataSource: productUnits ?? [],
+          valueExpr: "UNIT_ID",
+          displayExpr: "UNIT_NM",
+          searchEnabled: true,
+          showClearButton: true,
+          placeholder: translate('SELECT', 'Select'),
+        }}
+      >
+      </Item>
+      <Item dataField="STORE_ID"
+        editorType="dxSelectBox"
+        label={{ text: translate('STORE_NM_VIET', 'Store Name') }}
+        editorOptions={{
+          dataSource: stores ?? [],
+          valueExpr: "STORE_ID",
+          displayExpr: "STORE_NM_VIET",
+          searchEnabled: true,
+          showClearButton: true,
+          placeholder: translate('SELECT', 'Select'),
+        }}
+      >
+      </Item>
+      <Item dataField="DIVISION" />
+      <Item dataField="SUMMARY" />
+    </Form>
+  );
+}

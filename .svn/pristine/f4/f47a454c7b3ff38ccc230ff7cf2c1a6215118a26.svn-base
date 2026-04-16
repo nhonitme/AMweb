@@ -1,0 +1,152 @@
+import { useContext, useMemo } from "react"
+import { Form as DxForm } from "devextreme-react/data-grid"
+import { GroupItem, Item } from "devextreme-react/form"
+
+import { LanguageContext } from "@/lib/i18nLoader"
+import type { DepartmentLookupItem } from "@/types/departmentInfo"
+import { departmentFieldGroups } from "./Columns/DepartmentFields"
+
+interface DepartmentInfoFormProps {
+  isUpdate: boolean
+  parentOptions: DepartmentLookupItem[]
+}
+
+type DepartmentEditorType = "dxTextBox" | "dxSelectBox" | "dxCheckBox" | "dxNumberBox" | "dxTextArea"
+
+type FormItemConfig = {
+  dataField: string
+  label: string
+  editorType?: DepartmentEditorType
+  editorOptions?: Record<string, unknown>
+  colSpan?: number
+}
+
+const createTextBoxOptions = (options: Record<string, unknown> = {}): Record<string, unknown> => ({
+  stylingMode: "outlined",
+  ...options,
+})
+
+const createTextAreaOptions = (options: Record<string, unknown> = {}): Record<string, unknown> => ({
+  autoResizeEnabled: true,
+  minHeight: 96,
+  stylingMode: "outlined",
+  ...options,
+})
+
+const createNumberBoxOptions = (options: Record<string, unknown> = {}): Record<string, unknown> => ({
+  showSpinButtons: true,
+  stylingMode: "outlined",
+  ...options,
+})
+
+const createSelectBoxOptions = (
+  dataSource: DepartmentLookupItem[],
+  options: Record<string, unknown> = {},
+): Record<string, unknown> => ({
+  dataSource,
+  displayExpr: "TEXT",
+  searchEnabled: true,
+  searchMode: "contains",
+  showClearButton: true,
+  stylingMode: "outlined",
+  valueExpr: "VALUE",
+  ...options,
+})
+
+const getEditorConfig = (fieldKey: string): { editorType: DepartmentEditorType; editorOptions?: Record<string, unknown> } => {
+  switch (fieldKey) {
+    case "PARENT_CD":
+      return { editorType: "dxSelectBox" }
+    case "ISPRODUCT":
+      return { editorType: "dxCheckBox" }
+    case "DEP_ORDER":
+      return { editorType: "dxNumberBox" }
+    case "REMARK":
+      return { editorType: "dxTextArea" }
+    default:
+      return { editorType: "dxTextBox" }
+  }
+}
+
+export default function DepartmentInfoForm({ isUpdate, parentOptions }: DepartmentInfoFormProps) {
+  const { translate } = useContext(LanguageContext) as {
+    translate: (key: string, fallback?: string) => string
+  }
+
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+
+  const groups = useMemo(() => {
+    const createItem = (fieldKey: string): FormItemConfig => {
+      const caption = t(fieldKey, fieldKey)
+      const { editorType } = getEditorConfig(fieldKey)
+      let editorOptions: Record<string, unknown> | undefined
+
+      if (fieldKey === "PARENT_CD") {
+        editorOptions = createSelectBoxOptions(parentOptions, { placeholder: caption })
+      } else if (fieldKey === "ISPRODUCT") {
+        editorOptions = undefined
+      } else if (fieldKey === "DEP_ORDER") {
+        editorOptions = createNumberBoxOptions({ placeholder: caption })
+      } else if (fieldKey === "REMARK") {
+        editorOptions = createTextAreaOptions({ placeholder: caption })
+      } else {
+        editorOptions = createTextBoxOptions({
+          readOnly: fieldKey === "DEPARTMENT_CD" ? isUpdate : false,
+          placeholder: caption,
+        })
+      }
+
+      return {
+        dataField: fieldKey,
+        label: caption,
+        editorType,
+        editorOptions,
+      }
+    }
+
+    const basicItems = departmentFieldGroups.basic.map((fieldKey) => createItem(fieldKey))
+    const namesItems = departmentFieldGroups.names.map((fieldKey) => {
+      const item = createItem(fieldKey)
+      if (fieldKey === "REMARK") {
+        item.colSpan = 2
+      }
+      return item
+    })
+
+    return [
+      {
+        key: "basic",
+        caption: t("BASE_INFO", "Basic Information"),
+        colCount: 2,
+        items: basicItems,
+      },
+      {
+        key: "names",
+        caption: t("DEPARTMENT_NAME_INFO", "Department Names"),
+        colCount: 2,
+        items: namesItems,
+      },
+    ]
+  }, [isUpdate, parentOptions, t])
+
+  return (
+    <div className="department-info-form">
+      <DxForm colCount={1} labelLocation="top" width="100%">
+        {groups.map((group) => (
+          <GroupItem key={group.key} caption={group.caption} colCount={group.colCount ?? 2}>
+            {group.items.map((item) => (
+              <Item
+                key={item.dataField}
+                dataField={item.dataField}
+                label={{ text: item.label }}
+                editorType={item.editorType}
+                editorOptions={item.editorOptions}
+                colSpan={item.colSpan}
+              />
+            ))}
+          </GroupItem>
+        ))}
+      </DxForm>
+    </div>
+  )
+}

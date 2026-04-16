@@ -1,0 +1,50 @@
+import { Form } from 'devextreme-react/tree-list';
+import { Item  } from 'devextreme-react/form';
+import { useContext } from 'react';
+import { LanguageContext } from '@/lib/i18nLoader';
+
+type AcclistFormProps = {
+  isUpdate: boolean;
+  lblChoose: string;
+  lblAccType: string;
+  data: { VALUE: number; TEXT: string }[];
+};
+
+export function AcclistForm({ isUpdate, lblChoose, lblAccType, data }: AcclistFormProps) {
+  const { translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string };
+  return (
+    <Form colCount={2}>
+      <Item dataField="ACC_CD"
+        editorOptions={{           
+          validationMessageMode: "always",
+          readOnly: isUpdate
+        }}  
+      >
+      </Item>
+      
+      {<Item dataField="ISABLETYPE"
+        editorType="dxSelectBox" 
+        label={{ text: lblAccType }}
+        editorOptions={{
+          dataSource: data,
+          valueExpr: "VALUE",
+          displayExpr: "TEXT",
+          searchEnabled: true,
+          placeholder: lblChoose,
+          showClearButton: true,
+          validationMessageMode: "always"
+        }}
+      >
+        
+      </Item>}
+
+      <Item dataField="ACCTITLE_NM_VIET" colSpan={2}
+        editorOptions={{ validationMessageMode: "always" }}
+      >
+      </Item>
+      <Item dataField="ACCTITLE_NM_ENG" colSpan={2} />
+      <Item dataField="ACCTITLE_NM_KOR" colSpan={2} />
+      <Item dataField="ACCTITLE_NM_CHINA" colSpan={2} />
+    </Form>
+  );
+}

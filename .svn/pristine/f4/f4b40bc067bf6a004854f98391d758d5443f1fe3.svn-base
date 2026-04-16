@@ -1,0 +1,23 @@
+import React, { useContext } from "react";
+import { Column } from "devextreme-react/tree-list";
+import { LanguageContext } from '@/lib/i18nLoader';
+
+export const AcclistColumns: React.FC = () => {
+  const { translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string };
+  return (
+    <>
+      {/* <Column 
+        type="buttons"
+        width={100}
+        showInColumnChooser={false}
+        //caption={translate('btnSelect4', 'Choose')}
+      /> */}
+      {<Column dataField="ACC_CD" caption={translate('ACC_CD', 'Account Code')} />}
+      {<Column dataField="ACC_ID" caption={translate('ACC_ID', 'Account ID')} visible={false}  showInColumnChooser={false} />}
+      {<Column dataField="ACCTITLE_NM_VIET" caption={translate('ACCTITLE_NM_VIET', 'Acc name viet')} />}
+      {<Column dataField="ACCTITLE_NM_ENG" caption={translate('ACCTITLE_NM_ENG', 'Acc name eng')} />}
+      {<Column dataField="ACCTITLE_NM_KOR" caption={translate('ACCTITLE_NM_KOR', 'Acc name kor')} />}
+      {<Column dataField="ACCTITLE_NM_CHINA" caption={translate('ACCTITLE_NM_CHINA', 'Acc name china')} />}
+    </>
+  );
+}

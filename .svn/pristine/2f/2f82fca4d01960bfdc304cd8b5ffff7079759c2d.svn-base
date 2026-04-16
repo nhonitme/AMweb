@@ -1,0 +1,178 @@
+import ExcelJS from "exceljs"
+import { saveAs } from "file-saver"
+
+import type {
+  ExchangeRevaluationHistoryItem,
+  ExchangeRevaluationPreviewItem,
+  ExchangeRevaluationSummary,
+} from "@/types/exchangeRevaluation"
+import { formatDateToYmd, formatYmdForDisplay } from "./chitNoteUtils"
+
+export const emptyExchangeRevaluationSummary: ExchangeRevaluationSummary = {
+  TOTAL_ROWS: 0,
+  FOUND_RATE_ROWS: 0,
+  MISSING_RATE_ROWS: 0,
+  TOTAL_OLD_AMOUNT: 0,
+  TOTAL_NEW_AMOUNT: 0,
+  TOTAL_EXCHANGE_DIFF: 0,
+  TOTAL_GAIN: 0,
+  TOTAL_LOSS: 0,
+}
+
+export const formatRateDateForApi = (value: Date | null): string | null => {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    return null
+  }
+
+  const year = value.getFullYear()
+  const month = `${value.getMonth() + 1}`.padStart(2, "0")
+  const day = `${value.getDate()}`.padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+export const formatRateDateForDisplay = (value: string | null | undefined): string => {
+  if (!value) {
+    return ""
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return ""
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed
+  }
+
+  const date = new Date(trimmed)
+  if (Number.isNaN(date.getTime())) {
+    return trimmed
+  }
+
+  return formatRateDateForApi(date) ?? trimmed
+}
+
+export const formatChitYmdForDisplay = (value: string | null | undefined): string =>
+  formatYmdForDisplay(value ?? null)
+
+export const formatCurrencyNumber = (value: number | null | undefined, fractionDigits = 2): string =>
+  new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(Number.isFinite(value ?? NaN) ? Number(value) : 0)
+
+export const formatSignedNumber = (value: number | null | undefined, fractionDigits = 2): string => {
+  const normalized = Number.isFinite(value ?? NaN) ? Number(value) : 0
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+    signDisplay: "exceptZero",
+  }).format(normalized)
+}
+
+export const getDiffTypeClassName = (value: string | null | undefined): string => {
+  switch ((value ?? "").toUpperCase()) {
+    case "GAIN":
+      return "inline-flex rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700"
+    case "LOSS":
+      return "inline-flex rounded-full bg-rose-100 px-2 py-1 text-xs font-semibold text-rose-700"
+    default:
+      return "inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700"
+  }
+}
+
+export const getRateStatusClassName = (value: string | null | undefined): string => {
+  return (value ?? "").toUpperCase() === "FOUND"
+    ? "inline-flex rounded-full bg-sky-100 px-2 py-1 text-xs font-semibold text-sky-700"
+    : "inline-flex rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700"
+}
+
+const buildTimestamp = (): string => new Date().toISOString().replace(/[:.-]/g, "")
+
+export async function exportExchangePreviewToExcel(rows: ExchangeRevaluationPreviewItem[]) {
+  const workbook = new ExcelJS.Workbook()
+  const sheet = workbook.addWorksheet("Preview")
+
+  sheet.columns = [
+    { header: "Module", key: "MODULE_CD", width: 12 },
+    { header: "Chit No", key: "CHIT_NO", width: 18 },
+    { header: "Chit Date", key: "CHIT_YMD", width: 14 },
+    { header: "Currency", key: "FC_TYPE", width: 12 },
+    { header: "FC Amount", key: "FC_AMOUNT", width: 18 },
+    { header: "Old Rate", key: "OLD_RATE", width: 16 },
+    { header: "New Rate", key: "NEW_RATE", width: 16 },
+    { header: "Old Amount", key: "OLD_AMOUNT", width: 18 },
+    { header: "New Amount", key: "NEW_AMOUNT", width: 18 },
+    { header: "Diff", key: "EXCHANGE_DIFF", width: 18 },
+    { header: "Diff Type", key: "DIFF_TYPE", width: 14 },
+    { header: "Rate Status", key: "RATE_STATUS", width: 14 },
+  ]
+
+  rows.forEach((row) => {
+    sheet.addRow({
+      MODULE_CD: row.MODULE_CD,
+      CHIT_NO: row.CHIT_NO ?? "",
+      CHIT_YMD: formatChitYmdForDisplay(row.CHIT_YMD),
+      FC_TYPE: row.FC_TYPE ?? "",
+      FC_AMOUNT: row.FC_AMOUNT ?? 0,
+      OLD_RATE: row.OLD_RATE ?? 0,
+      NEW_RATE: row.NEW_RATE ?? "",
+      OLD_AMOUNT: row.OLD_AMOUNT ?? 0,
+      NEW_AMOUNT: row.NEW_AMOUNT ?? "",
+      EXCHANGE_DIFF: row.EXCHANGE_DIFF ?? "",
+      DIFF_TYPE: row.DIFF_TYPE ?? "",
+      RATE_STATUS: row.RATE_STATUS ?? "",
+    })
+  })
+
+  const buffer = await workbook.xlsx.writeBuffer()
+  saveAs(new Blob([buffer]), `exchange_revaluation_preview_${buildTimestamp()}.xlsx`)
+}
+
+export async function exportExchangeHistoryToExcel(rows: ExchangeRevaluationHistoryItem[]) {
+  const workbook = new ExcelJS.Workbook()
+  const sheet = workbook.addWorksheet("History")
+
+  sheet.columns = [
+    { header: "Batch ID", key: "BATCH_ID", width: 14 },
+    { header: "Rate Date", key: "RATE_DATE", width: 14 },
+    { header: "Module", key: "MODULE_CD", width: 12 },
+    { header: "Chit No", key: "CHIT_NO", width: 18 },
+    { header: "Chit Date", key: "CHIT_YMD", width: 14 },
+    { header: "Currency", key: "FC_TYPE", width: 12 },
+    { header: "FC Amount", key: "FC_AMOUNT", width: 18 },
+    { header: "Old Rate", key: "OLD_RATE", width: 16 },
+    { header: "New Rate", key: "NEW_RATE", width: 16 },
+    { header: "Old Amount", key: "OLD_AMOUNT", width: 18 },
+    { header: "New Amount", key: "NEW_AMOUNT", width: 18 },
+    { header: "Diff", key: "EXCHANGE_DIFF", width: 18 },
+    { header: "Diff Type", key: "DIFF_TYPE", width: 14 },
+    { header: "Created By", key: "CREATED_BY", width: 16 },
+    { header: "Created At", key: "CREATED_AT", width: 22 },
+  ]
+
+  rows.forEach((row) => {
+    sheet.addRow({
+      BATCH_ID: row.BATCH_ID,
+      RATE_DATE: formatRateDateForDisplay(row.RATE_DATE),
+      MODULE_CD: row.MODULE_CD,
+      CHIT_NO: row.CHIT_NO ?? "",
+      CHIT_YMD: formatChitYmdForDisplay(row.CHIT_YMD),
+      FC_TYPE: row.FC_TYPE ?? "",
+      FC_AMOUNT: row.FC_AMOUNT ?? 0,
+      OLD_RATE: row.OLD_RATE ?? 0,
+      NEW_RATE: row.NEW_RATE ?? 0,
+      OLD_AMOUNT: row.OLD_AMOUNT ?? 0,
+      NEW_AMOUNT: row.NEW_AMOUNT ?? 0,
+      EXCHANGE_DIFF: row.EXCHANGE_DIFF ?? 0,
+      DIFF_TYPE: row.DIFF_TYPE ?? "",
+      CREATED_BY: row.CREATED_BY ?? "",
+      CREATED_AT: row.CREATED_AT ?? "",
+    })
+  })
+
+  const buffer = await workbook.xlsx.writeBuffer()
+  saveAs(new Blob([buffer]), `exchange_revaluation_history_${buildTimestamp()}.xlsx`)
+}
+
+export const buildChitYmdPayload = (value: Date | null): string | null => formatDateToYmd(value)

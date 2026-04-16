@@ -1,0 +1,190 @@
+const modifierTokens = new Set(["mod", "ctrl", "meta", "alt", "shift"])
+
+function normalizeToken(token: string) {
+  switch (token.trim().toLowerCase()) {
+    case "control":
+      return "ctrl"
+    case "command":
+    case "cmd":
+      return "meta"
+    case "esc":
+      return "escape"
+    default:
+      return token.trim().toLowerCase()
+  }
+}
+
+function normalizeKey(key: string) {
+  if (!key) {
+    return ""
+  }
+
+  switch (key.toLowerCase()) {
+    case "esc":
+      return "escape"
+    case "del":
+      return "delete"
+    case " ":
+    case "spacebar":
+      return "space"
+    default:
+      return key.toLowerCase()
+  }
+}
+
+export function formatShortcutCombo(combo: string) {
+  return combo
+    .split("+")
+    .map((part) => normalizeToken(part))
+    .map((part) => {
+      switch (part) {
+        case "mod":
+          return "Ctrl/Cmd"
+        case "ctrl":
+          return "Ctrl"
+        case "meta":
+          return "Cmd"
+        case "alt":
+          return "Alt"
+        case "shift":
+          return "Shift"
+        case "escape":
+          return "Esc"
+        case "delete":
+          return "Delete"
+        case "insert":
+          return "Insert"
+        case "space":
+          return "Space"
+        default:
+          return part.length === 1 ? part.toUpperCase() : part.toUpperCase()
+      }
+    })
+    .join("+")
+}
+
+export function isEditableShortcutTarget(target: EventTarget | null) {
+  const element = target instanceof HTMLElement ? target : null
+  if (!element) {
+    return false
+  }
+
+  if (element.isContentEditable) {
+    return true
+  }
+
+  const tagName = element.tagName.toLowerCase()
+  if (tagName === "input" || tagName === "textarea" || tagName === "select") {
+    return true
+  }
+
+  return Boolean(element.closest("input, textarea, select, [contenteditable='true'], .dx-texteditor-input"))
+}
+
+function getEditableShortcutElement(target: EventTarget | null) {
+  const directElement = target instanceof HTMLElement ? target : null
+  const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null
+  const element = directElement ?? activeElement
+
+  if (!element) {
+    return null
+  }
+
+  if (element.matches("input, textarea, select, [contenteditable='true'], .dx-texteditor-input")) {
+    return element
+  }
+
+  return element.closest("input, textarea, select, [contenteditable='true'], .dx-texteditor-input")
+}
+
+function waitForAnimationFrame() {
+  return new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve())
+  })
+}
+
+export async function flushActiveShortcutTarget(target: EventTarget | null) {
+  const element = getEditableShortcutElement(target)
+  if (!(element instanceof HTMLElement)) {
+    return
+  }
+
+  element.dispatchEvent(new Event("input", { bubbles: true, cancelable: true }))
+  element.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }))
+
+  if (typeof element.blur === "function") {
+    element.blur()
+  }
+
+  await waitForAnimationFrame()
+}
+
+export function matchesShortcutEvent(event: KeyboardEvent, combo: string) {
+  const tokens = combo.split("+").map(normalizeToken).filter(Boolean)
+  const keyToken = tokens.find((token) => !modifierTokens.has(token))
+
+  const expectsMod = tokens.includes("mod")
+  const expectsCtrl = expectsMod || tokens.includes("ctrl")
+  const expectsMeta = expectsMod || tokens.includes("meta")
+  const expectsAlt = tokens.includes("alt")
+  const expectsShift = tokens.includes("shift")
+
+  if (expectsCtrl !== event.ctrlKey && !expectsMod) {
+    return false
+  }
+
+  if (expectsMeta !== event.metaKey && !expectsMod) {
+    return false
+  }
+
+  if (expectsMod && !(event.ctrlKey || event.metaKey)) {
+    return false
+  }
+
+  if (expectsAlt !== event.altKey) {
+    return false
+  }
+
+  if (expectsShift !== event.shiftKey) {
+    return false
+  }
+
+  const actualKey = normalizeKey(event.key)
+  return keyToken ? actualKey === keyToken : false
+}
+
+function buildKeyboardEventKey(token: string) {
+  switch (token) {
+    case "escape":
+      return "Escape"
+    case "delete":
+      return "Delete"
+    case "insert":
+      return "Insert"
+    case "space":
+      return " "
+    default:
+      return token.length === 1 ? token : token.toUpperCase()
+  }
+}
+
+export function dispatchShortcutCombo(combo: string) {
+  const tokens = combo.split("+").map(normalizeToken).filter(Boolean)
+  const keyToken = tokens.find((token) => !modifierTokens.has(token))
+  if (!keyToken) {
+    return
+  }
+
+  const isMac = /mac|iphone|ipad|ipod/i.test(globalThis.navigator?.platform ?? "")
+  const event = new KeyboardEvent("keydown", {
+    altKey: tokens.includes("alt"),
+    bubbles: true,
+    cancelable: true,
+    ctrlKey: tokens.includes("ctrl") || (tokens.includes("mod") && !isMac),
+    key: buildKeyboardEventKey(keyToken),
+    metaKey: tokens.includes("meta") || (tokens.includes("mod") && isMac),
+    shiftKey: tokens.includes("shift"),
+  })
+
+  window.dispatchEvent(event)
+}

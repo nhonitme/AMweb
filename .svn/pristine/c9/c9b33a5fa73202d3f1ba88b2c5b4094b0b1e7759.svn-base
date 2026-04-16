@@ -1,0 +1,199 @@
+import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
+import { loadMessages, locale } from 'devextreme/localization';
+import { getCurrentLang, setCurrentLang } from '@/utils/language';
+import { getLanguage } from '@/api/LanguagesApi';
+import { isAuthenticated } from '@/lib/login';
+
+
+const labelsPromiseCache: Record<string, Promise<Record<string, string>>> = {};
+
+
+export const messages: Record<string, Record<string, string>> = {
+  vi: {
+    "dxDataGrid-editingSaveAllChanges": "Lưu",
+    "dxDataGrid-editingCancelAllChanges": "Hủy",
+    "dxDataGrid-editingSaveRowChanges": "Lưu",
+    "dxDataGrid-editingCancelRowChanges": "Hủy",
+    "dxPopup-ok": "Lưu",
+    "dxPopup-cancel": "Hủy",
+    "dxDataGrid-editingEditRow": "Sửa",
+    "dxDataGrid-editingDeleteRow": "Xóa",
+    "dxDataGrid-editingAddRow": "Thêm",
+    "dxDataGrid-confirmDeleteMessage": "Bạn có chắc muốn xóa không?",
+    "Yes": "Đồng ý",
+    "No": "Hủy",
+    "OK": "Đồng ý",
+    "Cancel": "Hủy"
+  },
+  en: {
+    "dxDataGrid-editingSaveAllChanges": "Save",
+    "dxDataGrid-editingCancelAllChanges": "Cancel",
+    "dxDataGrid-editingSaveRowChanges": "Save",
+    "dxDataGrid-editingCancelRowChanges": "Cancel",
+    "dxPopup-ok": "Save",
+    "dxPopup-cancel": "Cancel",
+    "dxDataGrid-editingEditRow": "Edit",
+    "dxDataGrid-editingDeleteRow": "Delete",
+    "dxDataGrid-editingAddRow": "Add",
+    "dxDataGrid-confirmDeleteMessage": "Are you sure you want to delete?",
+    "Yes": "Yes",
+    "No": "No",
+    "OK": "OK",
+    "Cancel": "Cancel"
+  },
+  zh: {
+    "dxDataGrid-editingSaveAllChanges": "保存",
+    "dxDataGrid-editingCancelAllChanges": "取消",
+    "dxDataGrid-editingSaveRowChanges": "保存",
+    "dxDataGrid-editingCancelRowChanges": "取消",
+    "dxPopup-ok": "保存",
+    "dxPopup-cancel": "取消",
+    "dxDataGrid-editingEditRow": "编辑",
+    "dxDataGrid-editingDeleteRow": "删除",
+    "dxDataGrid-editingAddRow": "新增",
+    "dxDataGrid-confirmDeleteMessage": "您确定要删除吗？",
+    "Yes": "是",
+    "No": "否",
+    "OK": "确定",
+    "Cancel": "取消"
+  },
+  ko: {
+    "dxDataGrid-editingSaveAllChanges": "저장",
+    "dxDataGrid-editingCancelAllChanges": "취소",
+    "dxDataGrid-editingSaveRowChanges": "저장",
+    "dxDataGrid-editingCancelRowChanges": "취소",
+    "dxPopup-ok": "저장",
+    "dxPopup-cancel": "취소",
+    "dxDataGrid-editingEditRow": "수정",
+    "dxDataGrid-editingDeleteRow": "삭제",
+    "dxDataGrid-editingAddRow": "추가",
+    "dxDataGrid-confirmDeleteMessage": "정말로 삭제하시겠습니까?",
+    "Yes": "예",
+    "No": "아니오",
+    "OK": "확인",
+    "Cancel": "취소"
+  },
+  ja: {
+    "dxDataGrid-editingSaveAllChanges": "保存",
+    "dxDataGrid-editingCancelAllChanges": "キャンセル",
+    "dxDataGrid-editingSaveRowChanges": "保存",
+    "dxDataGrid-editingCancelRowChanges": "キャンセル",
+    "dxPopup-ok": "保存",
+    "dxPopup-cancel": "キャンセル",
+    "dxDataGrid-editingEditRow": "編集",
+    "dxDataGrid-editingDeleteRow": "削除",
+    "dxDataGrid-editingAddRow": "追加",
+    "dxDataGrid-confirmDeleteMessage": "削除してもよろしいですか？",
+    "Yes": "はい",
+    "No": "いいえ",
+    "OK": "はい",
+    "Cancel": "キャンセル"
+  }
+};
+
+export function initMessagesDevex() {
+  try {
+    loadMessages(messages);
+     
+      locale(getCurrentLang());
+  } catch (err) {
+    // ignore cache errors
+  }
+}
+
+
+export const LanguageContext = createContext({} as {
+  lang: string;
+  setLang: (l: string) => void;
+  translate: (key: string, fallback?: string) => string;
+  labelsLoading: boolean;
+
+  refreshLabels: (lang?: string) => Promise<void>;
+});
+
+export const LanguageProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) => {
+  const [lang, setLangState] = useState<string>(() => getCurrentLang());
+  const [labels, setLabels] = useState<Record<string, string>>({});
+  const [labelsLoading, setLabelsLoading] = useState<boolean>(false);
+
+
+  useEffect(() => {
+    let mounted = true;
+
+    
+    if (!isAuthenticated()) {
+      setLabels({});
+      setLabelsLoading(false);
+      return () => {
+        mounted = false;
+      };
+    }
+
+    setLabelsLoading(true);
+    let p = labelsPromiseCache[lang];
+    if (!p) {
+      p = getLanguage(lang);
+      labelsPromiseCache[lang] = p;
+    }
+
+    p.then((data) => {
+      if (mounted) setLabels(data || {});
+    })
+      .catch(() => {
+        if (mounted) setLabels({});
+      })
+      .finally(() => {
+        if (mounted) setLabelsLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [lang]);
+
+  const setLang = useCallback((l: string) => {
+    setCurrentLang(l);
+    setLangState(l);
+    try {
+      loadMessages(messages);
+      locale(l);
+    } catch (err) {
+      // ignore
+    }
+  }, []);
+
+  const translate = useCallback((key: string, fallback?: string) => {
+
+  if (labels && key in labels) return labels[key];
+  return fallback ?? key;
+  }, [labels, lang]);
+
+  const refreshLabels = useCallback(async (forLang?: string) => {
+    if (!isAuthenticated()) {
+     
+      setLabels({});
+      return;
+    }
+
+    const l = forLang ?? lang;
+
+    delete labelsPromiseCache[l];
+    try {
+      const data = await getLanguage(l);
+      setLabels(data || {});
+    } catch (err) {
+      setLabels({});
+    }
+  }, [lang]);
+
+  useEffect(() => {
+    try {
+      loadMessages(messages);
+      locale(lang);
+    } catch (err) {}
+  }, [lang]);
+
+  const value = useMemo(() => ({ lang, setLang, translate, labelsLoading, refreshLabels }), [lang, setLang, translate, labelsLoading, refreshLabels]);
+
+  return React.createElement(LanguageContext.Provider, { value }, children);
+};

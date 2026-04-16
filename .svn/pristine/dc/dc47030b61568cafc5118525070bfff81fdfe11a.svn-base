@@ -1,0 +1,88 @@
+import axios from './axiosClient';
+import API_BASE_URL from '../config/apiConfig';
+import type { CustomerExt } from '@/types/customerExt';
+
+const BASE_URL = `${API_BASE_URL}/CustomerInfoCustomerExt`;
+
+
+
+// GET all (optionally filtered by customer_ext_cd)
+export async function getCustomerExts(
+  customerExtCode?: string
+): Promise<{ data: CustomerExt[]; labels: Record<string,string> }> {
+  try {
+    const resp = await axios.get(`${BASE_URL}/Get`, {
+      params: { COMPANY_CD: customerExtCode },
+    });
+
+    // log for debugging
+    console.debug("getCustomerExts response status", resp.status);
+    console.debug("getCustomerExts response data", resp.data);
+
+    if (resp.status !== 200) {
+      throw new Error(`Unexpected HTTP status ${resp.status}`);
+    }
+
+    // the controller may return several wrapper shapes. normalize to { data, labels }
+    const payload = resp.data;
+    if (!payload || typeof payload !== "object") {
+      throw new Error("Invalid response format from getCustomerExts");
+    }
+
+    // possible shapes:
+    // { data: [...], labels: {...} }
+    // { Data: { data: [...], labels: {...} } }
+    // { data: { data: [...], labels: {...} } }
+    const inner = payload.Data ?? payload.data ?? payload;
+
+    // If inner is the array itself, there are no labels
+    if (Array.isArray(inner)) {
+      return { data: inner as CustomerExt[], labels: {} };
+    }
+
+    const list = inner.data ?? inner;
+    const labels = inner.labels ?? {};
+
+    if (!Array.isArray(list)) {
+      throw new Error("Response did not contain an array of customer exts");
+    }
+
+    return { data: list as CustomerExt[], labels: labels as Record<string,string> };
+  } catch (err: any) {
+    console.error("Error in getCustomerExts:", err);
+    if (err.response) {
+      console.error("Response data:", err.response.data);
+      console.error("Response status:", err.response.status);
+    }
+    throw err; // rethrow so caller can handle
+  }
+}
+
+// POST create
+export async function createCustomerExt(
+  payload: Partial<CustomerExt>
+): Promise<any> {
+  const resp = await axios.post(`${BASE_URL}/Create`, payload);
+  return resp.data;
+}
+
+// PUT update
+export async function updateCustomerExt(
+  payload: Partial<CustomerExt>
+): Promise<any> {
+  console.debug('updateCustomerExt - sending payload to PUT', payload);
+  const resp = await axios.put(`${BASE_URL}/Update`, payload);
+  console.debug('updateCustomerExt - received response', resp.status, resp.data);
+  return resp.data;
+}
+
+// DELETE by CUSTOMER_CD
+export async function deleteCustomerExt(
+  customerCd: string
+): Promise<any> {
+  const companyCd = localStorage.getItem('lastCompanyCD') || localStorage.getItem('companyCd') || undefined;
+  const resp = await axios.delete(`${BASE_URL}/Delete`, {
+    params: { CUSTOMER_CD: customerCd, COMPANY_CD: companyCd },
+  });
+  return resp.data;
+}

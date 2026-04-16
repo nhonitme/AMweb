@@ -1,0 +1,59 @@
+import axios from "./axiosClient";
+import API_BASE_URL from "../config/apiConfig";
+
+const BASE_URL = `${API_BASE_URL}/System`;
+
+type ApiResponse<T> = {
+  Data?: T;
+  data?: T;
+  message?: string;
+};
+
+export type UserPermissionUpdatePayload = {
+  COMPANY_CD: string;
+  USERID: string;
+  MENU_CODE: string;
+  CAN_VIEW: "0" | "1";
+  CAN_ADD: "0" | "1";
+  CAN_EDIT: "0" | "1";
+  CAN_DELETE: "0" | "1";
+  CAN_PRINT: "0" | "1";
+  CAN_EXPORT: "0" | "1";
+  CAN_IMPORT: "0" | "1";
+  CAN_APPROVE: "0" | "1";
+  USERID_MODIFY: string;
+};
+
+export async function getUserPermissions(
+  menuCode?: string,
+  userId?: string,
+  companyCd?: string,
+) {
+  const params: Record<string, string> = {};
+
+  if (menuCode) {
+    params.menuCode = menuCode;
+  }
+
+  if (userId) {
+    params.userId = userId;
+  }
+
+  if (companyCd) {
+    params.companyCd = companyCd;
+  }
+
+  const response = await axios.get<ApiResponse<unknown>>(`${BASE_URL}/user-permissions`, {
+    params,
+  });
+  const payload = response.data;
+
+  return payload?.Data ?? payload?.data ?? payload;
+}
+
+export async function updateUserPermission(data: UserPermissionUpdatePayload) {
+  const response = await axios.put<ApiResponse<unknown>>(`${BASE_URL}/user-permissions`, data);
+  const payload = response.data;
+
+  return payload?.Data ?? payload?.data ?? payload;
+}

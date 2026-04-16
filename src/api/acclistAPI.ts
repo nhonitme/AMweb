@@ -1,0 +1,125 @@
+import axios from './axiosClient';
+import API_BASE_URL from '../config/apiConfig';
+import type { AcclistInfo } from "@/types/acclist"
+import { convertLangToCode } from '@/utils/language';
+
+const BASE_URL = `${API_BASE_URL}/AcclistInfo`;
+
+
+
+// GET all (optionally filtered by accId)
+export async function getAcclistInfos(
+  accId?: number
+): Promise<{ data: AcclistInfo[] }> {
+  try {
+    const resp = await axios.get(`${BASE_URL}`, {
+      params: { ACC_ID: accId },
+    });
+
+    if (resp.status !== 200) {
+      throw new Error(`Unexpected HTTP status ${resp.status}`);
+    }
+
+    // the controller may return several wrapper shapes. normalize to { data, labels }
+    const payload = resp.data;
+    if (!payload || typeof payload !== "object") {
+      throw new Error("Invalid response format from getStoreInfos");
+    }
+
+    // possible shapes:
+    // { data: [...], labels: {...} }
+    // { Data: { data: [...], labels: {...} } }
+    // { data: { data: [...], labels: {...} } }
+    const inner = payload.Data ?? payload.data ?? payload;
+
+    // If inner is the array itself, there are no labels
+    if (Array.isArray(inner)) {
+      return { data: inner as AcclistInfo[]};
+    }
+
+    const list = inner.data ?? inner;
+
+    if (!Array.isArray(list)) {
+      throw new Error("Response did not contain an array of customer exts");
+    }
+
+    return { data: list as AcclistInfo[]};
+  } catch (err: any) {
+    console.error("Error in getAcclistInfos:", err);
+    if (err.response) {
+      console.error("Response data:", err.response.data);
+      console.error("Response status:", err.response.status);
+    }
+    throw err; // rethrow so caller can handle
+  }
+}
+
+// POST create
+export async function createAcclistInfo(
+  payload: Partial<AcclistInfo>
+): Promise<any> {
+  const resp = await axios.post(`${BASE_URL}`, payload);
+  return resp.data;
+}
+
+// PUT update
+export async function updateAcclistInfo(
+  payload: Partial<AcclistInfo>
+): Promise<any> {
+  const resp = await axios.put(`${BASE_URL}`, payload);
+  return resp.data;
+}
+
+// DELETE by ACC_CD
+export async function deleteAcclistInfo(
+  accId: number,
+  lang?: string
+): Promise<any> {
+  const resp = await axios.delete(`${BASE_URL}`, {
+    params: { ACC_ID: accId, lang },
+  });
+  return resp.data;
+}
+
+// Export to Excel (optionally filter by acc Id)
+export async function exportToExcel(
+  accId?: number,
+  lang?: string
+): Promise<Blob> {
+  const params: any = {};
+  if (accId) params.ACC_ID = accId;
+  if (lang) params.lang = convertLangToCode(lang);
+
+  const resp = await axios.get(`${BASE_URL}/export`, {
+    params,
+    responseType: 'blob',
+  });
+  return resp.data;
+}
+
+export async function importFromExcel(
+  file: File,
+  lang?: string
+): Promise<any> {
+  const form = new FormData();
+  form.append('file', file);
+
+  const url = `${BASE_URL}/import${lang ? `?lang=${encodeURIComponent(convertLangToCode(lang))}` : ''}`;
+  const resp = await axios.post(url, form);
+  return resp.data;
+}
+
+export async function deleteAcclistInfos(
+  accIds: (number)[]
+): Promise<any> {
+  const resp = await axios.post(`${BASE_URL}/DeleteMany`, { accIds });
+  return resp.data;
+}
+
+export async function checkExistsACC(
+  ACC_ID: number,
+  ACC_CD: string
+): Promise<any> {
+  const resp = await axios.get(`${BASE_URL}/CheckExists`, { params: { ACC_ID, ACC_CD } });
+  return resp.data;
+}

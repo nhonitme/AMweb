@@ -1,0 +1,259 @@
+import { useContext, useMemo } from "react";
+import { Form as DxForm } from "devextreme-react/data-grid";
+import { GroupItem, Item } from "devextreme-react/form";
+
+import { LanguageContext } from "@/lib/i18nLoader";
+import type { UserInfo } from "@/types/userInfo";
+
+interface UserInfoFormProps {
+  isUpdate: boolean;
+}
+
+type UserInfoFormData = UserInfo & Record<string, unknown>;
+
+type FormItemConfig<TFormData extends Record<string, unknown>> = {
+  colSpan?: number;
+  dataField: keyof TFormData & string;
+  editorOptions?: Record<string, unknown>;
+  editorType?: string;
+  label: string;
+  visible?: boolean;
+};
+
+type FormGroupConfig<TFormData extends Record<string, unknown>> = {
+  caption: string;
+  colCount?: number;
+  items: FormItemConfig<TFormData>[];
+  key: string;
+};
+
+const createTextBoxOptions = (options: Record<string, unknown> = {}): Record<string, unknown> => ({
+  stylingMode: "outlined",
+  ...options,
+});
+
+const createNumberBoxOptions = (options: Record<string, unknown> = {}): Record<string, unknown> => ({
+  showSpinButtons: true,
+  stylingMode: "outlined",
+  ...options,
+});
+
+const createTextAreaOptions = (options: Record<string, unknown> = {}): Record<string, unknown> => ({
+  autoResizeEnabled: true,
+  minHeight: 96,
+  stylingMode: "outlined",
+  ...options,
+});
+
+export default function UserInfoForm({ isUpdate }: UserInfoFormProps) {
+  const { translate } = useContext(LanguageContext) as {
+    translate: (key: string, fallback?: string) => string;
+  };
+
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback);
+
+  const groups = useMemo<FormGroupConfig<UserInfoFormData>[]>(() => [
+    {
+      key: "account",
+      caption: t("USER_ACCOUNT", "Account"),
+      colCount: 2,
+      items: [
+        {
+          dataField: "USERID",
+          label: t("USERID", "User ID"),
+          editorType: "dxTextBox",
+          editorOptions: createTextBoxOptions({
+            readOnly: isUpdate,
+            placeholder: t("USERID", "User ID"),
+          }),
+        },
+        {
+          dataField: "USERNM",
+          label: t("USERNM", "User Name"),
+          editorType: "dxTextBox",
+          editorOptions: createTextBoxOptions({
+            placeholder: t("USERNM", "User Name"),
+          }),
+        },
+        {
+          dataField: "PASSWD",
+          label: isUpdate ? t("NEW_PASSWORD", "New password") : t("PASSWD", "Password"),
+          editorType: "dxTextBox",
+          editorOptions: createTextBoxOptions({
+            mode: "password",
+            placeholder: isUpdate
+              ? t("LEAVE_PASSWORD_BLANK", "Leave blank to keep the current password")
+              : t("ENTER_PASSWORD", "Enter password"),
+          }),
+        },
+        {
+          dataField: "PASSWD_LV2",
+          label: isUpdate ? t("NEW_PASSWORD_LV2", "New level 2 password") : t("PASSWD_LV2", "Level 2 password"),
+          editorType: "dxTextBox",
+          editorOptions: createTextBoxOptions({
+            mode: "password",
+            placeholder: isUpdate
+              ? t("LEAVE_PASSWORD_BLANK", "Leave blank to keep the current password")
+              : t("ENTER_PASSWORD", "Enter password"),
+          }),
+        },
+        {
+          dataField: "DEPARTMENT_CD",
+          label: t("DEPARTMENT_CD", "Department"),
+          editorType: "dxTextBox",
+          editorOptions: createTextBoxOptions({
+            placeholder: t("DEPARTMENT_CD", "Department"),
+          }),
+        },
+        {
+          dataField: "USERLV",
+          label: t("USERLV", "User Level"),
+          editorType: "dxNumberBox",
+          editorOptions: createNumberBoxOptions({
+            min: 1,
+            step: 1,
+          }),
+        },
+        {
+          dataField: "USER_TEL",
+          label: t("USER_TEL", "Phone"),
+          editorType: "dxTextBox",
+          editorOptions: createTextBoxOptions({
+            placeholder: t("USER_TEL", "Phone"),
+          }),
+        },
+        {
+          dataField: "TEAM_NUMBER",
+          label: t("TEAM_NUMBER", "Team Number"),
+          editorType: "dxTextBox",
+          editorOptions: createTextBoxOptions({
+            placeholder: t("TEAM_NUMBER", "Team Number"),
+          }),
+        },
+      ],
+    },
+    {
+      key: "access",
+      caption: t("USER_ACCESS", "Access"),
+      colCount: 2,
+      items: [
+        {
+          dataField: "CANLOGIN",
+          label: t("CANLOGIN", "Can login"),
+          editorType: "dxCheckBox",
+        },
+        {
+          dataField: "CAN_LOCK",
+          label: t("CAN_LOCK", "Locked"),
+          editorType: "dxCheckBox",
+        },
+        {
+          dataField: "IS_MANAGER",
+          label: t("IS_MANAGER", "Manager"),
+          editorType: "dxCheckBox",
+        },
+        {
+          dataField: "COMPANY_CD",
+          label: t("COMPANY_CD", "Company"),
+          editorType: "dxTextBox",
+          editorOptions: createTextBoxOptions({
+            readOnly: true,
+          }),
+        },
+        {
+          dataField: "USER_ACCESS_MENU",
+          label: t("USER_ACCESS_MENU", "Menu Access"),
+          editorType: "dxTextArea",
+          editorOptions: createTextAreaOptions({
+            placeholder: t("USER_ACCESS_MENU", "Menu Access"),
+          }),
+          colSpan: 2,
+        },
+        {
+          dataField: "USER_ACCESS_BUTTON",
+          label: t("USER_ACCESS_BUTTON", "Button Access"),
+          editorType: "dxTextArea",
+          editorOptions: createTextAreaOptions({
+            placeholder: t("USER_ACCESS_BUTTON", "Button Access"),
+          }),
+          colSpan: 2,
+        },
+      ],
+    },
+    {
+      key: "audit",
+      caption: t("AUDIT", "Audit"),
+      colCount: 2,
+      items: [
+        {
+          dataField: "USERID_MODIFY",
+          label: t("USERID_MODIFY", "Modified By"),
+          editorType: "dxTextBox",
+          editorOptions: createTextBoxOptions({
+            readOnly: true,
+          }),
+          visible: isUpdate,
+        },
+        {
+          dataField: "USER_INPUT_YMD",
+          label: t("USER_INPUT_YMD", "Created Date"),
+          editorType: "dxTextBox",
+          editorOptions: createTextBoxOptions({
+            readOnly: true,
+          }),
+          visible: isUpdate,
+        },
+        {
+          dataField: "USER_MODIFY_YMD",
+          label: t("USER_MODIFY_YMD", "Modified Date"),
+          editorType: "dxTextBox",
+          editorOptions: createTextBoxOptions({
+            readOnly: true,
+          }),
+          visible: isUpdate,
+        },
+        {
+          dataField: "CREATED_AT",
+          label: t("CREATED_AT", "Created At"),
+          editorType: "dxTextBox",
+          editorOptions: createTextBoxOptions({
+            readOnly: true,
+          }),
+          visible: isUpdate,
+        },
+        {
+          dataField: "UPDATED_AT",
+          label: t("UPDATED_AT", "Updated At"),
+          editorType: "dxTextBox",
+          editorOptions: createTextBoxOptions({
+            readOnly: true,
+          }),
+          visible: isUpdate,
+        },
+      ],
+    },
+  ], [isUpdate, translate]);
+
+  return (
+    <div className="user-info-form">
+      <DxForm colCount={1} labelLocation="top" width="100%">
+        {groups.map((group) => (
+          <GroupItem key={group.key} caption={group.caption} colCount={group.colCount ?? 2}>
+            {group.items
+              .filter((item) => item.visible !== false)
+              .map((item) => (
+                <Item
+                  key={item.dataField}
+                  dataField={item.dataField}
+                  label={{ text: item.label }}
+                  editorType={item.editorType}
+                  editorOptions={item.editorOptions}
+                  colSpan={item.colSpan}
+                />
+              ))}
+          </GroupItem>
+        ))}
+      </DxForm>
+    </div>
+  );
+}

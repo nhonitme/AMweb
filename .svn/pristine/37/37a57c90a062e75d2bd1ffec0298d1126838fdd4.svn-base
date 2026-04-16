@@ -1,0 +1,5 @@
+import CompanyManagementPage from "@/pages/CompanyManagement/CompanyInfo";
+
+export default function CompanyManagement() {
+  return <CompanyManagementPage />;
+}

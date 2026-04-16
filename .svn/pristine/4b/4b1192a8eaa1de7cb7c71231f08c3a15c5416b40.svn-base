@@ -1,0 +1,31 @@
+import { useContext, useMemo } from 'react'
+import { GroupItem, SimpleItem } from 'devextreme-react/form'
+import { LanguageContext } from '@/lib/i18nLoader'
+import { managementInfoFields, managementInfoFieldGroups } from '../Columns/ManagementInfoColumns'
+
+export function ManagementInfoForm({ data }: { data?: { ID?: number } }) {
+  const isNew = useMemo(() => !data?.ID, [data])
+  const { translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string }
+  const t = (k: string, f: string) => (translate ? translate(k, f) : f)
+
+  const fieldMap = useMemo(() => Object.fromEntries(managementInfoFields.map((f) => [f.key, f.caption])), [])
+
+  return (
+    <>
+      <GroupItem colCount={2} colCountByScreen={{ xs: 1, sm: 2 }}>
+        {managementInfoFieldGroups.basic.map((key) => (
+          <SimpleItem
+            key={key}
+            dataField={key}
+            label={{ text: t(key, fieldMap[key] ?? key) }}
+            editorOptions={
+              key === 'USERID'
+                ? { readOnly: true }
+                : undefined
+            }
+          />
+        ))}
+      </GroupItem>
+    </>
+  )
+}

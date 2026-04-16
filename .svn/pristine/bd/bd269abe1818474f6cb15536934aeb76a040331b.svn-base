@@ -1,0 +1,16 @@
+import * as React from "react"
+import CheckBoxDX, { ICheckBoxOptions } from "devextreme-react/check-box"
+
+import { cn } from "@/lib/utils"
+
+export interface CheckboxProps extends ICheckBoxOptions {}
+
+const Checkbox = React.forwardRef<any, CheckboxProps>((props, ref) => {
+  const { className, ...rest } = props
+  return <CheckBoxDX ref={ref} className={cn(className)} {...rest} />
+})
+
+Checkbox.displayName = "Checkbox"
+
+export { Checkbox }
+

@@ -1,0 +1,100 @@
+import type {
+  DepartmentInfo,
+  DepartmentInfoApi,
+  DepartmentInfoText,
+} from "@/types/departmentInfo"
+
+const trimText = (value: DepartmentInfoText): string =>
+  typeof value === "string" ? value.trim() : ""
+
+const normalizeNumber = (value: number | string | null | undefined): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
+  return null
+}
+
+const normalizeFlag = (value: DepartmentInfoText): boolean =>
+  trimText(value).toLowerCase() === "1" || trimText(value).toLowerCase() === "true"
+
+const toFlag = (value: boolean): "1" | "0" => (value ? "1" : "0")
+
+export const normalizeDepartmentInfo = (record: DepartmentInfoApi): DepartmentInfo => ({
+  DEPARTMENT_ID: normalizeNumber(record.DEPARTMENT_ID),
+  COMPANY_CD: trimText(record.COMPANY_CD),
+  DEPARTMENT_CD: trimText(record.DEPARTMENT_CD),
+  PARENT_CD: trimText(record.PARENT_CD),
+  PARENT_NM: trimText(record.PARENT_NM),
+  DEP_NAME_KOR: trimText(record.DEP_NAME_KOR),
+  DEP_NAME_ENG: trimText(record.DEP_NAME_ENG),
+  DEP_NAME_VIET: trimText(record.DEP_NAME_VIET),
+  DEP_NAME_JAPAN: trimText(record.DEP_NAME_JAPAN),
+  DEP_NAME_CHINA: trimText(record.DEP_NAME_CHINA),
+  REMARK: trimText(record.REMARK),
+  USERID: trimText(record.USERID),
+  ISDEL: normalizeFlag(record.ISDEL),
+  DEP_ORDER: normalizeNumber(record.DEP_ORDER),
+  DEPARTMENT_USER_CD: trimText(record.DEPARTMENT_USER_CD),
+  PRODUCT_CD: trimText(record.PRODUCT_CD),
+  ISPRODUCT: normalizeFlag(record.ISPRODUCT),
+})
+
+export const normalizeDepartmentInfoRows = (records: DepartmentInfoApi[]): DepartmentInfo[] =>
+  records.map(normalizeDepartmentInfo)
+
+export const mapDepartmentInfoToApiPayload = (
+  record: DepartmentInfo,
+): Partial<DepartmentInfoApi> => {
+  const payload: Partial<DepartmentInfoApi> = {
+    DEPARTMENT_ID: record.DEPARTMENT_ID,
+    COMPANY_CD: trimText(record.COMPANY_CD),
+    DEPARTMENT_CD: trimText(record.DEPARTMENT_CD),
+    PARENT_CD: trimText(record.PARENT_CD),
+    DEP_NAME_KOR: trimText(record.DEP_NAME_KOR),
+    DEP_NAME_ENG: trimText(record.DEP_NAME_ENG),
+    DEP_NAME_VIET: trimText(record.DEP_NAME_VIET),
+    DEP_NAME_JAPAN: trimText(record.DEP_NAME_JAPAN),
+    DEP_NAME_CHINA: trimText(record.DEP_NAME_CHINA),
+    REMARK: trimText(record.REMARK),
+    USERID: trimText(record.USERID),
+    ISDEL: toFlag(record.ISDEL),
+    DEPARTMENT_USER_CD: trimText(record.DEPARTMENT_USER_CD),
+    PRODUCT_CD: trimText(record.PRODUCT_CD),
+    ISPRODUCT: toFlag(record.ISPRODUCT),
+  }
+
+  if (record.DEP_ORDER !== null && Number.isFinite(record.DEP_ORDER)) {
+    payload.DEP_ORDER = record.DEP_ORDER
+  }
+
+  return payload
+}
+
+export const createDefaultDepartmentInfo = (
+  companyCd: string,
+  userId: string,
+): DepartmentInfo => ({
+  DEPARTMENT_ID: null,
+  COMPANY_CD: companyCd,
+  DEPARTMENT_CD: "",
+  PARENT_CD: "",
+  PARENT_NM: "",
+  DEP_NAME_KOR: "",
+  DEP_NAME_ENG: "",
+  DEP_NAME_VIET: "",
+  DEP_NAME_JAPAN: "",
+  DEP_NAME_CHINA: "",
+  REMARK: "",
+  USERID: userId,
+  ISDEL: false,
+  DEP_ORDER: null,
+  DEPARTMENT_USER_CD: "",
+  PRODUCT_CD: "",
+  ISPRODUCT: false,
+})

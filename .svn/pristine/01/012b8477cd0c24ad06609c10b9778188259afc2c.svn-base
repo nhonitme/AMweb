@@ -1,0 +1,93 @@
+import type { MenuItem, MenuApiResponse, MenuTreeNode } from "@/types/menu";
+import axios from "./axiosClient";
+import { isAxiosError } from "axios";
+
+export async function fetchMenuList(): Promise<MenuItem[]> {
+  try {
+    const resp = await axios.get<MenuApiResponse>("/menu/list", {
+      headers: { "Content-Type": "application/json" },
+    });
+    const result = resp.data;
+    if (!result || !result.Success) {
+      throw new Error(result?.Message || "Failed to fetch menu list");
+    }
+    return result.Data ?? [];
+  } catch (err) {
+    if (isAxiosError(err)) {
+      const msg = (err.response && (err.response.data as any)?.Message) || err.message;
+      throw new Error(`Failed to fetch menu list: ${msg}`);
+    }
+    throw err;
+  }
+}
+
+export function buildMenuTree(menuItems: MenuItem[]): MenuTreeNode[] {
+  const transformedItems: MenuTreeNode[] = menuItems.map((item) => ({
+    id: item.MENU_ID,
+    code: item.MENU_CODE,
+    name: item.MENU_NAME,
+    parentId: item.PARENT_ID,
+    routePath: item.ROUTE_PATH,
+    icon: item.ICON,
+    sortOrder: item.SORT_ORDER,
+    isActive: item.IS_ACTIVE,
+    isVisible: item.IS_VISIBLE,
+    isDisabled: item.IS_DISABLED,
+    children: [],
+  }));
+
+  const visibleItems = transformedItems.filter((item) => item.isVisible && item.isActive);
+
+  const itemMap = new Map<string, MenuTreeNode>();
+  visibleItems.forEach((item) => itemMap.set(item.id, { ...item, children: [] }));
+
+  const rootItems: MenuTreeNode[] = [];
+
+  visibleItems.forEach((item) => {
+    const node = itemMap.get(item.id);
+    if (!node) return;
+    if (!item.parentId) {
+      rootItems.push(node);
+    } else {
+      const parent = itemMap.get(item.parentId);
+      if (parent) {
+        parent.children = parent.children || [];
+        parent.children.push(node);
+      } else {
+        rootItems.push(node);
+      }
+    }
+  });
+
+  const sortByOrder = (nodes: MenuTreeNode[]) => {
+    nodes.sort((a, b) => a.sortOrder - b.sortOrder);
+    nodes.forEach((n) => n.children && n.children.length > 0 && sortByOrder(n.children));
+  };
+
+  sortByOrder(rootItems);
+
+  return rootItems;
+}
+
+export function findMenuById(tree: MenuTreeNode[], menuId: string): MenuTreeNode | null {
+  for (const node of tree) {
+    if (node.id === menuId) return node;
+    if (node.children && node.children.length > 0) {
+      const found = findMenuById(node.children, menuId);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+export function getMenuPath(tree: MenuTreeNode[], menuId: string, path: string[] = []): string[] | null {
+  for (const node of tree) {
+    const currentPath = [...path, node.id];
+    if (node.id === menuId) return currentPath;
+    if (node.children && node.children.length > 0) {
+      const found = getMenuPath(node.children, menuId, currentPath);
+      if (found) return found;
+    }
+  }
+  return null;
+}

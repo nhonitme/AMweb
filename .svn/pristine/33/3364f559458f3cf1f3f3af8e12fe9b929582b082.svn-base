@@ -1,0 +1,7 @@
+import type { ExcelImportConfig } from "@/types/modal";
+
+export const customerImportConfig: ExcelImportConfig = {
+  moduleCd: "CustomerInfoCustomerExt",
+  templateName: "mau-customer-ext.xlsx",
+  uniqueColumn: "CUSTOMER_CD",
+};

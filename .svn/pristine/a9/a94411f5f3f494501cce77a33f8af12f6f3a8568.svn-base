@@ -1,0 +1,22 @@
+import { useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
+
+import ReportViewerShell from "./ReportViewerShell";
+import { buildConfiguredReportUrl, resolveReportCompanyCd } from "./reportViewerConfig";
+
+export default function CustomerReportViewer() {
+  const [searchParams] = useSearchParams();
+
+  const reportUrl = useMemo(() => {
+    const companyCd = resolveReportCompanyCd(searchParams.get("companyCd"));
+    const customerId = searchParams.get("customerId");
+
+    return buildConfiguredReportUrl({
+      companyCd,
+      reportCode: "CUSTOMER_INFO",
+      customerId,
+    });
+  }, [searchParams]);
+
+  return <ReportViewerShell reportUrl={reportUrl} />;
+}

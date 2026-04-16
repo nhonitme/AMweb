@@ -1,0 +1,46 @@
+import { Form } from 'devextreme-react/data-grid';
+import { Item} from 'devextreme-react/form';
+
+type StoreFormProps = {
+  isUpdate: boolean;
+};
+
+export function ChitDetailForm({isUpdate }: StoreFormProps) {
+  return (
+    <Form colCount={2}>
+      
+      <Item dataField="CHIT_ID" visible={false} />
+      <Item dataField="CHITDETAIL_ID" visible={false} />
+      <Item dataField="CHITDETAIL_CD" visible={false} />
+      <Item dataField="CHIT_YMD" visible={false} />
+      <Item dataField="CUSTOMER_CD"
+        editorOptions={{
+          validationMessageMode: "always",
+        }}
+      >
+      </Item>
+      <Item dataField="DEBIT"
+        editorOptions={{
+          validationMessageMode: "always",
+        }}
+      >
+      </Item>
+      <Item dataField="CREDIT"
+        editorOptions={{
+          validationMessageMode: "always",
+        }}
+      >
+      </Item>
+      <Item dataField="AMOUNT"
+        editorOptions={{
+          validationMessageMode: "always",
+        }}
+      >
+      </Item>
+      <Item dataField="DETAIL_DESCRIPTION_VIET"
+        
+      >
+      </Item>
+    </Form>
+  );
+}

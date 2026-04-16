@@ -1,0 +1,36 @@
+export type CurrencyInfoText = string | null | undefined
+export type CurrencyInfoFlag = string | number | boolean | null | undefined
+
+export interface CurrencyInfoApi {
+  CURRENCY_ID?: number | null
+  COMPANY_CD?: CurrencyInfoText
+  CURRENCY_CD?: CurrencyInfoText
+  CURRENCY_NM?: CurrencyInfoText
+  SYMBOL?: CurrencyInfoText
+  DECIMAL_DIGITS?: number | null
+  EXCHANGE_RATE_DECIMAL?: number | null
+  IS_BASE_CURRENCY?: CurrencyInfoFlag
+  SORT_ORDER?: number | null
+  IS_ACTIVE?: CurrencyInfoFlag
+  IS_SYSTEM?: CurrencyInfoFlag
+  ISDEL?: CurrencyInfoFlag
+  CREATE_BY?: CurrencyInfoText
+  UPDATE_BY?: CurrencyInfoText
+}
+
+export interface CurrencyInfo {
+  CURRENCY_ID: number | null
+  COMPANY_CD: string
+  CURRENCY_CD: string
+  CURRENCY_NM: string
+  SYMBOL: string
+  DECIMAL_DIGITS: number
+  EXCHANGE_RATE_DECIMAL: number
+  IS_BASE_CURRENCY: boolean
+  SORT_ORDER: number
+  IS_ACTIVE: boolean
+  IS_SYSTEM: boolean
+  ISDEL: boolean
+  CREATE_BY: string
+  UPDATE_BY: string
+}

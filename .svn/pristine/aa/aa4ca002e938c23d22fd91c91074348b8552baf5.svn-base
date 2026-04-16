@@ -1,0 +1,74 @@
+import SelectBox from 'devextreme-react/select-box'
+
+export interface ReadonlySelectProps {
+  id?: string
+  dataSource: any[]
+  value?: unknown
+  valueExpr?: string
+  displayExpr?: unknown
+  placeholder?: string
+  isLoading?: boolean
+  onValueChanged?: (e: any) => void
+  showClearButton?: boolean
+}
+
+export function readonlySelectEditorOptions(opts: {
+  dataSource: any[]
+  valueExpr?: string
+  displayExpr?: any
+  placeholder?: string
+  showClearButton?: boolean
+  showDropDownButton?: boolean
+}) {
+  return {
+    dataSource: opts.dataSource,
+    valueExpr: opts.valueExpr ?? 'CODE_CD',
+    displayExpr: opts.displayExpr,
+    searchEnabled: false,
+    acceptCustomValue: false,
+    showDropDownButton: opts.showDropDownButton ?? true,
+    showClearButton: opts.showClearButton ?? true,
+    elementAttr: { class: 'readonly-select' },
+    inputAttr: { readOnly: 'true' },
+    onKeyDown: (e: any) => { e.event && e.event.preventDefault(); },
+  }
+}
+
+export default function ReadonlySelect({
+  id,
+  dataSource,
+  value,
+  valueExpr = 'CODE_CD',
+  displayExpr,
+  placeholder,
+  isLoading,
+  onValueChanged,
+  onBlur,
+  showClearButton = true,
+}: ReadonlySelectProps) {
+  return (
+    <div>
+      <style>{`.readonly-select .dx-clear-button{width:18px;height:18px;padding:0;margin:0}.readonly-select .dx-clear-button .dx-icon{font-size:12px}.readonly-select .dx-texteditor-input{caret-color:transparent;user-select:none}.readonly-select .dx-texteditor-input:focus{outline:none}`}</style>
+      {isLoading ? (
+        <div className="w-full px-3 py-2 border rounded-lg bg-gray-50 text-sm text-gray-500">Đang tải...</div>
+      ) : (
+        <SelectBox
+          id={id}
+          dataSource={dataSource}
+          valueExpr={valueExpr}
+          displayExpr={displayExpr}
+          value={value}
+          onValueChanged={onValueChanged}
+          onBlur={onBlur}
+          placeholder={placeholder}
+          searchEnabled={false}
+          showClearButton={showClearButton}
+          acceptCustomValue={false}
+          elementAttr={{ class: 'readonly-select' }}
+          inputAttr={{ readOnly: 'true' }}
+          onKeyDown={(e: any) => { e.event && e.event.preventDefault(); }}
+        />
+      )}
+    </div>
+  )
+}

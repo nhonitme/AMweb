@@ -1,0 +1,30 @@
+import axios from "@/api/axiosClient";
+
+export interface SysCode {
+  CODE_ID: number;
+  CODE_TYPE: string;
+  CODE_CD: string;
+  CODE_NAME: string;
+  SORT_ORDER: number;
+  IS_ACTIVE: number;
+  ISDEL: string;
+  CREATED_AT: string;
+  UPDATED_AT: string;
+}
+
+export interface SysCodesResponse {
+  data: SysCode[];
+}
+
+export async function getSysCodes(codeType?: string): Promise<SysCodesResponse> {
+  try {
+    const res = await axios.get("/system/sys-codes", { params: { codeType } });
+    const apiPayload = res.data;
+    const payload = apiPayload?.Data ?? apiPayload?.data ?? apiPayload;
+    return payload as SysCodesResponse;
+  } catch (err: any) {
+    const msg = err?.response?.data?.Message || err.message || "Failed to fetch sys codes";
+    throw new Error(msg);
+  }
+}
+

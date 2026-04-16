@@ -1,0 +1,480 @@
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import LoadPanel from "devextreme-react/load-panel"
+import type dxDataGrid from "devextreme/ui/data_grid"
+import type { InitializedEvent, RowDblClickEvent, FocusedRowChangedEvent, OptionChangedEvent } from "devextreme/ui/data_grid"
+import { confirm } from "devextreme/ui/dialog"
+import notify from "devextreme/ui/notify"
+
+import { createChit, deleteChit, exportChitExcel, getChits, importChitExcel, updateChit } from "@/api/voucherApi"
+import DetailGrid from "@/components/datagrid/DetailGrid"
+import PageGrid from "@/components/datagrid/PageGrid"
+import ExcelImportModal from "@/components/modals/ExcelImportModal"
+import Pagination from "@/components/table/Pagination"
+import { GridToolbar } from "@/components/toolbar/GridToolbar"
+import DxPage from "@/dx/DxPage"
+import { LanguageContext } from "@/lib/i18nLoader"
+import { getCurrentCompanyCd, getCurrentUserId } from "@/lib/login"
+import type { ChitInfo, ChitDetail, ChitLedger, ChitType } from "@/types/voucher"
+import {
+  cloneChit,
+  cloneChitDetail,
+  createDefaultChit,
+  createDefaultChitDetail,
+  getChitTypeLabel,
+  mapChitToApiPayload,
+  normalizeChitRows,
+} from "./chitUtils"
+import ChitColumns from "./components/ChitColumns"
+import ChitDetailColumns from "./components/ChitDetailColumns"
+import ChitEditorPopup from "./components/ChitEditorPopup"
+import { createVoucherImportConfig } from "./voucherImportConfig"
+
+interface ChitManagementPageProps {
+  ledger: ChitLedger
+  chitType: ChitType
+}
+
+const formatDateToYmd = (value: Date | null): string | undefined => {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    return undefined
+  }
+
+  const year = value.getFullYear()
+  const month = `${value.getMonth() + 1}`.padStart(2, "0")
+  const day = `${value.getDate()}`.padStart(2, "0")
+
+  return `${year}${month}${day}`
+}
+
+export function ChitManagementPage({ ledger, chitType }: ChitManagementPageProps) {
+  const gridRef = useRef<dxDataGrid<ChitInfo, string | number> | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [popupLoading, setPopupLoading] = useState(false)
+  const [popupVisible, setPopupVisible] = useState(false)
+  const [isUpdate, setIsUpdate] = useState(false)
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false)
+  const today = useMemo(() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d
+  }, [])
+  const [fromDate, setFromDate] = useState<Date | null>(today)
+  const [toDate, setToDate] = useState<Date | null>(today)
+  const [rows, setRows] = useState<ChitInfo[]>([])
+  const [selectedRow, setSelectedRow] = useState<ChitInfo | null>(null)
+  const [selectedRowDetails, setSelectedRowDetails] = useState<ChitDetail[]>([])
+  const [isMasterSearchActive, setIsMasterSearchActive] = useState(false)
+  const [pageNumber, setPageNumber] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [totalRecords, setTotalRecords] = useState(0)
+  const [editingRow, setEditingRow] = useState<ChitInfo>(() =>
+    createDefaultChit(chitType, getCurrentCompanyCd(), getCurrentUserId()),
+  )
+
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+
+  const t = useCallback(
+    (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
+    [translate],
+  )
+
+  const title = useMemo(() => getChitTypeLabel(chitType, t), [chitType, t])
+  const importConfig = useMemo(() => createVoucherImportConfig(ledger, chitType, t), [ledger, chitType, t])
+  const excelEnabled = importConfig !== null
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(totalRecords / Math.max(pageSize, 1))),
+    [pageSize, totalRecords],
+  )
+  const startIndex = totalRecords === 0 ? 0 : (pageNumber - 1) * pageSize
+  const endIndex = totalRecords === 0 ? 0 : startIndex + rows.length
+  const getRowDetails = useCallback(
+    (row: ChitInfo | null) => (row ? row.DETAILS.map((item) => cloneChitDetail(item)) : []),
+    [],
+  )
+
+  const loadData = useCallback(
+    async function loadData(fromParam: Date | null, toParam: Date | null, targetPage = pageNumber, targetPageSize = pageSize) {
+      setLoading(true)
+
+      try {
+        const fromYmd = formatDateToYmd(fromParam)
+        const toYmd = formatDateToYmd(toParam)
+
+        if (fromYmd && toYmd && fromYmd > toYmd) {
+          notify(t("INVALID_DATE_RANGE", "From date must be earlier than or equal to to date"), "warning", 3000)
+          setRows([])
+          gridRef.current?.clearSelection()
+          setSelectedRow(null)
+          setSelectedRowDetails([])
+          setTotalRecords(0)
+          setPageNumber(1)
+          return
+        }
+
+        const response = await getChits(ledger, chitType, {
+          fromYmd,
+          toYmd,
+          INCLUDE_DETAILS: true,
+          pageNumber: targetPage,
+          pageSize: targetPageSize,
+        })
+        const data = normalizeChitRows(response.data || [], chitType)
+
+        if (response.totalRecords > 0 && targetPage > response.totalPages) {
+          await loadData(fromParam, toParam, response.totalPages, targetPageSize)
+          return
+        }
+
+        setRows(data)
+        setTotalRecords(response.totalRecords)
+        setPageNumber(response.pageNumber)
+        setPageSize(response.pageSize)
+        gridRef.current?.clearSelection()
+        const nextSelectedRow = data.length > 0 ? data[0] : null
+        setSelectedRow(nextSelectedRow)
+        setSelectedRowDetails(getRowDetails(nextSelectedRow))
+      } catch (error) {
+        console.error("Failed to load chit notes", error)
+        notify(t("Load failed", "Load failed"), "error", 4000)
+      } finally {
+        setLoading(false)
+      }
+    }, [getRowDetails, ledger, chitType, pageNumber, pageSize, t],
+  )
+
+  useEffect(() => {
+    void loadData(fromDate, toDate, 1, 20)
+  }, [])
+
+  const openCreatePopup = useCallback(() => {
+    setIsUpdate(false)
+    const companyCd = getCurrentCompanyCd()
+    const userId = getCurrentUserId()
+    const newChit = createDefaultChit(chitType, companyCd, userId)
+    setEditingRow({
+      ...newChit,
+      DETAILS: [createDefaultChitDetail(1, companyCd)],
+    })
+    setPopupVisible(true)
+  }, [chitType])
+
+  const openEditPopup = useCallback((target?: ChitInfo | null) => {
+    const row = target ?? selectedRow
+    if (!row?.CHIT_ID) {
+      notify(t("Select a row first", "Select a row first"), "warning", 2500)
+      return
+    }
+
+    setIsUpdate(true)
+    setEditingRow(cloneChit(row))
+    setPopupVisible(true)
+  }, [selectedRow, t])
+
+  const handleSave = useCallback(
+    async (record: ChitInfo) => {
+      setPopupLoading(true)
+
+      try {
+        const payload = mapChitToApiPayload(record)
+        if (isUpdate) {
+          await updateChit(ledger, payload, chitType)
+          notify(t("MSG_EDIT_SUCCESS", "Updated successfully"), "success", 3000)
+        } else {
+          await createChit(ledger, payload, chitType)
+          notify(t("CREATE_SUCCESS", "Created successfully"), "success", 3000)
+        }
+
+        setPopupVisible(false)
+        await loadData(fromDate, toDate, pageNumber, pageSize)
+      } catch (error) {
+        console.error("Save chit note error", error)
+        notify(t("Save failed", "Save failed"), "error", 4000)
+      } finally {
+        setPopupLoading(false)
+      }
+    },
+    [fromDate, isUpdate, ledger, loadData, pageNumber, pageSize, t, toDate],
+  )
+
+  const handleDelete = useCallback(async () => {
+    const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
+    const ids = selectedKeys
+      .map((key) => Number(key))
+      .filter((value) => Number.isFinite(value) && value > 0)
+
+    if (!ids.length) {
+      notify(t("No rows selected", "No rows selected"), "warning", 2500)
+      return
+    }
+
+    const confirmText = t(
+      "MSG_CONFIRM_DELETE_RECORD",
+      "Are you sure you want to delete {0} record?",
+    ).replace("{0}", String(ids.length))
+    const confirmed = await confirm(confirmText, t("MSG_CONFIRM_DELETE", "Confirm delete"))
+    if (!confirmed) {
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      await Promise.all(ids.map((id) => deleteChit(ledger, id, chitType)))
+      notify(t("DELETE_SUCCESS", "Deleted successfully"), "success", 3000)
+      await loadData(fromDate, toDate, pageNumber, pageSize)
+    } catch (error) {
+      console.error("Delete chit note error", error)
+      notify(t("Delete failed", "Delete failed"), "error", 4000)
+      setLoading(false)
+    }
+  }, [fromDate, ledger, loadData, chitType, pageNumber, pageSize, t, toDate])
+
+
+  const handleFocusedRowChanged = useCallback((event: FocusedRowChangedEvent<ChitInfo, string | number>) => {
+    const currentRow = event.row?.data ?? null
+    setSelectedRow(currentRow)
+    setSelectedRowDetails(getRowDetails(currentRow))
+  }, [getRowDetails])
+
+  const handleGridInitialized = useCallback((event: InitializedEvent<ChitInfo,string | number>) => {
+    gridRef.current = event.component ?? null
+  }, [])
+
+  const handleRangeSearch = useCallback(() => {
+    void loadData(fromDate, toDate, 1, pageSize)
+  }, [fromDate, loadData, pageSize, toDate])
+
+  const handleRefresh = useCallback(() => {
+    void loadData(fromDate, toDate, pageNumber, pageSize)
+  }, [fromDate, loadData, pageNumber, pageSize, toDate])
+
+  const handleOptionChanged = async (e: OptionChangedEvent) => {
+    if (e.fullName === "paging.pageIndex") {
+      const pageIndex = Number(e.value ?? 0)
+      const nextPageSize = e.component.pageSize()
+      await loadData(fromDate, toDate, pageIndex + 1, nextPageSize)
+      return
+    }
+
+    if (e.fullName === "paging.pageSize") {
+      const nextPageSize = Number(e.value ?? pageSize)
+      e.component.pageIndex(0)
+      await loadData(fromDate, toDate, 1, nextPageSize)
+    }
+  }
+
+  const handleExportExcel = useCallback(async () => {
+    try {
+      const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
+      const selectedChitId = selectedKeys.length > 0 ? Number(selectedKeys[0]) : null
+      const blob = await exportChitExcel(ledger, chitType, {
+        chitId: Number.isFinite(selectedChitId) && (selectedChitId ?? 0) > 0 ? selectedChitId : null,
+        fromYmd: formatDateToYmd(fromDate),
+        toYmd: formatDateToYmd(toDate),
+      })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement("a")
+      const fileLabel = title.trim().replace(/\s+/g, "_").toLowerCase()
+
+      anchor.href = url
+      anchor.download = `${fileLabel}_${new Date().toISOString().replace(/[:.-]/g, "")}.xlsx`
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("Export chit note error", error)
+      notify(t("EXPORT_FAILED", "Export failed"), "error", 4000)
+    }
+  }, [fromDate, ledger, chitType, t, title, toDate])
+
+  const handleExportPdf = useCallback(() => {
+    const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
+    const selectedIds = selectedKeys
+      .map((key) => Number(key))
+      .filter((value) => Number.isFinite(value) && value > 0)
+
+    if (!selectedIds.length) {
+      notify(t("Select a row first", "Select a row first"), "warning", 2500)
+      return
+    }
+
+    const selectedIdSet = new Set(selectedIds)
+    const orderedChitIds = rows
+      .filter((row) => selectedIdSet.has(Number(row.CHIT_ID)))
+      .map((row) => Number(row.CHIT_ID))
+
+    for (const selectedId of selectedIds) {
+      if (!orderedChitIds.includes(selectedId)) {
+        orderedChitIds.push(selectedId)
+      }
+    }
+
+    const companyCd = getCurrentCompanyCd()
+    const params = new URLSearchParams()
+
+    if (companyCd) {
+      params.set("companyCd", companyCd)
+    }
+
+    params.set("reportCode", "PAYMENT_VOUCHER")
+    params.set("chitId", String(orderedChitIds[0]))
+    params.set("chitIds", orderedChitIds.join(","))
+
+    const targetUrl = `${window.location.origin}/report-viewer${params.toString() ? `?${params.toString()}` : ""}`
+    const viewerWindow = window.open(targetUrl, "_blank", "noopener,noreferrer")
+
+    if (!viewerWindow) {
+      notify(t("Unable to open report viewer", "Unable to open report viewer"), "error", 3000)
+    }
+  }, [rows, t])
+
+  const handleImport = useCallback(
+    async (_rows: Array<Record<string, unknown>>, _method: "add" | "update" | "overwrite", file?: File) => {
+      if (!file) {
+        notify(t("VAL_SELECT_EXCEL_FILE", "Please select an Excel file"), "warning", 3000)
+        return
+      }
+
+      try {
+        await importChitExcel(ledger, chitType, file)
+        await loadData(fromDate, toDate, pageNumber, pageSize)
+      } catch (error) {
+        console.error("Import chit note error", error)
+        notify(t("IMPORT_FAILED", "Import failed"), "error", 4000)
+      }
+    },
+    [fromDate, ledger, loadData, chitType, pageNumber, pageSize, t, toDate],
+  )
+
+  return (
+    <DxPage>
+      <GridToolbar
+        title={title}
+        gridRef={gridRef}
+        onAdd={openCreatePopup}
+        onRefresh={handleRefresh}
+        onRangeSearch={handleRangeSearch}
+        fromDate={fromDate}
+        toDate={toDate}
+        onFromDateChange={setFromDate}
+        onToDateChange={setToDate}
+        showDateRange={true}
+        onDelete={handleDelete}
+        onImport={excelEnabled ? () => setIsExcelModalOpen(true) : undefined}
+        onExportPdf={chitType === "PM" ? handleExportPdf : undefined}
+        showExportPdf={chitType === "PM"}
+        onExportXlsx={excelEnabled ? handleExportExcel : undefined}
+        showImport={excelEnabled}
+        showExportXlsx={excelEnabled}
+        onSearchStateChange={(_value, active) => setIsMasterSearchActive(active)}
+        customItems={[
+          {
+            key: "edit",
+            icon: "edit",
+            text: t("lblEdit", "Edit"),
+            hint: t("lblEdit", "Edit"),
+            stylingMode: "text",
+            disabled: !selectedRow?.CHIT_ID,
+            onClick: () => {
+              void openEditPopup()
+            },
+          },
+        ]}
+      />
+
+      {excelEnabled && importConfig ? (
+        <ExcelImportModal
+          isOpen={isExcelModalOpen}
+          onClose={() => setIsExcelModalOpen(false)}
+          onImport={handleImport}
+          existingData={rows}
+          config={importConfig}
+          serverImport={true}
+          hideUpdateOverwrite={true}
+        />
+      ) : null}
+
+      <div className="flex h-[calc(100vh-220px)] min-h-[560px] flex-col gap-2">
+        <div className="relative min-h-[260px] flex-[0_0_66%]">
+          <PageGrid<ChitInfo>
+            dataSource={rows}
+            keyExpr="CHIT_ID"
+            pagingEnabled={true}
+            showPager={true}
+            copyExcludeFields={[
+              "CHIT_ID",
+              "COMPANY_CD",
+              "CHIT_TYPE",
+              "USERID",
+              "DETAIL_COUNT",
+              "DETAILS",
+              "CREATE_BY",
+              "CREATE_DT",
+              "MODIFY_BY",
+              "MODIFY_DT",
+            ]}
+            onInitialized={handleGridInitialized}
+            onFocusedRowChanged={handleFocusedRowChanged}
+            onContextMenuUpdate={(rowData) => {
+              setSelectedRow(rowData)
+              setSelectedRowDetails(getRowDetails(rowData))
+              void openEditPopup(rowData)
+            }}
+            selectMode="multiple"
+            focusRowEnabled={true}
+            onOptionChanged={handleOptionChanged}
+          >
+            <ChitColumns />
+          </PageGrid>
+
+          <LoadPanel
+            visible={loading}
+            showIndicator={true}
+            showPane={true}
+            shading={true}
+            shadingColor="rgba(0, 0, 0, 0.15)"
+          />
+        </div>
+
+        <div className="min-h-[220px] flex-1 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+          <div className="relative h-full">
+            <DetailGrid<ChitDetail>
+              dataSource={selectedRowDetails}
+              keyExpr="CHITDETAIL_ID"
+              height="100%"
+              searchVisible={isMasterSearchActive}
+              showSearchButton={false}
+              noDataText={
+                selectedRow?.CHIT_ID
+                  ? t("NO_DETAIL_DATA", "No detail data")
+                  : t("Select a row to view detail", "Select a row to view detail")
+              }
+            >
+              <ChitDetailColumns />
+            </DetailGrid>
+          </div>
+        </div>
+      </div>
+
+      <ChitEditorPopup
+        visible={popupVisible}
+        value={editingRow}
+        ledger={ledger}
+        chitType={chitType}
+        isUpdate={isUpdate}
+        loading={popupLoading}
+        onClose={() => {
+          if (!popupLoading) {
+            setPopupVisible(false)
+          }
+        }}
+        onSave={handleSave}
+      />
+    </DxPage>
+  )
+}
+
+export default ChitManagementPage

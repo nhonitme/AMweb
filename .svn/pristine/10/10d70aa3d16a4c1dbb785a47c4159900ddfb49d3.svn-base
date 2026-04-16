@@ -1,0 +1,70 @@
+import CustomStore from "devextreme/data/custom_store"
+
+type LookupEntity = Record<string, unknown>
+
+export function createLookupStore<T extends LookupEntity>(
+  key: string,
+  loadRows: () => Promise<T[]>,
+  getCacheToken?: () => string,
+) {
+  let cachedRows: T[] | null = null
+  let loadingPromise: Promise<T[]> | null = null
+  let cacheToken = ""
+
+  const readCacheToken = () => getCacheToken?.() ?? ""
+
+  const resetCache = () => {
+    cachedRows = null
+    loadingPromise = null
+  }
+
+  const ensureCacheScope = () => {
+    const nextToken = readCacheToken()
+
+    if (nextToken !== cacheToken) {
+      cacheToken = nextToken
+      resetCache()
+    }
+  }
+
+  const loadRowsOnce = async () => {
+    ensureCacheScope()
+
+    if (cachedRows) {
+      return cachedRows
+    }
+
+    if (!loadingPromise) {
+      loadingPromise = loadRows()
+        .then((rows) => {
+          const normalizedRows = Array.isArray(rows) ? rows : []
+          cachedRows = normalizedRows
+          return normalizedRows
+        })
+        .finally(() => {
+          loadingPromise = null
+        })
+    }
+
+    return await loadingPromise
+  }
+
+  const store = new CustomStore({
+    key,
+    loadMode: "raw",
+    cacheRawData: false,
+    load: loadRowsOnce,
+    byKey: async (lookupKey) => {
+      const rows = await loadRowsOnce()
+      return rows.find((row) => row[key] === lookupKey) ?? null
+    },
+  })
+
+  return {
+    store,
+    clearCache: () => {
+      cacheToken = readCacheToken()
+      resetCache()
+    },
+  }
+}

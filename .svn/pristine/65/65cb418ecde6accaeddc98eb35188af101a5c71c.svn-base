@@ -1,0 +1,517 @@
+import { useCallback, useContext, type ComponentType } from "react"
+
+import { Button as GridButton, Column } from "devextreme-react/data-grid"
+
+import AcclistLookupCellEditor from "@/components/lookup/AcclistLookupCellEditor"
+import { LookupStore } from "@/components/lookup/AcclistLookupStore"
+import BankLookupCellEditor from "@/components/lookup/BankLookupCellEditor"
+import CurrencyLookupCellEditor from "@/components/lookup/CurrencyLookupCellEditor"
+import CustomerLookupCellEditor from "@/components/lookup/CustomerLookupCellEditor"
+import DepartmentLookupCellEditor from "@/components/lookup/DepartmentLookupCellEditor"
+import { customerLookupStore } from "@/components/lookup/customerLookupStore"
+import { LanguageContext } from "@/lib/i18nLoader"
+import type { ChitType } from "@/types/voucher"
+import { getCurrentLangCode } from "@/utils/language"
+
+type VoucherDetailColumnsComponent = ComponentType
+
+function useVoucherDetailEditors() {
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback: string) => string
+  }
+
+  const t = useCallback(
+    (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
+    [translate],
+  )
+
+  const renderCustomerEditor = useCallback(
+    (cellInfo: any) => (
+      <CustomerLookupCellEditor
+        dataSource={customerLookupStore}
+        value={cellInfo.data?.CUSTOMER_ID ?? null}
+        rowData={cellInfo.data}
+        rowIndex={cellInfo.row?.rowIndex ?? -1}
+        grid={cellInfo.component}
+        setValue={(customerId) => {
+          cellInfo.component.cellValue(cellInfo.row.rowIndex, "CUSTOMER_ID", customerId)
+        }}
+        customerIdField="CUSTOMER_ID"
+        customerCdField="CUSTOMER_CD"
+        customerNmField="CUSTOMER_NM_VIET"
+        taxCdField="TAX_CD"
+        addressField="ADDRESS"
+        customerCdFieldCaption={t("CUSTOMER_CD", "Customer code")}
+        customerNmFieldCaption={t("CUSTOMER_NM", "Customer name")}
+        taxCdFieldCaption={t("TAX_CD", "Tax code")}
+        addressFieldCaption={t("ADDRESS", "Address")}
+        placeholder={t("CustomerSelect", "Select customer")}
+        popupTitle={t("CustomerSelect", "Select customer")}
+        buttonHint={t("LIST_CUSTOMER", "Open customer list")}
+      />
+    ),
+    [t],
+  )
+
+  const createAccEditor = useCallback(
+    ({
+      valueField,
+      nameField,
+      idField,
+      placeholder,
+      popupTitle,
+      buttonHint,
+    }: {
+      valueField: string
+      nameField: string
+      idField?: string
+      placeholder?: string
+      popupTitle?: string
+      buttonHint?: string
+    }) =>
+      (cellInfo: any) => (
+        <AcclistLookupCellEditor
+          dataSource={LookupStore}
+          value={cellInfo.data?.[valueField] ?? null}
+          rowIndex={cellInfo.row?.rowIndex ?? -1}
+          grid={cellInfo.component}
+          setValue={(accCd) => {
+            cellInfo.component.cellValue(cellInfo.row.rowIndex, valueField, accCd)
+          }}
+          ValueField={valueField}
+          NameField={nameField}
+          IdField={idField}
+          LookupCodeField="ACC_CD"
+          LookupNameField={`ACCTITLE_NM_${getCurrentLangCode()}`}
+          placeholder={placeholder ?? t("ACC_SELECT", "Select account")}
+          popupTitle={popupTitle ?? t("ACC_SELECT", "Select account")}
+          buttonHint={buttonHint ?? t("lblACC", "Open account list")}
+        />
+      ),
+    [t],
+  )
+
+  const createBankEditor = useCallback(
+    ({
+      valueField,
+      valueMode,
+      bankIdField,
+      bankCdField,
+      placeholder,
+      popupTitle,
+      buttonHint,
+    }: {
+      valueField: string
+      valueMode?: "id" | "code"
+      bankIdField?: string
+      bankCdField?: string
+      placeholder?: string
+      popupTitle?: string
+      buttonHint?: string
+    }) =>
+      (cellInfo: any) => (
+        <BankLookupCellEditor
+          value={cellInfo.data?.[valueField] ?? null}
+          rowData={cellInfo.data}
+          rowIndex={cellInfo.row?.rowIndex ?? -1}
+          grid={cellInfo.component}
+          setValue={(value) => {
+            cellInfo.component.cellValue(cellInfo.row.rowIndex, valueField, value)
+          }}
+          valueMode={valueMode ?? "id"}
+          bankIdField={bankIdField ?? "BANK_ID"}
+          bankCdField={bankCdField ?? valueField}
+          bankNmField={undefined}
+          accCdField={undefined}
+          passbookNmField={undefined}
+          accountNumField={undefined}
+          citadCodeField={undefined}
+          bankCdFieldCaption={t("BANK_CD", "Bank code")}
+          bankNmFieldCaption={t("BANK_NM", "Bank name")}
+          placeholder={placeholder ?? t("BANK_SELECT", "Select bank")}
+          popupTitle={popupTitle ?? t("BANK_SELECT", "Select bank")}
+          buttonHint={buttonHint ?? t("BANK_LOOKUP", "Open bank list")}
+        />
+      ),
+    [t],
+  )
+
+  const createDepartmentEditor = useCallback(
+    ({
+      valueField,
+      valueMode,
+      departmentIdField,
+      departmentCdField,
+      placeholder,
+      popupTitle,
+      buttonHint,
+    }: {
+      valueField: string
+      valueMode?: "id" | "code"
+      departmentIdField?: string
+      departmentCdField?: string
+      placeholder?: string
+      popupTitle?: string
+      buttonHint?: string
+    }) =>
+      (cellInfo: any) => (
+        <DepartmentLookupCellEditor
+          value={cellInfo.data?.[valueField] ?? null}
+          rowData={cellInfo.data}
+          rowIndex={cellInfo.row?.rowIndex ?? -1}
+          grid={cellInfo.component}
+          setValue={(value) => {
+            cellInfo.component.cellValue(cellInfo.row.rowIndex, valueField, value)
+          }}
+          valueMode={valueMode ?? "id"}
+          departmentIdField={departmentIdField ?? "DEPARTMENT_ID"}
+          departmentCdField={departmentCdField ?? valueField}
+          departmentNmField={undefined}
+          departmentCdFieldCaption={t("DEPARTMENT_CD", "Department code")}
+          departmentNmFieldCaption={t("DEP_NAME_VIET", "Department name")}
+          placeholder={placeholder ?? t("DEPARTMENT_SELECT", "Select department")}
+          popupTitle={popupTitle ?? t("DEPARTMENT_SELECT", "Select department")}
+          buttonHint={buttonHint ?? t("DEPARTMENT_LOOKUP", "Open department list")}
+        />
+      ),
+    [t],
+  )
+
+  const createCurrencyEditor = useCallback(
+    ({
+      valueField,
+      currencyCdField,
+      currencyNmField,
+      symbolField,
+      placeholder,
+      popupTitle,
+      buttonHint,
+    }: {
+      valueField: string
+      currencyCdField?: string
+      currencyNmField?: string
+      symbolField?: string
+      placeholder?: string
+      popupTitle?: string
+      buttonHint?: string
+    }) =>
+      (cellInfo: any) => (
+        <CurrencyLookupCellEditor
+          value={cellInfo.data?.[valueField] ?? null}
+          rowData={cellInfo.data}
+          rowIndex={cellInfo.row?.rowIndex ?? -1}
+          grid={cellInfo.component}
+          setValue={(value) => {
+            cellInfo.component.cellValue(cellInfo.row.rowIndex, valueField, value)
+          }}
+          currencyCdField={currencyCdField ?? valueField}
+          currencyNmField={currencyNmField}
+          symbolField={symbolField}
+          currencyCdFieldCaption={t("CURRENCY_CD", "Currency code")}
+          currencyNmFieldCaption={t("CURRENCY_NM", "Currency name")}
+          symbolFieldCaption={t("SYMBOL", "Symbol")}
+          placeholder={placeholder ?? t("CURRENCY_SELECT", "Select currency")}
+          popupTitle={popupTitle ?? t("CURRENCY_SELECT", "Select currency")}
+          buttonHint={buttonHint ?? t("CURRENCY_LOOKUP", "Open currency list")}
+        />
+      ),
+    [t],
+  )
+
+  return {
+    t,
+    createAccEditor,
+    createBankEditor,
+    createCurrencyEditor,
+    createDepartmentEditor,
+    renderCustomerEditor,
+  }
+}
+
+function DetailMetaColumns() {
+  return (
+    <>
+      <Column type="buttons" width={60} showInColumnChooser={false}>
+        <GridButton name="delete" />
+      </Column>
+      <Column dataField="CHIT_ID" visible={false} />
+      <Column dataField="CHITDETAIL_ID" visible={false} />
+      <Column dataField="CHITDETAIL_CD" visible={false} />
+      <Column dataField="CHIT_YMD" visible={false} />
+      <Column dataField="BANK_ID" visible={false} />
+      <Column dataField="CUSTOMER_ID" visible={false} />
+      <Column dataField="DEPARTMENT_ID" visible={false} />
+    </>
+  )
+}
+
+function CustomerColumns({
+  renderCustomerEditor,
+  t,
+}: {
+  renderCustomerEditor: (cellInfo: any) => JSX.Element
+  t: (key: string, fallback: string) => string
+}) {
+  return (
+    <>
+      <Column
+        dataField="CUSTOMER_CD"
+        caption={t("CUSTOMER_CD", "Customer")}
+        width={200}
+        editCellRender={renderCustomerEditor}
+      />
+      <Column
+        dataField="CUSTOMER_NM_VIET"
+        caption={t("CUSTOMER_NM", "Customer name")}
+        minWidth={220}
+        allowEditing={false}
+      />
+    </>
+  )
+}
+
+function AccountingColumns({
+  createAccEditor,
+  t,
+}: {
+  createAccEditor: (config: {
+    valueField: string
+    nameField: string
+    idField?: string
+    placeholder?: string
+    popupTitle?: string
+    buttonHint?: string
+  }) => (cellInfo: any) => JSX.Element
+  t: (key: string, fallback: string) => string
+}) {
+  return (
+    <>
+      <Column
+        dataField="DEBIT"
+        caption={t("DEBIT", "Debit account")}
+        width={150}
+        editCellRender={createAccEditor({
+          valueField: "DEBIT",
+          nameField: "DEBIT_NM_VIET",
+          idField: "ACC_ID",
+        })}
+      />
+      <Column
+        dataField="DEBIT_NM_VIET"
+        caption={t("ACC_NM_DEBIT", "Debit account name")}
+        minWidth={220}
+        allowEditing={false}
+      />
+      <Column
+        dataField="CREDIT"
+        caption={t("CREDIT", "Credit account")}
+        width={150}
+        editCellRender={createAccEditor({
+          valueField: "CREDIT",
+          nameField: "CREDIT_NM_VIET",
+          idField: "ACC_ID",
+        })}
+      />
+      <Column
+        dataField="CREDIT_NM_VIET"
+        caption={t("ACC_NM_CREDIT", "Credit account name")}
+        minWidth={220}
+        allowEditing={false}
+      />
+    </>
+  )
+}
+
+export function CashVoucherDetailColumns() {
+  const { t, createAccEditor, createCurrencyEditor, renderCustomerEditor } = useVoucherDetailEditors()
+
+  return (
+    <>
+      <DetailMetaColumns />
+      <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
+      <AccountingColumns createAccEditor={createAccEditor} t={t} />
+      <Column dataField="AMOUNT" caption={t("AMOUNT", "Amount")} dataType="number" format="#,##0.00" width={140} />
+      <Column
+        dataField="FC_TYPE"
+        caption={t("FC_TYPE", "Currency")}
+        width={120}
+        editCellRender={createCurrencyEditor({ valueField: "FC_TYPE" })}
+      />
+      <Column dataField="FC_RATE" caption={t("FC_RATE", "Exchange rate")} dataType="number" format="#,##0.000000" width={130} />
+      <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Description")} minWidth={240} />
+    </>
+  )
+}
+
+export function BankVoucherDetailColumns() {
+  const { t, createAccEditor, createBankEditor, createCurrencyEditor, renderCustomerEditor } = useVoucherDetailEditors()
+
+  return (
+    <>
+      <DetailMetaColumns />
+      <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
+      <Column
+        dataField="BANK_CD"
+        caption={t("BANK_CD", "Bank")}
+        width={160}
+        editCellRender={createBankEditor({
+          valueField: "BANK_ID",
+          valueMode: "id",
+          bankIdField: "BANK_ID",
+          bankCdField: "BANK_CD",
+          placeholder: t("BANK_SELECT", "Select bank"),
+          popupTitle: t("BANK_SELECT", "Select bank"),
+          buttonHint: t("BANK_LOOKUP", "Open bank list"),
+        })}
+      />
+      <AccountingColumns createAccEditor={createAccEditor} t={t} />
+      <Column dataField="AMOUNT" caption={t("AMOUNT", "Amount")} dataType="number" format="#,##0.00" width={140} />
+      <Column
+        dataField="FC_TYPE"
+        caption={t("FC_TYPE", "Currency")}
+        width={120}
+        editCellRender={createCurrencyEditor({ valueField: "FC_TYPE" })}
+      />
+      <Column dataField="FC_RATE" caption={t("FC_RATE", "Exchange rate")} dataType="number" format="#,##0.000000" width={130} />
+      <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Bank description")} minWidth={240} />
+    </>
+  )
+}
+
+export function PurchaseVoucherDetailColumns() {
+  const { t, createAccEditor, renderCustomerEditor } = useVoucherDetailEditors()
+
+  return (
+    <>
+      <DetailMetaColumns />
+      <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
+      <Column dataField="PRODUCT_NM" caption={t("PRODUCT_NM", "Product")} minWidth={200} />
+      <Column dataField="UNIT_NM" caption={t("UNIT_NM", "Unit")} width={110} />
+      <Column dataField="QUANTITY" caption={t("QUANTITY", "Quantity")} dataType="number" format="#,##0.###" width={120} />
+      <Column dataField="UNIT_PRICE" caption={t("UNIT_PRICE", "Unit price")} dataType="number" format="#,##0.00" width={140} />
+      <Column dataField="PRODUCT_AMOUNT" caption={t("PRODUCT_AMOUNT", "Product amount")} dataType="number" format="#,##0.00" width={150} />
+      <Column dataField="VAT_TYPE" caption={t("VAT_TYPE", "VAT type")} width={110} />
+      <Column dataField="VAT_AMOUNT" caption={t("VAT_AMOUNT", "VAT amount")} dataType="number" format="#,##0.00" width={130} />
+      <Column dataField="VAT_CHIT_NO" caption={t("VAT_CHIT_NO", "Invoice no")} width={150} />
+      <AccountingColumns createAccEditor={createAccEditor} t={t} />
+      <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Purchase description")} minWidth={240} />
+    </>
+  )
+}
+
+export function PurchaseServiceVoucherDetailColumns() {
+  const { t, createAccEditor, renderCustomerEditor } = useVoucherDetailEditors()
+
+  return (
+    <>
+      <DetailMetaColumns />
+      <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
+      <Column dataField="PRODUCT_NM" caption={t("SERVICE_NM", "Service")} minWidth={220} />
+      <Column dataField="PRODUCT_NOTE" caption={t("PRODUCT_NOTE", "Service scope")} minWidth={220} />
+      <Column dataField="PRODUCT_AMOUNT" caption={t("PRODUCT_AMOUNT", "Service amount")} dataType="number" format="#,##0.00" width={150} />
+      <Column dataField="VAT_TYPE" caption={t("VAT_TYPE", "VAT type")} width={110} />
+      <Column dataField="VAT_AMOUNT" caption={t("VAT_AMOUNT", "VAT amount")} dataType="number" format="#,##0.00" width={130} />
+      <Column dataField="VAT_CHIT_NO" caption={t("VAT_CHIT_NO", "Service invoice no")} width={160} />
+      <AccountingColumns createAccEditor={createAccEditor} t={t} />
+      <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Service description")} minWidth={240} />
+    </>
+  )
+}
+
+export function SalesVoucherDetailColumns() {
+  const { t, createAccEditor, renderCustomerEditor } = useVoucherDetailEditors()
+
+  return (
+    <>
+      <DetailMetaColumns />
+      <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
+      <Column dataField="PRODUCT_NM" caption={t("PRODUCT_NM", "Product / Service")} minWidth={200} />
+      <Column dataField="UNIT_NM" caption={t("UNIT_NM", "Unit")} width={110} />
+      <Column dataField="QUANTITY" caption={t("QUANTITY", "Quantity")} dataType="number" format="#,##0.###" width={120} />
+      <Column dataField="UNIT_PRICE" caption={t("UNIT_PRICE", "Unit price")} dataType="number" format="#,##0.00" width={140} />
+      <Column dataField="PRODUCT_AMOUNT" caption={t("PRODUCT_AMOUNT", "Revenue")} dataType="number" format="#,##0.00" width={140} />
+      <Column dataField="VAT_TYPE" caption={t("VAT_TYPE", "VAT type")} width={110} />
+      <Column dataField="PRODUCT_VAT_AMOUNT" caption={t("PRODUCT_VAT_AMOUNT", "Output VAT")} dataType="number" format="#,##0.00" width={140} />
+      <Column dataField="VAT_CHIT_NO" caption={t("VAT_CHIT_NO", "Sales invoice no")} width={160} />
+      <AccountingColumns createAccEditor={createAccEditor} t={t} />
+      <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Sales description")} minWidth={240} />
+    </>
+  )
+}
+
+export function OffsetVoucherDetailColumns() {
+  const { t, createAccEditor, createCurrencyEditor, renderCustomerEditor } = useVoucherDetailEditors()
+
+  return (
+    <>
+      <DetailMetaColumns />
+      <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
+      <Column dataField="MR_CD" caption={t("MR_CD", "Offset code 1")} width={140} />
+      <Column dataField="MR_CD2" caption={t("MR_CD2", "Offset code 2")} width={140} />
+      <AccountingColumns createAccEditor={createAccEditor} t={t} />
+      <Column dataField="AMOUNT" caption={t("AMOUNT", "Amount")} dataType="number" format="#,##0.00" width={140} />
+      <Column
+        dataField="FC_TYPE"
+        caption={t("FC_TYPE", "Currency")}
+        width={120}
+        editCellRender={createCurrencyEditor({ valueField: "FC_TYPE" })}
+      />
+      <Column dataField="FC_RATE" caption={t("FC_RATE", "Exchange rate")} dataType="number" format="#,##0.000000" width={130} />
+      <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Offset description")} minWidth={240} />
+    </>
+  )
+}
+
+export function OtherVoucherDetailColumns() {
+  const { t, createAccEditor, createCurrencyEditor, createDepartmentEditor, renderCustomerEditor } = useVoucherDetailEditors()
+
+  return (
+    <>
+      <DetailMetaColumns />
+      <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
+      <Column dataField="MG_CD" caption={t("MG_CD", "Management code")} width={140} />
+      <Column
+        dataField="DEPARTMENT_CD"
+        caption={t("DEPARTMENT_CD", "Department")}
+        width={160}
+        editCellRender={createDepartmentEditor({
+          valueField: "DEPARTMENT_ID",
+          valueMode: "id",
+          departmentIdField: "DEPARTMENT_ID",
+          departmentCdField: "DEPARTMENT_CD",
+          placeholder: t("DEPARTMENT_SELECT", "Select department"),
+          popupTitle: t("DEPARTMENT_SELECT", "Select department"),
+          buttonHint: t("DEPARTMENT_LOOKUP", "Open department list"),
+        })}
+      />
+      <AccountingColumns createAccEditor={createAccEditor} t={t} />
+      <Column dataField="AMOUNT" caption={t("AMOUNT", "Amount")} dataType="number" format="#,##0.00" width={140} />
+      <Column
+        dataField="FC_TYPE"
+        caption={t("FC_TYPE", "Currency")}
+        width={120}
+        editCellRender={createCurrencyEditor({ valueField: "FC_TYPE" })}
+      />
+      <Column dataField="FC_RATE" caption={t("FC_RATE", "Exchange rate")} dataType="number" format="#,##0.000000" width={130} />
+      <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Description")} minWidth={240} />
+    </>
+  )
+}
+
+const detailColumnsMap: Record<ChitType, VoucherDetailColumnsComponent> = {
+  RC: CashVoucherDetailColumns,
+  PM: CashVoucherDetailColumns,
+  DN: BankVoucherDetailColumns,
+  CN: BankVoucherDetailColumns,
+  PO: PurchaseVoucherDetailColumns,
+  PS: PurchaseServiceVoucherDetailColumns,
+  SO: SalesVoucherDetailColumns,
+  CO: OffsetVoucherDetailColumns,
+  OT: OtherVoucherDetailColumns,
+}
+
+export function getVoucherDetailColumnsComponent(chitType: ChitType): VoucherDetailColumnsComponent {
+  return detailColumnsMap[chitType]
+}
+
+export default CashVoucherDetailColumns

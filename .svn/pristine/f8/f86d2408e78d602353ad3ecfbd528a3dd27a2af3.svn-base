@@ -1,0 +1,54 @@
+/**
+ * Menu Item Interface - Maps API response to application menu structure
+ */
+export interface MenuItem {
+  MENU_ID: string;
+  MENU_CODE: string;
+  MENU_NAME: string;
+  PARENT_ID: string | null;
+  ROUTE_PATH: string | null;
+  ICON: string;
+  SORT_ORDER: number;
+  IS_ACTIVE: boolean;
+  IS_VISIBLE: boolean;
+  IS_DISABLED: boolean;
+}
+
+/**
+ * API Response structure for menu list
+ */
+export interface MenuApiResponse {
+  Success: boolean;
+  Status: number;
+  Message: string;
+  Data: MenuItem[];
+}
+
+/**
+ * Menu Tree Node - Used for rendering hierarchical menu
+ */
+export interface MenuTreeNode {
+  id: string;
+  code: string;
+  name: string;
+  parentId: string | null;
+  routePath: string | null;
+  icon: string;
+  sortOrder: number;
+  isActive: boolean;
+  isVisible: boolean;
+  isDisabled: boolean;
+  children?: MenuTreeNode[];
+}
+
+export interface MenuTreeNodeApi {
+  MENU_ID: string;
+  MENU_CODE: string;
+  MENU_NAME: string;
+  PARENT_ID: string | null;
+  ROUTE_PATH: string | null;
+  ICON: string | null;
+  SORT_ORDER: number;
+  IS_DISABLED: boolean;
+  CHILDREN?: MenuTreeNodeApi[];
+}

@@ -1,0 +1,73 @@
+import { Form } from 'devextreme-react/tree-list';
+import { Item,RequiredRule, AsyncRule  } from 'devextreme-react/form';
+import { useContext } from 'react';
+import { LanguageContext } from '@/lib/i18nLoader';
+import { checkExistsACC } from '@/api/acclistAPI';
+
+type AcclistFormProps = {
+  isUpdate: boolean;
+  lblChoose: string;
+  lblAccType: string;
+  data: { VALUE: number; TEXT: string }[];
+};
+
+const validateAccCd = async (e: { value: unknown; data?: any }) => {
+  const accCd = String(e.value ?? "").trim();
+
+  if (!accCd) {
+    return true;
+  }
+
+  try {
+    const accId = e.data?.ACC_ID ?? 0;
+    const res = await checkExistsACC(
+      accId,
+      accCd
+    );
+
+    return {
+      isValid: !res.Data,
+    };
+  } catch (err: any) {
+    console.error("Error in getAcclistInfos:", err);
+  }
+    return {
+      isValid: false,
+      message: "Không kiểm tra được dữ liệu",
+    };
+};
+
+export function AcclistForm({ isUpdate, lblChoose, lblAccType, data }: AcclistFormProps) {
+  const { translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string };
+  return (
+    <Form colCount={2}>
+      <Item dataField="ACC_CD">
+        <RequiredRule message={translate ? translate("MSG_MUST_ITEM", "ACC_CD không được để trống") : "ACC_CD không được để trống"} />
+        <AsyncRule message={translate ? translate("MsgEqualCode", "ACC_CD đã tồn tại") : "ACC_CD đã tồn tại"} validationCallback={validateAccCd} />
+      </Item>
+      
+      {<Item dataField="ISABLETYPE"
+        editorType="dxSelectBox" 
+        label={{ text: lblAccType }}
+        editorOptions={{
+          dataSource: data,
+          valueExpr: "VALUE",
+          displayExpr: "TEXT",
+          searchEnabled: true,
+          placeholder: lblChoose,
+          showClearButton: true
+        }}
+      >
+        <RequiredRule message={translate ? translate("MSG_MUST_ITEM", "Account Type is required") : "Account Type is required"} />
+      </Item>}
+
+      <Item dataField="ACCTITLE_NM_VIET" colSpan={2}
+      >
+        <RequiredRule message={translate ? translate("MSG_MUST_ITEM", "ACCTITLE_NM_VIET không được để trống") : "ACCTITLE_NM_VIET không được để trống"} />
+      </Item>
+      <Item dataField="ACCTITLE_NM_ENG" colSpan={2} />
+      <Item dataField="ACCTITLE_NM_KOR" colSpan={2} />
+      <Item dataField="ACCTITLE_NM_CHINA" colSpan={2} />
+    </Form>
+  );
+}

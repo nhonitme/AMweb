@@ -1,0 +1,258 @@
+import type { AxiosResponse } from "axios"
+
+import axios from "./axiosClient"
+import API_BASE_URL from "../config/apiConfig"
+import type {
+  ChitApi,
+  ChitLedger,
+  ChitType,
+  InventoryInputApi,
+  InventoryOutputApi,
+} from "@/types/voucher"
+import type { PagedResult } from "@/types/paging"
+
+type ApiEnvelope<T> = {
+  Data?: T
+  Message?: string
+  Success?: boolean
+  data?: T
+  message?: string
+  success?: boolean
+  PageNumber?: number
+  PageSize?: number
+  TotalRecords?: number
+  TotalPages?: number
+  HasPrevious?: boolean
+  HasNext?: boolean
+}
+
+type GetChitsParams = {
+  fromYmd?: string | null
+  toYmd?: string | null
+  chitId?: number | null
+  INCLUDE_DETAILS?: boolean
+  pageNumber?: number
+  pageSize?: number
+}
+
+type ExportChitsParams = GetChitsParams
+
+const voucherControllerMap: Record<ChitLedger, Partial<Record<ChitType, string>>> = {
+  AP: {
+    PM: "PaymentVoucherAp",
+    DN: "DebitNoteAp",
+    PO: "PurchaseVoucherAp",
+    PS: "PurchaseServiceVoucherAp",
+    CO: "OffsetVoucherAp",
+    OT: "OtherVoucherAp",
+  },
+  AR: {
+    RC: "ReceiptVoucherAr",
+    CN: "CreditNoteAr",
+    SO: "SalesVoucherAr",
+    CO: "OffsetVoucherAr",
+    OT: "OtherVoucherAr",
+  },
+}
+
+function unwrapPayload<T>(response: AxiosResponse<ApiEnvelope<T> | T>): ApiEnvelope<T> | T {
+  return response.data
+}
+
+function normalizeResponse<T>(
+  response: AxiosResponse<ApiEnvelope<T> | T>,
+): { data: T; message?: string; success?: boolean } {
+  const payload = unwrapPayload(response)
+  const envelope = (payload as ApiEnvelope<T>).Data ?? (payload as ApiEnvelope<T>).data
+
+  return {
+    data: (envelope ?? payload) as T,
+    message: (payload as ApiEnvelope<T>).Message ?? (payload as ApiEnvelope<T>).message ?? "",
+    success: (payload as ApiEnvelope<T>).Success ?? (payload as ApiEnvelope<T>).success ?? true,
+  }
+}
+
+function extractArrayPayload<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) {
+    return payload as T[]
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return []
+  }
+
+  const source = payload as Record<string, unknown>
+  const candidates = [source.Data, source.data, source.Items, source.items, source.Value, source.value]
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate as T[]
+    }
+  }
+
+  for (const candidate of candidates) {
+    if (candidate && typeof candidate === "object") {
+      const nested = extractArrayPayload<T>(candidate)
+      if (nested.length > 0) {
+        return nested
+      }
+    }
+  }
+
+  return []
+}
+
+function normalizePagedResponse<T>(
+  response: AxiosResponse<ApiEnvelope<T[]> | T[]>,
+  fallbackPageNumber = 1,
+  fallbackPageSize = 20,
+): PagedResult<T> {
+  const payload = unwrapPayload(response) as ApiEnvelope<T[]>
+  const envelope = payload.Data ?? payload.data
+  const data = Array.isArray(envelope ?? payload) ? ((envelope ?? payload) as T[]) : []
+  const pageSize = payload.PageSize ?? fallbackPageSize
+  const totalRecords = payload.TotalRecords ?? data.length
+  const totalPages = payload.TotalPages ?? Math.max(1, Math.ceil(totalRecords / Math.max(pageSize, 1)))
+  const pageNumber = payload.PageNumber ?? fallbackPageNumber
+
+  return {
+    data,
+    pageNumber,
+    pageSize,
+    totalRecords,
+    totalPages,
+    hasPrevious: payload.HasPrevious ?? pageNumber > 1,
+    hasNext: payload.HasNext ?? pageNumber < totalPages,
+    message: payload.Message ?? payload.message ?? "",
+    success: payload.Success ?? payload.success ?? true,
+  }
+}
+
+function getBaseUrl(ledger: ChitLedger, chitType: ChitType): string {
+  const controllerName = voucherControllerMap[ledger][chitType]
+
+  if (!controllerName) {
+    throw new Error(`Unsupported voucher endpoint for ledger ${ledger} and chit type ${chitType}`)
+  }
+
+  return `${API_BASE_URL}/${controllerName}`
+}
+
+function buildDetailIdsParam(chitDetailIds: number[]) {
+  return chitDetailIds.filter((id) => Number.isFinite(id) && id > 0).join(",")
+}
+
+export async function getChits(
+  ledger: ChitLedger,
+  chitType: ChitType,
+  filters: GetChitsParams = {},
+): Promise<PagedResult<ChitApi>> {
+  const params: Record<string, boolean | string | number> = {}
+
+  params.CHIT_TYPE = chitType
+  if (filters.chitId && filters.chitId > 0) params.CHIT_ID = filters.chitId
+  if (filters.fromYmd) params.FROM_YMD = filters.fromYmd
+  if (filters.toYmd) params.TO_YMD = filters.toYmd
+  if (filters.INCLUDE_DETAILS) params.INCLUDE_DETAILS = filters.INCLUDE_DETAILS
+  if (filters.pageNumber && filters.pageNumber > 0) params.PAGE_NUMBER = filters.pageNumber
+  if (filters.pageSize && filters.pageSize > 0) params.PAGE_SIZE = filters.pageSize
+
+  const response = await axios.get<ApiEnvelope<ChitApi[]>>(`${getBaseUrl(ledger, chitType)}/Get`, {
+    params: Object.keys(params).length > 0 ? params : undefined,
+  })
+
+  return normalizePagedResponse<ChitApi>(response, filters.pageNumber ?? 1, filters.pageSize ?? 20)
+}
+
+export async function exportChitExcel(
+  ledger: ChitLedger,
+  chitType: ChitType,
+  filters: ExportChitsParams = {},
+): Promise<Blob> {
+  const params: Record<string, string | number> = {}
+
+  if (filters.chitId && filters.chitId > 0) params.CHIT_ID = filters.chitId
+  if (filters.fromYmd) params.FROM_YMD = filters.fromYmd
+  if (filters.toYmd) params.TO_YMD = filters.toYmd
+
+  const response = await axios.get(`${getBaseUrl(ledger, chitType)}/ExportExcel`, {
+    params: Object.keys(params).length > 0 ? params : undefined,
+    responseType: "blob",
+  })
+
+  return response.data
+}
+
+export async function importChitExcel(
+  ledger: ChitLedger,
+  chitType: ChitType,
+  file: File,
+): Promise<unknown> {
+  const formData = new FormData()
+  formData.append("file", file)
+
+  const response = await axios.post(`${getBaseUrl(ledger, chitType)}/ImportExcel`, formData)
+  return response.data
+}
+
+export async function createChit(
+  ledger: ChitLedger,
+  payload: Partial<ChitApi>,
+  chitType: ChitType,
+): Promise<{ data: ChitApi; message?: string }> {
+  const response = await axios.post<ApiEnvelope<ChitApi> | ChitApi>(`${getBaseUrl(ledger, chitType)}/Create`, payload)
+  const { data, message } = normalizeResponse<ChitApi>(response)
+  return { data, message }
+}
+
+export async function updateChit(
+  ledger: ChitLedger,
+  payload: Partial<ChitApi>,
+  chitType: ChitType,
+): Promise<{ data: ChitApi; message?: string }> {
+  const response = await axios.put<ApiEnvelope<ChitApi> | ChitApi>(`${getBaseUrl(ledger, chitType)}/Update`, payload)
+  const { data, message } = normalizeResponse<ChitApi>(response)
+  return { data, message }
+}
+
+export async function deleteChit(
+  ledger: ChitLedger,
+  chitId: number,
+  chitType: ChitType,
+): Promise<{ success: boolean; message?: string }> {
+  const response = await axios.delete<ApiEnvelope<number>>(`${getBaseUrl(ledger, chitType)}/Delete`, {
+    params: { CHIT_ID: chitId },
+  })
+  const { success, message } = normalizeResponse<number>(response)
+  return { success: success ?? true, message }
+}
+
+export async function getInventoryInputs(
+  ledger: ChitLedger,
+  chitType: ChitType,
+  chitDetailIds: number[],
+): Promise<InventoryInputApi[]> {
+  const CHITDETAIL_IDS = buildDetailIdsParam(chitDetailIds)
+  if (!CHITDETAIL_IDS) return []
+
+  const response = await axios.get<ApiEnvelope<InventoryInputApi[]> | InventoryInputApi[]>(
+    `${getBaseUrl(ledger, chitType)}/GetInventoryInputs`,
+    { params: { CHITDETAIL_IDS } },
+  )
+  return extractArrayPayload<InventoryInputApi>(unwrapPayload(response))
+}
+
+export async function getInventoryOutputs(
+  ledger: ChitLedger,
+  chitType: ChitType,
+  chitDetailIds: number[],
+): Promise<InventoryOutputApi[]> {
+  const CHITDETAIL_IDS = buildDetailIdsParam(chitDetailIds)
+  if (!CHITDETAIL_IDS) return []
+
+  const response = await axios.get<ApiEnvelope<InventoryOutputApi[]> | InventoryOutputApi[]>(
+    `${getBaseUrl(ledger, chitType)}/GetInventoryOutputs`,
+    { params: { CHITDETAIL_IDS } },
+  )
+  return extractArrayPayload<InventoryOutputApi>(unwrapPayload(response))
+}
