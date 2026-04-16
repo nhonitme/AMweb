@@ -663,7 +663,23 @@ export function ChitEditorPopup({
     }
 
     const syncedBaseDetails = detailGridRef.current ? await detailGridRef.current.savePendingChanges() : draft.DETAILS
-    const syncedDetails = mergeInventoryIntoDetails(syncedBaseDetails as DetailRow[], draft.DETAILS as DetailRow[])
+    
+    // Save pending inventory input changes
+    let syncedInventoryInputs = draft.DETAILS
+    if (inventoryInputGridRef.current && selectedInventoryDetailKey) {
+      const inventoryInputs = await inventoryInputGridRef.current.savePendingChanges()
+      const selectedDetailIndex = syncedBaseDetails.findIndex((row, index) => getDetailRowKey(row, index) === selectedInventoryDetailKey)
+      if (selectedDetailIndex >= 0 && inventoryInputs) {
+        const nextDetails = [...syncedBaseDetails] as DetailRow[]
+        nextDetails[selectedDetailIndex] = {
+          ...(nextDetails[selectedDetailIndex] || {}),
+          INVENTORY_INPUTS: inventoryInputs,
+        } as DetailRow
+        syncedInventoryInputs = nextDetails
+      }
+    }
+    
+    const syncedDetails = mergeInventoryIntoDetails(syncedInventoryInputs as DetailRow[], draft.DETAILS as DetailRow[])
     const activeSyncedDetails = getActiveDetailRows(syncedDetails as DetailRow[])
     const totalAmount = calculateChitAmount(activeSyncedDetails)
     const normalizedChitNo = String(draft.CHIT_NO ?? "").trim()
@@ -679,7 +695,7 @@ export function ChitEditorPopup({
       DETAIL_COUNT: activeSyncedDetails.length,
       AMOUNT: totalAmount,
     })
-  }, [draft])
+  }, [draft, selectedInventoryDetailKey])
 
   const handleSave = useCallback(async () => {
     const record = await buildRecordForSave()
