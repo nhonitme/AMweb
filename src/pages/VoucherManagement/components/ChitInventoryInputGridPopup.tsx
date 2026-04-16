@@ -508,14 +508,14 @@ function ChitInventoryInputGridPopup({
       const nextRow = normalizeInputLine(e.data, {
         companyCd,
         chitDetailId,
-        chitDetailCc,
+        chitDetailCd,
         detailRowKey,
         inventoryYmd,
       })
 
       onChange(mergeInsertedRow(normalizedRows, nextRow))
     },
-    [normalizedRows, companyCd, chitDetailId, chitDetailCc, detailRowKey, inventoryYmd, onChange],
+    [normalizedRows, companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd, onChange],
   )
 
   const handleRowUpdated = useCallback(
@@ -525,12 +525,12 @@ function ChitInventoryInputGridPopup({
         if (String(row.ROW_KEY) !== key) return row
         return normalizeInputLine(
           { ...row, ...e.data },
-          { companyCd, chitDetailId, chitDetailCc, detailRowKey, inventoryYmd },
+          { companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd },
         )
       })
       onChange(nextRows)
     },
-    [normalizedRows, companyCd, chitDetailId, chitDetailCc, detailRowKey, inventoryYmd, onChange],
+    [normalizedRows, companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd, onChange],
   )
 
   const handleRowRemoved = useCallback(
@@ -547,11 +547,11 @@ function ChitInventoryInputGridPopup({
         e.data,
         normalizeInputLine(
           { SORT: normalizedRows.length + 1 },
-          { companyCd, chitDetailId, chitDetailCc, detailRowKey, inventoryYmd },
+          { companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd },
         ),
       )
     },
-    [normalizedRows.length, companyCd, chitDetailId, chitDetailCc, detailRowKey, inventoryYmd],
+    [normalizedRows.length, companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd],
   )
 
   const gridHeight = useMemo(() => {
