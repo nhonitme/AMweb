@@ -548,17 +548,17 @@ export function ChitEditorPopup({
       inventoryEnabled
         ? inventoryInputComponent
           ? inventoryInputColumnSettingState.applyEditorItemsToComponent(
-              inventoryInputComponent,
-              tabMap.get(inventoryInputGridId) ?? [],
-            )
+            inventoryInputComponent,
+            tabMap.get(inventoryInputGridId) ?? [],
+          )
           : inventoryInputColumnSettingState.saveEditorItems(tabMap.get(inventoryInputGridId) ?? [])
         : Promise.resolve([] as GridColumnSettingEditorItem[]),
       inventoryEnabled
         ? inventoryOutputComponent
           ? inventoryOutputColumnSettingState.applyEditorItemsToComponent(
-              inventoryOutputComponent,
-              tabMap.get(inventoryOutputGridId) ?? [],
-            )
+            inventoryOutputComponent,
+            tabMap.get(inventoryOutputGridId) ?? [],
+          )
           : inventoryOutputColumnSettingState.saveEditorItems(tabMap.get(inventoryOutputGridId) ?? [])
         : Promise.resolve([] as GridColumnSettingEditorItem[]),
     ])
@@ -663,7 +663,7 @@ export function ChitEditorPopup({
     }
 
     const syncedBaseDetails = detailGridRef.current ? await detailGridRef.current.savePendingChanges() : draft.DETAILS
-    
+
     // Save pending inventory input changes
     let syncedDetailsWithInventory = syncedBaseDetails as DetailRow[]
     if (inventoryInputGridRef.current && selectedInventoryDetailKey) {
@@ -681,7 +681,7 @@ export function ChitEditorPopup({
         })
       }
     }
-    
+
     const syncedDetails = mergeInventoryIntoDetails(syncedDetailsWithInventory, draft.DETAILS as DetailRow[])
     const activeSyncedDetails = getActiveDetailRows(syncedDetails as DetailRow[])
     const totalAmount = calculateChitAmount(activeSyncedDetails)
