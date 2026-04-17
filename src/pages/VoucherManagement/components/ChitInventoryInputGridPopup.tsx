@@ -8,6 +8,9 @@ import type { InitializedEvent, FocusedRowChangedEvent, ContentReadyEvent, Saved
 
 import { useGridColumnSettingState } from "@/components/datagrid/useGridColumnSettingState"
 import { useInlineGridSearch } from "@/components/datagrid/gridSearch"
+import ProductGroupLookupCellEditor from "@/components/lookup/ProductGroupLookupCellEditor"
+import WarehouseLookupCellEditor from "@/components/lookup/WarehouseLookupCellEditor"
+import UnitLookupCellEditor from "@/components/lookup/UnitLookupCellEditor"
 import { LanguageContext } from "@/lib/i18nLoader"
 import type { ChitDateValue, InventoryInputLine } from "@/types/voucher"
 
@@ -176,6 +179,65 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
     const t = useCallback(
       (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
       [translate],
+    )
+
+    const renderProductEditor = useCallback(
+      (cellInfo: any) => (
+        <ProductGroupLookupCellEditor
+          value={cellInfo.data?.PRODUCT_CD ?? null}
+          rowData={cellInfo.data ?? {}}
+          rowIndex={cellInfo.row?.rowIndex ?? -1}
+          grid={cellInfo.component}
+          setValue={(productCd) => {
+            cellInfo.component.cellValue(cellInfo.row.rowIndex, "PRODUCT_CD", productCd)
+          }}
+          productCdField="PRODUCT_CD"
+          productNmField="PRODUCT_NM_VIET"
+          placeholder={t("SelectProduct", "Select product")}
+          popupTitle={t("SelectProduct", "Select product")}
+          buttonHint={t("LIST_PRODUCT", "Open product list")}
+        />
+      ),
+      [t],
+    )
+
+    const renderStoreEditor = useCallback(
+      (cellInfo: any) => (
+        <WarehouseLookupCellEditor
+          value={cellInfo.data?.STORE_CD ?? null}
+          rowData={cellInfo.data ?? {}}
+          rowIndex={cellInfo.row?.rowIndex ?? -1}
+          grid={cellInfo.component}
+          setValue={(storeCd) => {
+            cellInfo.component.cellValue(cellInfo.row.rowIndex, "STORE_CD", storeCd)
+          }}
+          warehouseCdField="STORE_CD"
+          warehouseNmField="STORE_NM_VIET"
+          placeholder={t("SelectStore", "Select store")}
+          popupTitle={t("SelectStore", "Select store")}
+          buttonHint={t("LIST_STORE", "Open store list")}
+        />
+      ),
+      [t],
+    )
+
+    const renderUnitEditor = useCallback(
+      (cellInfo: any) => (
+        <UnitLookupCellEditor
+          value={cellInfo.data?.UNIT_CD ?? null}
+          rowData={cellInfo.data ?? {}}
+          rowIndex={cellInfo.row?.rowIndex ?? -1}
+          grid={cellInfo.component}
+          setValue={(unitCd) => {
+            cellInfo.component.cellValue(cellInfo.row.rowIndex, "UNIT_CD", unitCd)
+          }}
+          unitCdField="UNIT_CD"
+          placeholder={t("SelectUnit", "Select unit")}
+          popupTitle={t("SelectUnit", "Select unit")}
+          buttonHint={t("LIST_UNIT", "Open unit list")}
+        />
+      ),
+      [t],
     )
 
     const normalizedRows = useMemo(
@@ -775,11 +837,11 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
 
           <Column dataField="INPUT_ID" caption={t("INPUT_ID", "Input ID")} visible={false} showInColumnChooser={false} allowHiding={false} />
           <Column dataField="INPUT_CD" caption={t("INPUT_CD", "Input Code")} visible={false} />
-          <Column dataField="PRODUCT_CD" caption={t("lblPRODUCT_CD", "Product Code")} />
+          <Column dataField="PRODUCT_CD" caption={t("lblPRODUCT_CD", "Product Code")} editCellRender={renderProductEditor} />
           <Column dataField="PRODUCT_NM_VIET" caption={t("PRODUCT_NM", "Product Name")} />
-          <Column dataField="STORE_CD" caption={t("STORE_CD", "Store Code")} />
+          <Column dataField="STORE_CD" caption={t("STORE_CD", "Store Code")} editCellRender={renderStoreEditor} />
           <Column dataField="STORE_NM_VIET" caption={t("STORE_NM", "Store Name")} />
-          <Column dataField="UNIT_CD" caption={t("UNIT_CD", "Unit Code")} />
+          <Column dataField="UNIT_CD" caption={t("UNIT_CD", "Unit Code")} editCellRender={renderUnitEditor} />
           <Column dataField="QUANTITY" caption={t("QUANTITY", "Quantity")} dataType="number" format="#,##0.###" />
           <Column dataField="UNIT_PRICE_CC" caption={t("UNIT_PRICE_CC", "Unit Price")} dataType="number" format="#,##0.00" />
           <Column dataField="AMOUNT_CC" caption={t("AMOUNT_CC", "Amount")} dataType="number" format="#,##0.00" />
