@@ -910,49 +910,48 @@ export function ChitEditorPopup({
         </div>
       </div> */}
 
-      <div className="flex min-h-0 flex-col rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
-        <div className="mt-3 min-h-[420px] flex-1 overflow-hidden">
-          {selectedInventoryDetail ? (
-            selectedTabKey === "inventory_input" ? (
-              <ChitInventoryInputGridPopup
-                ref={inventoryInputGridRef}
-                companyCd={draft.COMPANY_CD}
-                chitDetailId={selectedInventoryDetail.row.CHITDETAIL_ID ?? null}
-                chitDetailCd={selectedInventoryDetail.row.CHITDETAIL_CD ?? null}
-                detailRowKey={selectedInventoryDetail.key}
-                detailAmount={getDetailRowAmount(selectedInventoryDetail.row)}
-                detailLabel={selectedInventoryDetail.label}
-                inventoryYmd={selectedInventoryDetail.row.INVENTORY_YMD ?? draft.CHIT_YMD}
-                rows={getDetailInventoryInputs(selectedInventoryDetail.row)}
-                onChange={(rows) => handleInventoryInputsChange(selectedInventoryDetail.key, rows)}
-                screenCd={screenCd}
-                gridId={inventoryInputGridId}
-                persistColumnSettings={true}
-              />
-            ) : (
-              <ChitInventoryOutputGridPopup
-                ref={inventoryOutputGridRef}
-                companyCd={draft.COMPANY_CD}
-                chitDetailId={selectedInventoryDetail.row.CHITDETAIL_ID ?? null}
-                chitDetailCd={selectedInventoryDetail.row.CHITDETAIL_CD ?? null}
-                detailRowKey={selectedInventoryDetail.key}
-                detailAmount={getDetailRowAmount(selectedInventoryDetail.row)}
-                detailLabel={selectedInventoryDetail.label}
-                inventoryYmd={selectedInventoryDetail.row.INVENTORY_YMD ?? draft.CHIT_YMD}
-                rows={getDetailInventoryOutputs(selectedInventoryDetail.row)}
-                onChange={(rows) => handleInventoryOutputsChange(selectedInventoryDetail.key, rows)}
-                screenCd={screenCd}
-                gridId={inventoryOutputGridId}
-                persistColumnSettings={true}
-              />
-            )
-          ) : (
-            <div className="flex h-full items-center justify-center rounded-lg border border-white bg-white p-4 text-sm text-gray-500">
-              {t("WAREHOUSE_EMPTY_HINT", "Chưa có detail nào. Hãy thêm detail trước khi khai báo kho.")}
-            </div>
-          )}
+      {/* <div className="flex min-h-0 flex-col rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4"> */}
+
+      {selectedInventoryDetail ? (
+        selectedTabKey === "inventory_input" ? (
+          <ChitInventoryInputGridPopup
+            ref={inventoryInputGridRef}
+            companyCd={draft.COMPANY_CD}
+            chitDetailId={selectedInventoryDetail.row.CHITDETAIL_ID ?? null}
+            chitDetailCd={selectedInventoryDetail.row.CHITDETAIL_CD ?? null}
+            detailRowKey={selectedInventoryDetail.key}
+            detailAmount={getDetailRowAmount(selectedInventoryDetail.row)}
+            detailLabel={selectedInventoryDetail.label}
+            inventoryYmd={selectedInventoryDetail.row.INVENTORY_YMD ?? draft.CHIT_YMD}
+            rows={getDetailInventoryInputs(selectedInventoryDetail.row)}
+            onChange={(rows) => handleInventoryInputsChange(selectedInventoryDetail.key, rows)}
+            screenCd={screenCd}
+            gridId={inventoryInputGridId}
+            persistColumnSettings={true}
+          />
+        ) : (
+          <ChitInventoryOutputGridPopup
+            ref={inventoryOutputGridRef}
+            companyCd={draft.COMPANY_CD}
+            chitDetailId={selectedInventoryDetail.row.CHITDETAIL_ID ?? null}
+            chitDetailCd={selectedInventoryDetail.row.CHITDETAIL_CD ?? null}
+            detailRowKey={selectedInventoryDetail.key}
+            detailAmount={getDetailRowAmount(selectedInventoryDetail.row)}
+            detailLabel={selectedInventoryDetail.label}
+            inventoryYmd={selectedInventoryDetail.row.INVENTORY_YMD ?? draft.CHIT_YMD}
+            rows={getDetailInventoryOutputs(selectedInventoryDetail.row)}
+            onChange={(rows) => handleInventoryOutputsChange(selectedInventoryDetail.key, rows)}
+            screenCd={screenCd}
+            gridId={inventoryOutputGridId}
+            persistColumnSettings={true}
+          />
+        )
+      ) : (
+        <div className="flex h-full items-center justify-center rounded-lg border border-white bg-white p-4 text-sm text-gray-500">
+          {t("WAREHOUSE_EMPTY_HINT", "Chưa có detail nào. Hãy thêm detail trước khi khai báo kho.")}
         </div>
-      </div>
+      )}
+      {/* </div> */}
     </div>
   )
 
