@@ -394,11 +394,21 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
     }, [])
 
     const handleAddRow = useCallback(async () => {
-      if (gridRef.current?.hasEditData()) {
-        await gridRef.current.saveEditData()
+      const grid = gridRef.current
+      if (!grid) return
+
+      // Nếu đang sửa dở 1 dòng thì commit lại trước
+      if (grid.hasEditData()) {
+        await grid.saveEditData()
       }
-      gridRef.current?.addRow()
-    }, [])
+
+      // Đồng bộ lại dữ liệu hiện tại từ grid/state
+      const currentRows = buildMergedRows()
+      emitRowsChange(currentRows)
+
+      // Sau đó mới thêm dòng mới
+      grid.addRow()
+    }, [buildMergedRows, emitRowsChange])
 
     useImperativeHandle(
       ref,
@@ -477,13 +487,18 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
       refreshGridLayout()
     }, [isVisible, layoutVersion, refreshGridLayout, visibleRows.length])
 
+    // Update focused row when visible rows change
     useEffect(() => {
       setFocusedRowKey((current) => {
-        if (current && visibleRows.some((item) => item.ROW_KEY === current)) {
+        if (!current) {
+          return visibleRows[0]?.ROW_KEY ?? null
+        }
+
+        if (visibleRows.some((item) => item.ROW_KEY === current)) {
           return current
         }
 
-        return visibleRows[0]?.ROW_KEY ?? null
+        return current
       })
     }, [visibleRows])
 
@@ -550,13 +565,17 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
 
     const handleInitNewRow = useCallback(
       (e: any) => {
-        Object.assign(
-          e.data,
-          normalizeInputLine(
-            { SORT: normalizedRows.length + 1 },
-            { companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd },
-          ),
+        const nextRow = normalizeInputLine(
+          { SORT: normalizedRows.length + 1 },
+          { companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd },
         )
+
+        Object.assign(e.data, nextRow)
+        setFocusedRowKey(nextRow.ROW_KEY)
+
+        requestAnimationFrame(() => {
+          gridRef.current?.navigateToRow?.(nextRow.ROW_KEY)
+        })
       },
       [normalizedRows.length, companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd],
     )
@@ -571,75 +590,92 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
       return Math.min(chromeHeight + visibleRowCount * rowHeight, maxGridHeight)
     }, [chromeHeight, effectiveRowCount, height, rowHeight, viewportHeight])
 
-    return (
-      <div className="flex h-full min-h-0 flex-col gap-3">
-        <div className="grid gap-3 rounded-lg border border-gray-200 bg-slate-50 p-3 lg:grid-cols-4">
-          <div>
-            <div className="text-xs font-medium uppercase tracking-wide text-gray-500">{t("DETAIL_ROW", "Detail Row")}</div>
-            <div className="mt-1 text-sm font-semibold text-gray-800">{detailLabel || "-"}</div>
-          </div>
-          <div>
-            <div className="text-xs font-medium uppercase tracking-wide text-gray-500">{t("DETAIL_AMOUNT", "Detail Amount")}</div>
-            <div className="mt-1 text-sm font-semibold text-gray-800">{Number(detailAmount ?? 0).toLocaleString()}</div>
-          </div>
-          <div>
-            <div className="text-xs font-medium uppercase tracking-wide text-gray-500">{t("TOTAL_INPUT_QTY", "Total Input Qty")}</div>
-            <div className="mt-1 text-sm font-semibold text-gray-800">{totalQuantity.toLocaleString()}</div>
-          </div>
-          <div>
-            <div className="text-xs font-medium uppercase tracking-wide text-gray-500">{t("TOTAL_INPUT_AMOUNT", "Total Input Amount")}</div>
-            <div className="mt-1 text-sm font-semibold text-gray-800">{totalAmount.toLocaleString()}</div>
-          </div>
-        </div>
+    const handleToolbarPreparing = useCallback((e: any) => {
+      const items = e.toolbarOptions?.items ?? []
 
-        <div
-          ref={containerRef}
-          className="w-full overflow-hidden data-grid-container rounded-lg border border-gray-200 bg-white"
-          style={{ height: gridHeight }}
+      const addItem = items.find((item: any) => item.name === "addRowButton")
+      if (!addItem) return
+
+      const originalOnClick = addItem.options?.onClick
+
+      addItem.options = {
+        ...(addItem.options ?? {}),
+        onClick: async (args: any) => {
+          const grid = gridRef.current
+          if (!grid) {
+            if (originalOnClick) originalOnClick(args)
+            return
+          }
+
+          if (grid.hasEditData()) {
+            await grid.saveEditData()
+          }
+
+          const currentRows = buildMergedRows()
+          emitRowsChange(currentRows)
+
+          if (originalOnClick) {
+            originalOnClick(args)
+          } else {
+            grid.addRow()
+          }
+        },
+      }
+    }, [buildMergedRows, emitRowsChange])
+
+    return (
+      <div
+        ref={containerRef}
+        className="w-full overflow-hidden data-grid-container rounded-lg border border-gray-200 bg-white"
+        style={{ height: gridHeight }}
+      >
+        <DataGrid<InventoryInputLine, string>
+          loadPanel={{ enabled: false }}
+          dataSource={visibleRows}
+          keyExpr="ROW_KEY"
+          width="100%"
+          height={gridHeight}
+          showBorders
+          columnAutoWidth={!hasConfiguredColumnWidths}
+          rowAlternationEnabled
+          allowColumnResizing
+          allowColumnReordering
+          focusedRowEnabled={true}
+          focusedRowKey={focusedRowKey ?? undefined}
+          onInitialized={handleInitialized}
+          onContentReady={handleContentReady}
+          onFocusedRowChanged={handleFocusedRowChanged}
+          onSaved={handleSaved}
+          onToolbarPreparing={handleToolbarPreparing}
+          onInitNewRow={handleInitNewRow}
         >
-          <DataGrid<InventoryInputLine, string>
-            dataSource={visibleRows}
-            keyExpr="ROW_KEY"
-            width="100%"
-            height={gridHeight}
-            showBorders
-            columnAutoWidth={!hasConfiguredColumnWidths}
-            rowAlternationEnabled
-            allowColumnResizing
-            allowColumnReordering
-            focusedRowEnabled={true}
-            focusedRowKey={focusedRowKey ?? undefined}
-            onInitialized={handleInitialized}
-            onContentReady={handleContentReady}
-            onFocusedRowChanged={handleFocusedRowChanged}
-            onSaved={handleSaved}
-            onInitNewRow={handleInitNewRow}
-          >
-            <ColumnFixing enabled={true} />
-            {columnSettingState.enabled ? (
-              <StateStoring
-                enabled={true}
-                type="custom"
-                customLoad={columnSettingState.customLoad}
-                customSave={columnSettingState.customSave}
-                savingTimeout={500}
-              />
-            ) : null}
-            <Editing
-              mode="batch"
-              allowAdding={!disabled}
-              allowUpdating={!disabled}
-              allowDeleting={false}
-              confirmDelete={false}
-              startEditAction="click"
-              selectTextOnEditStart={true}
-              newRowPosition="last"
+          <ColumnFixing enabled={true} />
+          {columnSettingState.enabled ? (
+            <StateStoring
+              enabled={true}
+              type="custom"
+              customLoad={columnSettingState.customLoad}
+              customSave={columnSettingState.customSave}
+              savingTimeout={500}
             />
-            <FilterRow showOperationChooser={true} />
-            <FilterPanel />
-            <Toolbar>
-              <Item name="addRowButton" location="before" />
-              <Item location="before" locateInMenu="never">
+          ) : null}
+          <Editing
+            mode="batch"
+            allowAdding={!disabled}
+            allowUpdating={!disabled}
+            allowDeleting={false}
+            confirmDelete={false}
+            startEditAction="click"
+            selectTextOnEditStart={true}
+            newRowPosition="last"
+          />
+          <FilterRow showOperationChooser={true} />
+          <FilterPanel />
+          <Toolbar>
+            <Item name="addRowButton" location="before" />
+
+            <Item location="before" locateInMenu="never">
+              <div className="flex items-center gap-4">
                 <Button
                   text={t("Undelete", "Hoàn tác")}
                   stylingMode="outlined"
@@ -649,67 +685,105 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
                     void undeleteLastRow()
                   }}
                 />
-              </Item>
-              <Item location="after" locateInMenu="never">
-                <div className="flex items-center gap-2">
-                  {searchVisible ? (
-                    <div ref={searchContainerRef}>
-                      <TextBox
-                        width={260}
-                        mode="search"
-                        stylingMode="outlined"
-                        value={searchText}
-                        showClearButton={true}
-                        placeholder={t("Search detail...", "Tìm chi tiết...")}
-                        onValueChanged={(event) => handleSearchTextChange(String(event.value ?? ""))}
-                        onEnterKey={handleSearchEnter}
-                      />
-                    </div>
-                  ) : null}
-                  <Button
-                    stylingMode="text"
-                    icon="search"
-                    hint={t("Search detail", "Tìm chi tiết")}
-                    onClick={showSearch}
-                  />
+
+                <div>
+                  <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                    {t("DETAIL_ROW", "Detail Row")}
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-gray-800">
+                    {detailLabel || "-"}
+                  </div>
                 </div>
-              </Item>
-            </Toolbar>
 
-            <Column
-              type="buttons"
-              width={60}
-              fixed={true}
-              fixedPosition="left"
-              visibleIndex={0}
-              allowFixing={false}
-              showInColumnChooser={false}
-              allowReordering={false}
-            >
-              <GridButton
-                icon="trash"
-                hint={t("DELETE", "Delete")}
-                onClick={(event: any) => {
-                  const rowKey = event.row?.key
-                  if (rowKey) {
-                    void softDeleteRowByKey(rowKey)
-                  }
-                }}
-              />
-            </Column>
+                <div>
+                  <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                    {t("DETAIL_AMOUNT", "Detail Amount")}
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-gray-800">
+                    {Number(detailAmount ?? 0).toLocaleString()}
+                  </div>
+                </div>
 
-            <Column dataField="INPUT_ID" caption={t("INPUT_ID", "Input ID")} visible={false} showInColumnChooser={false} allowHiding={false} />
-            <Column dataField="INPUT_CD" caption={t("INPUT_CD", "Input Code")} visible={false} />
-            <Column dataField="PRODUCT_CD" caption={t("PRODUCT_CD", "Product Code")} />
-            <Column dataField="STORE_CD" caption={t("STORE_CD", "Store Code")} />
-            <Column dataField="UNIT_CD" caption={t("UNIT_CD", "Unit Code")} />
-            <Column dataField="QUANTITY" caption={t("QUANTITY", "Quantity")} dataType="number" format="#,##0.###" />
-            <Column dataField="UNIT_PRICE_CC" caption={t("UNIT_PRICE_CC", "Unit Price")} dataType="number" format="#,##0.00" />
-            <Column dataField="AMOUNT_CC" caption={t("AMOUNT_CC", "Amount")} dataType="number" format="#,##0.00" />
-            <Column dataField="INVENTORY_YMD" caption={t("INVENTORY_YMD", "Inventory Date")} visible={false} />
-            <Column dataField="SUMMARY" caption={t("SUMMARY", "Summary")} />
-          </DataGrid>
-        </div>
+                <div>
+                  <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                    {t("TOTAL_INPUT_QTY", "Total Input Qty")}
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-gray-800">
+                    {totalQuantity.toLocaleString()}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                    {t("TOTAL_INPUT_AMOUNT", "Total Input Amount")}
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-gray-800">
+                    {totalAmount.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+            </Item>
+
+            <Item location="after" locateInMenu="never">
+              <div className="flex items-center gap-2">
+                {searchVisible ? (
+                  <div ref={searchContainerRef}>
+                    <TextBox
+                      width={260}
+                      mode="search"
+                      stylingMode="outlined"
+                      value={searchText}
+                      showClearButton={true}
+                      placeholder={t("Search detail...", "Tìm chi tiết...")}
+                      onValueChanged={(event) => handleSearchTextChange(String(event.value ?? ""))}
+                      onEnterKey={handleSearchEnter}
+                    />
+                  </div>
+                ) : null}
+
+                <Button
+                  stylingMode="text"
+                  icon="search"
+                  hint={t("Search detail", "Tìm chi tiết")}
+                  onClick={showSearch}
+                />
+              </div>
+            </Item>
+          </Toolbar>
+
+          <Column
+            type="buttons"
+            width={60}
+            fixed={true}
+            fixedPosition="left"
+            visibleIndex={0}
+            allowFixing={false}
+            showInColumnChooser={false}
+            allowReordering={false}
+          >
+            <GridButton
+              icon="trash"
+              hint={t("DELETE", "Delete")}
+              onClick={(event: any) => {
+                const rowKey = event.row?.key
+                if (rowKey) {
+                  void softDeleteRowByKey(rowKey)
+                }
+              }}
+            />
+          </Column>
+
+          <Column dataField="INPUT_ID" caption={t("INPUT_ID", "Input ID")} visible={false} showInColumnChooser={false} allowHiding={false} />
+          <Column dataField="INPUT_CD" caption={t("INPUT_CD", "Input Code")} visible={false} />
+          <Column dataField="PRODUCT_CD" caption={t("PRODUCT_CD", "Product Code")} />
+          <Column dataField="STORE_CD" caption={t("STORE_CD", "Store Code")} />
+          <Column dataField="UNIT_CD" caption={t("UNIT_CD", "Unit Code")} />
+          <Column dataField="QUANTITY" caption={t("QUANTITY", "Quantity")} dataType="number" format="#,##0.###" />
+          <Column dataField="UNIT_PRICE_CC" caption={t("UNIT_PRICE_CC", "Unit Price")} dataType="number" format="#,##0.00" />
+          <Column dataField="AMOUNT_CC" caption={t("AMOUNT_CC", "Amount")} dataType="number" format="#,##0.00" />
+          <Column dataField="INVENTORY_YMD" caption={t("INVENTORY_YMD", "Inventory Date")} visible={false} />
+          <Column dataField="SUMMARY" caption={t("SUMMARY", "Summary")} />
+        </DataGrid>
       </div>
     )
   })
