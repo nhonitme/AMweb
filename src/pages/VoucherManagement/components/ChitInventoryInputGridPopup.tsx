@@ -130,588 +130,588 @@ function mergeInsertedRow(rows: InventoryInputLine[], nextRow: InventoryInputLin
 }
 
 export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopupHandle, ChitInventoryInputGridPopupProps>(
-function ChitInventoryInputGridPopup({
-  companyCd,
-  chitDetailId,
-  chitDetailCd,
-  detailRowKey,
-  detailAmount,
-  detailLabel,
-  inventoryYmd,
-  rows,
-  disabled,
-  onChange,
-  screenCd,
-  gridId,
-  persistColumnSettings = false,
-  height,
-  isVisible = true,
-  layoutVersion = 0,
-}, ref) {
-  const { translate } = useContext(LanguageContext) as {
-    translate?: (key: string, fallback?: string) => string
-  }
-  const gridRef = useRef<dxDataGrid<InventoryInputLine, string> | null>(null)
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const searchContainerRef = useRef<HTMLDivElement | null>(null)
-  const layoutFrameRef = useRef<number | null>(null)
-  const layoutFollowUpFrameRef = useRef<number | null>(null)
-  const [rowHeight, setRowHeight] = useState(DEFAULT_ROW_HEIGHT)
-  const [chromeHeight, setChromeHeight] = useState(DEFAULT_CHROME_HEIGHT)
-  const [effectiveRowCount, setEffectiveRowCount] = useState(
-    () => rows.reduce((count, item) => count + (item.ISDEL ? 0 : 1), 0),
-  )
-  const [focusedRowKey, setFocusedRowKey] = useState<string | null>(null)
-  const [viewportHeight, setViewportHeight] = useState(() =>
-    typeof window === "undefined" ? 900 : window.innerHeight,
-  )
-  const columnSettingState = useGridColumnSettingState({
-    enabled: persistColumnSettings,
+  function ChitInventoryInputGridPopup({
+    companyCd,
+    chitDetailId,
+    chitDetailCd,
+    detailRowKey,
+    detailAmount,
+    detailLabel,
+    inventoryYmd,
+    rows,
+    disabled,
+    onChange,
     screenCd,
     gridId,
-  })
-  const { searchText, searchVisible, showSearch, handleSearchTextChange, handleSearchEnter } =
-    useInlineGridSearch(gridRef)
+    persistColumnSettings = false,
+    height,
+    isVisible = true,
+    layoutVersion = 0,
+  }, ref) {
+    const { translate } = useContext(LanguageContext) as {
+      translate?: (key: string, fallback?: string) => string
+    }
+    const gridRef = useRef<dxDataGrid<InventoryInputLine, string> | null>(null)
+    const containerRef = useRef<HTMLDivElement | null>(null)
+    const searchContainerRef = useRef<HTMLDivElement | null>(null)
+    const layoutFrameRef = useRef<number | null>(null)
+    const layoutFollowUpFrameRef = useRef<number | null>(null)
+    const [rowHeight, setRowHeight] = useState(DEFAULT_ROW_HEIGHT)
+    const [chromeHeight, setChromeHeight] = useState(DEFAULT_CHROME_HEIGHT)
+    const [effectiveRowCount, setEffectiveRowCount] = useState(
+      () => rows.reduce((count, item) => count + (item.ISDEL ? 0 : 1), 0),
+    )
+    const [focusedRowKey, setFocusedRowKey] = useState<string | null>(null)
+    const [viewportHeight, setViewportHeight] = useState(() =>
+      typeof window === "undefined" ? 900 : window.innerHeight,
+    )
+    const columnSettingState = useGridColumnSettingState({
+      enabled: persistColumnSettings,
+      screenCd,
+      gridId,
+    })
+    const { searchText, searchVisible, showSearch, handleSearchTextChange, handleSearchEnter } =
+      useInlineGridSearch(gridRef)
 
-  const t = useCallback(
-    (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
-    [translate],
-  )
+    const t = useCallback(
+      (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
+      [translate],
+    )
 
-  const normalizedRows = useMemo(
-    () =>
-      rows.map((row) =>
-        normalizeInputLine(row, {
+    const normalizedRows = useMemo(
+      () =>
+        rows.map((row) =>
+          normalizeInputLine(row, {
+            companyCd,
+            chitDetailId,
+            chitDetailCd,
+            detailRowKey,
+            inventoryYmd,
+          }),
+        ),
+      [rows, companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd],
+    )
+
+    const visibleRows = useMemo(() => getActiveInventoryLines(normalizedRows), [normalizedRows])
+    const hasConfiguredColumnWidths = columnSettingState.cachedEditorItems.some((item) => typeof item.width === "number")
+    const softDeletedCount = useMemo(
+      () => normalizedRows.reduce((count, item) => count + (item.ISDEL ? 1 : 0), 0),
+      [normalizedRows],
+    )
+
+    const totalQuantity = useMemo(
+      () => normalizedRows.reduce((sum, row) => sum + toNumber(row.QUANTITY), 0),
+      [normalizedRows],
+    )
+
+    const totalAmount = useMemo(
+      () => normalizedRows.reduce((sum, row) => sum + toNumber(row.AMOUNT_CC), 0),
+      [normalizedRows],
+    )
+
+    const measureGridLayout = useCallback(() => {
+      const container = containerRef.current
+      if (!container) {
+        return
+      }
+
+      if (container.getClientRects().length === 0) {
+        return
+      }
+
+      const headerPanelHeight = getElementHeight(container.querySelector(".dx-datagrid-header-panel"))
+      const headersHeight = getElementHeight(container.querySelector(".dx-datagrid-headers"))
+      const filterPanelHeight = getElementHeight(container.querySelector(".dx-datagrid-filter-panel"))
+      const pagerHeight = getElementHeight(container.querySelector(".dx-datagrid-pager"))
+      const rowElements = Array.from(container.querySelectorAll(".dx-datagrid-rowsview .dx-data-row")).filter(
+        (element) => !(element as HTMLElement).classList.contains("dx-freespace-row"),
+      )
+      const measuredRowHeight = Math.ceil(
+        (rowElements[0] as HTMLElement | undefined)?.getBoundingClientRect().height ?? DEFAULT_ROW_HEIGHT,
+      )
+      const measuredChromeHeight = Math.max(
+        DEFAULT_CHROME_HEIGHT,
+        headerPanelHeight + headersHeight + filterPanelHeight + pagerHeight + 4,
+      )
+      const nextRowCount = Math.max(rowElements.length, visibleRows.length)
+
+      setRowHeight((current) => (current === measuredRowHeight ? current : measuredRowHeight))
+      setChromeHeight((current) => (current === measuredChromeHeight ? current : measuredChromeHeight))
+      setEffectiveRowCount((current) => (current === nextRowCount ? current : nextRowCount))
+    }, [visibleRows.length])
+
+    const clearPendingLayoutRefresh = useCallback(() => {
+      if (layoutFrameRef.current !== null) {
+        cancelAnimationFrame(layoutFrameRef.current)
+        layoutFrameRef.current = null
+      }
+
+      if (layoutFollowUpFrameRef.current !== null) {
+        cancelAnimationFrame(layoutFollowUpFrameRef.current)
+        layoutFollowUpFrameRef.current = null
+      }
+    }, [])
+
+    const refreshGridLayout = useCallback(() => {
+      if (!isVisible) {
+        return
+      }
+
+      clearPendingLayoutRefresh()
+
+      const updateGridLayout = () => {
+        gridRef.current?.updateDimensions?.()
+        measureGridLayout()
+      }
+
+      updateGridLayout()
+      layoutFrameRef.current = requestAnimationFrame(() => {
+        updateGridLayout()
+        layoutFollowUpFrameRef.current = requestAnimationFrame(() => {
+          updateGridLayout()
+        })
+      })
+    }, [clearPendingLayoutRefresh, isVisible, measureGridLayout])
+
+    const buildMergedRows = useCallback(() => {
+      const source = gridRef.current?.option("dataSource")
+      const activeRows = Array.isArray(source)
+        ? normalizeInventoryLineRows(source).map((item) => cloneInventoryLine(item))
+        : visibleRows.map((item) => cloneInventoryLine(item))
+      const activeRowMap = new Map(
+        activeRows.map((item) => [item.ROW_KEY, { ...item, ISDEL: false }] as const),
+      )
+      const mergedRows: InventoryInputLine[] = []
+
+      normalizedRows.forEach((item) => {
+        if (item.ISDEL) {
+          mergedRows.push(cloneInventoryLine(item))
+          return
+        }
+
+        const activeRow = activeRowMap.get(item.ROW_KEY)
+        if (!activeRow) {
+          return
+        }
+
+        mergedRows.push(cloneInventoryLine(activeRow))
+        activeRowMap.delete(item.ROW_KEY)
+      })
+
+      activeRowMap.forEach((item) => {
+        mergedRows.push(cloneInventoryLine(item))
+      })
+
+      return mergedRows
+    }, [normalizedRows, visibleRows])
+
+    const emitRowsChange = useCallback(
+      (rows: InventoryInputLine[]) => {
+        onChange(rows)
+        return rows
+      },
+      [onChange],
+    )
+
+    const syncRows = useCallback(() => emitRowsChange(buildMergedRows()), [buildMergedRows, emitRowsChange])
+
+    const focusSearchInput = useCallback(() => {
+      const input = searchContainerRef.current?.querySelector("input.dx-texteditor-input, input") as HTMLInputElement | null
+      input?.focus()
+      input?.select?.()
+    }, [])
+
+    const softDeleteRowByKey = useCallback(
+      async (targetKey: string | null) => {
+        if (!targetKey) {
+          return
+        }
+
+        if (gridRef.current?.hasEditData()) {
+          await gridRef.current.saveEditData()
+        }
+
+        const currentRows = buildMergedRows()
+        let changed = false
+        const nextRows = currentRows.map((item) => {
+          if (item.ROW_KEY !== targetKey || item.ISDEL) {
+            return item
+          }
+
+          changed = true
+          return cloneInventoryLine({
+            ...item,
+            ISDEL: true,
+          })
+        })
+
+        if (!changed) {
+          return
+        }
+
+        const nextVisibleRows = getActiveInventoryLines(nextRows)
+        setFocusedRowKey((current) =>
+          current === targetKey ? nextVisibleRows[nextVisibleRows.length - 1]?.ROW_KEY ?? null : current,
+        )
+        emitRowsChange(nextRows)
+      },
+      [buildMergedRows, emitRowsChange],
+    )
+
+    const undeleteLastRow = useCallback(
+      async () => {
+        if (gridRef.current?.hasEditData()) {
+          await gridRef.current.saveEditData()
+        }
+
+        const currentRows = buildMergedRows()
+        const deletedRow = [...currentRows].reverse().find((item) => item.ISDEL)
+        if (!deletedRow) {
+          return
+        }
+
+        const nextRows = currentRows.map((item) =>
+          item.ROW_KEY === deletedRow.ROW_KEY
+            ? cloneInventoryLine({
+              ...item,
+              ISDEL: false,
+            })
+            : item,
+        )
+
+        setFocusedRowKey(deletedRow.ROW_KEY)
+        emitRowsChange(nextRows)
+        requestAnimationFrame(() => {
+          gridRef.current?.navigateToRow?.(deletedRow.ROW_KEY)
+        })
+      },
+      [buildMergedRows, emitRowsChange],
+    )
+
+    const handleFocusedRowChanged = useCallback((event: FocusedRowChangedEvent<InventoryInputLine, string>) => {
+      const nextKey = event.row?.key
+      setFocusedRowKey(typeof nextKey === "string" ? nextKey : nextKey != null ? String(nextKey) : null)
+    }, [])
+
+    const handleAddRow = useCallback(async () => {
+      if (gridRef.current?.hasEditData()) {
+        await gridRef.current.saveEditData()
+      }
+      gridRef.current?.addRow()
+    }, [])
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        savePendingChanges: async () => {
+          if (gridRef.current?.hasEditData()) {
+            await gridRef.current.saveEditData()
+          }
+
+          return syncRows()
+        },
+        addRow: () => {
+          void handleAddRow()
+        },
+        deleteFocusedRow: () => {
+          const targetKey = focusedRowKey ?? visibleRows[visibleRows.length - 1]?.ROW_KEY ?? null
+          void softDeleteRowByKey(targetKey)
+        },
+        focusSearch: () => {
+          if (!searchVisible) {
+            showSearch()
+          }
+
+          requestAnimationFrame(() => {
+            focusSearchInput()
+          })
+        },
+        getGridInstance: () => gridRef.current,
+      }),
+      [focusSearchInput, focusedRowKey, handleAddRow, searchVisible, showSearch, softDeleteRowByKey, syncRows, visibleRows],
+    )
+
+    const handleInitialized = useCallback((event: InitializedEvent<InventoryInputLine, string>) => {
+      gridRef.current = event.component ?? null
+      if (columnSettingState.cachedEditorItems.length) {
+        columnSettingState.syncEditorItemsToComponent(event.component, columnSettingState.cachedEditorItems)
+      }
+    }, [columnSettingState.cachedEditorItems, columnSettingState.syncEditorItemsToComponent])
+
+    const handleContentReady = useCallback(
+      (_event: ContentReadyEvent<InventoryInputLine, string>) => {
+        refreshGridLayout()
+      },
+      [refreshGridLayout],
+    )
+
+    const handleSaved = useCallback(
+      (_event: SavedEvent<InventoryInputLine, string>) => {
+        syncRows()
+        refreshGridLayout()
+      },
+      [refreshGridLayout, syncRows],
+    )
+
+    useEffect(() => {
+      if (typeof window === "undefined") {
+        return
+      }
+
+      const handleResize = () => {
+        setViewportHeight(window.innerHeight)
+      }
+
+      window.addEventListener("resize", handleResize)
+      return () => {
+        window.removeEventListener("resize", handleResize)
+      }
+    }, [])
+
+    useEffect(() => {
+      if (!isVisible) {
+        return
+      }
+
+      setEffectiveRowCount(visibleRows.length)
+      refreshGridLayout()
+    }, [isVisible, layoutVersion, refreshGridLayout, visibleRows.length])
+
+    useEffect(() => {
+      setFocusedRowKey((current) => {
+        if (current && visibleRows.some((item) => item.ROW_KEY === current)) {
+          return current
+        }
+
+        return visibleRows[0]?.ROW_KEY ?? null
+      })
+    }, [visibleRows])
+
+    useEffect(() => {
+      if (!isVisible) {
+        return
+      }
+
+      refreshGridLayout()
+    }, [isVisible, refreshGridLayout, searchVisible, viewportHeight])
+
+    useEffect(() => {
+      if (!columnSettingState.enabled || !gridRef.current || !columnSettingState.cachedEditorItems.length) {
+        return
+      }
+
+      columnSettingState.syncEditorItemsToComponent(gridRef.current, columnSettingState.cachedEditorItems)
+    }, [
+      columnSettingState.cachedEditorItems,
+      columnSettingState.enabled,
+      columnSettingState.syncEditorItemsToComponent,
+      normalizedRows,
+    ])
+
+    useEffect(() => clearPendingLayoutRefresh, [clearPendingLayoutRefresh])
+
+    const handleRowInserted = useCallback(
+      (e: any) => {
+        const nextRow = normalizeInputLine(e.data, {
           companyCd,
           chitDetailId,
           chitDetailCd,
           detailRowKey,
           inventoryYmd,
-        }),
-      ),
-    [rows, companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd],
-  )
-
-  const visibleRows = useMemo(() => getActiveInventoryLines(normalizedRows), [normalizedRows])
-  const hasConfiguredColumnWidths = columnSettingState.cachedEditorItems.some((item) => typeof item.width === "number")
-  const softDeletedCount = useMemo(
-    () => normalizedRows.reduce((count, item) => count + (item.ISDEL ? 1 : 0), 0),
-    [normalizedRows],
-  )
-
-  const totalQuantity = useMemo(
-    () => normalizedRows.reduce((sum, row) => sum + toNumber(row.QUANTITY), 0),
-    [normalizedRows],
-  )
-
-  const totalAmount = useMemo(
-    () => normalizedRows.reduce((sum, row) => sum + toNumber(row.AMOUNT_CC), 0),
-    [normalizedRows],
-  )
-
-  const measureGridLayout = useCallback(() => {
-    const container = containerRef.current
-    if (!container) {
-      return
-    }
-
-    if (container.getClientRects().length === 0) {
-      return
-    }
-
-    const headerPanelHeight = getElementHeight(container.querySelector(".dx-datagrid-header-panel"))
-    const headersHeight = getElementHeight(container.querySelector(".dx-datagrid-headers"))
-    const filterPanelHeight = getElementHeight(container.querySelector(".dx-datagrid-filter-panel"))
-    const pagerHeight = getElementHeight(container.querySelector(".dx-datagrid-pager"))
-    const rowElements = Array.from(container.querySelectorAll(".dx-datagrid-rowsview .dx-data-row")).filter(
-      (element) => !(element as HTMLElement).classList.contains("dx-freespace-row"),
-    )
-    const measuredRowHeight = Math.ceil(
-      (rowElements[0] as HTMLElement | undefined)?.getBoundingClientRect().height ?? DEFAULT_ROW_HEIGHT,
-    )
-    const measuredChromeHeight = Math.max(
-      DEFAULT_CHROME_HEIGHT,
-      headerPanelHeight + headersHeight + filterPanelHeight + pagerHeight + 4,
-    )
-    const nextRowCount = Math.max(rowElements.length, visibleRows.length)
-
-    setRowHeight((current) => (current === measuredRowHeight ? current : measuredRowHeight))
-    setChromeHeight((current) => (current === measuredChromeHeight ? current : measuredChromeHeight))
-    setEffectiveRowCount((current) => (current === nextRowCount ? current : nextRowCount))
-  }, [visibleRows.length])
-
-  const clearPendingLayoutRefresh = useCallback(() => {
-    if (layoutFrameRef.current !== null) {
-      cancelAnimationFrame(layoutFrameRef.current)
-      layoutFrameRef.current = null
-    }
-
-    if (layoutFollowUpFrameRef.current !== null) {
-      cancelAnimationFrame(layoutFollowUpFrameRef.current)
-      layoutFollowUpFrameRef.current = null
-    }
-  }, [])
-
-  const refreshGridLayout = useCallback(() => {
-    if (!isVisible) {
-      return
-    }
-
-    clearPendingLayoutRefresh()
-
-    const updateGridLayout = () => {
-      gridRef.current?.updateDimensions?.()
-      measureGridLayout()
-    }
-
-    updateGridLayout()
-    layoutFrameRef.current = requestAnimationFrame(() => {
-      updateGridLayout()
-      layoutFollowUpFrameRef.current = requestAnimationFrame(() => {
-        updateGridLayout()
-      })
-    })
-  }, [clearPendingLayoutRefresh, isVisible, measureGridLayout])
-
-  const buildMergedRows = useCallback(() => {
-    const source = gridRef.current?.option("dataSource")
-    const activeRows = Array.isArray(source)
-      ? normalizeInventoryLineRows(source).map((item) => cloneInventoryLine(item))
-      : visibleRows.map((item) => cloneInventoryLine(item))
-    const activeRowMap = new Map(
-      activeRows.map((item) => [item.ROW_KEY, { ...item, ISDEL: false }] as const),
-    )
-    const mergedRows: InventoryInputLine[] = []
-
-    normalizedRows.forEach((item) => {
-      if (item.ISDEL) {
-        mergedRows.push(cloneInventoryLine(item))
-        return
-      }
-
-      const activeRow = activeRowMap.get(item.ROW_KEY)
-      if (!activeRow) {
-        return
-      }
-
-      mergedRows.push(cloneInventoryLine(activeRow))
-      activeRowMap.delete(item.ROW_KEY)
-    })
-
-    activeRowMap.forEach((item) => {
-      mergedRows.push(cloneInventoryLine(item))
-    })
-
-    return mergedRows
-  }, [normalizedRows, visibleRows])
-
-  const emitRowsChange = useCallback(
-    (rows: InventoryInputLine[]) => {
-      onChange(rows)
-      return rows
-    },
-    [onChange],
-  )
-
-  const syncRows = useCallback(() => emitRowsChange(buildMergedRows()), [buildMergedRows, emitRowsChange])
-
-  const focusSearchInput = useCallback(() => {
-    const input = searchContainerRef.current?.querySelector("input.dx-texteditor-input, input") as HTMLInputElement | null
-    input?.focus()
-    input?.select?.()
-  }, [])
-
-  const softDeleteRowByKey = useCallback(
-    async (targetKey: string | null) => {
-      if (!targetKey) {
-        return
-      }
-
-      if (gridRef.current?.hasEditData()) {
-        await gridRef.current.saveEditData()
-      }
-
-      const currentRows = buildMergedRows()
-      let changed = false
-      const nextRows = currentRows.map((item) => {
-        if (item.ROW_KEY !== targetKey || item.ISDEL) {
-          return item
-        }
-
-        changed = true
-        return cloneInventoryLine({
-          ...item,
-          ISDEL: true,
         })
-      })
 
-      if (!changed) {
-        return
-      }
-
-      const nextVisibleRows = getActiveInventoryLines(nextRows)
-      setFocusedRowKey((current) =>
-        current === targetKey ? nextVisibleRows[nextVisibleRows.length - 1]?.ROW_KEY ?? null : current,
-      )
-      emitRowsChange(nextRows)
-    },
-    [buildMergedRows, emitRowsChange],
-  )
-
-  const undeleteLastRow = useCallback(
-    async () => {
-      if (gridRef.current?.hasEditData()) {
-        await gridRef.current.saveEditData()
-      }
-
-      const currentRows = buildMergedRows()
-      const deletedRow = [...currentRows].reverse().find((item) => item.ISDEL)
-      if (!deletedRow) {
-        return
-      }
-
-      const nextRows = currentRows.map((item) =>
-        item.ROW_KEY === deletedRow.ROW_KEY
-          ? cloneInventoryLine({
-              ...item,
-              ISDEL: false,
-            })
-          : item,
-      )
-
-      setFocusedRowKey(deletedRow.ROW_KEY)
-      emitRowsChange(nextRows)
-      requestAnimationFrame(() => {
-        gridRef.current?.navigateToRow?.(deletedRow.ROW_KEY)
-      })
-    },
-    [buildMergedRows, emitRowsChange],
-  )
-
-  const handleFocusedRowChanged = useCallback((event: FocusedRowChangedEvent<InventoryInputLine, string>) => {
-    const nextKey = event.row?.key
-    setFocusedRowKey(typeof nextKey === "string" ? nextKey : nextKey != null ? String(nextKey) : null)
-  }, [])
-
-  const handleAddRow = useCallback(async () => {
-    if (gridRef.current?.hasEditData()) {
-      await gridRef.current.saveEditData()
-    }
-    gridRef.current?.addRow()
-  }, [])
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      savePendingChanges: async () => {
-        if (gridRef.current?.hasEditData()) {
-          await gridRef.current.saveEditData()
-        }
-
-        return syncRows()
+        onChange(mergeInsertedRow(normalizedRows, nextRow))
       },
-      addRow: () => {
-        void handleAddRow()
-      },
-      deleteFocusedRow: () => {
-        const targetKey = focusedRowKey ?? visibleRows[visibleRows.length - 1]?.ROW_KEY ?? null
-        void softDeleteRowByKey(targetKey)
-      },
-      focusSearch: () => {
-        if (!searchVisible) {
-          showSearch()
-        }
+      [normalizedRows, companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd, onChange],
+    )
 
-        requestAnimationFrame(() => {
-          focusSearchInput()
+    const handleRowUpdated = useCallback(
+      (e: any) => {
+        const key = String(e.key)
+        const nextRows = normalizedRows.map((row) => {
+          if (String(row.ROW_KEY) !== key) return row
+          return normalizeInputLine(
+            { ...row, ...e.data },
+            { companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd },
+          )
         })
+        onChange(nextRows)
       },
-      getGridInstance: () => gridRef.current,
-    }),
-    [focusSearchInput, focusedRowKey, handleAddRow, searchVisible, showSearch, softDeleteRowByKey, syncRows, visibleRows],
-  )
+      [normalizedRows, companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd, onChange],
+    )
 
-  const handleInitialized = useCallback((event: InitializedEvent<InventoryInputLine, string>) => {
-    gridRef.current = event.component ?? null
-    if (columnSettingState.cachedEditorItems.length) {
-      columnSettingState.syncEditorItemsToComponent(event.component, columnSettingState.cachedEditorItems)
-    }
-  }, [columnSettingState.cachedEditorItems, columnSettingState.syncEditorItemsToComponent])
+    const handleRowRemoved = useCallback(
+      (e: any) => {
+        const key = String(e.key)
+        onChange(normalizedRows.filter((row) => String(row.ROW_KEY) !== key))
+      },
+      [normalizedRows, onChange],
+    )
 
-  const handleContentReady = useCallback(
-    (_event: ContentReadyEvent<InventoryInputLine, string>) => {
-      refreshGridLayout()
-    },
-    [refreshGridLayout],
-  )
-
-  const handleSaved = useCallback(
-    (_event: SavedEvent<InventoryInputLine, string>) => {
-      syncRows()
-      refreshGridLayout()
-    },
-    [refreshGridLayout, syncRows],
-  )
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return
-    }
-
-    const handleResize = () => {
-      setViewportHeight(window.innerHeight)
-    }
-
-    window.addEventListener("resize", handleResize)
-    return () => {
-      window.removeEventListener("resize", handleResize)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!isVisible) {
-      return
-    }
-
-    setEffectiveRowCount(visibleRows.length)
-    refreshGridLayout()
-  }, [isVisible, layoutVersion, refreshGridLayout, visibleRows.length])
-
-  useEffect(() => {
-    setFocusedRowKey((current) => {
-      if (current && visibleRows.some((item) => item.ROW_KEY === current)) {
-        return current
-      }
-
-      return visibleRows[0]?.ROW_KEY ?? null
-    })
-  }, [visibleRows])
-
-  useEffect(() => {
-    if (!isVisible) {
-      return
-    }
-
-    refreshGridLayout()
-  }, [isVisible, refreshGridLayout, searchVisible, viewportHeight])
-
-  useEffect(() => {
-    if (!columnSettingState.enabled || !gridRef.current || !columnSettingState.cachedEditorItems.length) {
-      return
-    }
-
-    columnSettingState.syncEditorItemsToComponent(gridRef.current, columnSettingState.cachedEditorItems)
-  }, [
-    columnSettingState.cachedEditorItems,
-    columnSettingState.enabled,
-    columnSettingState.syncEditorItemsToComponent,
-    normalizedRows,
-  ])
-
-  useEffect(() => clearPendingLayoutRefresh, [clearPendingLayoutRefresh])
-
-  const handleRowInserted = useCallback(
-    (e: any) => {
-      const nextRow = normalizeInputLine(e.data, {
-        companyCd,
-        chitDetailId,
-        chitDetailCd,
-        detailRowKey,
-        inventoryYmd,
-      })
-
-      onChange(mergeInsertedRow(normalizedRows, nextRow))
-    },
-    [normalizedRows, companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd, onChange],
-  )
-
-  const handleRowUpdated = useCallback(
-    (e: any) => {
-      const key = String(e.key)
-      const nextRows = normalizedRows.map((row) => {
-        if (String(row.ROW_KEY) !== key) return row
-        return normalizeInputLine(
-          { ...row, ...e.data },
-          { companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd },
+    const handleInitNewRow = useCallback(
+      (e: any) => {
+        Object.assign(
+          e.data,
+          normalizeInputLine(
+            { SORT: normalizedRows.length + 1 },
+            { companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd },
+          ),
         )
-      })
-      onChange(nextRows)
-    },
-    [normalizedRows, companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd, onChange],
-  )
+      },
+      [normalizedRows.length, companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd],
+    )
 
-  const handleRowRemoved = useCallback(
-    (e: any) => {
-      const key = String(e.key)
-      onChange(normalizedRows.filter((row) => String(row.ROW_KEY) !== key))
-    },
-    [normalizedRows, onChange],
-  )
+    const gridHeight = useMemo(() => {
+      if (height !== undefined) {
+        return height
+      }
 
-  const handleInitNewRow = useCallback(
-    (e: any) => {
-      Object.assign(
-        e.data,
-        normalizeInputLine(
-          { SORT: normalizedRows.length + 1 },
-          { companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd },
-        ),
-      )
-    },
-    [normalizedRows.length, companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd],
-  )
+      const maxGridHeight = Math.max(240, Math.min(DEFAULT_MAX_GRID_HEIGHT, viewportHeight - VIEWPORT_VERTICAL_OFFSET))
+      const visibleRowCount = Math.max(effectiveRowCount, 1)
+      return Math.min(chromeHeight + visibleRowCount * rowHeight, maxGridHeight)
+    }, [chromeHeight, effectiveRowCount, height, rowHeight, viewportHeight])
 
-  const gridHeight = useMemo(() => {
-    if (height !== undefined) {
-      return height
-    }
-
-    const maxGridHeight = Math.max(240, Math.min(DEFAULT_MAX_GRID_HEIGHT, viewportHeight - VIEWPORT_VERTICAL_OFFSET))
-    const visibleRowCount = Math.max(effectiveRowCount, 1)
-    return Math.min(chromeHeight + visibleRowCount * rowHeight, maxGridHeight)
-  }, [chromeHeight, effectiveRowCount, height, rowHeight, viewportHeight])
-
-  return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
-      <div className="grid gap-3 rounded-lg border border-gray-200 bg-slate-50 p-3 lg:grid-cols-4">
-        <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-gray-500">{t("DETAIL_ROW", "Detail Row")}</div>
-          <div className="mt-1 text-sm font-semibold text-gray-800">{detailLabel || "-"}</div>
+    return (
+      <div className="flex h-full min-h-0 flex-col gap-3">
+        <div className="grid gap-3 rounded-lg border border-gray-200 bg-slate-50 p-3 lg:grid-cols-4">
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-gray-500">{t("DETAIL_ROW", "Detail Row")}</div>
+            <div className="mt-1 text-sm font-semibold text-gray-800">{detailLabel || "-"}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-gray-500">{t("DETAIL_AMOUNT", "Detail Amount")}</div>
+            <div className="mt-1 text-sm font-semibold text-gray-800">{Number(detailAmount ?? 0).toLocaleString()}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-gray-500">{t("TOTAL_INPUT_QTY", "Total Input Qty")}</div>
+            <div className="mt-1 text-sm font-semibold text-gray-800">{totalQuantity.toLocaleString()}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-gray-500">{t("TOTAL_INPUT_AMOUNT", "Total Input Amount")}</div>
+            <div className="mt-1 text-sm font-semibold text-gray-800">{totalAmount.toLocaleString()}</div>
+          </div>
         </div>
-        <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-gray-500">{t("DETAIL_AMOUNT", "Detail Amount")}</div>
-          <div className="mt-1 text-sm font-semibold text-gray-800">{Number(detailAmount ?? 0).toLocaleString()}</div>
-        </div>
-        <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-gray-500">{t("TOTAL_INPUT_QTY", "Total Input Qty")}</div>
-          <div className="mt-1 text-sm font-semibold text-gray-800">{totalQuantity.toLocaleString()}</div>
-        </div>
-        <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-gray-500">{t("TOTAL_INPUT_AMOUNT", "Total Input Amount")}</div>
-          <div className="mt-1 text-sm font-semibold text-gray-800">{totalAmount.toLocaleString()}</div>
-        </div>
-      </div>
 
-      <div
-        ref={containerRef}
-        className="w-full overflow-hidden data-grid-container rounded-lg border border-gray-200 bg-white"
-        style={{ height: gridHeight }}
-      >
-        <DataGrid<InventoryInputLine, string>
-          dataSource={visibleRows}
-          keyExpr="ROW_KEY"
-          width="100%"
-          height={gridHeight}
-          showBorders
-          columnAutoWidth={!hasConfiguredColumnWidths}
-          rowAlternationEnabled
-          allowColumnResizing
-          allowColumnReordering
-          focusedRowEnabled={true}
-          focusedRowKey={focusedRowKey ?? undefined}
-          onInitialized={handleInitialized}
-          onContentReady={handleContentReady}
-          onFocusedRowChanged={handleFocusedRowChanged}
-          onSaved={handleSaved}
-          onInitNewRow={handleInitNewRow}
+        <div
+          ref={containerRef}
+          className="w-full overflow-hidden data-grid-container rounded-lg border border-gray-200 bg-white"
+          style={{ height: gridHeight }}
         >
-          <ColumnFixing enabled={true} />
-          {columnSettingState.enabled ? (
-            <StateStoring
-              enabled={true}
-              type="custom"
-              customLoad={columnSettingState.customLoad}
-              customSave={columnSettingState.customSave}
-              savingTimeout={500}
+          <DataGrid<InventoryInputLine, string>
+            dataSource={visibleRows}
+            keyExpr="ROW_KEY"
+            width="100%"
+            height={gridHeight}
+            showBorders
+            columnAutoWidth={!hasConfiguredColumnWidths}
+            rowAlternationEnabled
+            allowColumnResizing
+            allowColumnReordering
+            focusedRowEnabled={true}
+            focusedRowKey={focusedRowKey ?? undefined}
+            onInitialized={handleInitialized}
+            onContentReady={handleContentReady}
+            onFocusedRowChanged={handleFocusedRowChanged}
+            onSaved={handleSaved}
+            onInitNewRow={handleInitNewRow}
+          >
+            <ColumnFixing enabled={true} />
+            {columnSettingState.enabled ? (
+              <StateStoring
+                enabled={true}
+                type="custom"
+                customLoad={columnSettingState.customLoad}
+                customSave={columnSettingState.customSave}
+                savingTimeout={500}
+              />
+            ) : null}
+            <Editing
+              mode="batch"
+              allowAdding={!disabled}
+              allowUpdating={!disabled}
+              allowDeleting={false}
+              confirmDelete={false}
+              startEditAction="click"
+              selectTextOnEditStart={true}
+              newRowPosition="last"
             />
-          ) : null}
-          <Editing
-            mode="batch"
-            allowAdding={!disabled}
-            allowUpdating={!disabled}
-            allowDeleting={false}
-            confirmDelete={false}
-            startEditAction="click"
-            selectTextOnEditStart={true}
-            newRowPosition="last"
-          />
-          <FilterRow showOperationChooser={true} />
-          <FilterPanel />
-          <Toolbar>
-            <Item name="addRowButton" location="before" />
-            <Item location="before" locateInMenu="never">
-              <Button
-                text={t("Undelete", "Hoàn tác")}
-                stylingMode="outlined"
-                hint={t("RESTORE_LAST_DELETED_ROW", "Restore the last deleted row")}
-                disabled={softDeletedCount === 0}
-                onClick={() => {
-                  void undeleteLastRow()
+            <FilterRow showOperationChooser={true} />
+            <FilterPanel />
+            <Toolbar>
+              <Item name="addRowButton" location="before" />
+              <Item location="before" locateInMenu="never">
+                <Button
+                  text={t("Undelete", "Hoàn tác")}
+                  stylingMode="outlined"
+                  hint={t("RESTORE_LAST_DELETED_ROW", "Restore the last deleted row")}
+                  disabled={softDeletedCount === 0}
+                  onClick={() => {
+                    void undeleteLastRow()
+                  }}
+                />
+              </Item>
+              <Item location="after" locateInMenu="never">
+                <div className="flex items-center gap-2">
+                  {searchVisible ? (
+                    <div ref={searchContainerRef}>
+                      <TextBox
+                        width={260}
+                        mode="search"
+                        stylingMode="outlined"
+                        value={searchText}
+                        showClearButton={true}
+                        placeholder={t("Search detail...", "Tìm chi tiết...")}
+                        onValueChanged={(event) => handleSearchTextChange(String(event.value ?? ""))}
+                        onEnterKey={handleSearchEnter}
+                      />
+                    </div>
+                  ) : null}
+                  <Button
+                    stylingMode="text"
+                    icon="search"
+                    hint={t("Search detail", "Tìm chi tiết")}
+                    onClick={showSearch}
+                  />
+                </div>
+              </Item>
+            </Toolbar>
+
+            <Column
+              type="buttons"
+              width={60}
+              fixed={true}
+              fixedPosition="left"
+              visibleIndex={0}
+              allowFixing={false}
+              showInColumnChooser={false}
+              allowReordering={false}
+            >
+              <GridButton
+                icon="trash"
+                hint={t("DELETE", "Delete")}
+                onClick={(event: any) => {
+                  const rowKey = event.row?.key
+                  if (rowKey) {
+                    void softDeleteRowByKey(rowKey)
+                  }
                 }}
               />
-            </Item>
-            <Item location="after" locateInMenu="never">
-              <div className="flex items-center gap-2">
-                {searchVisible ? (
-                  <div ref={searchContainerRef}>
-                    <TextBox
-                      width={260}
-                      mode="search"
-                      stylingMode="outlined"
-                      value={searchText}
-                      showClearButton={true}
-                      placeholder={t("Search detail...", "Tìm chi tiết...")}
-                      onValueChanged={(event) => handleSearchTextChange(String(event.value ?? ""))}
-                      onEnterKey={handleSearchEnter}
-                    />
-                  </div>
-                ) : null}
-                <Button
-                  stylingMode="text"
-                  icon="search"
-                  hint={t("Search detail", "Tìm chi tiết")}
-                  onClick={showSearch}
-                />
-              </div>
-            </Item>
-          </Toolbar>
+            </Column>
 
-          <Column
-            type="buttons"
-            width={60}
-            fixed={true}
-            fixedPosition="left"
-            visibleIndex={0}
-            allowFixing={false}
-            showInColumnChooser={false}
-            allowReordering={false}
-          >
-            <GridButton
-              icon="trash"
-              hint={t("DELETE", "Delete")}
-              onClick={(event: any) => {
-                const rowKey = event.row?.key
-                if (rowKey) {
-                  void softDeleteRowByKey(rowKey)
-                }
-              }}
-            />
-          </Column>
-
-          <Column dataField="INPUT_ID" caption={t("INPUT_ID", "Input ID")} visible={false} showInColumnChooser={false} allowHiding={false} />
-          <Column dataField="INPUT_CD" caption={t("INPUT_CD", "Input Code")} visible={false} />
-          <Column dataField="PRODUCT_CD" caption={t("PRODUCT_CD", "Product Code")} />
-          <Column dataField="STORE_CD" caption={t("STORE_CD", "Store Code")} />
-          <Column dataField="UNIT_CD" caption={t("UNIT_CD", "Unit Code")} />
-          <Column dataField="QUANTITY" caption={t("QUANTITY", "Quantity")} dataType="number" format="#,##0.###" />
-          <Column dataField="UNIT_PRICE_CC" caption={t("UNIT_PRICE_CC", "Unit Price")} dataType="number" format="#,##0.00" />
-          <Column dataField="AMOUNT_CC" caption={t("AMOUNT_CC", "Amount")} dataType="number" format="#,##0.00" />
-          <Column dataField="INVENTORY_YMD" caption={t("INVENTORY_YMD", "Inventory Date")} visible={false} />
-          <Column dataField="SUMMARY" caption={t("SUMMARY", "Summary")} />
-        </DataGrid>
+            <Column dataField="INPUT_ID" caption={t("INPUT_ID", "Input ID")} visible={false} showInColumnChooser={false} allowHiding={false} />
+            <Column dataField="INPUT_CD" caption={t("INPUT_CD", "Input Code")} visible={false} />
+            <Column dataField="PRODUCT_CD" caption={t("PRODUCT_CD", "Product Code")} />
+            <Column dataField="STORE_CD" caption={t("STORE_CD", "Store Code")} />
+            <Column dataField="UNIT_CD" caption={t("UNIT_CD", "Unit Code")} />
+            <Column dataField="QUANTITY" caption={t("QUANTITY", "Quantity")} dataType="number" format="#,##0.###" />
+            <Column dataField="UNIT_PRICE_CC" caption={t("UNIT_PRICE_CC", "Unit Price")} dataType="number" format="#,##0.00" />
+            <Column dataField="AMOUNT_CC" caption={t("AMOUNT_CC", "Amount")} dataType="number" format="#,##0.00" />
+            <Column dataField="INVENTORY_YMD" caption={t("INVENTORY_YMD", "Inventory Date")} visible={false} />
+            <Column dataField="SUMMARY" caption={t("SUMMARY", "Summary")} />
+          </DataGrid>
+        </div>
       </div>
-    </div>
-  )
-})
+    )
+  })
 
 export default ChitInventoryInputGridPopup
