@@ -408,6 +408,15 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
 
       // Sau đó mới thêm dòng mới
       grid.addRow()
+      
+      // Focus vào dòng mới vừa được thêm
+      requestAnimationFrame(() => {
+        const newRowKey = grid.getVisibleRows()[grid.getVisibleRows().length - 1]?.key
+        if (newRowKey) {
+          setFocusedRowKey(typeof newRowKey === "string" ? newRowKey : String(newRowKey))
+          grid.navigateToRow?.(newRowKey)
+        }
+      })
     }, [buildMergedRows, emitRowsChange])
 
     useImperativeHandle(
@@ -487,18 +496,26 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
       refreshGridLayout()
     }, [isVisible, layoutVersion, refreshGridLayout, visibleRows.length])
 
-    // Update focused row when visible rows change
+    // Update focused row when visible rows change - focus first row on initial load
     useEffect(() => {
+      if (visibleRows.length === 0) {
+        setFocusedRowKey(null)
+        return
+      }
+
       setFocusedRowKey((current) => {
+        // Nếu chưa có focused row, focus vào dòng đầu
         if (!current) {
           return visibleRows[0]?.ROW_KEY ?? null
         }
 
+        // Nếu dòng đang focus vẫn tồn tại, giữ nó
         if (visibleRows.some((item) => item.ROW_KEY === current)) {
           return current
         }
 
-        return current
+        // Nếu dòng đang focus không tồn tại (bị xóa), focus vào dòng đầu
+        return visibleRows[0]?.ROW_KEY ?? null
       })
     }, [visibleRows])
 
