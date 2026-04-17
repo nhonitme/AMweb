@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
 import { Button } from "devextreme-react"
-import DataGrid, { Column, ColumnFixing, Editing, FilterRow, FilterPanel, Toolbar, Item, Button as GridButton } from "devextreme-react/data-grid"
+import DataGrid, { Column, ColumnFixing, Editing, FilterRow, FilterPanel, Toolbar, Item, Button as GridButton, StateStoring } from "devextreme-react/data-grid"
 import TextBox from "devextreme-react/text-box"
 import dayjs from "dayjs"
 import type dxDataGrid from "devextreme/ui/data_grid"
