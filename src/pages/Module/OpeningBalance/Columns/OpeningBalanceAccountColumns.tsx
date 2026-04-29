@@ -63,42 +63,25 @@ export function OpeningBalanceAccountColumns(props: Props): React.JSX.Element {
     popupTitle,
     buttonHint,
   }: CreateAccEditorConfig) =>
-    (cellInfo: OpeningBalanceEditCellInfo) => {
-      const rowIndex = cellInfo.row?.rowIndex ?? -1
-
-      const stopGridEvent = (event: React.SyntheticEvent<HTMLDivElement>) => {
-        event.stopPropagation()
-      }
-
-      return (
-        <div
-          className="amnote-lookup-editor"
-          onPointerDown={stopGridEvent}
-          onMouseDown={stopGridEvent}
-          onClick={stopGridEvent}
-          onDoubleClick={stopGridEvent}
-        >
-          <AcclistLookupCellEditor
-            dataSource={LookupStore}
-            value={cellInfo.data?.[valueField] ?? null}
-            rowIndex={rowIndex}
-            grid={cellInfo.component}
-            setValue={(accCd) => {
-              if (rowIndex < 0) return
-              cellInfo.component.cellValue(rowIndex, valueField, accCd)
-            }}
-            ValueField={valueField}
-            NameField={nameField}
-            IdField={idField}
-            LookupCodeField="ACC_CD"
-            LookupNameField={`ACCTITLE_NM_${getCurrentLangCode()}`}
-            placeholder={placeholder ?? t("ACC_SELECT", "Select account")}
-            popupTitle={popupTitle ?? t("ACC_SELECT", "Select account")}
-            buttonHint={buttonHint ?? t("lblACC", "Open account list")}
-          />
-        </div>
-      )
-    }
+    (cellInfo: OpeningBalanceEditCellInfo) => (
+      <AcclistLookupCellEditor
+        dataSource={LookupStore}
+        value={cellInfo.data?.[valueField] ?? null}
+        rowIndex={cellInfo.row?.rowIndex ?? -1}
+        grid={cellInfo.component}
+        setValue={(accCd) => {
+          cellInfo.component.cellValue(cellInfo.row.rowIndex, valueField, accCd)
+        }}
+        ValueField={valueField}
+        NameField={nameField}
+        IdField={idField}
+        LookupCodeField="ACC_CD"
+        LookupNameField={`ACCTITLE_NM_${getCurrentLangCode()}`}
+        placeholder={placeholder ?? t("ACC_SELECT", "Select account")}
+        popupTitle={popupTitle ?? t("ACC_SELECT", "Select account")}
+        buttonHint={buttonHint ?? t("lblACC", "Open account list")}
+      />
+    )
 
   return (
     <>
