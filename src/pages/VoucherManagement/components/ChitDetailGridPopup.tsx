@@ -1,6 +1,6 @@
-﻿import { forwardRef, useCallback, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, type ComponentType } from "react"
+﻿import { forwardRef, useCallback, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, type ComponentType, type MutableRefObject } from "react"
 import { Button } from "devextreme-react"
-import DataGrid, { Toolbar, Item, Editing, FilterRow, FilterPanel, ColumnFixing, StateStoring } from "devextreme-react/data-grid"
+import DataGrid, { Toolbar, Item, Editing, FilterRow, FilterPanel, ColumnFixing } from "devextreme-react/data-grid"
 import TextBox from "devextreme-react/text-box"
 import type dxDataGrid from "devextreme/ui/data_grid"
 import type {
@@ -11,7 +11,7 @@ import type {
 } from "devextreme/ui/data_grid"
 
 import { LanguageContext } from "@/lib/i18nLoader"
-import { useGridColumnSettingState } from "@/components/datagrid/useGridColumnSettingState"
+import { useGridColumnSettingState, type GridColumnSettingState } from "@/components/datagrid/useGridColumnSettingState"
 import { useInlineGridSearch } from "@/components/datagrid/gridSearch"
 import type { ChitDetail } from "@/types/voucher"
 import {
@@ -34,6 +34,7 @@ interface ChitDetailGridProps {
   companyCd: string
   details: ChitDetail[]
   onChange: (rows: ChitDetail[], amount: number) => void
+  onFocusedRowChange?: (rowKey: string | null) => void
   height?: number
   isVisible?: boolean
   layoutVersion?: number
@@ -41,6 +42,7 @@ interface ChitDetailGridProps {
   screenCd?: string
   gridId?: string
   persistColumnSettings?: boolean
+  columnSettingStateRef?: MutableRefObject<GridColumnSettingState | null>
   onOpenInventoryRow?: (rowKey: string | null) => void
 }
 
@@ -63,6 +65,7 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
       companyCd,
       details,
       onChange,
+      onFocusedRowChange,
       height,
       isVisible = true,
       layoutVersion = 0,
@@ -70,6 +73,7 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
       screenCd,
       gridId,
       persistColumnSettings = false,
+      columnSettingStateRef,
       onOpenInventoryRow,
     },
     ref,
@@ -164,7 +168,6 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
         measureGridLayout()
       }
 
-      updateGridLayout()
       layoutFrameRef.current = requestAnimationFrame(() => {
         updateGridLayout()
         layoutFollowUpFrameRef.current = requestAnimationFrame(() => {
@@ -273,9 +276,9 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
         const nextRows = currentRows.map((item) =>
           item.ROW_KEY === deletedRow.ROW_KEY
             ? cloneChitDetail({
-                ...item,
-                ISDEL: false,
-              })
+              ...item,
+              ISDEL: false,
+            })
             : item,
         )
 
@@ -381,6 +384,10 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
     }, [visibleDetails])
 
     useEffect(() => {
+      onFocusedRowChange?.(focusedRowKey)
+    }, [focusedRowKey, onFocusedRowChange])
+
+    useEffect(() => {
       if (!isVisible) {
         return
       }
@@ -398,11 +405,37 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
       columnSettingState.cachedEditorItems,
       columnSettingState.enabled,
       columnSettingState.syncEditorItemsToComponent,
-      details,
-      isVisible,
+    ])
+
+    useEffect(() => {
+      if (!columnSettingState.enabled || !gridRef.current) {
+        return
+      }
+
+      let cancelled = false
+
+      void columnSettingState.loadEditorItems(gridRef.current).then((items) => {
+        if (cancelled || !gridRef.current || items.length === 0) {
+          return
+        }
+
+        columnSettingState.syncEditorItemsToComponent(gridRef.current, items)
+      })
+
+      return () => {
+        cancelled = true
+      }
+    }, [
+      columnSettingState.enabled,
+      columnSettingState.loadEditorItems,
+      columnSettingState.syncEditorItemsToComponent,
     ])
 
     useEffect(() => clearPendingLayoutRefresh, [clearPendingLayoutRefresh])
+
+    if (columnSettingStateRef) {
+      columnSettingStateRef.current = columnSettingState
+    }
 
     const gridHeight = useMemo(() => {
       if (height !== undefined) {
@@ -421,6 +454,7 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
         style={{ height: gridHeight }}
       >
         <DataGrid<ChitDetail, string>
+          loadPanel={{ enabled: false }}
           dataSource={visibleDetails}
           keyExpr="ROW_KEY"
           width="100%"
@@ -442,15 +476,6 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
           }}
         >
           <ColumnFixing enabled={true} />
-          {columnSettingState.enabled ? (
-            <StateStoring
-              enabled={true}
-              type="custom"
-              customLoad={columnSettingState.customLoad}
-              customSave={columnSettingState.customSave}
-              savingTimeout={500}
-            />
-          ) : null}
           <Editing
             mode="batch"
             allowAdding={true}
