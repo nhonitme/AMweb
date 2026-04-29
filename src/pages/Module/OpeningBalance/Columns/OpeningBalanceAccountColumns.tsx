@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useCallback } from "react"
 import { Column, CustomRule, RequiredRule } from "devextreme-react/data-grid"
 import type { ColumnEditCellTemplateData } from "devextreme/ui/data_grid"
 
@@ -55,33 +55,36 @@ export function OpeningBalanceAccountColumns(props: Props): React.JSX.Element {
   const { getFormat } = useDecimalColumnFormats()
   const accountNameField = getAccountNameField()
 
-  const createAccEditor = ({
-    valueField,
-    nameField,
-    idField,
-    placeholder,
-    popupTitle,
-    buttonHint,
-  }: CreateAccEditorConfig) =>
-    (cellInfo: OpeningBalanceEditCellInfo) => (
-      <AcclistLookupCellEditor
-        dataSource={LookupStore}
-        value={cellInfo.data?.[valueField] ?? null}
-        rowIndex={cellInfo.row?.rowIndex ?? -1}
-        grid={cellInfo.component}
-        setValue={(accCd) => {
-          cellInfo.component.cellValue(cellInfo.row.rowIndex, valueField, accCd)
-        }}
-        ValueField={valueField}
-        NameField={nameField}
-        IdField={idField}
-        LookupCodeField="ACC_CD"
-        LookupNameField={`ACCTITLE_NM_${getCurrentLangCode()}`}
-        placeholder={placeholder ?? t("ACC_SELECT", "Select account")}
-        popupTitle={popupTitle ?? t("ACC_SELECT", "Select account")}
-        buttonHint={buttonHint ?? t("lblACC", "Open account list")}
-      />
-    )
+  const createAccEditor = useCallback(
+    ({
+      valueField,
+      nameField,
+      idField,
+      placeholder,
+      popupTitle,
+      buttonHint,
+    }: CreateAccEditorConfig) =>
+      (cellInfo: OpeningBalanceEditCellInfo) => (
+        <AcclistLookupCellEditor
+          dataSource={LookupStore}
+          value={cellInfo.data?.[valueField] ?? null}
+          rowIndex={cellInfo.row?.rowIndex ?? -1}
+          grid={cellInfo.component}
+          setValue={(accCd) => {
+            cellInfo.component.cellValue(cellInfo.row.rowIndex, valueField, accCd)
+          }}
+          ValueField={valueField}
+          NameField={nameField}
+          IdField={idField}
+          LookupCodeField="ACC_CD"
+          LookupNameField={`ACCTITLE_NM_${getCurrentLangCode()}`}
+          placeholder={placeholder ?? t("ACC_SELECT", "Select account")}
+          popupTitle={popupTitle ?? t("ACC_SELECT", "Select account")}
+          buttonHint={buttonHint ?? t("lblACC", "Open account list")}
+        />
+      ),
+    [t],
+  )
 
   return (
     <>
