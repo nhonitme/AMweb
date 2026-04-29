@@ -1,7 +1,8 @@
-import { useContext, type ComponentType } from "react"
+import { Fragment, useContext, useEffect, useState, type ComponentType } from "react"
 
 import { Button as GridButton, Column } from "devextreme-react/data-grid"
 import type { ColumnButtonClickEvent, ColumnEditCellTemplateData } from "devextreme/ui/data_grid"
+import type { Format as LocalizationFormat } from "devextreme/common/core/localization"
 
 import AcclistLookupCellEditor from "@/components/lookup/AcclistLookupCellEditor"
 import { LookupStore } from "@/components/lookup/AcclistLookupStore"
@@ -11,7 +12,9 @@ import CustomerLookupCellEditor from "@/components/lookup/CustomerLookupCellEdit
 import DepartmentLookupCellEditor from "@/components/lookup/DepartmentLookupCellEditor"
 import { customerLookupStore } from "@/components/lookup/customerLookupStore"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { buildDecimalFormat, loadDecimalSettings, resolveDecimalSetting, subscribeDecimalSettingUpdates } from "@/lib/decimalSettingCache"
 import type { ChitDetail, ChitType } from "@/types/voucher"
+import type { DecimalSettingRule } from "@/lib/decimalSettingCache"
 import { getCurrentLangCode } from "@/utils/language"
 
 export interface VoucherDetailColumnsProps {
@@ -263,6 +266,80 @@ function useVoucherDetailEditors(): VoucherDetailEditors {
   }
 }
 
+function useDecimalColumnFormats() {
+  const [cacheVersion, setCacheVersion] = useState(0)
+  const [formatVersion, setFormatVersion] = useState(0)
+  const [formatMap, setFormatMap] = useState<Record<string, LocalizationFormat>>({})
+  const [rules, setRules] = useState<DecimalSettingRule[]>([])
+
+  useEffect(() => {
+    let active = true
+
+    const loadSettings = async () => {
+      try {
+        const loadedRules = await loadDecimalSettings()
+        if (!active) {
+          return
+        }
+
+        const nextMap: Record<string, LocalizationFormat> = {}
+        loadedRules.forEach((rule) => {
+          const format = buildDecimalFormat(rule)
+          if (format) {
+            nextMap[rule.FIELD_NAME.toUpperCase()] = format
+          }
+        })
+
+        setRules(loadedRules)
+        setFormatMap(nextMap)
+        setFormatVersion((current) => current + 1)
+      } catch (error) {
+        console.error("Failed to load decimal settings", error)
+      }
+    }
+
+    loadSettings()
+
+    return () => {
+      active = false
+    }
+  }, [cacheVersion])
+
+  useEffect(() => {
+    const unsubscribe = subscribeDecimalSettingUpdates(() => {
+      setCacheVersion((current) => current + 1)
+    })
+
+    return unsubscribe
+  }, [])
+
+  return { formatMap, rules, formatVersion }
+}
+
+function getDecimalFormat(
+  formatMap: Record<string, LocalizationFormat>,
+  rules: DecimalSettingRule[],
+  fieldName: string,
+  fallback: LocalizationFormat,
+): LocalizationFormat {
+  const normalized = String(fieldName ?? "").trim().toUpperCase()
+  if (!normalized) {
+    return fallback
+  }
+
+  const exact = formatMap[normalized]
+  if (exact) {
+    return exact
+  }
+
+  const resolved = resolveDecimalSetting(rules, normalized)
+  if (resolved) {
+    return buildDecimalFormat(resolved)
+  }
+
+  return fallback
+}
+
 function DetailMetaColumns({
   onSoftDeleteRow,
   onOpenInventoryRow,
@@ -276,27 +353,30 @@ function DetailMetaColumns({
     const key = event.row?.key
     return key != null ? String(key) : null
   }
+  const hasInventoryAction = typeof onOpenInventoryRow === "function"
 
   return (
     <>
       <Column
         name="DETAIL_ACTIONS"
         type="buttons"
-        width={110}
+        width={hasInventoryAction ? 110 : 60}
         fixed={true}
         fixedPosition="left"
         visibleIndex={0}
         allowFixing={false}
         showInColumnChooser={false}
       >
-        <GridButton
-          icon="box"
-          hint={t("WAREHOUSE", "Kho")}
-          onClick={(event: ColumnButtonClickEvent<ChitDetail, string | number>) => {
-            const rowKey = resolveRowKey(event)
-            onOpenInventoryRow?.(rowKey)
-          }}
-        />
+        {hasInventoryAction ? (
+          <GridButton
+            icon="box"
+            hint={t("WAREHOUSE", "Kho")}
+            onClick={(event: ColumnButtonClickEvent<ChitDetail, string | number>) => {
+              const rowKey = resolveRowKey(event)
+              onOpenInventoryRow?.(rowKey)
+            }}
+          />
+        ) : null}
         <GridButton
           icon="trash"
           hint={t("DELETE", "Delete")}
@@ -383,29 +463,41 @@ function AccountingColumns({
 
 export function CashVoucherDetailColumns({ onSoftDeleteRow, onOpenInventoryRow }: VoucherDetailColumnsProps) {
   const { t, createAccEditor, createCurrencyEditor, renderCustomerEditor } = useVoucherDetailEditors()
+  const { formatMap, rules, formatVersion } = useDecimalColumnFormats()
 
   return (
-    <>
+    <Fragment key={formatVersion}>
       <DetailMetaColumns onSoftDeleteRow={onSoftDeleteRow} onOpenInventoryRow={onOpenInventoryRow} t={t} />
       <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
       <AccountingColumns createAccEditor={createAccEditor} t={t} />
-      <Column dataField="AMOUNT" caption={t("AMOUNT", "Amount")} dataType="number" format="#,##0.00" />
+      <Column
+        dataField="AMOUNT"
+        caption={t("AMOUNT", "Amount")}
+        dataType="number"
+        format={getDecimalFormat(formatMap, rules, "AMOUNT", "#,##0.00")}
+      />
       <Column
         dataField="FC_TYPE"
         caption={t("FC_TYPE", "Currency")}
         editCellRender={createCurrencyEditor({ valueField: "FC_TYPE" })}
       />
-      <Column dataField="FC_RATE" caption={t("FC_RATE", "Exchange rate")} dataType="number" format="#,##0.000000" />
+      <Column
+        dataField="FC_RATE"
+        caption={t("FC_RATE", "Exchange rate")}
+        dataType="number"
+        format={getDecimalFormat(formatMap, rules, "FC_RATE", "#,##0.000000")}
+      />
       <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Description")} />
-    </>
+    </Fragment>
   )
 }
 
 export function BankVoucherDetailColumns({ onSoftDeleteRow, onOpenInventoryRow }: VoucherDetailColumnsProps) {
   const { t, createAccEditor, createBankEditor, createCurrencyEditor, renderCustomerEditor } = useVoucherDetailEditors()
+  const { formatMap, rules, formatVersion } = useDecimalColumnFormats()
 
   return (
-    <>
+    <Fragment key={formatVersion}>
       <DetailMetaColumns onSoftDeleteRow={onSoftDeleteRow} onOpenInventoryRow={onOpenInventoryRow} t={t} />
       <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
       <Column
@@ -422,106 +514,148 @@ export function BankVoucherDetailColumns({ onSoftDeleteRow, onOpenInventoryRow }
         })}
       />
       <AccountingColumns createAccEditor={createAccEditor} t={t} />
-      <Column dataField="AMOUNT" caption={t("AMOUNT", "Amount")} dataType="number" format="#,##0.00" />
+      <Column
+        dataField="AMOUNT"
+        caption={t("AMOUNT", "Amount")}
+        dataType="number"
+        format={getDecimalFormat(formatMap, rules, "AMOUNT", "#,##0.00")}
+      />
       <Column
         dataField="FC_TYPE"
         caption={t("FC_TYPE", "Currency")}
         editCellRender={createCurrencyEditor({ valueField: "FC_TYPE" })}
       />
-      <Column dataField="FC_RATE" caption={t("FC_RATE", "Exchange rate")} dataType="number" format="#,##0.000000" />
+      <Column
+        dataField="FC_RATE"
+        caption={t("FC_RATE", "Exchange rate")}
+        dataType="number"
+        format={getDecimalFormat(formatMap, rules, "FC_RATE", "#,##0.000000")}
+      />
       <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Bank description")} />
-    </>
+    </Fragment>
   )
 }
 
 export function PurchaseVoucherDetailColumns({ onSoftDeleteRow, onOpenInventoryRow }: VoucherDetailColumnsProps) {
   const { t, createAccEditor, renderCustomerEditor } = useVoucherDetailEditors()
+  const { formatMap, rules, formatVersion } = useDecimalColumnFormats()
 
   return (
-    <>
+    <Fragment key={formatVersion}>
       <DetailMetaColumns onSoftDeleteRow={onSoftDeleteRow} onOpenInventoryRow={onOpenInventoryRow} t={t} />
       <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
       <AccountingColumns createAccEditor={createAccEditor} t={t} />
-      <Column dataField="PRODUCT_NM" caption={t("PRODUCT_NM", "Product")} />
-      <Column dataField="UNIT_NM" caption={t("UNIT_NM", "Unit")} />
-      <Column dataField="QUANTITY" caption={t("QUANTITY", "Quantity")} dataType="number" format="#,##0.###" />
-      <Column dataField="UNIT_PRICE" caption={t("UNIT_PRICE", "Unit price")} dataType="number" format="#,##0.00" />
-      <Column dataField="PRODUCT_AMOUNT" caption={t("PRODUCT_AMOUNT", "Product amount")} dataType="number" format="#,##0.00" />
-      <Column dataField="VAT_TYPE" caption={t("VAT_TYPE", "VAT type")} />
-      <Column dataField="VAT_AMOUNT" caption={t("VAT_AMOUNT", "VAT amount")} dataType="number" format="#,##0.00" />
+      <Column
+        dataField="AMOUNT"
+        caption={t("AMOUNT", "Amount")}
+        dataType="number"
+        format={getDecimalFormat(formatMap, rules, "AMOUNT", "#,##0.00")}
+      />
+      <Column
+        dataField="VAT_AMOUNT"
+        caption={t("VAT_AMOUNT", "VAT amount")}
+        dataType="number"
+        format={getDecimalFormat(formatMap, rules, "VAT_AMOUNT", "#,##0.00")}
+      />
       <Column dataField="VAT_CHIT_NO" caption={t("VAT_CHIT_NO", "Invoice no")} />
       <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Purchase description")} />
-    </>
+    </Fragment>
   )
 }
 
 export function PurchaseServiceVoucherDetailColumns({ onSoftDeleteRow, onOpenInventoryRow }: VoucherDetailColumnsProps) {
   const { t, createAccEditor, renderCustomerEditor } = useVoucherDetailEditors()
+  const { formatMap, rules, formatVersion } = useDecimalColumnFormats()
 
   return (
-    <>
+    <Fragment key={formatVersion}>
       <DetailMetaColumns onSoftDeleteRow={onSoftDeleteRow} onOpenInventoryRow={onOpenInventoryRow} t={t} />
       <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
       <AccountingColumns createAccEditor={createAccEditor} t={t} />
-      <Column dataField="PRODUCT_NM" caption={t("SERVICE_NM", "Service")} />
-      <Column dataField="PRODUCT_NOTE" caption={t("PRODUCT_NOTE", "Service scope")} />
-      <Column dataField="PRODUCT_AMOUNT" caption={t("PRODUCT_AMOUNT", "Service amount")} dataType="number" format="#,##0.00" />
-      <Column dataField="VAT_TYPE" caption={t("VAT_TYPE", "VAT type")} />
-      <Column dataField="VAT_AMOUNT" caption={t("VAT_AMOUNT", "VAT amount")} dataType="number" format="#,##0.00" />
+      <Column
+        dataField="AMOUNT"
+        caption={t("AMOUNT", "Amount")}
+        dataType="number"
+        format={getDecimalFormat(formatMap, rules, "AMOUNT", "#,##0.00")}
+      />
+      <Column
+        dataField="VAT_AMOUNT"
+        caption={t("VAT_AMOUNT", "VAT amount")}
+        dataType="number"
+        format={getDecimalFormat(formatMap, rules, "VAT_AMOUNT", "#,##0.00")}
+      />
       <Column dataField="VAT_CHIT_NO" caption={t("VAT_CHIT_NO", "Service invoice no")} />
       <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Service description")} />
-    </>
+    </Fragment>
   )
 }
 
 export function SalesVoucherDetailColumns({ onSoftDeleteRow, onOpenInventoryRow }: VoucherDetailColumnsProps) {
   const { t, createAccEditor, renderCustomerEditor } = useVoucherDetailEditors()
+  const { formatMap, rules, formatVersion } = useDecimalColumnFormats()
 
   return (
-    <>
+    <Fragment key={formatVersion}>
       <DetailMetaColumns onSoftDeleteRow={onSoftDeleteRow} onOpenInventoryRow={onOpenInventoryRow} t={t} />
       <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
       <AccountingColumns createAccEditor={createAccEditor} t={t} />
-      <Column dataField="PRODUCT_NM" caption={t("PRODUCT_NM", "Product / Service")} />
-      <Column dataField="UNIT_NM" caption={t("UNIT_NM", "Unit")} />
-      <Column dataField="QUANTITY" caption={t("QUANTITY", "Quantity")} dataType="number" format="#,##0.###" />
-      <Column dataField="UNIT_PRICE" caption={t("UNIT_PRICE", "Unit price")} dataType="number" format="#,##0.00" />
-      <Column dataField="PRODUCT_AMOUNT" caption={t("PRODUCT_AMOUNT", "Revenue")} dataType="number" format="#,##0.00" />
-      <Column dataField="VAT_TYPE" caption={t("VAT_TYPE", "VAT type")} />
-      <Column dataField="PRODUCT_VAT_AMOUNT" caption={t("PRODUCT_VAT_AMOUNT", "Output VAT")} dataType="number" format="#,##0.00" />
+      <Column
+        dataField="AMOUNT"
+        caption={t("AMOUNT", "Amount")}
+        dataType="number"
+        format={getDecimalFormat(formatMap, rules, "AMOUNT", "#,##0.00")}
+      />
+      <Column
+        dataField="VAT_AMOUNT"
+        caption={t("VAT_AMOUNT", "VAT amount")}
+        dataType="number"
+        format={getDecimalFormat(formatMap, rules, "VAT_AMOUNT", "#,##0.00")}
+      />
       <Column dataField="VAT_CHIT_NO" caption={t("VAT_CHIT_NO", "Sales invoice no")} />
       <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Sales description")} />
-    </>
+    </Fragment>
   )
 }
 
 export function OffsetVoucherDetailColumns({ onSoftDeleteRow, onOpenInventoryRow }: VoucherDetailColumnsProps) {
   const { t, createAccEditor, createCurrencyEditor, renderCustomerEditor } = useVoucherDetailEditors()
+  const { formatMap, rules, formatVersion } = useDecimalColumnFormats()
 
   return (
-    <>
+    <Fragment key={formatVersion}>
       <DetailMetaColumns onSoftDeleteRow={onSoftDeleteRow} onOpenInventoryRow={onOpenInventoryRow} t={t} />
       <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
       <Column dataField="MR_CD" caption={t("MR_CD", "Offset code 1")} />
       <Column dataField="MR_CD2" caption={t("MR_CD2", "Offset code 2")} />
       <AccountingColumns createAccEditor={createAccEditor} t={t} />
-      <Column dataField="AMOUNT" caption={t("AMOUNT", "Amount")} dataType="number" format="#,##0.00" />
+      <Column
+        dataField="AMOUNT"
+        caption={t("AMOUNT", "Amount")}
+        dataType="number"
+        format={getDecimalFormat(formatMap, rules, "AMOUNT", "#,##0.00")}
+      />
       <Column
         dataField="FC_TYPE"
         caption={t("FC_TYPE", "Currency")}
         editCellRender={createCurrencyEditor({ valueField: "FC_TYPE" })}
       />
-      <Column dataField="FC_RATE" caption={t("FC_RATE", "Exchange rate")} dataType="number" format="#,##0.000000" />
+      <Column
+        dataField="FC_RATE"
+        caption={t("FC_RATE", "Exchange rate")}
+        dataType="number"
+        format={getDecimalFormat(formatMap, rules, "FC_RATE", "#,##0.000000")}
+      />
       <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Offset description")} />
-    </>
+    </Fragment>
   )
 }
 
 export function OtherVoucherDetailColumns({ onSoftDeleteRow, onOpenInventoryRow }: VoucherDetailColumnsProps) {
   const { t, createAccEditor, createCurrencyEditor, createDepartmentEditor, renderCustomerEditor } = useVoucherDetailEditors()
+  const { formatMap, rules, formatVersion } = useDecimalColumnFormats()
 
   return (
-    <>
+    <Fragment key={formatVersion}>
       <DetailMetaColumns onSoftDeleteRow={onSoftDeleteRow} onOpenInventoryRow={onOpenInventoryRow} t={t} />
       <CustomerColumns renderCustomerEditor={renderCustomerEditor} t={t} />
       <Column dataField="MG_CD" caption={t("MG_CD", "Management code")} />
@@ -539,15 +673,25 @@ export function OtherVoucherDetailColumns({ onSoftDeleteRow, onOpenInventoryRow 
         })}
       />
       <AccountingColumns createAccEditor={createAccEditor} t={t} />
-      <Column dataField="AMOUNT" caption={t("AMOUNT", "Amount")} dataType="number" format="#,##0.00" />
+      <Column
+        dataField="AMOUNT"
+        caption={t("AMOUNT", "Amount")}
+        dataType="number"
+        format={getDecimalFormat(formatMap, rules, "AMOUNT", "#,##0.00")}
+      />
       <Column
         dataField="FC_TYPE"
         caption={t("FC_TYPE", "Currency")}
         editCellRender={createCurrencyEditor({ valueField: "FC_TYPE" })}
       />
-      <Column dataField="FC_RATE" caption={t("FC_RATE", "Exchange rate")} dataType="number" format="#,##0.000000" />
+      <Column
+        dataField="FC_RATE"
+        caption={t("FC_RATE", "Exchange rate")}
+        dataType="number"
+        format={getDecimalFormat(formatMap, rules, "FC_RATE", "#,##0.000000")}
+      />
       <Column dataField="DETAIL_DESCRIPTION_VIET" caption={t("DESCRIPTION2", "Description")} />
-    </>
+    </Fragment>
   )
 }
 
@@ -557,8 +701,10 @@ const detailColumnsMap: Record<ChitType, VoucherDetailColumnsComponent> = {
   DN: BankVoucherDetailColumns,
   CN: BankVoucherDetailColumns,
   PO: PurchaseVoucherDetailColumns,
+  IR: PurchaseVoucherDetailColumns,
   PS: PurchaseServiceVoucherDetailColumns,
   SO: SalesVoucherDetailColumns,
+  IO: SalesVoucherDetailColumns,
   CO: OffsetVoucherDetailColumns,
   OT: OtherVoucherDetailColumns,
 }
