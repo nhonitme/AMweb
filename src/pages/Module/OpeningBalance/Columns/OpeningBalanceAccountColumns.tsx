@@ -85,7 +85,6 @@ export function OpeningBalanceAccountColumns(props: Props): React.JSX.Element {
             grid={cellInfo.component}
             setValue={(accCd) => {
               if (rowIndex < 0) return
-
               cellInfo.component.cellValue(rowIndex, valueField, accCd)
             }}
             ValueField={valueField}
