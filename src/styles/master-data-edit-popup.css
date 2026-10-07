@@ -1,0 +1,307 @@
+.master-data-edit-popup .dx-overlay-content {
+  height: auto !important;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+}
+
+.master-data-edit-popup .dx-popup-content {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  height: auto !important;
+  min-height: 0 !important;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 0;
+}
+
+.master-data-edit-popup .dx-popup-bottom {
+  flex-shrink: 0;
+  position: relative;
+}
+
+.master-data-edit-popup:not(.master-data-edit-popup--scrollable) .dx-popup-content > .dx-scrollable,
+.master-data-edit-popup:not(.master-data-edit-popup--scrollable) .dx-popup-content > .dx-datagrid-edit-popup,
+.master-data-edit-popup:not(.master-data-edit-popup--scrollable) .dx-popup-content > .dx-form {
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+.master-data-edit-popup:not(.master-data-edit-popup--scrollable) .dx-scrollable-wrapper,
+.master-data-edit-popup:not(.master-data-edit-popup--scrollable) .dx-scrollable-container,
+.master-data-edit-popup:not(.master-data-edit-popup--scrollable) .dx-scrollable-content {
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+
+/* Scrollable master popups (customer, product, …): flex height + DevExtreme dx-scrollable wheel scroll. */
+.master-data-edit-popup--scrollable .dx-overlay-content {
+  height: 80vh !important;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.master-data-edit-popup--scrollable .dx-popup-content {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
+.master-data-edit-popup--scrollable .dx-popup-content > .dx-scrollable {
+  height: 100% !important;
+  max-height: 100% !important;
+}
+
+.master-data-edit-popup--scrollable .dx-scrollable-wrapper,
+.master-data-edit-popup--scrollable .dx-scrollable-container {
+  height: 100% !important;
+  max-height: 100% !important;
+}
+
+.master-data-edit-popup--scrollable .dx-scrollable-content {
+  padding: 22px 26px 16px !important;
+  box-sizing: border-box;
+  background: #fbfbfc;
+}
+
+/* ===== Visual polish for master-data edit/add popups (v5 — light/modern cards, 2026-09-10) ===== */
+
+.master-data-edit-popup .dx-overlay-content {
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.master-data-edit-popup .dx-popup-title {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 18px 26px 18px 82px !important;
+  background: linear-gradient(135deg, #ffffff 60%, #fef2f2 100%);
+  border-bottom: 1px solid #f1f3f5;
+  overflow: visible !important;
+}
+
+.master-data-edit-popup .dx-popup-title::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #dc2626, #991b1b);
+}
+
+.master-data-edit-popup .dx-popup-title::before {
+  content: "";
+  position: absolute;
+  left: 28px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background-color: #dc2626;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='18'%20height='18'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23ffffff'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M17%203a2.85%202.85%200%201%201%204%204L7.5%2020.5%202%2022l1.5-5.5Z'/%3E%3C/svg%3E"), linear-gradient(135deg, #dc2626, #991b1b);
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  box-shadow: 0 3px 8px rgba(220, 38, 38, 0.3);
+}
+
+.master-data-edit-popup .dx-popup-title .dx-title {
+  overflow: visible;
+}
+
+.master-data-edit-popup .master-data-edit-popup-title-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.2;
+}
+
+.master-data-edit-popup .master-data-edit-popup-title-main {
+  font-size: 17px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.master-data-edit-popup .master-data-edit-popup-title-sub {
+  font-size: 12px;
+  font-weight: 500;
+  color: #9ca3af;
+}
+
+.master-data-edit-popup .dx-popup-title .dx-closebutton {
+  border-radius: 9px !important;
+  background-color: #f9fafb;
+}
+
+.master-data-edit-popup .dx-popup-title .dx-closebutton .dx-icon-close {
+  color: #6b7280;
+}
+
+.master-data-edit-popup .dx-popup-content {
+  padding: 22px 26px 22px !important;
+  background: #fbfbfc;
+}
+
+/* Each Form GroupItem becomes a light, modern "card". */
+.master-data-edit-popup .dx-form-group-with-caption {
+  position: relative;
+  background: #fff;
+  border: 1px solid #eef0f3;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03), 0 2px 6px rgba(16, 24, 40, 0.04);
+  margin-bottom: 16px;
+}
+
+.master-data-edit-popup:not(.master-data-edit-popup--scrollable) .dx-form-group-with-caption:last-child {
+  margin-bottom: 0;
+}
+
+.master-data-edit-popup--scrollable .dx-form-group-with-caption:last-child {
+  margin-bottom: 8px;
+}
+
+/* Thin accent bar on top of each card — neutral by default, colored via popup-card--* below. */
+.master-data-edit-popup .dx-form-group-with-caption::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #cbd5e1;
+}
+
+.master-data-edit-popup .dx-form-group-caption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1f2937;
+  padding: 16px 22px 14px;
+  margin-bottom: 0;
+  border-bottom: 1px solid #f4f5f7;
+}
+
+/* Small icon chip before the card title text — neutral by default. */
+.master-data-edit-popup .dx-form-group-caption::before {
+  content: "";
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background-color: #eef1f5;
+}
+
+/* Fields area inside the card, whatever DevExtreme names its wrapper. */
+.master-data-edit-popup .dx-form-group-with-caption > *:not(.dx-form-group-caption) {
+  padding: 20px 22px 24px;
+}
+
+/* ---- Section icon variants (neutral gray — no color-coding): pass cssClass="popup-card popup-card--info" / "popup-card--lang" on a GroupItem ---- */
+.master-data-edit-popup .popup-card--info.dx-form-group-with-caption .dx-form-group-caption::before,
+.master-data-edit-popup .popup-card--info .dx-form-group-caption::before {
+  background-color: #f1f5f9;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='14'%20height='14'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%2364748b'%20stroke-width='2.3'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cline%20x1='4'%20y1='9'%20x2='20'%20y2='9'/%3E%3Cline%20x1='4'%20y1='15'%20x2='20'%20y2='15'/%3E%3Cline%20x1='10'%20y1='3'%20x2='8'%20y2='21'/%3E%3Cline%20x1='16'%20y1='3'%20x2='14'%20y2='21'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.master-data-edit-popup .popup-card--lang.dx-form-group-with-caption .dx-form-group-caption::before,
+.master-data-edit-popup .popup-card--lang .dx-form-group-caption::before {
+  background-color: #f1f5f9;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='14'%20height='14'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%2364748b'%20stroke-width='2.3'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Ccircle%20cx='12'%20cy='12'%20r='9'/%3E%3Cpath%20d='M3%2012h18'/%3E%3Cpath%20d='M12%203a14%2014%200%200%201%203%209%2014%2014%200%200%201-3%209%2014%2014%200%200%201-3-9%2014%2014%200%200%201%203-9z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* ---- Section icon variants for the Customer edit/add popup ---- */
+.master-data-edit-popup .popup-card--classify.dx-form-group-with-caption .dx-form-group-caption::before,
+.master-data-edit-popup .popup-card--classify .dx-form-group-caption::before {
+  background-color: #f1f5f9;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='14'%20height='14'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%2364748b'%20stroke-width='2.3'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M12.59%202.59a2%202%200%200%200-1.42-.59H4a2%202%200%200%200-2%202v7.17a2%202%200%200%200%20.59%201.42l8.7%208.7a2.43%202.43%200%200%200%203.42%200l6.58-6.58a2.43%202.43%200%200%200%200-3.42z'/%3E%3Ccircle%20cx='7.5'%20cy='7.5'%20r='1.2'%20fill='%2364748b'%20stroke='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.master-data-edit-popup .popup-card--company.dx-form-group-with-caption .dx-form-group-caption::before,
+.master-data-edit-popup .popup-card--company .dx-form-group-caption::before {
+  background-color: #f1f5f9;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='14'%20height='14'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%2364748b'%20stroke-width='2.3'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Crect%20x='4'%20y='2'%20width='16'%20height='20'%20rx='2'/%3E%3Cpath%20d='M9%2022v-4h6v4'/%3E%3Cpath%20d='M8%208h.01'/%3E%3Cpath%20d='M16%208h.01'/%3E%3Cpath%20d='M8%2012h.01'/%3E%3Cpath%20d='M16%2012h.01'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.master-data-edit-popup .popup-card--contact.dx-form-group-with-caption .dx-form-group-caption::before,
+.master-data-edit-popup .popup-card--contact .dx-form-group-caption::before {
+  background-color: #f1f5f9;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='14'%20height='14'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%2364748b'%20stroke-width='2.3'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M13.83%2016.57a1%201%200%200%200%201.21-.3l.36-.47a2%202%200%200%201%201.6-.8h3a2%202%200%200%201%202%202v3a2%202%200%200%201-2%202A18%2018%200%200%201%202%204a2%202%200%200%201%202-2h3a2%202%200%200%201%202%202v3a2%202%200%200%201-.8%201.6l-.47.35a1%201%200%200%200-.29%201.23%2014%2014%200%200%200%206.39%206.39z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.master-data-edit-popup .popup-card--bank.dx-form-group-with-caption .dx-form-group-caption::before,
+.master-data-edit-popup .popup-card--bank .dx-form-group-caption::before {
+  background-color: #f1f5f9;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='14'%20height='14'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%2364748b'%20stroke-width='2.3'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M3%2021h18'/%3E%3Cpath%20d='M4%2010h16'/%3E%3Cpath%20d='M5%206l7-3%207%203'/%3E%3Cpath%20d='M5%2010v11'/%3E%3Cpath%20d='M19%2010v11'/%3E%3Cpath%20d='M9%2014v3'/%3E%3Cpath%20d='M15%2014v3'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.master-data-edit-popup .popup-card--note.dx-form-group-with-caption .dx-form-group-caption::before,
+.master-data-edit-popup .popup-card--note .dx-form-group-caption::before {
+  background-color: #f1f5f9;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='14'%20height='14'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%2364748b'%20stroke-width='2.3'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Ccircle%20cx='5'%20cy='12'%20r='1'/%3E%3Ccircle%20cx='12'%20cy='12'%20r='1'/%3E%3Ccircle%20cx='19'%20cy='12'%20r='1'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.master-data-edit-popup .dx-field-item-required-mark {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.master-data-edit-popup .dx-texteditor-outline {
+  border-radius: 9px !important;
+  transition: border-color 0.12s ease-in-out, box-shadow 0.12s ease-in-out, background-color 0.12s ease-in-out;
+}
+
+.master-data-edit-popup .dx-texteditor:not(.dx-state-focused) .dx-texteditor-outline {
+  background-color: #fbfbfc;
+}
+
+.master-data-edit-popup .dx-texteditor.dx-state-focused .dx-texteditor-outline {
+  border-color: #93c5fd !important;
+  box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.25) !important;
+}
+
+/* Utility: keep a lone field in a group from stretching across the whole row. */
+.master-data-edit-popup .field-narrow .dx-texteditor {
+  max-width: 320px;
+}
+
+.master-data-edit-popup .dx-popup-bottom {
+  padding: 16px 26px !important;
+  background: #ffffff;
+  border-top: 1px solid #f1f3f5;
+}
+
+.master-data-edit-popup .dx-popup-bottom .dx-button {
+  border-radius: 9px !important;
+}
+
+.master-data-edit-popup .dx-popup-bottom .dx-button-default {
+  background: #2563eb !important;
+}

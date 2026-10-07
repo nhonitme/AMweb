@@ -1,0 +1,64 @@
+import type { BankInfo, BankInfoApi } from "@/types/bankInfo"
+
+const trimText = (value: string | undefined | null): string => (typeof value === "string" ? value.trim() : "")
+const toFlag = (value: boolean): "1" | "0" => (value ? "1" : "0")
+const toBool = (value: string | boolean | undefined | null): boolean => {
+  if (typeof value === "boolean") {
+    return value
+  }
+
+  const normalized = (value ?? "").toString().trim().toUpperCase()
+  return normalized === "1" || normalized === "Y" || normalized === "TRUE" || normalized === "T"
+}
+
+const toNullableDate = (value: string | null | undefined): string | null => {
+  const trimmed = (value ?? "").toString().trim()
+  return trimmed.length === 0 ? null : trimmed
+}
+
+export const normalizeBankInfo = (record: BankInfoApi): BankInfo => ({
+  BANK_ID: typeof record.BANK_ID === "number" ? record.BANK_ID : null,
+  COMPANY_CD: trimText(record.COMPANY_CD),
+  BANK_CD: trimText(record.BANK_CD),
+  BANK_NM: trimText(record.BANK_NM),
+  ACC_CD: trimText(record.ACC_CD),
+  PASSBOOK_NM: trimText(record.PASSBOOK_NM),
+  ACCOUNT_NUM: trimText(record.ACCOUNT_NUM),
+  CITAD_CODE: trimText(record.CITAD_CODE),
+  REMARK: trimText(record.REMARK),
+  ISDEL: toBool(record.ISDEL),
+  CREATE_BY: trimText(record.CREATE_BY),
+  UPDATE_BY: trimText(record.UPDATE_BY),
+})
+
+export const normalizeBankInfoRows = (records: BankInfoApi[]): BankInfo[] => records.map(normalizeBankInfo)
+
+export const mapBankInfoToApiPayload = (record: BankInfo): Partial<BankInfoApi> => ({
+  BANK_ID: record.BANK_ID,
+  COMPANY_CD: trimText(record.COMPANY_CD),
+  BANK_CD: trimText(record.BANK_CD),
+  BANK_NM: trimText(record.BANK_NM),
+  ACC_CD: trimText(record.ACC_CD),
+  PASSBOOK_NM: trimText(record.PASSBOOK_NM),
+  ACCOUNT_NUM: trimText(record.ACCOUNT_NUM),
+  CITAD_CODE: trimText(record.CITAD_CODE),
+  REMARK: trimText(record.REMARK),
+  ISDEL: toFlag(record.ISDEL),
+  CREATE_BY: toNullableDate(record.CREATE_BY),
+  UPDATE_BY: toNullableDate(record.UPDATE_BY),
+})
+
+export const createDefaultBankInfo = (companyCd: string): BankInfo => ({
+  BANK_ID: null,
+  COMPANY_CD: companyCd,
+  BANK_CD: "",
+  BANK_NM: "",
+  ACC_CD: "",
+  PASSBOOK_NM: "",
+  ACCOUNT_NUM: "",
+  CITAD_CODE: "",
+  REMARK: "",
+  ISDEL: false,
+  CREATE_BY: "",
+  UPDATE_BY: "",
+})

@@ -1,0 +1,561 @@
+@use "../../styles/icon-colors" as icon-colors;
+
+.page-toolbar {
+  display: flex;
+  flex-shrink: 0;
+  width: 100%;
+
+  &__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 4px 2px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+
+    .page-toolbar__search-btn:not(.page-toolbar__search-btn--inline) {
+      border-radius: 999px !important;
+      overflow: hidden;
+    }
+
+    .page-toolbar__action-btn {
+      border-radius: 999px !important;
+      overflow: hidden;
+    }
+  }
+
+  /* Kept as an alias so existing variant="flat" call sites keep working. */
+  &__row--flat {
+    padding: 4px 2px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  &__primary-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  &__icon-cluster {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    margin-left: 10px;
+    margin-bottom: 1px;
+    border-radius: 999px;
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+
+    .page-toolbar__action-btn {
+      margin-bottom: 0;
+
+      &:hover {
+        background-color: #ffffff !important;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+      }
+
+    }
+  }
+
+  &__icon-cluster-sep {
+    display: inline-block;
+    flex: 0 0 auto;
+    width: 1px;
+    height: 18px;
+    margin: 0 3px;
+    background-color: #e2e8f0;
+  }
+
+  &__quick-search {
+    margin-right: 8px;
+  }
+
+  &__quick-search-group {
+    margin-left: 10px;
+  }
+
+  &__filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: flex-start;
+  }
+
+  &__field {
+    flex: 0 0 auto;
+
+    &--search {
+      width: 200px;
+      min-width: 200px;
+      max-width: 200px;
+      /* Match the now-taller 'Them moi'/'Tim kiem' buttons next to it in the
+         quick-search group, so the row does not look misaligned. */
+      min-height: 34px !important;
+
+      .dx-texteditor-input,
+      .dx-dropdowneditor-input-wrapper {
+        min-height: 34px !important;
+      }
+    }
+
+    &.dx-texteditor:not(.dx-tagbox) {
+      min-height: 26px;
+    }
+
+    &:not(.dx-tagbox) .dx-texteditor-input,
+    &.dx-texteditor:not(.dx-tagbox) .dx-texteditor-input,
+    &:not(.dx-tagbox) .dx-dropdowneditor-input-wrapper,
+    &.dx-texteditor:not(.dx-tagbox) .dx-dropdowneditor-input-wrapper {
+      min-height: 26px;
+    }
+
+    &.dx-texteditor-with-floating-label {
+      &.dx-state-focused,
+      &.dx-state-active,
+      &.dx-dropdowneditor-active,
+      &.dx-texteditor-label-outside,
+      &.page-toolbar__field--tagbox-filled {
+        .dx-texteditor-label,
+        .dx-texteditor-label span,
+        .dx-label span {
+          color: var(--dx-color-primary, #7ab8eb) !important;
+        }
+      }
+
+      &.dx-state-focused,
+      &.dx-state-active,
+      &.dx-dropdowneditor-active,
+      &.dx-texteditor-label-outside,
+      &.page-toolbar__field--tagbox-filled {
+        &.dx-editor-outlined {
+          .dx-label,
+          .dx-label-before,
+          .dx-label-after {
+            border-color: var(--dx-color-primary, #7ab8eb) !important;
+          }
+        }
+      }
+    }
+
+    &.dx-tagbox,
+    &--tagbox.dx-tagbox {
+      box-sizing: border-box;
+      height: 26px;
+      min-height: 26px;
+      max-height: 26px;
+      overflow: visible;
+
+      .dx-texteditor-label {
+        z-index: 2;
+      }
+
+      .dx-texteditor-container {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        box-sizing: border-box;
+        height: 26px;
+        min-height: 26px;
+        max-height: 26px;
+        overflow: hidden;
+      }
+
+      .dx-texteditor-buttons-container {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: center;
+        align-self: center;
+        flex: 0 0 auto;
+        height: auto;
+        max-height: 26px;
+      }
+
+      .dx-texteditor-input-container {
+        display: flex;
+        flex: 1 1 auto;
+        align-items: center;
+        box-sizing: border-box;
+        min-width: 0;
+        min-height: 0;
+        height: 100%;
+        max-height: 26px;
+        overflow: hidden;
+      }
+
+      .dx-dropdowneditor-input-wrapper {
+        display: flex;
+        flex: 1 1 auto;
+        align-items: center;
+        box-sizing: border-box;
+        min-width: 0;
+        min-height: 0;
+        height: 100%;
+        max-height: 100%;
+        overflow: hidden;
+      }
+
+      .dx-texteditor-input {
+        display: none;
+      }
+
+      .dx-tag-container {
+        display: flex;
+        flex: 1 1 auto;
+        align-items: center;
+        flex-wrap: nowrap;
+        min-width: 0;
+        min-height: 0;
+        max-height: 100%;
+        padding: 0;
+        overflow: hidden;
+
+        .dx-dropdowneditor-button,
+        .dx-dropdowneditor-icon {
+          display: none;
+        }
+      }
+
+      .dx-dropdowneditor-button-container {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        flex: 0 0 auto;
+        height: auto;
+      }
+
+      .dx-clear-button-area {
+        display: flex;
+        flex: 0 0 auto;
+        align-items: center;
+        align-self: center;
+        height: auto;
+      }
+
+      .dx-dropdowneditor-button {
+        height: 24px;
+        min-height: 24px;
+        max-height: 24px;
+      }
+
+      .dx-tagbox-multi-tag,
+      .dx-tag-content {
+        white-space: nowrap;
+        line-height: 1.2;
+        margin-top: 0;
+        margin-bottom: 0;
+      }
+
+      &:not(.page-toolbar__field--tagbox-filled) {
+        .dx-texteditor-input-container,
+        .dx-tag-container {
+          align-items: center;
+        }
+      }
+
+      &.page-toolbar__field--tagbox-filled {
+        .dx-texteditor-input-container {
+          align-items: flex-end;
+          padding-top: 8px;
+          padding-bottom: 1px;
+        }
+
+        .dx-tag-container {
+          align-items: center;
+        }
+
+        .dx-tagbox-multi-tag {
+          display: inline-flex;
+          align-items: center;
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      }
+    }
+  }
+
+  &__date-range {
+    align-items: flex-end;
+
+    .dx-datebox.dx-texteditor {
+      min-height: 26px;
+    }
+
+    .dx-texteditor-input,
+    .dx-dropdowneditor-input-wrapper {
+      min-height: 26px;
+    }
+  }
+
+  &__date-range.date-range-box--grouped {
+    align-items: stretch;
+  }
+
+  &__run-group {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    min-height: 26px;
+    margin-bottom: 1px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #0f172a;
+    white-space: nowrap;
+  }
+
+  &__search-btn,
+  &__add-btn,
+  &__action-btn {
+    flex: 0 0 auto;
+    height: 26px;
+    min-height: 26px;
+    margin-bottom: 1px;
+
+    .dx-button-content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding-block: 0;
+    }
+
+    .dx-icon,
+    .dx-button-icon {
+      width: 12px !important;
+      height: 12px !important;
+      line-height: 12px !important;
+      font-size: 12px !important;
+      transform: scale(2) !important;
+      transform-origin: center center;
+    }
+  }
+
+  /* Unify 'Tim kiem' and 'Them moi' to the same height -- action-btn
+     (the small icon-only pill cluster: refresh/columns/trash/pdf/excel)
+     deliberately stays at the original compact 26px. */
+  &__search-btn,
+  &__add-btn {
+    height: 34px !important;
+    min-height: 34px !important;
+  }
+
+  &__action-btn {
+    @include icon-colors.page-toolbar-tint-icons;
+  }
+
+  &__search-btn--inline {
+    @include icon-colors.page-toolbar-tint-icons;
+  }
+
+  &__add-btn {
+    .dx-button-content {
+      gap: 6px;
+      padding-inline: 10px;
+    }
+
+    .dx-icon,
+    .dx-button-icon {
+      margin-right: 2px;
+    }
+  }
+
+  &__search-btn:not(.page-toolbar__search-btn--inline) {
+    .dx-button-content {
+      gap: 6px;
+      padding-inline: 12px;
+    }
+
+    .dx-icon,
+    .dx-button-icon {
+      margin-right: 2px;
+    }
+  }
+
+  &__add-btn--primary {
+    background: linear-gradient(135deg, #ef4444, #b91c1c) !important;
+    border-color: #b91c1c !important;
+    border-radius: 999px !important;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(185, 28, 28, 0.3) !important;
+
+    .dx-icon,
+    .dx-button-icon,
+    .dx-button-text {
+      color: #ffffff !important;
+    }
+
+    .dx-button-text {
+      font-weight: 600;
+    }
+
+    &:hover {
+      background: linear-gradient(135deg, #dc2626, #991b1b) !important;
+      border-color: #991b1b !important;
+    }
+  }
+
+  &__add-btn--link {
+    background-color: #eff6ff !important;
+    border: 1px solid #dbeafe !important;
+
+    .dx-icon,
+    .dx-button-icon,
+    .dx-button-text {
+      color: #1d4ed8 !important;
+    }
+
+    &:hover {
+      background-color: #dbeafe !important;
+      border-color: #bfdbfe !important;
+    }
+  }
+
+  /* "Tìm kiếm" — unify with the DataGrid header's blue instead of the raw
+     DevExtreme theme accent (which renders noticeably darker/more saturated).
+     Same gradient treatment as the red "Thêm mới" button, just in blue, so
+     the two primary toolbar buttons read as one visual family. */
+  &__search-btn:not(.page-toolbar__search-btn--inline).dx-button-mode-contained.dx-button-default {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
+    border-color: #1d4ed8 !important;
+    box-shadow: 0 1px 2px rgba(29, 78, 216, 0.3) !important;
+
+    .dx-icon,
+    .dx-button-icon,
+    .dx-button-text {
+      color: #ffffff !important;
+    }
+
+    &:hover,
+    &.dx-state-hover {
+      background: linear-gradient(135deg, #2563eb, #1e40af) !important;
+      border-color: #1e40af !important;
+    }
+  }
+}
+
+/* ==== Divider between the filter group and the action group ==== */
+.page-toolbar__row .page-toolbar__filters:not(:empty) + .page-toolbar__actions::before {
+  content: "";
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 1px;
+  margin: 2px 10px 3px 2px;
+  background-color: #e2e8f0;
+}
+
+/* ==== Quick-search field: rounded pill instead of a square outlined box ==== */
+.page-toolbar__quick-search-group {
+  .dx-texteditor.dx-editor-outlined {
+    border-radius: 999px;
+    background-color: #f8fafc;
+  }
+
+  .dx-texteditor.dx-editor-outlined.dx-state-focused {
+    background-color: #ffffff;
+  }
+
+  .page-toolbar__search-btn--inline {
+    border-radius: 999px;
+  }
+}
+
+/* ==== DateRangeBox "grouped" variant: single bordered range block ==== */
+.date-range-box--grouped {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  overflow: hidden;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.date-range-box--grouped:focus-within {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.date-range-box--grouped .date-range-box__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 34px;
+  background: #f8fafc;
+  border-right: 1px solid #eef0f3;
+  color: #64748b;
+}
+
+.date-range-box--grouped .date-range-box__icon svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.date-range-box--grouped .date-range-box__sep {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 22px;
+  color: #cbd5e1;
+  font-size: 12px;
+  border-left: 1px solid #eef0f3;
+  border-right: 1px solid #eef0f3;
+}
+
+.date-range-box--grouped .date-range-box__field {
+  flex: 0 0 auto;
+}
+
+.date-range-box--grouped .date-range-box__field .dx-texteditor.dx-editor-outlined {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.date-range-box--grouped .date-range-box__field .dx-texteditor-input {
+  background: transparent !important;
+}
+
+.date-range-box--grouped .date-range-box__field .dx-label,
+.date-range-box--grouped .date-range-box__field .dx-label-before,
+.date-range-box--grouped .date-range-box__field .dx-label-after {
+  border-color: transparent !important;
+}

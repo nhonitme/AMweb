@@ -1,0 +1,38 @@
+.module-sub-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 0 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.module-sub-tabs__tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 11px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #6b7280;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.module-sub-tabs__tab:hover:not(.module-sub-tabs__tab--active):not(:disabled) {
+  color: #374151;
+}
+
+.module-sub-tabs__tab--active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+}
+
+.module-sub-tabs__tab:disabled {
+  color: #d1d5db;
+  cursor: not-allowed;
+}

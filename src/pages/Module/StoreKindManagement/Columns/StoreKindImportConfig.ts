@@ -1,0 +1,18 @@
+import type { ExcelImportConfig } from "@/types/modal";
+import { useContext } from "react";
+import { LanguageContext } from '@/lib/i18nLoader';
+type TranslateFn = (key: string, fallback?: string) => string;
+
+export const createStoreImportConfig = (translate?: TranslateFn): ExcelImportConfig => {
+
+  const t: TranslateFn = (k, f) => (translate ? translate(k, f) : (f ?? k));
+return {
+  moduleCd: "StoreKindInfo",
+  templateName: `${t('Menu_StoreKindInfo','Warehouse Classification Management')}_${new Date().toISOString().replace(/[:.-]/g, '')}.xlsx`
+}
+}
+
+export const useStoreImportConfig = (): ExcelImportConfig => {
+  const { translate } = useContext(LanguageContext);
+  return createStoreImportConfig(translate);
+};

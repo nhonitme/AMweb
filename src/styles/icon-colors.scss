@@ -1,0 +1,139 @@
+@use "sass:list";
+
+// Central icon color tokens and utility classes.
+// Import globally from main.tsx; SCSS consumers @use this file for mixins/maps.
+
+// ---- Toolbar (DevExtreme dx-icon-*) ----
+$icon-toolbar-neutral-base: #64748b;
+$icon-toolbar-neutral-hover: #334155;
+$icon-toolbar-danger-base: #dc2626;
+$icon-toolbar-danger-hover: #b91c1c;
+$icon-toolbar-success-base: #16a34a;
+$icon-toolbar-success-hover: #15803d;
+
+$toolbar-icon-colors: (
+  "refresh": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+  "search": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+  "filter": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+  "columnchooser": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+  "preferences": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+  "edit": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+  "print": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+  "download": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+  "upload": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+  "import": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+  "exportpdf": ($icon-toolbar-danger-base, $icon-toolbar-danger-hover),
+  "xlsxfile": ($icon-toolbar-success-base, $icon-toolbar-success-hover),
+  "trash": ($icon-toolbar-danger-base, $icon-toolbar-danger-hover),
+  "plus": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+  "save": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+  "check": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+  "email": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+  "key": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+  "link": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+  "eyeopen": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+  "codeblock": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+  "clock": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+  "overflow": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+);
+
+@mixin page-toolbar-tint-icons {
+  @each $icon, $colors in $toolbar-icon-colors {
+    $base: list.nth($colors, 1);
+    $hover: list.nth($colors, 2);
+
+    .dx-icon-#{$icon},
+    .dx-icon.dx-icon-#{$icon} {
+      color: $base !important;
+    }
+
+    &:hover {
+      .dx-icon-#{$icon},
+      .dx-icon.dx-icon-#{$icon} {
+        color: $hover !important;
+      }
+    }
+  }
+}
+
+// ---- Header action icons ----
+$icon-header-menu-base: #64748b;
+$icon-header-menu-hover: #475569;
+$icon-header-language-base: #2563eb;
+$icon-header-language-hover: #1d4ed8;
+$icon-header-help-base: #7c3aed;
+$icon-header-help-hover: #6d28d9;
+$icon-header-bell-base: #ea580c;
+$icon-header-bell-hover: #c2410c;
+
+@mixin am-icon-header-interactive($base, $hover) {
+  color: $base;
+  transition: color 150ms ease;
+
+  .group:hover & {
+    color: $hover;
+  }
+}
+
+.am-icon-header-menu {
+  @include am-icon-header-interactive($icon-header-menu-base, $icon-header-menu-hover);
+}
+
+.am-icon-header-language {
+  @include am-icon-header-interactive($icon-header-language-base, $icon-header-language-hover);
+}
+
+.am-icon-header-help {
+  @include am-icon-header-interactive($icon-header-help-base, $icon-header-help-hover);
+}
+
+.am-icon-header-bell {
+  @include am-icon-header-interactive($icon-header-bell-base, $icon-header-bell-hover);
+}
+
+// ---- Notification list icons ----
+$icon-notification-error: #ef4444;
+$icon-notification-warning: #f59e0b;
+$icon-notification-success: #22c55e;
+$icon-notification-info: #3b82f6;
+
+.am-icon-notification-error {
+  color: $icon-notification-error;
+}
+
+.am-icon-notification-warning {
+  color: $icon-notification-warning;
+}
+
+.am-icon-notification-success {
+  color: $icon-notification-success;
+}
+
+.am-icon-notification-info {
+  color: $icon-notification-info;
+}
+
+// ---- Workspace tab icons ----
+$icon-workspace-tab-active: #2563eb;
+$icon-workspace-tab-inactive: #64748b;
+
+.am-icon-workspace-tab-active {
+  color: $icon-workspace-tab-active;
+}
+
+.am-icon-workspace-tab-inactive {
+  color: $icon-workspace-tab-inactive;
+}
+
+// ---- Sidebar top-level menu icons ----
+$sidebar-top-level-icon-palette: #2563eb, #d97706, #059669, #7c3aed, #0891b2, #db2777;
+
+@for $i from 1 through list.length($sidebar-top-level-icon-palette) {
+  $color: list.nth($sidebar-top-level-icon-palette, $i);
+
+  // Must beat `.am-sidebar-tree-item .dx-icon { color: #64748b }` in devextreme-overrides.css
+  .am-sidebar-tree-item .dx-icon.am-sidebar-top-icon-#{$i},
+  .am-sidebar-tree-item-collapsed .dx-icon.am-sidebar-top-icon-#{$i} {
+    color: $color;
+  }
+}

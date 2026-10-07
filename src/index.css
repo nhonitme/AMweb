@@ -1,0 +1,986 @@
+@media (min-width: 1536px) and (max-width: 1400px) {
+  .max-2xl\:max-w-\[1400px\]\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+:root {
+  --am-font-boost: 0px;
+  --am-font-size: 13px;
+  --am-html-font-size: 16px;
+  --am-grid-row-height: 24px;
+  --am-voucher-spreadsheet-row-height: 28px;
+  --am-grid-lookup-button-width: 22px;
+  --am-grid-lookup-cell-padding-x: 4px;
+  --am-grid-lookup-cell-padding-y: 1px;
+}
+
+button,
+input,
+select,
+optgroup,
+textarea,
+label {
+  font-family: "Noto Sans", sans-serif;
+  font-size: var(--am-font-size) !important;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  font-size: var(--am-html-font-size);
+}
+
+html,
+body {
+  font-family: "Noto Sans", sans-serif;
+}
+
+body {
+  font-size: var(--am-font-size) !important;
+  line-height: 1.4;
+}
+
+table,
+th,
+td,
+thead,
+tbody {
+  font-size: var(--am-font-size) !important;
+}
+
+.dx-widget {
+  font-size: var(--am-font-size);
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.dx-datagrid .dx-data-row > td {
+  height: var(--am-grid-row-height) !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  vertical-align: middle !important;
+}
+
+.dx-datagrid .dx-data-row .dx-texteditor,
+.dx-datagrid .dx-data-row .dx-selectbox,
+.dx-datagrid .dx-data-row .dx-dropdowneditor,
+.dx-datagrid .dx-data-row .dx-button,
+.dx-datagrid .dx-data-row .dx-dropdowneditor-button,
+.dx-datagrid .dx-data-row .dx-selectbox .dx-texteditor-input,
+.dx-datagrid .dx-data-row .dx-texteditor .dx-texteditor-input {
+  height: 100% !important;
+  min-height: 0 !important;
+  line-height: normal !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.dx-datagrid .dx-data-row .dx-editor-container .dx-button .dx-icon {
+  vertical-align: middle !important;
+}
+
+.dx-datagrid .dx-data-row .dx-editor-container,
+.dx-datagrid .dx-data-row .dx-editor-with-menu,
+.dx-datagrid .dx-data-row .dx-selectbox-container {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-editor {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-editor .dx-texteditor-container,
+.dx-datagrid .dx-data-row .am-grid-lookup-editor .dx-dropdowneditor-input-wrapper,
+.dx-datagrid .dx-data-row .am-grid-lookup-editor .dx-texteditor-input-container {
+  height: 100% !important;
+  min-width: 0 !important;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-editor .dx-texteditor-container {
+  align-items: center !important;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-editor .dx-texteditor-input {
+  min-width: 0 !important;
+  text-overflow: ellipsis !important;
+}
+
+.dx-datagrid .dx-data-row > td.dx-editor-cell {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.dx-datagrid .dx-data-row > td.dx-editor-cell > .dx-editor-container,
+.dx-datagrid .dx-data-row > td.dx-editor-cell > .dx-editor-with-menu {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+}
+
+.dx-datagrid .dx-data-row > td.dx-editor-cell .dx-texteditor,
+.dx-datagrid .dx-data-row > td.dx-editor-cell .dx-selectbox,
+.dx-datagrid .dx-data-row > td.dx-editor-cell .dx-dropdowneditor,
+.dx-datagrid .dx-data-row > td.dx-editor-cell .dx-numberbox {
+  width: 100% !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+  box-sizing: border-box !important;
+}
+
+.dx-datagrid .dx-data-row > td.dx-editor-cell .dx-texteditor-container {
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.dx-datagrid .dx-data-row > td.dx-editor-cell .dx-texteditor-input-container {
+  min-width: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.dx-datagrid .dx-data-row > td.dx-editor-cell .dx-texteditor-input {
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.dx-datagrid .dx-data-row > td.dx-editor-cell [data-am-lookup-state="display"] {
+  display: none !important;
+}
+
+.dx-datagrid .dx-data-row > td.dx-editor-cell [data-am-lookup-state="edit"] {
+  display: flex !important;
+  width: 100% !important;
+  height: calc(var(--am-grid-row-height) - 4px) !important;
+}
+
+.dx-datagrid .dx-data-row > td:not(.dx-editor-cell) [data-am-lookup-state="edit"] {
+  display: none !important;
+}
+
+.dx-datagrid .dx-data-row > td.am-grid-lookup-column-cell,
+.dx-datagrid .dx-data-row > td.dx-editor-cell.am-grid-lookup-column-cell {
+  padding: var(--am-grid-lookup-cell-padding-y) var(--am-grid-lookup-cell-padding-x) !important;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-cell {
+  width: 100%;
+  max-width: 100%;
+  height: calc(var(--am-grid-row-height) - 4px);
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-shell {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #111827;
+  transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-cell-editor {
+  align-items: stretch;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-cell-editor .am-grid-lookup-editor {
+  flex: 1 1 auto;
+  width: 100% !important;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-display {
+  cursor: pointer;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-display:hover,
+.dx-datagrid .dx-data-row .am-grid-lookup-cell-editor:hover {
+  border-color: #9ca3af;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-display:focus,
+.dx-datagrid .dx-data-row .am-grid-lookup-cell-editor:focus-within {
+  border-color: #337ab7;
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(51, 122, 183, 0.16);
+}
+
+.dx-datagrid .dx-data-row.dx-selection .am-grid-lookup-shell,
+.dx-datagrid .dx-data-row.dx-row-focused .am-grid-lookup-shell,
+.dx-datagrid .dx-data-row.dx-state-hover .am-grid-lookup-shell {
+  background: #ffffff;
+  color: #111827;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-display-text {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  padding: 0 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-editor,
+.dx-datagrid .dx-data-row .am-grid-lookup-editor.dx-texteditor,
+.dx-datagrid .dx-data-row .am-grid-lookup-editor.dx-editor-outlined {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-editor .dx-texteditor-container {
+  background: transparent !important;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-editor .dx-texteditor-input {
+  padding-left: 8px !important;
+  padding-right: 0 !important;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-editor .dx-texteditor-buttons-container {
+  width: calc(var(--am-grid-lookup-button-width) * 2) !important;
+  min-width: calc(var(--am-grid-lookup-button-width) * 2) !important;
+  flex: 0 0 calc(var(--am-grid-lookup-button-width) * 2) !important;
+  display: flex !important;
+  align-items: stretch !important;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-editor .dx-clear-button-area {
+  display: none !important;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-editor .dx-texteditor-button,
+.dx-datagrid .dx-data-row .am-grid-lookup-editor .dx-dropdowneditor-button,
+.dx-datagrid .dx-data-row .am-grid-lookup-editor .dx-button {
+  width: var(--am-grid-lookup-button-width) !important;
+  min-width: var(--am-grid-lookup-button-width) !important;
+  max-width: var(--am-grid-lookup-button-width) !important;
+  flex: 0 0 var(--am-grid-lookup-button-width) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-editor .dx-texteditor-button {
+  order: 1;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-editor .dx-dropdowneditor-button {
+  order: 2;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-editor .dx-button-content {
+  width: 100% !important;
+  height: 100% !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.dx-datagrid .am-grid-lookup-editor .dx-texteditor-buttons-container,
+.dx-datagrid .am-grid-lookup-editor .dx-dropdowneditor-button,
+.dx-datagrid .am-grid-lookup-editor .dx-texteditor-button {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.dx-datagrid .am-grid-lookup-editor .dx-state-invisible,
+.dx-datagrid .am-grid-lookup-editor .dx-dropdowneditor-button.dx-state-invisible,
+.dx-datagrid .am-grid-lookup-editor .dx-texteditor-button.dx-state-invisible {
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: flex !important;
+}
+
+.dx-datagrid .dx-data-row td .text-clamp-row {
+  max-height: calc(var(--am-grid-row-height) - 4px) !important;
+  overflow: hidden;
+}
+
+.dx-datagrid .dx-data-row > td:not(.dx-editor-cell) .am-grid-lookup-editor .dx-texteditor-buttons-container {
+  display: none !important;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-editor .dx-placeholder {
+  display: none !important;
+}
+
+.dx-datagrid .dx-data-row .am-grid-lookup-editor .dx-texteditor-input-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.dx-overlay-wrapper.am-grid-lookup-dropdown {
+  z-index: 20000 !important;
+}
+
+.dx-overlay-wrapper.am-grid-lookup-dropdown .dx-overlay-content {
+  pointer-events: auto !important;
+}
+
+.dx-overlay-wrapper.am-grid-lookup-dropdown .dx-overlay-content:not([data-am-fitted="1"]) {
+  visibility: hidden;
+}
+
+.dx-overlay-wrapper.am-lookup-popup {
+  z-index: 30000 !important;
+}
+
+/* Style for the button in the grid row */
+.am-grid-row-btn.dx-button {
+  /* width: 26px !important; */
+  height: 26px !important;
+  /* min-width: 26px !important; */
+  min-height: 26px !important;
+  /* max-width: 26px !important; */
+  max-height: 26px !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  line-height: 1 !important;
+}
+
+.am-grid-row-btn.dx-button .dx-button-content {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  padding: 0px 0px 1px 1px !important;
+  margin-left: 3px !important;
+  margin-right: 5px !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.am-grid-row-btn.dx-button .dx-icon {
+  width: 14px !important;
+  height: 14px !important;
+  font-size: 14px !important;
+  line-height: 14px !important;
+  margin: 0 !important;
+}
+/*-- Style for the button in the grid row */
+
+
+/* Data cell canh theo column.ALIGN */
+.report-data-grid .dx-datagrid-rowsview .dx-data-row > td.report-cell-align-left {
+  text-align: left !important;
+}
+
+.report-data-grid .dx-datagrid-rowsview .dx-data-row > td.report-cell-align-center {
+  text-align: center !important;
+}
+
+.report-data-grid .dx-datagrid-rowsview .dx-data-row > td.report-cell-align-right {
+  text-align: right !important;
+}
+
+.report-data-grid-host {
+  user-select: none;
+  touch-action: manipulation;
+}
+
+/* Ẩn thanh cuộn ngang trong lưới — dùng thanh ngoài bên phải vùng Tổng cộng. */
+.report-data-grid .dx-scrollbar-horizontal {
+  display: none !important;
+}
+
+/* Thanh cuộn dọc: luôn hiện, dày, dễ kéo. */
+.report-data-grid .dx-scrollable-scrollbar,
+.report-data-grid .dx-scrollbar-hoverable,
+.report-data-grid .dx-scrollable-scroll {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transition: none !important;
+}
+
+.report-data-grid .dx-scrollbar-hoverable {
+  background-color: #e2e8f0 !important;
+}
+
+.report-data-grid .dx-scrollbar-vertical {
+  width: 18px !important;
+  right: 0 !important;
+}
+
+.report-data-grid .dx-scrollable-scroll {
+  margin: 2px !important;
+}
+
+.report-data-grid .dx-scrollbar-vertical .dx-scrollable-scroll {
+  width: 14px !important;
+}
+
+.report-data-grid .dx-scrollable-scroll-content {
+  background-color: #64748b !important;
+  border-radius: 8px;
+}
+
+.report-data-grid .dx-scrollbar-hoverable:hover .dx-scrollable-scroll-content,
+.report-data-grid .dx-scrollable-scroll.dx-state-active .dx-scrollable-scroll-content {
+  background-color: #334155 !important;
+}
+
+.report-grid-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(360px, 1fr);
+  align-items: end;
+  min-height: 20px;
+  border-top: 1px solid #cbd5e1;
+  background: #ffffff;
+  flex-shrink: 0;
+}
+
+.report-grid-footer.report-grid-footer--summary-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.report-grid-footer.report-grid-footer--summary-only .report-grid-summary {
+  border-right: none;
+}
+
+.report-grid-summary {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0;
+  min-width: 0;
+  padding: 1px 6px 0;
+  border-right: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.report-grid-summary-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.report-grid-summary-metrics {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.bs-footer-kpis {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.bs-footer-period {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 0 16px 0 0;
+}
+
+.bs-footer-period + .bs-footer-period {
+  padding-left: 16px;
+  border-left: 1px solid #e2e8f0;
+}
+
+.bs-footer-period__title {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.bs-footer-period__kpis {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+/* FS reports (balance sheet / P&L): taller headers for title + period date lines */
+.report-data-grid-host--period-headers .dx-datagrid-headers .dx-header-row,
+.report-data-grid-host--balance-sheet .dx-datagrid-headers .dx-header-row {
+  min-height: 40px !important;
+}
+
+.report-data-grid-host--period-headers .dx-datagrid-headers .dx-header-row > td,
+.report-data-grid-host--balance-sheet .dx-datagrid-headers .dx-header-row > td {
+  padding: 4px 6px !important;
+  vertical-align: middle !important;
+}
+
+.report-data-grid-host--period-headers .bs-period-header,
+.report-data-grid-host--balance-sheet .bs-period-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
+}
+
+.report-data-grid-host--period-headers .bs-period-header__title,
+.report-data-grid-host--balance-sheet .bs-period-header__title {
+  font-weight: 700;
+}
+
+.report-data-grid-host--period-headers .bs-period-header__period,
+.report-data-grid-host--balance-sheet .bs-period-header__period {
+  font-weight: 600;
+  font-size: calc(var(--am-font-size, 13px) - 1px);
+}
+
+.bs-footer-kpi {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  padding: 2px 18px 2px 0;
+  white-space: nowrap;
+}
+
+.bs-footer-kpi + .bs-footer-kpi {
+  padding-left: 18px;
+  border-left: 1px solid #e2e8f0;
+}
+
+.bs-footer-kpi__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+}
+
+.bs-footer-kpi__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.bs-footer-kpi__label {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.bs-footer-kpi__value {
+  color: #1e3a8a;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.bs-footer-kpi--assets .bs-footer-kpi__icon {
+  color: #2563eb;
+  background: #eff6ff;
+  width: 15px;
+  height: 15px;
+}
+
+.bs-footer-kpi--capital .bs-footer-kpi__icon {
+  color: #7c3aed;
+  background: #f5f3ff;
+  width: 15px;
+  height: 15px;
+}
+
+.bs-footer-kpi--difference .bs-footer-kpi__icon {
+  color: #ef4444;
+  background: #fef2f2;
+  width: 15px;
+  height: 15px;
+}
+
+.bs-footer-kpi--difference .bs-footer-kpi__value {
+  color: #dc2626;
+}
+
+.report-grid-metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  background: #f8fafc;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.report-grid-metric__label {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.report-grid-metric__value {
+  color: #334155;
+  font-size: 11px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-grid-summary-empty {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.report-grid-hscroll-pane {
+  display: flex;
+  align-items: flex-end;
+  min-width: 0;
+  padding: 0 6px;
+  background: #f8fafc;
+  border-left: 1px solid #e2e8f0;
+}
+
+.report-grid-hscroll {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 18px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+}
+
+.report-grid-hscroll .dx-scrollable-scrollbar.dx-scrollbar-horizontal {
+  height: 14px !important;
+  border-radius: 999px;
+  background: #f1f5f9;
+}
+
+.report-grid-hscroll .dx-scrollbar-horizontal .dx-scrollable-scroll {
+  height: 14px !important;
+  padding: 3px;
+}
+
+.report-grid-hscroll .dx-scrollable-scroll-content {
+  border-radius: 999px;
+  background: #64748b;
+}
+
+.report-grid-hscroll .dx-scrollbar-hoverable .dx-scrollable-scroll-content {
+  background: #475569;
+}
+
+.report-grid-hscroll .dx-scrollable-scrollbar-active .dx-scrollable-scroll-content {
+  background: #334155;
+}
+
+.report-grid-hscroll-content {
+  height: 2px;
+  pointer-events: none;
+}
+
+@media (max-width: 1100px) {
+  .report-grid-footer {
+    grid-template-columns: minmax(0, 1.8fr) minmax(220px, 0.9fr);
+  }
+
+  .report-grid-summary-main {
+    flex-wrap: nowrap;
+  }
+
+  .report-grid-summary-metrics {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .bs-footer-kpi__value {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 850px) {
+  .report-grid-footer:not(.report-grid-footer--summary-only) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .report-grid-footer:not(.report-grid-footer--summary-only) .report-grid-summary {
+    border-right: none;
+  }
+
+  .report-grid-hscroll-pane {
+    min-height: 18px;
+    padding: 0 6px;
+    align-items: flex-end;
+    border-top: 1px solid #e2e8f0;
+    border-left: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .report-grid-summary-metrics {
+    flex-wrap: wrap;
+  }
+
+}
+
+.report-data-grid .dx-datagrid-rowsview .dx-data-row > td.report-cell-selected {
+  background-color: #dbeafe !important;
+  outline: 1px solid #60a5fa;
+  outline-offset: -1px;
+}
+/* Data cell canh theo column.ALIGN */
+
+/* Group row: giữ icon expand canh giữa khi focus */
+.report-data-grid .dx-group-row > td {
+  vertical-align: middle !important;
+}
+
+.report-data-grid .dx-group-row .dx-datagrid-expand {
+  vertical-align: middle;
+  line-height: 1;
+}
+
+/* Fluent sticky: focus/selection đặt padding-bottom:9px → lệch mũi tên group */
+.report-data-grid .dx-datagrid-rowsview.dx-datagrid-sticky-columns
+  .dx-group-row.dx-row-focused:not(.dx-edit-row) > td:not(.dx-editor-cell, .dx-master-detail-cell),
+.report-data-grid .dx-datagrid-rowsview.dx-datagrid-sticky-columns
+  .dx-group-row.dx-selection:not(.dx-edit-row) > td:not(.dx-editor-cell, .dx-master-detail-cell) {
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+}
+
+/* Summary/footer cũng canh theo column.ALIGN */
+.report-data-grid .dx-datagrid-total-footer td.report-cell-align-left {
+  text-align: left !important;
+}
+
+.report-data-grid .dx-datagrid-total-footer td.report-cell-align-center {
+  text-align: center !important;
+}
+
+.report-data-grid .dx-datagrid-total-footer td.report-cell-align-right {
+  text-align: right !important;
+}
+/* Summary/footer cũng canh theo column.ALIGN */
+
+
+/*Grid chiếm full vùng còn trống.
+Các cột thật giữ đúng width cấu hình.
+Phần dư bên phải do cột giả ăn.
+Kéo rộng cột thật sẽ ăn vào vùng trống trước.
+Chỉ khi tổng width cột thật vượt màn hình mới hiện scrollbar.
+Cột filler + khoảng trống bên phải luôn nền trắng để tách rõ vùng dữ liệu.*/
+.report-data-grid .dx-datagrid-headers,
+.report-data-grid .dx-datagrid-rowsview,
+.report-data-grid .dx-datagrid-headers .dx-datagrid-content,
+.report-data-grid .dx-datagrid-rowsview .dx-scrollable-content {
+  background-color: #ffffff;
+}
+
+.report-data-grid .dx-datagrid-headers .dx-row > td.report-grid-filler-column,
+.report-data-grid .dx-datagrid-rowsview .dx-row > td.report-grid-filler-column,
+.report-data-grid .dx-datagrid-total-footer .dx-row > td.report-grid-filler-column,
+.report-data-grid .dx-datagrid-filter-row > td.report-grid-filler-column {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  border-left: 1px solid #cecccc !important;
+  border-right: none !important;
+  color: transparent !important;
+  pointer-events: none;
+}
+
+.report-data-grid .dx-datagrid-headers .dx-row > td.report-grid-filler-column:hover,
+.report-data-grid .dx-datagrid-rowsview .dx-data-row:hover > td.report-grid-filler-column,
+.report-data-grid .dx-datagrid-rowsview .dx-data-row.dx-row-focused > td.report-grid-filler-column,
+.report-data-grid .dx-datagrid-rowsview .dx-data-row.dx-selection > td.report-grid-filler-column,
+.report-data-grid .dx-datagrid-rowsview .dx-data-row.dx-row-alt > td.report-grid-filler-column {
+  background-color: #ffffff !important;
+  background-image: none !important;
+}
+
+.report-data-grid .dx-header-row .report-grid-filler-column .dx-datagrid-text-content,
+.report-data-grid .dx-header-row .report-grid-filler-column .dx-column-indicators,
+.report-data-grid .dx-header-row .report-grid-filler-column .dx-header-filter {
+  display: none !important;
+}
+/**/
+
+/*DevExtreme TotalItem có sẵn alignment và cssClass cho summary item. valueFormat dùng để format giá trị summary*/
+/* Align summary/footer cells based on column alignment */
+.dx-datagrid-total-footer .report-cell-align-left {
+  text-align: left;
+  border-left: 1px solid #cecccc;
+}
+
+.dx-datagrid-total-footer .report-cell-align-center {
+  text-align: center;
+  border-left: 1px solid #cecccc;
+}
+
+.dx-datagrid-total-footer .report-cell-align-right {
+  text-align: right;
+  border-left: 1px solid #cecccc;
+}
+
+.dx-datagrid-total-footer .dx-datagrid-summary-item.report-total-footer-cell {
+  color: #1e1b4b !important;
+  font-weight: 700;
+}
+
+.dx-datagrid-total-footer .report-total-footer-cell .dx-datagrid-summary-item {
+  display: block;
+  width: 100%;
+}
+
+.dx-datagrid-total-footer .report-cell-align-left .dx-datagrid-summary-item {
+  text-align: left;
+}
+
+.dx-datagrid-total-footer .report-cell-align-center .dx-datagrid-summary-item {
+  text-align: center;
+}
+
+.dx-datagrid-total-footer .report-cell-align-right .dx-datagrid-summary-item {
+  text-align: right;
+}
+
+.am-voucher-spreadsheet-grid {
+  --am-grid-row-height: var(--am-voucher-spreadsheet-row-height);
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.am-voucher-spreadsheet-grid-page-scroll {
+  flex: none;
+  min-height: unset;
+}
+
+.am-voucher-spreadsheet-grid-page-scroll .dx-datagrid-rowsview .dx-scrollable-scrollbar,
+.am-voucher-spreadsheet-grid-page-scroll .dx-scrollbar-vertical {
+  display: none !important;
+}
+
+.am-voucher-spreadsheet-grid .dx-datagrid-rowsview .dx-data-row > td,
+.am-voucher-spreadsheet-grid .dx-datagrid-rowsview .dx-header-row > td {
+  padding: 2px 6px !important;
+}
+
+.am-voucher-spreadsheet-grid .dx-datagrid-rowsview .dx-data-row > td.am-grid-cell-validation-warning {
+  box-shadow: inset 0 0 0 1px #ef4444;
+  background-color: #fef2f2;
+}
+
+.am-voucher-spreadsheet-grid .dx-datagrid-rowsview .dx-data-row > td.am-grid-readonly-column-cell {
+  background-color: #f1f5f9 !important;
+  color: #64748b;
+}
+
+.am-voucher-spreadsheet-grid .dx-datagrid-rowsview .dx-data-row.dx-row-alt > td.am-grid-readonly-column-cell {
+  background-color: #e8eef4 !important;
+}
+
+.am-voucher-spreadsheet-grid .dx-datagrid-rowsview .dx-data-row > td.am-grid-readonly-column-cell.am-grid-lookup-column-cell .am-grid-lookup-display {
+  color: #64748b;
+}
+
+/* Tên hàng hóa / ô cho phép xuống dòng (Alt+Enter) */
+.am-voucher-spreadsheet-grid .dx-datagrid-rowsview .dx-data-row:has(> td.am-grid-multiline-text-cell) {
+  height: auto !important;
+  min-height: var(--am-grid-row-height) !important;
+}
+
+.am-voucher-spreadsheet-grid .dx-datagrid-rowsview .dx-data-row > td.am-grid-multiline-text-cell {
+  height: auto !important;
+  min-height: var(--am-grid-row-height) !important;
+  max-height: none !important;
+  white-space: pre-wrap !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  vertical-align: top !important;
+  line-height: 1.35 !important;
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+}
+
+.am-voucher-spreadsheet-grid .dx-datagrid-rowsview .dx-data-row > td.am-grid-multiline-text-cell.dx-editor-cell {
+  min-height: 54px !important;
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+}
+
+.am-voucher-spreadsheet-grid .dx-datagrid-rowsview .dx-data-row > td.am-grid-multiline-text-cell.dx-editor-cell .dx-textarea,
+.am-voucher-spreadsheet-grid .dx-datagrid-rowsview .dx-data-row > td.am-grid-multiline-text-cell.dx-editor-cell .dx-texteditor,
+.am-voucher-spreadsheet-grid .dx-datagrid-rowsview .dx-data-row > td.am-grid-multiline-text-cell.dx-editor-cell .dx-texteditor-container,
+.am-voucher-spreadsheet-grid .dx-datagrid-rowsview .dx-data-row > td.am-grid-multiline-text-cell.dx-editor-cell .dx-texteditor-input-container {
+  height: auto !important;
+  min-height: 54px !important;
+  max-height: 160px;
+}
+
+.am-voucher-spreadsheet-grid .dx-datagrid-rowsview .dx-data-row > td.am-grid-multiline-text-cell.dx-editor-cell .dx-texteditor-input {
+  height: auto !important;
+  min-height: 54px !important;
+  max-height: 160px !important;
+  white-space: pre-wrap !important;
+  line-height: 1.35 !important;
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+  overflow-y: auto !important;
+}
+
+.am-einvoice-editor-form .dx-texteditor.dx-state-readonly,
+.am-einvoice-editor-form .dx-texteditor.dx-state-readonly .dx-texteditor-input,
+.am-einvoice-editor-form .dx-texteditor.dx-state-readonly.dx-editor-outlined {
+  background-color: #f1f5f9;
+  color: #64748b;
+}
+
+.am-einvoice-editor-form .am-einvoice-readonly-field .dx-texteditor,
+.am-einvoice-editor-form .am-einvoice-readonly-field .dx-texteditor-input {
+  background-color: #f1f5f9;
+  color: #64748b;
+}
+
+.voucher-spreadsheet-summary {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+}

@@ -1,0 +1,292 @@
+.finance-module-tabs {
+  background: #ffffff;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.finance-module-tabs__row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+  padding: 0 20px;
+}
+
+.finance-module-tabs__row--groups {
+  border-bottom: 1px solid #eef0f3;
+}
+
+.finance-module-tabs__row--pages {
+  gap: 8px;
+  padding: 8px 20px;
+  background: #f8fafc;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.finance-module-tabs__row--categories {
+  gap: 6px;
+  padding: 10px 20px 6px;
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.finance-module-tabs__cat {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 13px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  background: #f1f5f9;
+  border-radius: 999px;
+  white-space: nowrap;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+
+.finance-module-tabs__cat:hover:not(.finance-module-tabs__cat--active) {
+  background: #e2e8f0;
+}
+
+.finance-module-tabs__cat--active {
+  color: #ffffff;
+  background: #3b82f6;
+}
+
+.finance-module-tabs__gtab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 11px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #6b7280;
+  border-bottom: 2.5px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.finance-module-tabs__gtab:hover:not(.finance-module-tabs__gtab--active):not(:disabled) {
+  color: #374151;
+}
+
+.finance-module-tabs__gtab--active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+}
+
+.finance-module-tabs__gtab:disabled {
+  color: #d1d5db;
+  cursor: not-allowed;
+}
+
+/* Compact group tabs shown inline in the app header, for every Finance/Report
+   top menu that has group tabs at all (e.g. Tong Hop / Tien Mat / Tai khoan
+   ngan hang under TAI CHINH, or So Ke Toan / Nhat ky mua ban / Cong no / Bao
+   Cao Tai Chinh under BAO CAO TONG HOP) — replaces the standalone
+   .finance-module-tabs__row--groups row so the page keeps 1 fewer stacked
+   row. See TieredModuleTabs.tsx / Header.tsx.
+
+   Styled as a segmented control: the whole group sits in a rounded grey
+   track, and the active tab stands out as a white pill with a soft shadow,
+   so it reads clearly as its own switcher next to the breadcrumb. */
+.finance-header-group-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  flex-shrink: 1;
+  margin-left: 14px;
+  padding: 4px;
+  background: #f1f5f9;
+  border-radius: 10px;
+  scrollbar-width: none;
+}
+
+.finance-header-group-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.finance-header-group-tabs__tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 6px 13px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #64748b;
+  border-radius: 7px;
+  white-space: nowrap;
+  transition: color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.finance-header-group-tabs__tab:hover:not(.finance-header-group-tabs__tab--active):not(:disabled) {
+  color: #334155;
+}
+
+.finance-header-group-tabs__tab--active {
+  color: #1d4ed8;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12), 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.finance-header-group-tabs__tab:disabled {
+  color: #d1d5db;
+  cursor: not-allowed;
+}
+
+
+.finance-module-tabs__crumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #9ca3af;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.finance-module-tabs__crumb-sep {
+  color: #cbd5e1;
+}
+
+.finance-module-tabs__ptab {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  background: transparent;
+  border-radius: 999px;
+  white-space: nowrap;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+
+.finance-module-tabs__ptab:hover:not(.finance-module-tabs__ptab--active):not(:disabled) {
+  background: #eef2ff;
+  color: #374151;
+}
+
+.finance-module-tabs__ptab--active {
+  color: #ffffff;
+  background: #3b82f6;
+}
+
+.finance-module-tabs__ptab:disabled {
+  color: #d1d5db;
+  cursor: not-allowed;
+}
+
+/* Merged row: a folder-type category (e.g. "Chung Tu") becomes a dropdown
+   button instead of its own pill + a separate document-tabs row; a "Khac"
+   bucket's children are flattened into plain page tabs alongside it, all
+   in a single row. See TieredModuleTabs.tsx. */
+.finance-module-tabs__row--merged {
+  gap: 8px;
+  padding: 10px 20px;
+  background: #ffffff;
+}
+
+.finance-module-tabs__catdd {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.finance-module-tabs__catdd-btn {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #475569;
+  background: #f1f5f9;
+  border-radius: 8px;
+  white-space: nowrap;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+
+.finance-module-tabs__catdd-btn:hover {
+  background: #e2e8f0;
+}
+
+.finance-module-tabs__catdd-btn--active {
+  color: #ffffff;
+  background: #3b82f6;
+}
+
+.finance-module-tabs__catdd-btn--active:hover {
+  background: #2f6fe0;
+}
+
+.finance-module-tabs__catdd-btn svg {
+  transition: transform 150ms ease;
+}
+
+.finance-module-tabs__catdd-btn[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.finance-module-tabs__catdd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+}
+
+.finance-module-tabs__catdd-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  min-width: 220px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 12px 28px -10px rgba(15, 23, 42, 0.25);
+  padding: 6px;
+}
+
+.finance-module-tabs__catdd-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #374151;
+  border-radius: 7px;
+  white-space: nowrap;
+}
+
+.finance-module-tabs__catdd-item:hover {
+  background: #f1f5f9;
+}
+
+.finance-module-tabs__catdd-item--active {
+  color: #ffffff;
+  background: #3b82f6;
+}
+
+.finance-module-tabs__catdd-item:disabled {
+  color: #d1d5db;
+  cursor: not-allowed;
+}
+
