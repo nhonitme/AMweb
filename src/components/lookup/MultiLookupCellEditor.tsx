@@ -124,6 +124,14 @@ export default function MultiLookupCellEditor<T extends object>({
   const [searchText, setSearchText] = useState("")
   const [selectedValues, setSelectedValues] = useState<string[]>(values)
   const selectedValuesRef = useRef(values)
+  // Keep DevExtreme onValueChanged stable while the parent persists filters.
+  // Recreating this handler on each checkbox click causes TagBox to rebind.
+  const onApplyRef = useRef(onApply)
+  const onClearRef = useRef(onClear)
+  onApplyRef.current = onApply
+  onClearRef.current = onClear
+  const allOptionValue = allOption?.value
+  const allOptionText = allOption?.text ?? ""
   const columnsRef = useRef(columns)
   columnsRef.current = columns
 
@@ -207,14 +215,14 @@ export default function MultiLookupCellEditor<T extends object>({
   // Keep the persisted/API values empty for "All", but display it as a
   // selected option so the currency filter does not appear uninitialized.
   const displayItems = useMemo(
-    () => allOption
-      ? [{ [valueExpr]: allOption.value } as unknown as T, ...filteredItems]
+    () => allOptionValue
+      ? [{ [valueExpr]: allOptionValue } as unknown as T, ...filteredItems]
       : filteredItems,
-    [allOption?.value, filteredItems, valueExpr],
+    [allOptionValue, filteredItems, valueExpr],
   )
   const displayValues = useMemo(
-    () => allOption && selectedValues.length === 0 ? [allOption.value] : selectedValues,
-    [allOption?.value, selectedValues],
+    () => allOptionValue && selectedValues.length === 0 ? [allOptionValue] : selectedValues,
+    [allOptionValue, selectedValues],
   )
 
   const handleValueChanged = useCallback(
@@ -223,10 +231,10 @@ export default function MultiLookupCellEditor<T extends object>({
       // "All" is a display-only sentinel. Never pass it to the API's fcType filter.
       // Selecting a real currency replaces "All"; selecting "All" clears a
       // previously selected currency filter.
-      const valuesWithoutAll = allOption
-        ? rawValues.filter((value) => value !== allOption.value)
+      const valuesWithoutAll = allOptionValue
+        ? rawValues.filter((value) => value !== allOptionValue)
         : rawValues
-      const normalizedValues = allOption && rawValues.includes(allOption.value)
+      const normalizedValues = allOptionValue && rawValues.includes(allOptionValue)
         && selectedValuesRef.current.length > 0
         ? []
         : valuesWithoutAll
@@ -245,21 +253,21 @@ export default function MultiLookupCellEditor<T extends object>({
 
       if (nextValues.length === 0) {
         startTransition(() => {
-          if (onClear) {
-            onClear()
+          if (onClearRef.current) {
+            onClearRef.current()
             return
           }
 
-          onApply([])
+          onApplyRef.current([])
         })
         return
       }
 
       startTransition(() => {
-        onApply(nextValues)
+        onApplyRef.current(nextValues)
       })
     },
-    [allOption, maxSelection, onApply, onClear],
+    [allOptionValue, maxSelection],
   )
 
   const handleSearchChange = useCallback((event: { value?: unknown }) => {
@@ -268,11 +276,11 @@ export default function MultiLookupCellEditor<T extends object>({
 
   const displayExpr = useCallback((item: T | null) => {
     if (!item) return ""
-    if (allOption && String(getRecordValue(item, valueExpr) ?? "") === allOption.value) {
-      return allOption.text
+    if (allOptionValue && String(getRecordValue(item, valueExpr) ?? "") === allOptionValue) {
+      return allOptionText
     }
     return getItemLabel(item, columnsRef.current)
-  }, [allOption, valueExpr])
+  }, [allOptionText, allOptionValue, valueExpr])
 
   const dropDownOptions = useMemo(
     () => ({
@@ -316,8 +324,8 @@ export default function MultiLookupCellEditor<T extends object>({
 
       if (count === 1) {
         const item = selectedItems[0] as T | undefined
-        if (item && allOption && String(getRecordValue(item, valueExpr) ?? "") === allOption.value) {
-          event.text = allOption.text
+        if (item && allOptionValue && String(getRecordValue(item, valueExpr) ?? "") === allOptionValue) {
+          event.text = allOptionText
           return
         }
         if (item && toolbarSingleTagDisplayExpr) {
@@ -339,7 +347,7 @@ export default function MultiLookupCellEditor<T extends object>({
 
       event.text = selectedCountLabel?.(count) ?? `${count} selected`
     },
-    [allOption, isToolbarVariant, selectedCountLabel, toolbarSingleTagDisplayExpr, valueExpr],
+    [allOptionText, allOptionValue, isToolbarVariant, selectedCountLabel, toolbarSingleTagDisplayExpr, valueExpr],
   )
 
   const resolvedClassName = useMemo(() => {
