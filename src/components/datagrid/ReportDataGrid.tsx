@@ -243,7 +243,13 @@ function isYmdFieldName(fieldName: string | null | undefined): boolean {
   return typeof fieldName === "string" && fieldName.trim().toUpperCase().endsWith("_YMD")
 }
 
-function resolveDevExtremeColumnFormat(format: string | null | undefined): string | undefined {
+/**
+ * Report preview carries a format *type* token (`number2`, `date`, `text`, ...),
+ * not a DevExtreme format string, whenever the column has a sys_grid_column
+ * setting. Feeding the raw token to a column makes DevExtreme render the token
+ * itself as the cell text, so translate it first.
+ */
+export function resolveDevExtremeColumnFormat(format: string | null | undefined): string | undefined {
   const normalized = normalizeNullableString(format)
   if (!normalized) {
     return undefined
@@ -261,6 +267,11 @@ function resolveDevExtremeColumnFormat(format: string | null | undefined): strin
   }
 
   switch (normalized.toLowerCase()) {
+    case "text":
+    case "string":
+    case "boolean":
+    case "bool":
+      return undefined
     case "date":
       return "dd/MM/yyyy"
     case "datetime":
@@ -284,9 +295,9 @@ function resolveDevExtremeColumnFormat(format: string | null | undefined): strin
   }
 }
 
-function resolveColumnDisplayFormat(
+export function resolveColumnDisplayFormat(
   column: ReportPreviewColumn,
-  tempDecimalPlacesByField: Readonly<Record<string, number>>,
+  tempDecimalPlacesByField: Readonly<Record<string, number>> = {},
 ): string | undefined {
   if (isYmdFieldName(column.FIELD_NAME) || resolveColumnDataType(column) === "date") {
     return resolveDevExtremeColumnFormat(column.FORMAT) ?? "dd/MM/yyyy"

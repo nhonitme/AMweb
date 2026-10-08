@@ -181,8 +181,8 @@ function normalizeOutputLine(
         COGS_DEBIT: row.COGS_DEBIT,
         COGS_CREDIT: row.COGS_CREDIT,
         OUTPUT_CD: String(row.OUTPUT_CD ?? ""),
-        CHIT_ID: row.CHIT_ID ?? null,
-        CHIT_CD: String(row.CHIT_CD ?? ""),
+        INVENTORY_ID: row.INVENTORY_ID ?? null,
+        INVENTORY_CD: String(row.INVENTORY_CD ?? ""),
         CHIT_TYPE: String(row.CHIT_TYPE ?? ""),
         COMPANY_CD: String(row.COMPANY_CD ?? options.companyCd ?? ""),
         PRODUCT_ID: row.PRODUCT_ID ?? null,
@@ -852,7 +852,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                     <Column dataField="COGS_DEBIT" visible={false} showInColumnChooser={false} />
                     <Column dataField="COGS_CREDIT" visible={false} showInColumnChooser={false} />
                     <Column dataField="OUTPUT_CD" caption={t("OUTPUT_CD", "Output Code")} />
-                    <Column dataField="CHIT_CD" caption={t("SOURCE_CODE", "Source Code")} allowEditing={false} />
+                    <Column dataField="INVENTORY_CD" caption={t("SOURCE_CODE", "Source Code")} allowEditing={false} />
                     <Column dataField="PRODUCT_ID" caption={t("PRODUCT_ID", "Product ID")} />
                     <Column
                         dataField="PRODUCT_CD"

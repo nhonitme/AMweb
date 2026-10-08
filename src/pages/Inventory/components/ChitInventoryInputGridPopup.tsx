@@ -133,8 +133,8 @@ function normalizeInputLine(
         ROW_KEY: row.ROW_KEY || createRowKey(options.detailRowKey),
         INPUT_ID: row.INPUT_ID ?? null,
         INPUT_CD: String(row.INPUT_CD ?? ""),
-        CHIT_ID: row.CHIT_ID ?? null,
-        CHIT_CD: String(row.CHIT_CD ?? ""),
+        INVENTORY_ID: row.INVENTORY_ID ?? null,
+        INVENTORY_CD: String(row.INVENTORY_CD ?? ""),
         CHIT_TYPE: String(row.CHIT_TYPE ?? ""),
         COMPANY_CD: String(row.COMPANY_CD ?? options.companyCd ?? ""),
         PRODUCT_ID: row.PRODUCT_ID ?? null,
@@ -703,7 +703,7 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
                 <>
                     <Column dataField="INPUT_ID" caption={t("INPUT_ID", "Input ID")} />
                     <Column dataField="INPUT_CD" caption={t("INPUT_CD", "Input Code")} />
-                    <Column dataField="CHIT_CD" caption={t("SOURCE_CODE", "Source Code")} allowEditing={false} />
+                    <Column dataField="INVENTORY_CD" caption={t("SOURCE_CODE", "Source Code")} allowEditing={false} />
                     <Column dataField="PRODUCT_ID" caption={t("PRODUCT_ID", "Product ID")} />
                     <Column
                         dataField="PRODUCT_CD"

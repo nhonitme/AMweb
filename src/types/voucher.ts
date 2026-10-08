@@ -29,8 +29,8 @@ export type InventoryDateValue = string | number | Date | null | undefined
 export interface InventoryInputApi {
   INPUT_ID?: number | null
   INPUT_CD?: InventoryText
-  CHIT_ID?: number | null
-  CHIT_CD?: InventoryText
+  INVENTORY_ID?: number | null
+  INVENTORY_CD?: InventoryText
   CHIT_TYPE?: InventoryText
   COMPANY_CD?: InventoryText
   PRODUCT_ID?: number | null
@@ -72,8 +72,8 @@ export interface InventoryOutputApi {
   COGS_CREDIT?: string | null
   OUTPUT_ID?: number | null
   OUTPUT_CD?: InventoryText
-  CHIT_ID?: number | null
-  CHIT_CD?: InventoryText
+  INVENTORY_ID?: number | null
+  INVENTORY_CD?: InventoryText
   CHIT_TYPE?: InventoryText
   COMPANY_CD?: InventoryText
   PRODUCT_ID?: number | null
@@ -122,8 +122,8 @@ export interface InventoryInputLine {
   ROW_KEY: string
   INPUT_ID: number | null
   INPUT_CD: string
-  CHIT_ID: number | null
-  CHIT_CD: string
+  INVENTORY_ID: number | null
+  INVENTORY_CD: string
   CHIT_TYPE: string
   COMPANY_CD: string
   PRODUCT_ID: number | null
@@ -166,8 +166,8 @@ export interface InventoryOutputLine {
   ROW_KEY: string
   OUTPUT_ID: number | null
   OUTPUT_CD: string
-  CHIT_ID: number | null
-  CHIT_CD: string
+  INVENTORY_ID: number | null
+  INVENTORY_CD: string
   CHIT_TYPE: string
   COMPANY_CD: string
   PRODUCT_ID: number | null

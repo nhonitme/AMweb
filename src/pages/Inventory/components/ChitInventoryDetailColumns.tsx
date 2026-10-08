@@ -29,9 +29,9 @@ export function ChitInventoryInputDetailColumns() {
     <>
       <Column dataField="ROW_KEY" />
       <Column dataField="INPUT_ID" caption={t("INPUT_ID", "Input ID")} />
-      <Column dataField="CHIT_ID" caption={t("CHIT_ID", "Voucher ID")} />
+      <Column dataField="INVENTORY_ID" caption={t("INVENTORY_ID", "Voucher ID")} />
       <Column dataField="CHITDETAIL_ID" caption={t("CHITDETAIL_ID", "Detail ID")} />
-      <Column dataField="CHIT_CD" caption={t("SOURCE_CODE", "Source Code")} />
+      <Column dataField="INVENTORY_CD" caption={t("SOURCE_CODE", "Source Code")} />
       <Column dataField="PRODUCT_CD" caption={t("lblPRODUCT_CD", "Product Code")} />
       <Column dataField="PRODUCT_NM_VIET" caption={t("PRODUCT_NM", "Product Name")} calculateCellValue={(row) => pickLocalizedText(row, "PRODUCT_NM")} />
       <Column dataField="STORE_CD" caption={t("STORE_CD", "Store Code")} />
@@ -65,9 +65,9 @@ export function ChitInventoryOutputDetailColumns() {
     <>
       <Column dataField="ROW_KEY" />
       <Column dataField="OUTPUT_ID" caption={t("OUTPUT_ID", "Output ID")} />
-      <Column dataField="CHIT_ID" caption={t("CHIT_ID", "Voucher ID")} />
+      <Column dataField="INVENTORY_ID" caption={t("INVENTORY_ID", "Voucher ID")} />
       <Column dataField="CHITDETAIL_ID" caption={t("CHITDETAIL_ID", "Detail ID")} />
-      <Column dataField="CHIT_CD" caption={t("SOURCE_CODE", "Source Code")} />
+      <Column dataField="INVENTORY_CD" caption={t("SOURCE_CODE", "Source Code")} />
       <Column dataField="PRODUCT_CD" caption={t("lblPRODUCT_CD", "Product Code")} />
       <Column dataField="PRODUCT_NM_VIET" caption={t("PRODUCT_NM", "Product Name")} calculateCellValue={(row) => pickLocalizedText(row, "PRODUCT_NM")} />
       <Column dataField="STORE_CD" caption={t("STORE_CD", "Store Code")} />
@@ -101,7 +101,7 @@ export function ChitInventoryAdjustmentDetailColumns() {
     <>
       <Column dataField="ROW_KEY" />
       <Column dataField="OUTPUT_ID" caption={t("OUTPUT_ID", "Output ID")} />
-      <Column dataField="CHIT_ID" caption={t("CHIT_ID", "Voucher ID")} />
+      <Column dataField="INVENTORY_ID" caption={t("INVENTORY_ID", "Voucher ID")} />
       <Column dataField="CHITDETAIL_ID" caption={t("CHITDETAIL_ID", "Detail ID")} />
       <Column dataField="PRODUCT_CD" caption={t("lblPRODUCT_CD", "Product Code")} />
       <Column dataField="PRODUCT_NM_VIET" caption={t("PRODUCT_NM", "Product Name")} calculateCellValue={(row) => pickLocalizedText(row, "PRODUCT_NM")} />

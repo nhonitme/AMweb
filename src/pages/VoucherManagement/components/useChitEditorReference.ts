@@ -600,7 +600,7 @@ export function useChitEditorReference({
                             : getDetailInventoryOutputs(detail).filter((output) => !output.ISDEL)
                         const allFromUnlinked =
                             activeLines.length > 0 &&
-                            activeLines.every((line) => unlinkedChitIds.has(Number(line.CHIT_ID ?? 0)))
+                            activeLines.every((line) => unlinkedChitIds.has(Number(line.INVENTORY_ID ?? 0)))
                         const detailId = Number(detail.CHITDETAIL_ID ?? 0)
                         const isUnlinkedDetail =
                             Number.isFinite(detailId) && detailId > 0 && unlinkedChitDetailIds.has(detailId)

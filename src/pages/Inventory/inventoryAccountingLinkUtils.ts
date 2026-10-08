@@ -557,7 +557,7 @@ export type LinkedInventoryTarget = {
 
 type InventoryLinkSourceLine = Pick<
   InventoryInputApi & InventoryOutputApi,
-  "CHITDETAIL_ID" | "CHIT_ID" | "CHIT_TYPE" | "CHIT_CD"
+  "CHITDETAIL_ID" | "INVENTORY_ID" | "CHIT_TYPE" | "INVENTORY_CD"
 >
 
 /** Distinct inventory vouchers keyed by accounting CHITDETAIL_ID. */
@@ -568,9 +568,9 @@ export function buildLinkedInventoryByDetailId(
 
   for (const line of lines) {
     const detailId = Number(line.CHITDETAIL_ID ?? 0)
-    const chitId = Number(line.CHIT_ID ?? 0)
+    const chitId = Number(line.INVENTORY_ID ?? 0)
     const chitType = String(line.CHIT_TYPE ?? "").trim().toUpperCase()
-    const chitNo = String(line.CHIT_CD ?? "").trim()
+    const chitNo = String(line.INVENTORY_CD ?? "").trim()
     if (!(detailId > 0) || !(chitId > 0) || !chitType) {
       continue
     }

@@ -18,6 +18,7 @@ import ReportDataGrid, {
   type ReportDataGridRow,
   toLocalizedReportDataGridRows,
 } from "@/components/datagrid/ReportDataGrid"
+import ReportTreeList, { type ReportTreeListHandle } from "@/components/datagrid/ReportTreeList"
 import { ReportToolbar } from "@/components/toolbar/ReportToolbar"
 import {
   getAcclistLookupStore,
@@ -1230,6 +1231,7 @@ export default function JournalReportPage({
   )
 
   const reportGridRef = useRef<ReportDataGridHandle | null>(null)
+  const reportTreeRef = useRef<ReportTreeListHandle | null>(null)
   const voucherEditorHostRef = useRef<ReportVoucherEditorHostHandle | null>(null)
 
   const effectiveReportOptions = reportOptions
@@ -1304,8 +1306,13 @@ export default function JournalReportPage({
   }, [])
 
   const handleOpenGridSettings = useCallback(() => {
+    if (effectiveDashboardReportCode.trim().toUpperCase() === "INVENTORY_QUANTITY_REPORT") {
+      void reportTreeRef.current?.openColumnSettings()
+      return
+    }
+
     void reportGridRef.current?.openColumnSettings()
-  }, [])
+  }, [effectiveDashboardReportCode])
 
   const handleOpenFormulaSettings = useCallback(() => {
     const query = new URLSearchParams()
@@ -1695,7 +1702,18 @@ export default function JournalReportPage({
                 : "min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
             }
           >
-            {useEInvoiceTableLayout ? (
+            {effectiveDashboardReportCode.trim().toUpperCase() === "INVENTORY_QUANTITY_REPORT" ? (
+              <ReportTreeList
+                key={effectiveDashboardReportCode}
+                ref={reportTreeRef}
+                preview={preview}
+                loading={previewLoading}
+                searchText={searchText}
+                reportCode={effectiveDashboardReportCode}
+                menuCode={menuCode}
+                onRowDblClick={handleReportRowDblClick}
+              />
+            ) : useEInvoiceTableLayout ? (
               <EInvoiceTableShell className="h-full">
                 <ReportDataGrid
                   key={effectiveDashboardReportCode}

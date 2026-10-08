@@ -101,7 +101,7 @@ export function getLinkedReferenceSourceIds(details: ChitEditorDetailRow[], chit
         if (isInventoryInputLinkedAccountingVoucherType(chitType)) {
             getDetailInventoryInputs(detail).forEach((input) => {
                 if (!input.ISDEL) {
-                    collectSourceId(input.CHIT_ID)
+                    collectSourceId(input.INVENTORY_ID)
                 }
             })
             return
@@ -110,7 +110,7 @@ export function getLinkedReferenceSourceIds(details: ChitEditorDetailRow[], chit
         if (isInventoryOutputLinkedAccountingVoucherType(chitType)) {
             getDetailInventoryOutputs(detail).forEach((output) => {
                 if (!output.ISDEL) {
-                    collectSourceId(output.CHIT_ID)
+                    collectSourceId(output.INVENTORY_ID)
                 }
             })
         }
@@ -137,7 +137,7 @@ export function getPersistedLinkedReferenceSourceIds(details: ChitEditorDetailRo
         if (isInventoryInputLinkedAccountingVoucherType(chitType)) {
             getDetailInventoryInputs(detail).forEach((input) => {
                 if (!input.ISDEL) {
-                    collectSourceId(input.CHIT_ID)
+                    collectSourceId(input.INVENTORY_ID)
                 }
             })
             return
@@ -146,7 +146,7 @@ export function getPersistedLinkedReferenceSourceIds(details: ChitEditorDetailRo
         if (isInventoryOutputLinkedAccountingVoucherType(chitType)) {
             getDetailInventoryOutputs(detail).forEach((output) => {
                 if (!output.ISDEL) {
-                    collectSourceId(output.CHIT_ID)
+                    collectSourceId(output.INVENTORY_ID)
                 }
             })
         }
