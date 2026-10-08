@@ -801,6 +801,7 @@ export function ReportToolbar({
                 onApply={handleCurrencyApply}
                 onClear={handleCurrencyClear}
                 width={140}
+                height={26}
                 columns={[
                   { dataField: "CODE_CD", caption: t("CURRENCY", "Currency"), width: 140 },
                   {
