@@ -796,6 +796,7 @@ export function ReportToolbar({
                 valueExpr="CODE_CD"
                 searchExpr={["CODE_CD", "CODE_NAME"]}
                 placeholder={t("CURRENCY", "Currency")}
+                allOption={{ value: "__ALL_CURRENCIES__", text: t("ALL", "Tất cả") }}
                 labelMode="floating"
                 buttonHint={t("OPEN_CURRENCY_LOOKUP", "Open currency lookup")}
                 onApply={handleCurrencyApply}
