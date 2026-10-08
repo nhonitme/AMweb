@@ -241,6 +241,15 @@ export function ReportToolbar({
     (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
     [translate],
   )
+
+  // Memoize the synthetic selection so TagBox retains stable option references
+  // while users tick multiple currencies with the dropdown open.
+  const currencyAllOption = useMemo(
+    () => currencyAllOptionEnabled
+      ? { value: "__ALL_CURRENCIES__", text: t("ALL", "Tất cả") }
+      : undefined,
+    [currencyAllOptionEnabled, t],
+  )
   const displayFaAssetStatus = useCallback(
     (item: SysCode) => getFaStatusDisplayText(item.CODE_CD, (key, fallback) => t(key, fallback ?? ""), [item]),
     [t],
@@ -799,7 +808,7 @@ export function ReportToolbar({
                 valueExpr="CODE_CD"
                 searchExpr={["CODE_CD", "CODE_NAME"]}
                 placeholder={t("CURRENCY", "Currency")}
-                allOption={currencyAllOptionEnabled ? { value: "__ALL_CURRENCIES__", text: t("ALL", "Tất cả") } : undefined}
+                allOption={currencyAllOption}
                 labelMode="floating"
                 buttonHint={t("OPEN_CURRENCY_LOOKUP", "Open currency lookup")}
                 onApply={handleCurrencyApply}
