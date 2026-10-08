@@ -19,6 +19,7 @@ type MultiLookupCellEditorProps<T extends object> = {
   onApply: (values: string[]) => void
   onClear?: () => void
   width?: number | string
+  height?: number
   dropdownWidth?: number
   dropdownHeight?: number
   className?: string
@@ -106,6 +107,7 @@ export default function MultiLookupCellEditor<T extends object>({
   onApply,
   onClear,
   width,
+  height,
   dropdownWidth = 360,
   dropdownHeight = 360,
   className,
@@ -339,7 +341,7 @@ export default function MultiLookupCellEditor<T extends object>({
       onValueChanged={handleValueChanged}
       onSearchValueChanged={handleSearchChange}
       width={width}
-      height={tagBoxHeight}
+      height={height ?? tagBoxHeight}
       noDataText={noDataText}
       showMultiTagOnly={showMultiTagOnly}
       maxDisplayedTags={maxDisplayedTags}
