@@ -1170,11 +1170,38 @@ export function toLocalizedReportDataGridRows(
   translate: (key: string, fallback: string) => string,
   reportCode?: string | null,
 ): ReportDataGridRow[] {
-  const localizeStatusText = FA_STATUS_TEXT_REPORT_CODES.has(String(reportCode ?? "").trim().toUpperCase())
+  const normalizedReportCode = String(reportCode ?? "").trim().toUpperCase()
+  const localizeStatusText = FA_STATUS_TEXT_REPORT_CODES.has(normalizedReportCode)
+  const localizeTaxReductionGroup = normalizedReportCode === "TAX_VAT_REDUCTION_APPENDIX"
   return toReportDataGridRows(preview).map((row) => {
-    const localized = localizeReportItemNameFields(row, translate)
+    let localized = localizeReportItemNameFields(row, translate)
+    if (localizeTaxReductionGroup) {
+      localized = localizeTaxReductionAppendixGroup(localized, translate)
+    }
     return localizeStatusText ? localizeFaStatusTextField(localized, translate) : localized
   })
+}
+
+// The SP/API returns the invoice group code. Localize ITEM_KIND in the UI so
+// switching the language changes group headers and Excel export without
+// re-fetching the report or altering the invoice's actual PRODUCT_NAME.
+function localizeTaxReductionAppendixGroup(
+  row: ReportDataGridRow,
+  translate: (key: string, fallback: string) => string,
+): ReportDataGridRow {
+  const type = readRowField(row, "TYPE")?.trim()
+  const translationKey =
+    type === "1" ? "Tax_reduction_appendix_group1" :
+    type === "2" ? "Tax_reduction_appendix_group2" : null
+  if (!translationKey) {
+    return row
+  }
+
+  const fieldName = Object.keys(row).find((key) => normalizeColumnKey(key) === "ITEM_KIND") ?? "ITEM_KIND"
+  const fallback = readRowField(row, "ITEM_KIND") ??
+    (type === "1" ? "I. Hàng hóa, dịch vụ mua vào" : "II. Hàng hóa, dịch vụ bán ra")
+  const translated = translate(translationKey, fallback)
+  return translated === row[fieldName] ? row : { ...row, [fieldName]: translated }
 }
 
 function localizeFaStatusTextField(
