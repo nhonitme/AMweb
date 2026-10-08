@@ -2142,6 +2142,13 @@ function ReportDataGrid(
         return
       }
 
+      // Let DevExtreme handle the native expand/collapse arrow on group rows.
+      // Resetting the React cell selection during pointerdown can re-render the
+      // grid before DevExtreme receives the click, swallowing the toggle.
+      if (event.target instanceof Element && event.target.closest(".dx-group-row")) {
+        return
+      }
+
       if (
         event.target instanceof Element &&
         event.target.closest(
