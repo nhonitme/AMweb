@@ -1542,6 +1542,7 @@ export default function JournalReportPage({
               customerCodes={showCustomerFilter ? customerCodes : undefined}
               bankCodes={showBankFilter ? bankCodes : undefined}
               currencyCodes={showCurrencyFilter ? currencyCodes : undefined}
+              currencyAllOptionEnabled={reportCode === "TAX_VAT_REDUCTION_APPENDIX"}
               warehouseCodes={showWarehouseFilter ? warehouseCodes : undefined}
               productCodes={showProductFilter ? productCodes : undefined}
               assetStatusCodes={showAssetStatusFilter ? assetStatusCodes : undefined}
