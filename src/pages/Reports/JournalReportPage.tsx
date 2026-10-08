@@ -1248,6 +1248,18 @@ export default function JournalReportPage({
 
   const vatInOutListGroupConfig = useMemo<ReportDataGridGroupConfig | undefined>(() => {
     const normalizedReportCode = effectiveDashboardReportCode.trim().toUpperCase()
+    // VAT reduction appendix groups by purchase (1) / sale (2), unlike the
+    // VAT in/out list which groups by invoice form (KHMSHDON).
+    if (reportCode === "TAX_VAT_REDUCTION_APPENDIX" ||
+        normalizedReportCode === "TAX_VAT_REDUCTION_APPENDIX") {
+      return {
+        groupField: "TYPE",
+        labelField: "ITEM_KIND",
+        labelPrefixKey: "VAT_INOUT_TYPE",
+        labelPrefixFallback: "Loại hóa đơn",
+      }
+    }
+
     if (reportCode !== "TAX_VAT_INOUT_LIST" && normalizedReportCode !== "TAX_VAT_INOUT_LIST") {
       return undefined
     }
