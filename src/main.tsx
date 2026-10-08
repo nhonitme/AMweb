@@ -36,8 +36,12 @@ if (!rootElement) {
   throw new Error("Root element not found");
 }
 
-createRoot(rootElement).render(
-  <StrictMode>
+// DevExpress ReportViewer creates a document during mount. In development,
+// React StrictMode replays mounts/effects and can execute report procedures twice.
+// Keep StrictMode everywhere else, but avoid replaying the standalone viewer.
+const isStandaloneReportViewer = /\/report-viewer\/?$/i.test(window.location.pathname);
+
+const app = (
     <FontScaleProvider>
       <MenuLayoutProvider>
         <QueryProvider>
@@ -52,5 +56,8 @@ createRoot(rootElement).render(
         </QueryProvider>
       </MenuLayoutProvider>
     </FontScaleProvider>
-  </StrictMode>,
+);
+
+createRoot(rootElement).render(
+  isStandaloneReportViewer ? app : <StrictMode>{app}</StrictMode>,
 );
