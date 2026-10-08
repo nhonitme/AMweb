@@ -52,6 +52,17 @@ function resolveDevExtremeColumnFormat(formatType: string | null | undefined): s
     return undefined
   }
 
+  // sys_grid_column.FORMAT_TYPE may contain .NET numeric masks (N0, N2, N4).
+  // DevExtreme treats these as literal prefixes and displays values as N0/N4.
+  // Convert to a DevExtreme-compatible grouping mask before applying settings.
+  const dotNetNumericMatch = /^n(\d{1,2})$/i.exec(normalized)
+  if (dotNetNumericMatch) {
+    const decimals = Number(dotNetNumericMatch[1])
+    if (decimals <= 12) {
+      return decimals === 0 ? "#,##0" : `#,##0.${"0".repeat(decimals)}`
+    }
+  }
+
   switch (normalized.toLowerCase()) {
     case "date":
       return "dd/MM/yyyy"
