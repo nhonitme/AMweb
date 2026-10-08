@@ -27,6 +27,8 @@ type MultiLookupCellEditorProps<T extends object> = {
   selectedCountLabel?: (count: number) => string
   toolbarSingleTagDisplayExpr?: (item: T) => string
   maxSelection?: number
+  /** Optional synthetic "all" choice; empty filter values still mean no restriction. */
+  allOption?: { value: string; text: string }
 }
 
 type LoadableLookupSource = {
@@ -115,6 +117,7 @@ export default function MultiLookupCellEditor<T extends object>({
   selectedCountLabel,
   toolbarSingleTagDisplayExpr,
   maxSelection,
+  allOption,
 }: MultiLookupCellEditorProps<T>) {
   const isToolbarVariant = variant === "toolbar"
   const [items, setItems] = useState<T[]>([])
@@ -201,10 +204,34 @@ export default function MultiLookupCellEditor<T extends object>({
     [items, resolvedSearchFields, searchText],
   )
 
+  // Keep the persisted/API values empty for "All", but display it as a
+  // selected option so the currency filter does not appear uninitialized.
+  const displayItems = useMemo(
+    () => allOption
+      ? [{ [valueExpr]: allOption.value } as unknown as T, ...filteredItems]
+      : filteredItems,
+    [allOption?.value, filteredItems, valueExpr],
+  )
+  const displayValues = useMemo(
+    () => allOption && selectedValues.length === 0 ? [allOption.value] : selectedValues,
+    [allOption?.value, selectedValues],
+  )
+
   const handleValueChanged = useCallback(
     (event: { value?: unknown }) => {
+      const rawValues = normalizeSelectedValues(event.value)
+      // "All" is a display-only sentinel. Never pass it to the API's fcType filter.
+      // Selecting a real currency replaces "All"; selecting "All" clears a
+      // previously selected currency filter.
+      const valuesWithoutAll = allOption
+        ? rawValues.filter((value) => value !== allOption.value)
+        : rawValues
+      const normalizedValues = allOption && rawValues.includes(allOption.value)
+        && selectedValuesRef.current.length > 0
+        ? []
+        : valuesWithoutAll
       const nextValues = limitSelectedValues(
-        normalizeSelectedValues(event.value),
+        normalizedValues,
         selectedValuesRef.current,
         maxSelection,
       )
@@ -232,14 +259,20 @@ export default function MultiLookupCellEditor<T extends object>({
         onApply(nextValues)
       })
     },
-    [maxSelection, onApply, onClear],
+    [allOption, maxSelection, onApply, onClear],
   )
 
   const handleSearchChange = useCallback((event: { value?: unknown }) => {
     setSearchText(String(event.value ?? ""))
   }, [])
 
-  const displayExpr = useCallback((item: T | null) => (item ? getItemLabel(item, columnsRef.current) : ""), [])
+  const displayExpr = useCallback((item: T | null) => {
+    if (!item) return ""
+    if (allOption && String(getRecordValue(item, valueExpr) ?? "") === allOption.value) {
+      return allOption.text
+    }
+    return getItemLabel(item, columnsRef.current)
+  }, [allOption, valueExpr])
 
   const dropDownOptions = useMemo(
     () => ({
@@ -283,6 +316,10 @@ export default function MultiLookupCellEditor<T extends object>({
 
       if (count === 1) {
         const item = selectedItems[0] as T | undefined
+        if (item && allOption && String(getRecordValue(item, valueExpr) ?? "") === allOption.value) {
+          event.text = allOption.text
+          return
+        }
         if (item && toolbarSingleTagDisplayExpr) {
           const displayText = toolbarSingleTagDisplayExpr(item).trim()
           if (displayText) {
@@ -302,7 +339,7 @@ export default function MultiLookupCellEditor<T extends object>({
 
       event.text = selectedCountLabel?.(count) ?? `${count} selected`
     },
-    [isToolbarVariant, selectedCountLabel, toolbarSingleTagDisplayExpr, valueExpr],
+    [allOption, isToolbarVariant, selectedCountLabel, toolbarSingleTagDisplayExpr, valueExpr],
   )
 
   const resolvedClassName = useMemo(() => {
@@ -321,8 +358,8 @@ export default function MultiLookupCellEditor<T extends object>({
   return (
     <TagBox
       className={resolvedClassName}
-      dataSource={filteredItems}
-      value={selectedValues}
+      dataSource={displayItems}
+      value={displayValues}
       valueExpr={valueExpr}
       displayExpr={displayExpr}
       searchExpr={resolvedSearchFields}
