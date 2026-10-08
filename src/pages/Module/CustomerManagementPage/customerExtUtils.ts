@@ -35,9 +35,7 @@ export const normalizeCustomerExt = (record: CustomerExtApi): CustomerExt => ({
   BUYER_NM: trimText(record.BUYER_NM),
   ISDEL: toBool(record.ISDEL),
 
-  CREATE_BY: trimText(record.CREATE_BY),
 
-  UPDATE_BY: trimText(record.UPDATE_BY),
 })
 
 export const normalizeCustomerExtRows = (records: CustomerExtApi[]): CustomerExt[] => records.map(normalizeCustomerExt)
@@ -65,11 +63,9 @@ export const mapCustomerExtToApiPayload = (record: CustomerExt): Partial<Custome
   IDNUMBER: trimText(record.IDNUMBER),
   BUYER_NM: trimText(record.BUYER_NM),
   ISDEL: toFlag(record.ISDEL),
-  CREATE_BY: trimText(record.CREATE_BY),
-  UPDATE_BY: trimText(record.UPDATE_BY),
 })
 
-export const createDefaultCustomerExt = (companyCd: string, userId: string): CustomerExt => ({
+export const createDefaultCustomerExt = (companyCd: string): CustomerExt => ({
   CUSTOMER_ID: null,
   CUSTOMER_EXT_ID: null,
   COMPANY_CD: companyCd,
@@ -92,6 +88,4 @@ export const createDefaultCustomerExt = (companyCd: string, userId: string): Cus
   IDNUMBER: "",
   BUYER_NM: "",
   ISDEL: false,
-  CREATE_BY: userId,
-  UPDATE_BY: userId,
 })

@@ -19,6 +19,7 @@ import { createNumberEditorOptions } from "@/lib/numberEditorOptions"
 import type { Product } from "@/types/product"
 import type { Unit } from "@/types/unit"
 import type { StoreInfo } from "@/types/store"
+import { useMasterFormValidation } from "@/components/forms/useMasterFormValidation"
 
 function readLookupText(option: object, key: string): string {
   const value = (option as Record<string, unknown>)[key]
@@ -52,6 +53,7 @@ export function InventoryOpeningForm({ onFormInstance }: InventoryOpeningFormPro
     translate: (k: string, f?: string) => string
   }
   const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+  const validation = useMasterFormValidation(t)
   const { getFormat } = useDecimalColumnFormats()
   const quantityFormat = getFormat("QUANTITY", "#,##0.###")
   const unitPriceFormat = getFormat("UNIT_PRICE_CC", "#,##0.00")
@@ -62,11 +64,12 @@ export function InventoryOpeningForm({ onFormInstance }: InventoryOpeningFormPro
   }
 
   return (
-    <Form colCount={2}>
+    <Form colCount={2} onInitialized={validation.onInitialized} onFieldDataChanged={validation.onFieldDataChanged} customizeItem={validation.customizeItem}>
       <Item
         dataField="PRODUCT_ID"
+        cssClass="master-custom-validation"
         label={{ text: t("PRODUCT_CD", "Product Code") }}
-        isRequired
+        validationRules={validation.required("PRODUCT_ID", t("PRODUCT_CD", "Hàng hóa"))}
         render={({ component }) => (
           <>
             {captureForm(component)}
@@ -114,8 +117,9 @@ export function InventoryOpeningForm({ onFormInstance }: InventoryOpeningFormPro
       />
       <Item
         dataField="UNIT_ID"
+        cssClass="master-custom-validation"
         label={{ text: t("UNIT_CD", "Unit") }}
-        isRequired
+        validationRules={validation.required("UNIT_ID", t("UNIT_CD", "Đơn vị tính"))}
         render={({ component }) => (
           <MasterLookupFormField<Unit>
             form={component}
@@ -150,8 +154,9 @@ export function InventoryOpeningForm({ onFormInstance }: InventoryOpeningFormPro
       />
       <Item
         dataField="STORE_ID"
+        cssClass="master-custom-validation"
         label={{ text: t("STORE_CD", "Store Code") }}
-        isRequired
+        validationRules={validation.required("STORE_ID", t("STORE_CD", "Kho"))}
         render={({ component }) => (
           <MasterLookupFormField<StoreInfo>
             form={component}
@@ -194,14 +199,14 @@ export function InventoryOpeningForm({ onFormInstance }: InventoryOpeningFormPro
         dataField="QUANTITY"
         label={{ text: t("QUANTITY", "Quantity") }}
         editorType="dxNumberBox"
-        isRequired
+        validationRules={validation.required("QUANTITY", "Số lượng")}
         editorOptions={createInventoryNumberEditorOptions(quantityFormat)}
       />
       <Item
         dataField="UNIT_PRICE_CC"
         label={{ text: t("UNIT_PRICE_CC", "Unit Price") }}
         editorType="dxNumberBox"
-        isRequired
+        validationRules={validation.required("UNIT_PRICE_CC", "Đơn giá")}
         editorOptions={createInventoryNumberEditorOptions(unitPriceFormat)}
       />
       <Item

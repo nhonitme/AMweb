@@ -230,10 +230,6 @@ export function createDefaultErrorNoticeDetail(index: number, tbaoId = 0, compan
     NGAY: createErrorNoticeToday(),
     LADHDDT: 1,
     LDO: "",
-    CREATE_BY: "",
-    CREATE_AT: "",
-    UPDATE_BY: "",
-    UPDATE_AT: "",
     ISDEL: 0,
   }
 }
@@ -260,10 +256,6 @@ export function createDefaultErrorNotice(companyCd: string): EInvoiceErrorNotice
     MGDDTU: "",
     MTDIEP: "",
     ERROR_MESSAGE: "",
-    CREATE_BY: "",
-    CREATE_AT: "",
-    UPDATE_BY: "",
-    UPDATE_AT: "",
     ISDEL: 0,
     DETAILS: [createDefaultErrorNoticeDetail(1, 0, companyCd)],
   }
@@ -315,10 +307,6 @@ export function normalizeErrorNoticeDetail(record: EInvoiceErrorNoticeDetailApi,
     NGAY: toDateText(record.NGAY),
     LADHDDT: toNumber(record.LADHDDT, 1),
     LDO: trimText(record.LDO),
-    CREATE_BY: trimText(record.CREATE_BY),
-    CREATE_AT: trimText(record.CREATE_AT),
-    UPDATE_BY: trimText(record.UPDATE_BY),
-    UPDATE_AT: trimText(record.UPDATE_AT),
     ISDEL: toNumber(record.ISDEL, 0),
   }
 }
@@ -365,10 +353,6 @@ export function normalizeErrorNotice(record: EInvoiceErrorNoticeApi, companyCd: 
     MGDDTU: trimText(record.MGDDTU),
     MTDIEP: trimText(record.MTDIEP),
     ERROR_MESSAGE: trimText(record.ERROR_MESSAGE),
-    CREATE_BY: trimText(record.CREATE_BY),
-    CREATE_AT: trimText(record.CREATE_AT),
-    UPDATE_BY: trimText(record.UPDATE_BY),
-    UPDATE_AT: trimText(record.UPDATE_AT),
     ISDEL: toNumber(record.ISDEL, 0),
     DETAILS: details.length > 0 ? details : [createDefaultErrorNoticeDetail(1, tbaoId, companyCd)],
   }
@@ -471,10 +455,6 @@ export function createErrorNoticeCopy(source: EInvoiceErrorNotice, companyCd: st
   copy.MGDDTU = ""
   copy.MTDIEP = ""
   copy.ERROR_MESSAGE = ""
-  copy.CREATE_BY = ""
-  copy.CREATE_AT = ""
-  copy.UPDATE_BY = ""
-  copy.UPDATE_AT = ""
   copy.NTBAO = createErrorNoticeToday()
   copy.DETAILS = renumberErrorNoticeDetails(copy.DETAILS.map((detail) => ({
     ...detail,
@@ -482,10 +462,6 @@ export function createErrorNoticeCopy(source: EInvoiceErrorNotice, companyCd: st
     DETAIL_ID: 0,
     TBAO_ID: 0,
     COMPANY_CD: companyCd,
-    CREATE_BY: "",
-    CREATE_AT: "",
-    UPDATE_BY: "",
-    UPDATE_AT: "",
     ISDEL: 0,
   })))
 

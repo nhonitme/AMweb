@@ -21,6 +21,5 @@ export interface EInvoiceTransmissionMessage {
   SLUONG?: number | null
   RESPONSE_XML?: EInvoiceTransmissionText
   ERROR_MESSAGE?: EInvoiceTransmissionText
-  CREATE_USER?: EInvoiceTransmissionText
-  CREATE_DT?: EInvoiceTransmissionText
+  CREATE_AT?: EInvoiceTransmissionText
 }

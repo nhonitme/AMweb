@@ -1,3 +1,4 @@
+import { captureMasterPopupError } from "@/components/datagrid/masterPopupValidation";
 import { useCallback, useContext, useMemo, useRef, useState } from "react"
 import { LoadPanel } from "devextreme-react"
 import { Editing } from "devextreme-react/tree-list"
@@ -18,7 +19,7 @@ import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout"
 import DxPage from "@/dx/DxPage"
 import { downloadFile } from "@/lib/fileUtils"
 import { LanguageContext } from "@/lib/i18nLoader"
-import { getCurrentCompanyCd, getCurrentUserId } from "@/lib/login"
+import { getCurrentCompanyCd } from "@/lib/login"
 import { assignSequencePreviewCode, getSequenceSubmitCode } from "@/lib/codeSequence"
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
 import { buildMasterGridReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
@@ -102,14 +103,7 @@ export default function DepartmentManagementPage({
 
   const excludedFields = useMemo(
     () =>
-      new Set<string>([
-        "DEPARTMENT_ID",
-        "COMPANY_CD",
-        "ISDEL",
-        "UPDATE_BY",
-        "CREATE_BY",
-        "PARENT_ID",
-      ]),
+      new Set<string>(["DEPARTMENT_ID", "COMPANY_CD", "ISDEL", "PARENT_ID"]),
     [],
   )
 
@@ -117,9 +111,8 @@ export default function DepartmentManagementPage({
 
   const buildCreatePayload = useCallback((data: Partial<DepartmentInfo>): Partial<DepartmentInfoApi> => {
     const currentCompanyCd = getCurrentCompanyCd()
-    const currentUserId = getCurrentUserId()
     const nextRow: DepartmentInfo = {
-      ...createDefaultDepartmentInfo(currentCompanyCd, currentUserId),
+      ...createDefaultDepartmentInfo(currentCompanyCd),
       ...data,
       COMPANY_CD: data.COMPANY_CD || currentCompanyCd,
       DEPARTMENT_CD: getSequenceSubmitCode(data.DEPARTMENT_CD),
@@ -130,9 +123,8 @@ export default function DepartmentManagementPage({
 
   const buildUpdatePayload = useCallback((event: RowUpdatingEventWithPromise): Partial<DepartmentInfoApi> => {
     const currentCompanyCd = event.oldData?.COMPANY_CD || getCurrentCompanyCd()
-    const currentUserId = getCurrentUserId()
     const mergedRow: DepartmentInfo = {
-      ...createDefaultDepartmentInfo(currentCompanyCd, currentUserId),
+      ...createDefaultDepartmentInfo(currentCompanyCd),
       ...(event.oldData ?? {}),
       ...(event.newData ?? {}),
       COMPANY_CD: currentCompanyCd,
@@ -143,6 +135,7 @@ export default function DepartmentManagementPage({
 
   const onRowInserting = useCallback(
     (event: RowInsertingEventWithPromise) => {
+    const reportSaveError = captureMasterPopupError(event.component)
       event.promise = (async () => {
         try {
           const payload = buildCreatePayload({ ...(event.data ?? {}) })
@@ -151,7 +144,7 @@ export default function DepartmentManagementPage({
           event.component?.cancelEditData()
         } catch (error) {
           console.error("Create department error", error)
-          notify(getApiErrorMessage(error, t("INSERT_FAILED", "Thêm mới thất bại")), "error", 3000)
+          reportSaveError(getApiErrorMessage(error, t("INSERT_FAILED", "Thêm mới thất bại")))
           throw error
         }
       })()
@@ -161,6 +154,7 @@ export default function DepartmentManagementPage({
 
   const onRowUpdating = useCallback(
     (event: RowUpdatingEventWithPromise) => {
+    const reportSaveError = captureMasterPopupError(event.component)
       event.promise = (async () => {
         try {
           const payload = buildUpdatePayload(event)
@@ -169,7 +163,7 @@ export default function DepartmentManagementPage({
           event.component?.cancelEditData()
         } catch (error) {
           console.error("Update department error", error)
-          notify(getApiErrorMessage(error, t("UPDATE_FAILED", "Cập nhật thất bại")), "error", 3000)
+          reportSaveError(getApiErrorMessage(error, t("UPDATE_FAILED", "Cập nhật thất bại")))
           throw error
         }
       })()
@@ -352,7 +346,7 @@ export default function DepartmentManagementPage({
           const parent = selectedParentRow
           setSelectedParentRow(null)
           event.data = {
-            ...createDefaultDepartmentInfo(getCurrentCompanyCd(), getCurrentUserId()),
+            ...createDefaultDepartmentInfo(getCurrentCompanyCd()),
             ...(event.data ?? {}),
             PARENT_CD: parent?.DEPARTMENT_CD ?? "",
             PARENT_ID: parent?.DEPARTMENT_ID && parent.DEPARTMENT_ID > 0

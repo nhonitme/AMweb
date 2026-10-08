@@ -1,3 +1,9 @@
+import { captureMasterPopupError } from "@/components/datagrid/masterPopupValidation";
+import {
+  clearMasterFormDraft,
+  mergeMasterFormDraft,
+  seedMasterFormDraft,
+} from "@/components/lookup/masterFormDraft";
 import { downloadFile } from "@/lib/fileUtils"
 import { useCallback, useContext, useRef, useState } from "react";
 import { LoadPanel } from "devextreme-react";
@@ -99,12 +105,13 @@ export default function StoreList({
   };
 
   const onRowInserting = (e: RowInsertingEventWithPromise) => {
+    const reportSaveError = captureMasterPopupError(e.component)
     e.promise = (async () => {
       try {
-        const payload = {
+        const payload = mergeMasterFormDraft({
           ...e.data,
           STORE_CD: getSequenceSubmitCode(e.data?.STORE_CD),
-        };
+        });
         if (payload.STORE_KIND_ID == null) {
           delete payload.STORE_KIND_ID;
         }
@@ -114,15 +121,16 @@ export default function StoreList({
           (e.component as dxDataGrid).cancelEditData();
         }
       } catch (error: unknown) {
-        notify(getApiErrorMessage(error, t("INSERT_FAILED", "Thêm mới thất bại")), "error", 3000);
+        reportSaveError(getApiErrorMessage(error, t("INSERT_FAILED", "Thêm mới thất bại")));
       }
     })();
   };
 
   const onRowUpdating = (e: RowUpdatingEventWithPromise) => {
+    const reportSaveError = captureMasterPopupError(e.component)
     e.promise = (async () => {
       try {
-        const payload = { ...e.oldData, ...e.newData };
+        const payload = mergeMasterFormDraft({ ...e.oldData, ...e.newData });
         if (payload.STORE_KIND_ID == null) {
           delete payload.STORE_KIND_ID;
         }
@@ -132,7 +140,7 @@ export default function StoreList({
           (e.component as dxDataGrid).cancelEditData();
         }
       } catch (error: unknown) {
-        notify(getApiErrorMessage(error, t("UPDATE_FAILED", "Cập nhật thất bại")), "error", 3000);
+        reportSaveError(getApiErrorMessage(error, t("UPDATE_FAILED", "Cập nhật thất bại")));
       }
     })();
   };
@@ -294,10 +302,13 @@ const handleToolbarDelete = async () => {
           onEditingStart={(event) => {
             const rowId = Number(event.key)
             setIsUpdate(Number.isFinite(rowId) && rowId > 0)
+            seedMasterFormDraft(event.data as unknown as Record<string, unknown>)
           }}
+          onEditCanceled={() => clearMasterFormDraft()}
           onInitNewRow={(e) => {
             setIsUpdate(false);
 
+            seedMasterFormDraft(e.data as unknown as Record<string, unknown>);
             e.data.ISUSE = true;
             e.promise = assignSequencePreviewCode(e.data, menuCode, "STORE_CD").then(() => undefined);
           }}

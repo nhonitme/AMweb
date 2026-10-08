@@ -313,10 +313,6 @@ export function normalizeEInvoicePxkInfo(
         HDSO: trimText(pxkInfo.HDSO),
         PTVCHUYEN: trimText(pxkInfo.PTVCHUYEN),
         EXTRA_JSON: trimText(pxkInfo.EXTRA_JSON),
-        CREATE_BY: trimText(pxkInfo.CREATE_BY),
-        CREATE_AT: trimText(pxkInfo.CREATE_AT),
-        UPDATE_BY: trimText(pxkInfo.UPDATE_BY),
-        UPDATE_AT: trimText(pxkInfo.UPDATE_AT),
         ISDEL: Number(pxkInfo.ISDEL ?? 0),
     }
 }

@@ -6,6 +6,7 @@ export type CustomerIdentityDraft = {
   TAX_CD: string
   CUSTOMER_NM_VIET: string
   ADDRESS: string
+  BANK_ID?: number | null
 }
 
 type CustomerEditSession = {
@@ -18,6 +19,7 @@ const emptyIdentity = (): CustomerIdentityDraft => ({
   TAX_CD: "",
   CUSTOMER_NM_VIET: "",
   ADDRESS: "",
+  BANK_ID: null,
 })
 
 let session: CustomerEditSession = {
@@ -26,6 +28,10 @@ let session: CustomerEditSession = {
   dirty: false,
 }
 
+let sessionRevision = 0
+
+export function getCustomerEditSessionRevision(): number { return sessionRevision }
+
 let gridGetter: (() => dxDataGrid | null) | null = null
 
 function pickIdentity(data: Partial<CustomerIdentityDraft> | null | undefined): CustomerIdentityDraft {
@@ -33,6 +39,7 @@ function pickIdentity(data: Partial<CustomerIdentityDraft> | null | undefined): 
     TAX_CD: String(data?.TAX_CD ?? ""),
     CUSTOMER_NM_VIET: String(data?.CUSTOMER_NM_VIET ?? ""),
     ADDRESS: String(data?.ADDRESS ?? ""),
+    BANK_ID: data?.BANK_ID ?? null,
   }
 }
 
@@ -48,6 +55,7 @@ export function beginCustomerEditSession(
   key: string | number | null | undefined,
   data?: Partial<CustomerIdentityDraft> | null,
 ): CustomerIdentityDraft {
+  sessionRevision++
   session = {
     key: key ?? null,
     identity: pickIdentity(data),
@@ -90,7 +98,7 @@ export function clearCustomerEditSession(): void {
 
 /** Prefer session; if empty, read the row currently being edited in the grid. */
 export function resolveCustomerIdentitySeed(): CustomerIdentityDraft {
-  if (identityHasData(session.identity)) {
+  if (session.dirty || identityHasData(session.identity)) {
     return { ...session.identity }
   }
 

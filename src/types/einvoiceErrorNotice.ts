@@ -12,10 +12,6 @@ export interface EInvoiceErrorNoticeDetailApi {
   NGAY?: EInvoiceErrorNoticeText
   LADHDDT?: number | null
   LDO?: EInvoiceErrorNoticeText
-  CREATE_BY?: EInvoiceErrorNoticeText
-  CREATE_AT?: EInvoiceErrorNoticeText
-  UPDATE_BY?: EInvoiceErrorNoticeText
-  UPDATE_AT?: EInvoiceErrorNoticeText
   ISDEL?: number | null
 }
 
@@ -40,10 +36,6 @@ export interface EInvoiceErrorNoticeApi {
   MGDDTU?: EInvoiceErrorNoticeText
   MTDIEP?: EInvoiceErrorNoticeText
   ERROR_MESSAGE?: EInvoiceErrorNoticeText
-  CREATE_BY?: EInvoiceErrorNoticeText
-  CREATE_AT?: EInvoiceErrorNoticeText
-  UPDATE_BY?: EInvoiceErrorNoticeText
-  UPDATE_AT?: EInvoiceErrorNoticeText
   ISDEL?: number | null
   DETAILS?: EInvoiceErrorNoticeDetailApi[]
 }
@@ -62,10 +54,6 @@ export interface EInvoiceErrorNoticeDetail {
   NGAY: string
   LADHDDT: number
   LDO: string
-  CREATE_BY: string
-  CREATE_AT: string
-  UPDATE_BY: string
-  UPDATE_AT: string
   ISDEL: number
 }
 
@@ -90,10 +78,6 @@ export interface EInvoiceErrorNotice {
   MGDDTU: string
   MTDIEP: string
   ERROR_MESSAGE: string
-  CREATE_BY: string
-  CREATE_AT: string
-  UPDATE_BY: string
-  UPDATE_AT: string
   ISDEL: number
   DETAILS: EInvoiceErrorNoticeDetail[]
 }

@@ -71,8 +71,6 @@ export const normalizeUserInfo = (record: UserInfoApi): UserInfo => {
     DEFAULT_YN: toBool(record.DEFAULT_YN),
     IS_ACTIVE: record.IS_ACTIVE === undefined || record.IS_ACTIVE === null ? true : toBool(record.IS_ACTIVE),
     ISDEL: toBool(record.ISDEL),
-    CREATE_BY: trimText(record.CREATE_BY),
-    UPDATE_BY: trimText(record.UPDATE_BY),
   }
 }
 
@@ -114,6 +112,4 @@ export const createDefaultUserInfo = (companyCd: string): UserInfo => ({
   DEFAULT_YN: false,
   IS_ACTIVE: true,
   ISDEL: false,
-  CREATE_BY: "",
-  UPDATE_BY: "",
 })

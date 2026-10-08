@@ -1,16 +1,14 @@
 import { useContext, useState } from "react"
-import { AsyncRule, Button, Column, RequiredRule, TreeListTypes } from "devextreme-react/tree-list"
+import { Button, Column, TreeListTypes } from "devextreme-react/tree-list"
 import type { SelectBoxTypes } from "devextreme-react/select-box"
 
-import { checkCodeExists } from "@/api/lookupApi"
 import BaseLookupCellEditor from "@/components/lookup/BaseLookupCellEditor"
 import { departmentCodeLookupStore } from "@/components/lookup/departmentLookupStore"
 import { formatDepartmentDisplay } from "@/components/lookup/departmentLookupUtils"
 import { renderSharedDepartmentLookupPage } from "@/components/lookup/sharedMasterLookupPages"
-import { filterActiveLangFields, isDefaultLangField, pickLocalizedText, useCompanyLangRevision } from "@/lib/companyLang"
+import { filterActiveLangFields, pickLocalizedText, useCompanyLangRevision } from "@/lib/companyLang"
 import { LanguageContext } from "@/lib/i18nLoader"
 import type { DepartmentInfo } from "@/types/departmentInfo"
-import { createDuplicateCodeValidator } from "@/utils/gridValidation"
 import { departmentFields } from "./DepartmentFields"
 
 type ParentCodeEditCell = {
@@ -22,13 +20,6 @@ type ParentCodeEditCell = {
 type DepartmentInfoColumnsProps = {
   onAddChild?: (rowData: DepartmentInfo) => void
 }
-
-const validateDepartmentCd = createDuplicateCodeValidator({
-  idField: "DEPARTMENT_ID",
-  exists: (departmentId, departmentCd) => checkCodeExists("department", departmentCd, departmentId),
-})
-
-const requiredDepartmentFields = new Set(["DEPARTMENT_CD"])
 
 function readParentCode(value: unknown): string {
   return typeof value === "string" ? value.trim() : ""
@@ -89,7 +80,7 @@ export function DepartmentInfoColumns({ onAddChild }: DepartmentInfoColumnsProps
   }
 
   const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
-  const companyLangRevision = useCompanyLangRevision()
+  useCompanyLangRevision()
 
   return (
     <>
@@ -116,22 +107,14 @@ export function DepartmentInfoColumns({ onAddChild }: DepartmentInfoColumnsProps
         <Column
           key={field.key}
           dataField={field.key}
-          caption={t(field.key, field.caption)}
           editCellRender={
             field.key === "PARENT_CD"
               ? (cellInfo: ParentCodeEditCell) => <ParentCodeLookupEditor {...cellInfo} />
               : undefined
           }
         >
-          {(requiredDepartmentFields.has(field.key) || isDefaultLangField(field.key)) && (
-            <RequiredRule key={`${field.key}-${companyLangRevision}`} message={t("MSG_MUST_ITEM", `${field.key} is required`)} />
-          )}
-          {field.key === "DEPARTMENT_CD" && (
-            <AsyncRule
-              message={t("MsgEqualCode", "DEPARTMENT_CD already exists")}
-              validationCallback={validateDepartmentCd}
-            />
-          )}
+          
+          
         </Column>
       ))}
     </>

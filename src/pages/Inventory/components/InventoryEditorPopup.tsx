@@ -1,4 +1,6 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+
+import "./InventoryEditorPopup.css"
 import Button from "devextreme-react/button"
 import DataGrid, { Column, Editing, RequiredRule, Summary, TotalItem } from "devextreme-react/data-grid"
 import type dxDataGrid from "devextreme/ui/data_grid"
@@ -951,7 +953,7 @@ export default function InventoryEditorPopup({
       maxHeight="100vh"
       container="body"
       position={{ my: "center", at: "center", of: window }}
-      wrapperAttr={createPopupShortcutWrapperAttr(popupShortcutScopeId)}
+      wrapperAttr={{ class: "inventory-editor-popup", ...createPopupShortcutWrapperAttr(popupShortcutScopeId) }}
       animation={POPUP_FADE_ANIMATION}
       onHiding={onClose}
     >
@@ -992,61 +994,49 @@ export default function InventoryEditorPopup({
         )}
       />
       <LookupPopupProvider>
-        <div className="relative flex h-full flex-col overflow-hidden bg-slate-50">
-          <div className="flex-shrink-0 p-3">
-            <div className="rounded-md border border-slate-200 bg-white p-3">
-              <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(280px,1fr)]">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <Form formData={draft} labelLocation="top" colCount={2} onFieldDataChanged={handleFieldDataChanged}>
-                    <Item
-                      dataField="AMOUNT"
-                      editorType="dxNumberBox"
-                      label={{ text: t("AMOUNT", "Amount") }}
-                      editorOptions={createVoucherEditorOptions({ readOnly: true, format: "#,##0.00" })}
-                    />
-                    <Item
-                      dataField="PAYER_INFO"
-                      colSpan={2}
-                      editorType="dxTextBox"
-                      label={{ text: t("PAYER_INFO", "Payer") }}
-                      editorOptions={createVoucherEditorOptions()}
-                    />
-                    <Item
-                      dataField="NOTE"
-                      colSpan={2}
-                      editorType="dxTextBox"
-                      label={{ text: t("NOTE", "Note") }}
-                      editorOptions={createVoucherEditorOptions()}
-                    />
-                  </Form>
-                </div>
-
-                <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-                  <Form formData={draft} labelLocation="top" colCount={1} onFieldDataChanged={handleFieldDataChanged}>
-                    <Item
-                      dataField="CHIT_NO"
-                      editorType="dxTextBox"
-                      label={{ text: t("CHIT_NO", "Voucher No") }}
-                      editorOptions={createVoucherEditorOptions({ validationMessageMode: "always" })}
-                      validationRules={[
-                        createRequiredRule(t("MSG_MUST_ITEM", "Voucher no is required")),
-                        createTrimmedRequiredRule(t("MSG_MUST_ITEM", "Voucher no is required")),
-                      ]}
-                    />
-                    <Item
-                      dataField="CHIT_YMD"
-                      editorType="dxDateBox"
-                      label={{ text: t("CHIT_YMD", "Voucher Date") }}
-                      editorOptions={createVoucherDateBoxEditorOptions({ validationMessageMode: "always" })}
-                    />
-                  </Form>
-                </div>
-              </div>
-            </div>
+        <div className="relative flex h-full flex-col overflow-hidden bg-[#f3f4f6]">
+          <div className="inventory-voucher-fields-panel flex-shrink-0 px-4 pt-3 pb-3">
+            <Form formData={draft} labelLocation="top" colCount={3} onFieldDataChanged={handleFieldDataChanged}>
+              <Item
+                dataField="AMOUNT"
+                editorType="dxNumberBox"
+                label={{ text: t("AMOUNT", "Amount") }}
+                editorOptions={createVoucherEditorOptions({ readOnly: true, format: "#,##0.00" })}
+              />
+              <Item
+                dataField="PAYER_INFO"
+                editorType="dxTextBox"
+                label={{ text: t("PAYER_INFO", "Payer") }}
+                editorOptions={createVoucherEditorOptions()}
+              />
+              <Item
+                dataField="CHIT_NO"
+                editorType="dxTextBox"
+                label={{ text: t("CHIT_NO", "Voucher No") }}
+                editorOptions={createVoucherEditorOptions({ validationMessageMode: "always" })}
+                validationRules={[
+                  createRequiredRule(t("MSG_MUST_ITEM", "Voucher no is required")),
+                  createTrimmedRequiredRule(t("MSG_MUST_ITEM", "Voucher no is required")),
+                ]}
+              />
+              <Item
+                dataField="NOTE"
+                colSpan={2}
+                editorType="dxTextBox"
+                label={{ text: t("NOTE", "Note") }}
+                editorOptions={createVoucherEditorOptions()}
+              />
+              <Item
+                dataField="CHIT_YMD"
+                editorType="dxDateBox"
+                label={{ text: t("CHIT_YMD", "Voucher Date") }}
+                editorOptions={createVoucherDateBoxEditorOptions({ validationMessageMode: "always" })}
+              />
+            </Form>
           </div>
 
-          <div className="min-h-0 flex-1 px-3 pb-3">
-            <div className="flex h-full min-h-0 flex-col rounded-md border border-slate-200 bg-white p-3">
+          <div className="min-h-0 flex-1 px-4 pb-3">
+            <div className="flex h-full min-h-0 flex-col bg-white p-3">
               <div className="flex h-full min-h-0 flex-col">
                 {chitType === "IR" ? (
                   <ChitInventoryInputGridPopup
@@ -1100,8 +1090,8 @@ export default function InventoryEditorPopup({
             </div>
           </div>
 
-          <div className="flex flex-shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-white px-4 py-3">
-            <Button text={t("SAVE", "Save")} icon="save" type="default" stylingMode="contained" onClick={handleSave} disabled={loading} />
+          <div className="inventory-editor-footer flex flex-shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-white px-4 py-3">
+            <Button text={t("SAVE", "Save")} icon="save" type="default" stylingMode="contained" elementAttr={{ class: "inventory-editor-save-btn" }} onClick={handleSave} disabled={loading} />
             {onSaveAndNew ? (
               <Button
                 text={t("SAVE_AND_NEW", "Save and create new")}

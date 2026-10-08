@@ -1,3 +1,4 @@
+import { captureMasterPopupError } from "@/components/datagrid/masterPopupValidation";
 import { useCallback, useContext, useMemo, useRef, useState } from "react"
 import { LoadPanel } from "devextreme-react"
 import { Editing } from "devextreme-react/data-grid"
@@ -94,13 +95,7 @@ export default function BankManagementPage({
 
   const excludedFields = useMemo(
     () =>
-      new Set<string>([
-        "BANK_ID",
-        "COMPANY_CD",
-        "ISDEL",
-        "CREATE_BY",
-        "UPDATE_BY",
-      ]),
+      new Set<string>(["BANK_ID", "COMPANY_CD", "ISDEL"]),
     [],
   )
 
@@ -148,6 +143,7 @@ export default function BankManagementPage({
 
   const onRowInserting = useCallback(
     (event: RowInsertingEventWithPromise) => {
+    const reportSaveError = captureMasterPopupError(event.component)
       event.promise = (async () => {
         try {
           const payload = buildCreatePayload({ ...(event.data ?? {}) })
@@ -156,7 +152,7 @@ export default function BankManagementPage({
           event.component?.cancelEditData()
         } catch (error) {
           console.error("Create bank error", error)
-          notify(getApiErrorMessage(error, t("INSERT_FAILED", "Thêm mới thất bại")), "error", 3000)
+          reportSaveError(getApiErrorMessage(error, t("INSERT_FAILED", "Thêm mới thất bại")))
           throw error
         }
       })()
@@ -166,6 +162,7 @@ export default function BankManagementPage({
 
   const onRowUpdating = useCallback(
     (event: RowUpdatingEventWithPromise) => {
+    const reportSaveError = captureMasterPopupError(event.component)
       event.promise = (async () => {
         try {
           const payload = buildUpdatePayload(event)
@@ -174,7 +171,7 @@ export default function BankManagementPage({
           event.component?.cancelEditData()
         } catch (error) {
           console.error("Update bank error", error)
-          notify(getApiErrorMessage(error, t("UPDATE_FAILED", "Cập nhật thất bại")), "error", 3000)
+          reportSaveError(getApiErrorMessage(error, t("UPDATE_FAILED", "Cập nhật thất bại")))
           throw error
         }
       })()

@@ -39,8 +39,6 @@ export type EInvoiceTemplateDesignerDesign = {
   INVOICE_BACKGROUND_PATH?: string | null
   INVOICE_BORDER_PATH?: string | null
   BACKGROUND_PATH?: string | null
-  CREATE_AT?: string
-  UPDATE_AT?: string
 }
 
 export async function getEInvoiceTemplateDesignerDesigns(xslId: number): Promise<{ data: EInvoiceTemplateDesignerDesign[] }> {
@@ -171,7 +169,6 @@ export type EInvoiceFtpImageFile = {
   FILE_NAME: string
   PATH: string
   SIZE?: number
-  UPDATE_AT?: string
   SOURCE?: "library" | "company" | string
 }
 

@@ -1,3 +1,4 @@
+import { captureMasterPopupError, showMasterPopupError } from "@/components/datagrid/masterPopupValidation";
 import { useCallback, useContext, useMemo, useRef, useState } from "react"
 import { LoadPanel } from "devextreme-react"
 import { Editing } from "devextreme-react/data-grid"
@@ -19,7 +20,7 @@ import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout"
 import MasterDataEditPopup from "@/components/datagrid/MasterDataEditPopup"
 import { downloadFile } from "@/lib/fileUtils"
 import { LanguageContext } from "@/lib/i18nLoader"
-import { getCurrentCompanyCd, getCurrentUserId } from "@/lib/login"
+import { getCurrentCompanyCd } from "@/lib/login"
 import { assignSequencePreviewCode, getSequenceSubmitCode } from "@/lib/codeSequence"
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
 import { buildMasterGridReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
@@ -95,7 +96,10 @@ export default function CustomerExtManager({
   } = useCustomerExtListQuery(lang)
   const { createMutation, updateMutation, deleteMutation } = useCustomerExtMutations(lang)
   const loading = isLoading || isFetching
-  const gridData = useMemo(() => normalizeCustomerExtRows(customerRows), [customerRows])
+  const gridData = useMemo(() => {
+    const rows = normalizeCustomerExtRows(customerRows)
+    return rows
+  }, [customerRows])
   const reloadCustomers = useMasterListReload(refetchCustomers, gridRef)
 
   const { getCodesByType } = useSysCodes()
@@ -112,14 +116,7 @@ export default function CustomerExtManager({
 
   const excludedFields = useMemo(
     () =>
-      new Set<string>([
-        "CUSTOMER_ID",
-        "CUSTOMER_EXT_ID",
-        "COMPANY_CD",
-        "ISDEL",
-        "CREATE_BY",
-        "UPDATE_BY",
-      ]),
+      new Set<string>(["CUSTOMER_ID", "CUSTOMER_EXT_ID", "COMPANY_CD", "ISDEL"]),
     [],
   )
 
@@ -130,10 +127,9 @@ export default function CustomerExtManager({
 
   const buildCreatePayload = useCallback((data: Partial<CustomerExt>): Partial<CustomerExtApi> => {
     const currentCompanyCd = getCurrentCompanyCd()
-    const currentUserId = getCurrentUserId()
 
     const nextRow: CustomerExt = {
-      ...createDefaultCustomerExt(currentCompanyCd, currentUserId),
+      ...createDefaultCustomerExt(currentCompanyCd),
       ...data,
       COMPANY_CD: data.COMPANY_CD || currentCompanyCd,
       CUSTOMER_CD: getSequenceSubmitCode(data.CUSTOMER_CD),
@@ -145,10 +141,9 @@ export default function CustomerExtManager({
 
   const buildUpdatePayload = useCallback((event: RowUpdatingEventWithPromise): Partial<CustomerExtApi> => {
     const currentCompanyCd = event.oldData?.COMPANY_CD || getCurrentCompanyCd()
-    const currentUserId = getCurrentUserId()
 
     const mergedRow: CustomerExt = {
-      ...createDefaultCustomerExt(currentCompanyCd, currentUserId),
+      ...createDefaultCustomerExt(currentCompanyCd),
       ...(event.oldData ?? {}),
       ...(event.newData ?? {}),
       COMPANY_CD: currentCompanyCd,
@@ -179,6 +174,7 @@ export default function CustomerExtManager({
 
   const onRowInserting = useCallback(
     (event: RowInsertingEventWithPromise) => {
+      const reportSaveError = captureMasterPopupError(event.component)
       event.promise = (async () => {
         try {
           const identity = getCustomerEditIdentity()
@@ -193,7 +189,7 @@ export default function CustomerExtManager({
           event.component?.cancelEditData()
         } catch (error) {
           console.error("Create customer error", error)
-          notify(resolveCustomerSaveError(error, t("INSERT_FAILED", "Thêm mới thất bại")), "error", 4000)
+          reportSaveError(resolveCustomerSaveError(error, t("INSERT_FAILED", "Thêm mới thất bại")))
           throw error
         }
       })()
@@ -203,6 +199,7 @@ export default function CustomerExtManager({
 
   const onRowUpdating = useCallback(
     (event: RowUpdatingEventWithPromise) => {
+      const reportSaveError = captureMasterPopupError(event.component)
       event.promise = (async () => {
         try {
           const identity = getCustomerEditIdentity()
@@ -216,7 +213,7 @@ export default function CustomerExtManager({
           event.component?.cancelEditData()
         } catch (error) {
           console.error("Update customer error", error)
-          notify(resolveCustomerSaveError(error, t("UPDATE_FAILED", "Cập nhật thất bại")), "error", 4000)
+          reportSaveError(resolveCustomerSaveError(error, t("UPDATE_FAILED", "Cập nhật thất bại")))
           throw error
         }
       })()
@@ -328,7 +325,6 @@ export default function CustomerExtManager({
 
       setIsUpdate(true)
 
-      // Seed BEFORE editRow so Form custom render can read MST on first paint.
       beginCustomerEditSession(event.key as string | number | null | undefined, event.data)
 
       const rowIndex =
@@ -428,26 +424,22 @@ export default function CustomerExtManager({
           insertSessionRef.current = true
           setIsUpdate(false)
           event.data = {
-            ...createDefaultCustomerExt(getCurrentCompanyCd(), getCurrentUserId()),
+            ...createDefaultCustomerExt(getCurrentCompanyCd()),
             ...(event.data ?? {}),
           }
           beginCustomerEditSession(null, event.data)
           event.promise = assignSequencePreviewCode(event.data, menuCode, "CUSTOMER_CD")
             .then((nextCode) => {
               if (!nextCode) {
-                notify(
+                showMasterPopupError(event.component,
                   t("MSG_CODE_SEQUENCE_NOT_CONFIGURED", "Customer code sequence is not configured"),
-                  "warning",
-                  4000,
                 )
               }
             })
             .catch((error) => {
               console.error("Preview customer code error", error)
-              notify(
+              showMasterPopupError(event.component,
                 getApiErrorMessage(error, t("Failed to preview customer code", "Failed to preview customer code")),
-                "error",
-                4000,
               )
               throw error
             })

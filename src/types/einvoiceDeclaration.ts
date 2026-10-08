@@ -32,10 +32,6 @@ export interface EInvoiceDeclarationDetailApi {
   DNGAY?: EInvoiceDeclarationText
   GCHU?: EInvoiceDeclarationText
   RAW_DETAIL_XML?: EInvoiceDeclarationText
-  CREATE_BY?: EInvoiceDeclarationText
-  CREATE_AT?: EInvoiceDeclarationText
-  UPDATE_BY?: EInvoiceDeclarationText
-  UPDATE_AT?: EInvoiceDeclarationText
   ISDEL?: number | null
 }
 
@@ -95,10 +91,6 @@ export interface EInvoiceDeclarationApi {
   CQT_STATUS?: number | null
   MCCQT?: string | null
   ERROR_MESSAGE?: EInvoiceDeclarationText
-  CREATE_BY?: EInvoiceDeclarationText
-  CREATE_AT?: EInvoiceDeclarationText
-  UPDATE_BY?: EInvoiceDeclarationText
-  UPDATE_AT?: EInvoiceDeclarationText
   ISDEL?: number | null
   DETAILS?: EInvoiceDeclarationDetailApi[]
 }
@@ -112,22 +104,14 @@ export type EInvoiceDeclarationDetailType =
   | "TNSDUNG"
   | "DKTH"
 
-export interface EInvoiceDeclarationDetail extends Required<Omit<EInvoiceDeclarationDetailApi, "COMPANY_CD" | "CREATE_AT" | "CREATE_BY" | "UPDATE_AT" | "UPDATE_BY" | "DETAIL_TYPE">> {
+export interface EInvoiceDeclarationDetail extends Required<Omit<EInvoiceDeclarationDetailApi, "COMPANY_CD" | "DETAIL_TYPE">> {
   ROW_KEY: string
   COMPANY_CD: string
   DETAIL_TYPE: EInvoiceDeclarationDetailType
-  CREATE_AT: string
-  CREATE_BY: string
-  UPDATE_AT: string
-  UPDATE_BY: string
 }
 
-export interface EInvoiceDeclaration extends Required<Omit<EInvoiceDeclarationApi, "COMPANY_CD" | "CREATE_AT" | "CREATE_BY" | "UPDATE_AT" | "UPDATE_BY" | "DETAILS" | "IS_SIGNED" | "GTINH">> {
+export interface EInvoiceDeclaration extends Required<Omit<EInvoiceDeclarationApi, "COMPANY_CD" | "DETAILS" | "IS_SIGNED" | "GTINH">> {
   COMPANY_CD: string
-  CREATE_AT: string
-  CREATE_BY: string
-  UPDATE_AT: string
-  UPDATE_BY: string
   IS_SIGNED: number
   GTINH: number | null
   DETAILS: EInvoiceDeclarationDetail[]
@@ -171,6 +155,5 @@ export interface EInvoiceDeclarationTransmissionMessage {
   SLUONG?: number | null
   RESPONSE_XML?: EInvoiceDeclarationText
   ERROR_MESSAGE?: EInvoiceDeclarationText
-  CREATE_USER?: EInvoiceDeclarationText
-  CREATE_DT?: EInvoiceDeclarationText
+  CREATE_AT?: EInvoiceDeclarationText
 }

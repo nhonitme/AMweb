@@ -6,8 +6,6 @@ export interface ManagementInfoApi {
   MG_DESC_ENG?: string | null
   MG_DESC_VIET?: string | null
   ISDEL?: string | null
-  CREATE_BY?: string | null
-  UPDATE_BY?: string | null
   MG_CD_ROOT?: string | null
 }
 
@@ -19,8 +17,6 @@ export interface ManagementInfo {
   MG_DESC_ENG: string
   MG_DESC_VIET: string
   ISDEL: boolean
-  CREATE_BY: string
-  UPDATE_BY: string
   MG_CD_ROOT: string
 }
 

@@ -27,10 +27,6 @@ export interface UserProfileApi {
   NOTE?: UserProfileText
   IS_ACTIVE?: UserProfileText
   ISDEL?: UserProfileText
-  UPDATE_BY?: UserProfileText
-  CREATE_BY?: UserProfileText
-  CREATED_AT?: UserProfileText
-  UPDATED_AT?: UserProfileText
 }
 
 export interface UserProfile {
@@ -60,10 +56,6 @@ export interface UserProfile {
   NOTE: string
   IS_ACTIVE: boolean
   ISDEL: boolean
-  UPDATE_BY: string
-  CREATE_BY: string
-  CREATED_AT: string | null
-  UPDATED_AT: string | null
 }
 
 export interface ChangeUserPasswordPayload {

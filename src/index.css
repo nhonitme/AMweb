@@ -984,3 +984,65 @@ Cột filler + khoảng trống bên phải luôn nền trắng để tách rõ 
   bottom: 0;
   z-index: 2;
 }
+
+/* M�u icon toolbar report (WebDocumentViewer). DevExpress m?c d?nh dxd-icon-fill = #606060. */
+.am-report-viewer .dxrd-toolbar .dxd-icon-fill {
+  fill: #334155;
+  transition: fill 0.15s ease;
+}
+
+.am-report-viewer .dxrd-toolbar .dxrd-toolbar-item:hover .dxd-icon-fill,
+.am-report-viewer .dxrd-toolbar .dxd-state-hover .dxd-icon-fill {
+  fill: #2563eb;
+}
+
+.am-report-viewer .dxrd-toolbar .dxrd-toolbar-item.dx-state-disabled .dxd-icon-fill,
+.am-report-viewer .dxrd-toolbar .dxrd-toolbar-item[disabled] .dxd-icon-fill {
+  fill: #cbd5e1;
+}
+
+/* Nh�m icon xanh duong: zoom, ph�n trang, t�m ki?m */
+.am-report-viewer .dxrd-toolbar .dxrd-toolbar-item-zoom .dxd-icon-fill,
+.am-report-viewer .dxrd-toolbar .dxrd-preview-pager .dxd-icon-fill,
+.am-report-viewer .dxrd-toolbar .dxrd-switch-icon .dxd-icon-fill {
+  fill: #0284c7;
+}
+
+.am-report-viewer .dxrd-toolbar .dxrd-toolbar-item-zoom:hover .dxd-icon-fill,
+.am-report-viewer .dxrd-toolbar .dxrd-preview-pager:hover .dxd-icon-fill {
+  fill: #0369a1;
+}
+
+/* Nh�m icon xanh l�: xu?t PDF, in ?n */
+.am-report-viewer .dxrd-toolbar .dxrd-preview-export-toolbar-item .dxd-icon-fill {
+  fill: #15803d;
+}
+
+.am-report-viewer .dxrd-toolbar .dxrd-preview-export-toolbar-item:hover .dxd-icon-fill {
+  fill: #166534;
+}
+
+/* Icon custom c?a app: refresh (xanh duong), s?a ch? k� (h?ng), ng�n ng? (t�m) */
+.am-report-viewer .am-report-viewer-icon-refresh .dxd-icon-fill {
+  fill: #2563eb;
+}
+
+.am-report-viewer .am-report-viewer-icon-signatures .dxd-icon-fill {
+  fill: #db2777;
+}
+
+.am-report-viewer .am-report-viewer-icon-language .dxd-icon-fill {
+  fill: #7c3aed;
+}
+
+.am-report-viewer .am-report-viewer-icon-refresh:hover .dxd-icon-fill {
+  fill: #1d4ed8;
+}
+
+.am-report-viewer .am-report-viewer-icon-signatures:hover .dxd-icon-fill {
+  fill: #be185d;
+}
+
+.am-report-viewer .am-report-viewer-icon-language:hover .dxd-icon-fill {
+  fill: #6d28d9;
+}

@@ -765,10 +765,6 @@ export function createDefaultEInvoiceDetailSpecial(
     MSTNG_HANG: "",
     MDDNG_HANG: "",
     EXTRA_JSON: "",
-    CREATE_USER: "",
-    CREATE_DT: "",
-    UPDATE_USER: "",
-    UPDATE_DT: "",
   }
 }
 
@@ -801,10 +797,6 @@ export function normalizeEInvoiceDetailSpecial(
     MSTNG_HANG: trimText(record.MSTNG_HANG),
     MDDNG_HANG: trimText(record.MDDNG_HANG),
     EXTRA_JSON: trimText(record.EXTRA_JSON),
-    CREATE_USER: trimText(record.CREATE_USER),
-    CREATE_DT: trimText(record.CREATE_DT),
-    UPDATE_USER: trimText(record.UPDATE_USER),
-    UPDATE_DT: trimText(record.UPDATE_DT),
   }
 }
 
@@ -1015,10 +1007,6 @@ export function createDefaultEInvoiceDetail(index: number, invoiceId = 0, compan
     TSAUTHUE_VND: 0,
     SPECIAL: null,
     EXTRA_JSON: "",
-    CREATE_AT: "",
-    CREATE_BY: "",
-    UPDATE_AT: "",
-    UPDATE_BY: "",
     ISDEL: 0,
   }
 }
@@ -1091,10 +1079,6 @@ export function createDefaultEInvoice(companyCd: string): EInvoice {
     MAIL_STATUS: 0,
     SOURCE_INVOICE_ID: null,
     ERROR_MESSAGE: "",
-    CREATE_BY: "",
-    CREATE_AT: "",
-    UPDATE_BY: "",
-    UPDATE_AT: "",
     ISDEL: 0,
     PXK_INFO: null,
     RELATED: null,
@@ -1120,8 +1104,6 @@ export function createDefaultEInvoiceRelated(invoiceId = 0, companyCd = ""): EIn
     SBKCLQUAN: "",
     NBKCLQUAN: "",
     GCHU: "",
-    CREATE_USER: "",
-    CREATE_DT: "",
   }
 }
 
@@ -1147,7 +1129,6 @@ export function createDefaultEInvoiceBkeReason(sortOrder = 1, bkeId = 0): EInvoi
     BKE_ID: bkeId,
     SORT_ORDER: sortOrder,
     LDO: "",
-    CREATE_DT: "",
     ISDEL: 0,
   }
 }
@@ -1183,7 +1164,6 @@ export function createDefaultEInvoiceBkeDetail(stt = 1, bkeId = 0): EInvoiceBkeD
     TGTKCLECH: null,
     TGTTTCLECH: null,
     EXTRA_JSON: "",
-    CREATE_DT: "",
     ISDEL: 0,
   }
 }
@@ -1218,10 +1198,6 @@ export function createDefaultEInvoiceBke(
     SIGNED_XML: "",
     IS_SIGNED: 0,
     NMUA_IS_SIGNED: 0,
-    CREATE_BY: "",
-    CREATE_DT: "",
-    UPDATE_BY: "",
-    UPDATE_DT: "",
     ISDEL: 0,
     REASONS: [createDefaultEInvoiceBkeReason(1)],
     DETAILS: [],
@@ -1234,7 +1210,6 @@ export function normalizeEInvoiceBkeReason(record: EInvoiceBkeReasonApi | null |
     BKE_ID: toNumber(record?.BKE_ID, 0),
     SORT_ORDER: toNumber(record?.SORT_ORDER, index + 1),
     LDO: trimText(record?.LDO),
-    CREATE_DT: trimText(record?.CREATE_DT),
     ISDEL: toNumber(record?.ISDEL, 0),
   }
 }
@@ -1277,7 +1252,6 @@ export function normalizeEInvoiceBkeDetail(record: EInvoiceBkeDetailApi | null |
     TGTKCLECH: nullableAmount(record?.TGTKCLECH),
     TGTTTCLECH: nullableAmount(record?.TGTTTCLECH),
     EXTRA_JSON: trimText(record?.EXTRA_JSON),
-    CREATE_DT: trimText(record?.CREATE_DT),
     ISDEL: toNumber(record?.ISDEL, 0),
   }
 }
@@ -1322,10 +1296,6 @@ export function normalizeEInvoiceBke(
     SIGNED_XML: trimText(record.SIGNED_XML),
     IS_SIGNED: toNumber(record.IS_SIGNED, 0) === 1 ? 1 : 0,
     NMUA_IS_SIGNED: toNumber(record.NMUA_IS_SIGNED, 0) === 1 ? 1 : 0,
-    CREATE_BY: trimText(record.CREATE_BY),
-    CREATE_DT: trimText(record.CREATE_DT),
-    UPDATE_BY: trimText(record.UPDATE_BY),
-    UPDATE_DT: trimText(record.UPDATE_DT),
     ISDEL: toNumber(record.ISDEL, 0),
     REASONS: reasons.length > 0 ? reasons : [createDefaultEInvoiceBkeReason(1)],
     DETAILS: details,
@@ -1671,8 +1641,6 @@ export function normalizeEInvoiceRelated(
     SBKCLQUAN: trimText(record.SBKCLQUAN),
     NBKCLQUAN: toDateText(record.NBKCLQUAN),
     GCHU: trimText(record.GCHU),
-    CREATE_USER: trimText(record.CREATE_USER),
-    CREATE_DT: trimText(record.CREATE_DT),
   } satisfies EInvoiceRelatedInfo
 
   if (!requiresEInvoiceRelatedInvoice(normalized.TCHDON)) {
@@ -1962,10 +1930,6 @@ export function normalizeEInvoiceDetail(record: EInvoiceDetailApi, index: number
     TSAUTHUE_VND: toNumber(record.TSAUTHUE_VND, 0),
     SPECIAL: normalizeEInvoiceDetailSpecial(record.SPECIAL, toNumber(record.INVOICE_ID, 0), toNumber(record.DETAIL_ID, 0), trimText(record.COMPANY_CD) || companyCd),
     EXTRA_JSON: trimText(record.EXTRA_JSON),
-    CREATE_AT: trimText(record.CREATE_AT),
-    CREATE_BY: trimText(record.CREATE_BY),
-    UPDATE_AT: trimText(record.UPDATE_AT),
-    UPDATE_BY: trimText(record.UPDATE_BY),
     ISDEL: toNumber(record.ISDEL, 0),
   })
 }
@@ -2061,10 +2025,6 @@ export function normalizeEInvoice(record: EInvoiceApi, companyCd: string): EInvo
     INVOICE_STATUS: toNumber(record.INVOICE_STATUS, 0),
     MAIL_STATUS: toNumber(record.MAIL_STATUS, 0),
     SOURCE_INVOICE_ID: toNumber(record.SOURCE_INVOICE_ID, 0) > 0 ? toNumber(record.SOURCE_INVOICE_ID, 0) : null,
-    CREATE_BY: trimText(record.CREATE_BY),
-    CREATE_AT: trimText(record.CREATE_AT),
-    UPDATE_BY: trimText(record.UPDATE_BY),
-    UPDATE_AT: trimText(record.UPDATE_AT),
     ISDEL: toNumber(record.ISDEL, 0),
     PXK_INFO: pxkInfo,
     RELATED: related,
@@ -2095,10 +2055,6 @@ export function createEInvoiceCopy(source: EInvoice, companyCd: string): EInvoic
           INVOICE_ID: 0,
           COMPANY_CD: companyCd,
           STT: index + 1,
-          CREATE_AT: "",
-          CREATE_BY: "",
-          UPDATE_AT: "",
-          UPDATE_BY: "",
           ISDEL: 0,
         }))
       : [createDefaultEInvoiceDetail(1, 0, companyCd)]
@@ -2121,20 +2077,12 @@ export function createEInvoiceCopy(source: EInvoice, companyCd: string): EInvoic
     IS_SIGNED: 0,
     MAIL_STATUS: 0,
     ERROR_MESSAGE: "",
-    CREATE_AT: "",
-    CREATE_BY: "",
-    UPDATE_AT: "",
-    UPDATE_BY: "",
     ISDEL: 0,
     PXK_INFO: source.PXK_INFO
       ? {
           ...source.PXK_INFO,
           PXK_ID: 0,
           INVOICE_ID: 0,
-          CREATE_AT: "",
-          CREATE_BY: "",
-          UPDATE_AT: "",
-          UPDATE_BY: "",
           ISDEL: 0,
         }
       : null,

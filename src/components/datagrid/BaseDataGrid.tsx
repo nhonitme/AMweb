@@ -1,4 +1,5 @@
-﻿import React, { useContext } from "react";
+import { MasterPopupValidationContext, useMasterPopupValidation } from "./masterPopupValidation";
+import React, { useContext } from "react";
 import DataGrid, {
     Paging,
     Pager,
@@ -43,6 +44,7 @@ import type {
     RowUpdatingEvent,
     RowRemovingEvent,
     EditingStartEvent,
+    EditCanceledEvent,
     InitNewRowEvent,
     SelectionChangedEvent,
     RowDblClickEvent,
@@ -135,6 +137,7 @@ interface BaseDataGridProps<T> {
     onRowDblClick?: (e: RowDblClickEvent) => void;
 
     onInitialized?: (e: InitializedEvent) => void;
+    onContentReady?: (e: ContentReadyEvent) => void;
     onToolbarPreparing?: (e: ToolbarPreparingEvent) => void;
     onContextMenuPreparing?: (e: ContextMenuPreparingEvent) => void;
     onContextMenuUpdate?: (rowData: T) => void;
@@ -144,6 +147,7 @@ interface BaseDataGridProps<T> {
     onRowUpdating?: (e: RowUpdatingEvent) => void;
     onRowRemoving?: (e: RowRemovingEvent) => void;
     onEditingStart?: (e: EditingStartEvent) => void;
+    onEditCanceled?: (e: EditCanceledEvent) => void;
     onInitNewRow?: (e: InitNewRowEvent) => void;
     onSelectionChanged?: (e: SelectionChangedEvent) => void;
     onFocusedRowChanged?: (e: FocusedRowChangedEvent) => void;
@@ -195,6 +199,7 @@ export function BaseDataGrid<T>({
     persistColumnSettings = true,
     onRowDblClick,
     onInitialized,
+    onContentReady,
     onToolbarPreparing,
     onContextMenuPreparing,
     onContextMenuUpdate,
@@ -204,6 +209,7 @@ export function BaseDataGrid<T>({
     onRowUpdating,
     onRowRemoving,
     onEditingStart,
+    onEditCanceled,
     onInitNewRow,
     onSelectionChanged,
     onFocusedRowChanged,
@@ -240,6 +246,7 @@ export function BaseDataGrid<T>({
     };
 
     const t = (key: string, fallback?: string) => (translate ? translate(key, fallback) : fallback ?? key);
+    const popupValidation = useMasterPopupValidation();
     const usesSysGridCatalog = persistColumnSettings && Boolean(gridId?.trim());
     const columnSettingState = useGridColumnSettingState({
         enabled: persistColumnSettings,
@@ -408,18 +415,16 @@ export function BaseDataGrid<T>({
         () => columnSettingState.cachedEditorItems.some((item) => typeof item.width === "number"),
         [columnSettingState.cachedEditorItems],
     );
+    const onContentReadyRef = React.useRef(onContentReady);
+    onContentReadyRef.current = onContentReady;
     const handleContentReady = React.useCallback((event: ContentReadyEvent) => {
         const component = (event.component ?? null) as GridComponentInstance | null;
         setGridContentReady(true);
         if (component && runtimeColumnVisibility) {
-            // component is typed against the real dxDataGrid instance (whose
-            // columnOption overloads take string | number), which is stricter
-            // than gridColumnSettingRender's loose "any grid-like thing"
-            // structural type (columnOption: (...args: unknown[]) => unknown)
-            // it's meant to accept generically — hence the cast.
             applyRuntimeColumnVisibilityToComponent(component as never, runtimeColumnVisibility);
         }
         refreshEmptyAddState(component);
+        onContentReadyRef.current?.(event);
     }, [refreshEmptyAddState, runtimeColumnVisibility]);
 
     React.useEffect(() => {
@@ -678,6 +683,7 @@ export function BaseDataGrid<T>({
     };
 
     return (
+        <MasterPopupValidationContext.Provider value={popupValidation}>
         <div className={`data-grid-container relative h-full w-full${emptyAddAvailable && isGridEmpty ? " data-grid-container--empty-add" : ""}`}>
             <DataGrid
                 key={gridRemountKey}
@@ -706,6 +712,7 @@ export function BaseDataGrid<T>({
                     const comp = (e.component ?? null) as GridComponentInstance | null;
                     gridInstanceRef.current = comp;
                     columnSettingState.bindGridComponent(comp);
+                    popupValidation.bind(comp);
                     installGridHelpers(comp);
                     onInitialized?.(e);
                     refreshEmptyAddState(comp);
@@ -734,6 +741,7 @@ export function BaseDataGrid<T>({
                         : flushPromise;
                 }}
                 onEditingStart={onEditingStart}
+                onEditCanceled={onEditCanceled}
                 onOptionChanged={onOptionChanged}
                 onRowInserted={onRowInserted}
                 onRowUpdated={onRowUpdated}
@@ -827,5 +835,6 @@ export function BaseDataGrid<T>({
                 />
             ) : null}
         </div>
+        </MasterPopupValidationContext.Provider>
     );
 }

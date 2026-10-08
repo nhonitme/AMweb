@@ -21,10 +21,12 @@ export type ApplyGridColumnSettingsOptions = {
 }
 
 type GridColumnSettingsComponent = {
+  addColumn?: (column: Record<string, unknown>) => void
   beginUpdate?: () => void
   columnCount?: () => number
   columnOption?: (...args: unknown[]) => unknown
   endUpdate?: () => void
+  option?: (name: string) => unknown
 }
 
 export function isGridComponentReady(component: GridColumnSettingsComponent | null | undefined): boolean {
@@ -350,6 +352,48 @@ function expandGridColumnChildren(children: React.ReactNode): React.ReactNode {
   return expanded
 }
 
+/**
+ * DevExtreme only auto-builds the edit form from columns when `editing.form.items`
+ * is not declared. Master pages that ship their own `<Form>` list every editable
+ * field there, so a catalog-only column must not be forced out of that form
+ * (`formItem.visible = false`) nor made read-only for fields the popup does edit.
+ */
+function collectEditingFormItemKeys(items: unknown, keys: Set<string> = new Set()): Set<string> {
+  if (!Array.isArray(items)) {
+    return keys;
+  }
+
+  items.forEach((item) => {
+    if (!item || typeof item !== "object") {
+      return;
+    }
+
+    const record = item as Record<string, unknown>;
+    [record.dataField, record.name].forEach((value) => {
+      const normalized = normalizeText(value).toUpperCase();
+      if (normalized) {
+        keys.add(normalized);
+      }
+    });
+
+    // Groups, tabs and tab panels nest their items.
+    [record.items, record.tabs, (record.tabPanel as Record<string, unknown> | undefined)?.items].forEach(
+      (nested) => collectEditingFormItemKeys(nested, keys),
+    );
+  });
+
+  return keys;
+}
+
+function readEditingFormItemKeys(component: GridColumnSettingsComponent | null | undefined): Set<string> {
+  if (typeof component?.option !== "function") {
+    return new Set();
+  }
+
+  const editing = component.option("editing") as { form?: { items?: unknown } } | undefined;
+  return collectEditingFormItemKeys(editing?.form?.items);
+}
+
 export function applyGridColumnSettingsToChildren(
   children: React.ReactNode,
   columnComponent: unknown,
@@ -369,7 +413,7 @@ function applyGridColumnSettingsToChildrenUnsafe(
   translate?: GridCaptionTranslator,
   options?: ApplyGridColumnSettingsOptions,
   allFieldNames: string[] = [],
-) {
+): React.ReactNode {
   const normalizedItems = asGridSettingArray(items)
   const settingsMap = normalizedItems.length ? buildSettingsMap(normalizedItems) : new Map<string, GridColumnSettingEditorItem>()
   const hideColumnsMissingFromSettings = Boolean(options?.hideColumnsMissingFromSettings)
@@ -380,7 +424,7 @@ function applyGridColumnSettingsToChildrenUnsafe(
     }
 
     const childProps = child.props as Record<string, unknown>
-    const currentChildren = childProps.children
+    const currentChildren = childProps.children as React.ReactNode
     const nextChildren =
       currentChildren === undefined
         ? currentChildren
@@ -457,7 +501,7 @@ export function applyRuntimeColumnVisibilityToChildren(
   children: React.ReactNode,
   columnComponent: unknown,
   options: RuntimeColumnVisibilityOptions,
-) {
+): React.ReactNode {
   const runtimeVisibilityMap = buildRuntimeVisibilityMap(options)
 
   return React.Children.map(children, (child) => {
@@ -466,7 +510,7 @@ export function applyRuntimeColumnVisibilityToChildren(
     }
 
     const childProps = child.props as Record<string, unknown>
-    const currentChildren = childProps.children
+    const currentChildren = childProps.children as React.ReactNode
     const nextChildren =
       currentChildren === undefined
         ? currentChildren
@@ -550,7 +594,35 @@ export function applyGridColumnSettingsToComponent(
     return false
   }
 
-  const columnReferenceMap = buildComponentColumnReferenceMap(component)
+  let columnReferenceMap = buildComponentColumnReferenceMap(component)
+  // Catalog fields returned by the list procedure need no handwritten FE column.
+  // Keep existing columns (lookups, renderers and validation) intact.
+  if (options?.hideColumnsMissingFromSettings && component.addColumn) {
+    // A page-provided edit form already enumerates its editable fields, so the
+    // catalog column only carries grid layout there. Hiding it from the form (and
+    // making it read-only) would break fields the popup does edit, e.g. ISABLETYPE.
+    const editingFormItemKeys = readEditingFormItemKeys(component)
+    component.beginUpdate?.()
+    try {
+      for (const item of normalizedItems) {
+        const field = normalizeText(item.columnName)
+        const key = field.toUpperCase()
+        if (!field || columnReferenceMap.has(key) || isTechnicalIdColumnName(field) || isSystemFixedColumnName(field)) continue
+        const editableInPopupForm = editingFormItemKeys.has(key)
+        component.addColumn({
+          name: field,
+          dataField: field,
+          caption: resolveGridColumnCaption(item, undefined, translate),
+          ...(editableInPopupForm ? {} : { allowEditing: false, formItem: { visible: false } }),
+          visible: item.isVisible,
+          allowHiding: item.allowHiding,
+        })
+        columnReferenceMap = buildComponentColumnReferenceMap(component)
+      }
+    } finally {
+      component.endUpdate?.()
+    }
+  }
   const allFieldNames = Array.from(columnReferenceMap.keys())
   const configuredColumnKeys = new Set(
     normalizedItems

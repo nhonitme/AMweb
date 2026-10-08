@@ -98,7 +98,7 @@ type SelectOption<TValue extends string | number> = {
   text: string
 }
 
-const COPY_EXCLUDE_FIELDS = ["TKHAI_ID", "COMPANY_CD", "DETAILS", "XML", "CREATE_AT", "CREATE_BY", "UPDATE_AT", "UPDATE_BY"]
+const COPY_EXCLUDE_FIELDS = ["TKHAI_ID", "COMPANY_CD", "DETAILS", "XML"]
 
 interface PendingSignDeclaration {
   tkhaiId: number

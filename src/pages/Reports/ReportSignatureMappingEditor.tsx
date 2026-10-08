@@ -239,7 +239,7 @@ export default function ReportSignatureMappingEditor({
           <Button
             icon="refresh"
             stylingMode="outlined"
-            text={t("btnRefresh", "Refresh")}
+            text={t("btnRefresh", "Làm mới")}
             type="normal"
             disabled={loading || saving}
             onClick={() => void refetchMapping()}

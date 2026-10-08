@@ -94,8 +94,7 @@ export default function EInvoiceMailHistoryPopup({
           <Column dataField="MAIL_SUBJECT" caption={t("MAIL_SUBJECT", "Tiêu đề")} minWidth={260} cellRender={renderTextCell} />
           <Column dataField="ERROR_MESSAGE" caption={t("ERROR_MESSAGE", "Lỗi")} minWidth={240} cellRender={renderTextCell} />
           <Column dataField="SEND_DT" caption={t("SEND_DT", "Ngày gửi")} dataType="datetime" format="yyyy-MM-dd HH:mm:ss" width={170} />
-          <Column dataField="CREATE_DT" caption={t("CREATE_DT", "Ngày tạo")} dataType="datetime" format="yyyy-MM-dd HH:mm:ss" width={170} />
-          <Column dataField="CREATE_USER" caption={t("CREATE_USER", "Người tạo")} width={120} />
+          <Column dataField="CREATE_AT" caption={t("CREATE_AT", "Ngày tạo")} dataType="datetime" format="yyyy-MM-dd HH:mm:ss" width={170} />
         </DataGrid>
 
         <LoadPanel visible={loading} showIndicator={true} showPane={true} shading={true} shadingColor="rgba(0, 0, 0, 0.12)" />

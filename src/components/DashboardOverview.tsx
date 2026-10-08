@@ -674,7 +674,6 @@ export default function DashboardOverview() {
               <span>{fmtFull(data.Amount)}</span>
             }
           />
-          <Column dataField="CreateBy" caption="Người tạo" width={110} />
           <Column dataField="Status" caption="Trạng thái" width={110}
             cellRender={({ data }: { data: DashboardRecentVoucher }) => {
               const styles: Record<string, string> = {

@@ -6,10 +6,6 @@ export interface StoreKindInfo {
   STORE_KIND_NM_ENG: string;
   STORE_KIND_NM_KOR: string;
   STORE_KIND_NM_CHINA: string;
-  CREATE_BY: string;
-  CREATE_AT: Date;
-  UPDATE_BY: string;
-  UPDATE_AT: Date;
   SORT: number;
   ISDEL: string;
 }

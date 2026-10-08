@@ -1,4 +1,5 @@
-﻿import React, { useContext } from "react";
+import { MasterPopupValidationContext, useMasterPopupValidation } from "./masterPopupValidation";
+import React, { useContext } from "react";
 import TreeList, {
   Paging,
   Pager,
@@ -119,7 +120,8 @@ export function BaseTreeList<T extends object>({
 
   const t = (key: string, fallback?: string) =>
     translate ? translate(key, fallback) : (fallback ?? key);
-  const usesSysGridCatalog = persistColumnSettings && Boolean(gridId?.trim());
+  const popupValidation = useMasterPopupValidation();
+    const usesSysGridCatalog = persistColumnSettings && Boolean(gridId?.trim());
   const columnSettingState = useGridColumnSettingState({
     enabled: persistColumnSettings,
     menuCode,
@@ -440,6 +442,7 @@ export function BaseTreeList<T extends object>({
   };
 
   return (
+    <MasterPopupValidationContext.Provider value={popupValidation}>
     <div className="data-tree-list-container h-full w-full">
       <TreeList
         key={gridRemountKey}
@@ -463,9 +466,10 @@ export function BaseTreeList<T extends object>({
         onRowClick={handleRowClickInternal}
         onRowDblClick={onRowDblClick}
         onInitialized={(e) => {
-          treeListInstanceRef.current = e.component;
+          treeListInstanceRef.current = e.component ?? null;
           columnSettingState.bindGridComponent(e.component);
-          installTreeListHelpers(e.component);
+          popupValidation.bind(e.component ?? null);
+          installTreeListHelpers(e.component ?? null);
           onInitialized?.(e);
           applyGridEditingTexts(e.component);
         }}
@@ -552,6 +556,7 @@ export function BaseTreeList<T extends object>({
         />
       ) : null}
     </div>
+    </MasterPopupValidationContext.Provider>
   );
 }
 

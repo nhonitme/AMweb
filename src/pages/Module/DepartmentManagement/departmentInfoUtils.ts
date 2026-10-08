@@ -17,8 +17,6 @@ export const normalizeDepartmentInfo = (record: DepartmentInfoApi): DepartmentIn
   DEP_NAME_ENG: trimText(record.DEP_NAME_ENG),
   DEP_NAME_VIET: trimText(record.DEP_NAME_VIET),
   DEP_NAME_CHINA: trimText(record.DEP_NAME_CHINA),
-  UPDATE_BY: trimText(record.UPDATE_BY),
-  CREATE_BY: trimText(record.CREATE_BY),
   ISDEL: toBool(record.ISDEL),
 })
 
@@ -90,12 +88,10 @@ export const mapDepartmentInfoToApiPayload = (record: DepartmentInfo): Partial<D
   DEP_NAME_ENG: trimText(record.DEP_NAME_ENG),
   DEP_NAME_VIET: trimText(record.DEP_NAME_VIET),
   DEP_NAME_CHINA: trimText(record.DEP_NAME_CHINA),
-  UPDATE_BY: trimText(record.UPDATE_BY),
-  CREATE_BY: trimText(record.CREATE_BY),
   ISDEL: toFlag(record.ISDEL),
 })
 
-export const createDefaultDepartmentInfo = (companyCd: string, userId: string): DepartmentInfo => ({
+export const createDefaultDepartmentInfo = (companyCd: string): DepartmentInfo => ({
   DEPARTMENT_ID: null,
   COMPANY_CD: companyCd,
   DEPARTMENT_CD: "",
@@ -104,7 +100,5 @@ export const createDefaultDepartmentInfo = (companyCd: string, userId: string): 
   DEP_NAME_ENG: "",
   DEP_NAME_VIET: "",
   DEP_NAME_CHINA: "",
-  UPDATE_BY: userId,
-  CREATE_BY: userId,
   ISDEL: false,
 })

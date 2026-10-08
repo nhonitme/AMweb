@@ -16,14 +16,10 @@ export interface EInvoiceRelatedInfoApi {
   SBKCLQUAN?: EInvoiceText
   NBKCLQUAN?: EInvoiceText
   GCHU?: EInvoiceText
-  CREATE_USER?: EInvoiceText
-  CREATE_DT?: EInvoiceText
 }
 
-export interface EInvoiceRelatedInfo extends Required<Omit<EInvoiceRelatedInfoApi, "COMPANY_CD" | "CREATE_USER" | "CREATE_DT">> {
+export interface EInvoiceRelatedInfo extends Required<Omit<EInvoiceRelatedInfoApi, "COMPANY_CD">> {
   COMPANY_CD: string
-  CREATE_USER: string
-  CREATE_DT: string
 }
 
 export interface EInvoiceBkeReasonApi {
@@ -31,12 +27,10 @@ export interface EInvoiceBkeReasonApi {
   BKE_ID?: number | null
   SORT_ORDER?: number | null
   LDO?: EInvoiceText
-  CREATE_DT?: EInvoiceText
   ISDEL?: number | null
 }
 
-export interface EInvoiceBkeReason extends Required<Omit<EInvoiceBkeReasonApi, "CREATE_DT">> {
-  CREATE_DT: string
+export interface EInvoiceBkeReason extends Required<EInvoiceBkeReasonApi> {
 }
 
 export interface EInvoiceBkeDetailApi {
@@ -68,13 +62,11 @@ export interface EInvoiceBkeDetailApi {
   TGTKCLECH?: number | null
   TGTTTCLECH?: number | null
   EXTRA_JSON?: EInvoiceText
-  CREATE_DT?: EInvoiceText
   ISDEL?: number | null
 }
 
-export interface EInvoiceBkeDetail extends Required<Omit<EInvoiceBkeDetailApi, "CREATE_DT">> {
+export interface EInvoiceBkeDetail extends Required<EInvoiceBkeDetailApi> {
   ROW_KEY: string
-  CREATE_DT: string
 }
 
 export interface EInvoiceBkeInfoApi {
@@ -99,21 +91,13 @@ export interface EInvoiceBkeInfoApi {
   SIGNED_XML?: EInvoiceText
   IS_SIGNED?: number | null
   NMUA_IS_SIGNED?: number | null
-  CREATE_BY?: EInvoiceText
-  CREATE_DT?: EInvoiceText
-  UPDATE_BY?: EInvoiceText
-  UPDATE_DT?: EInvoiceText
   ISDEL?: number | null
   REASONS?: EInvoiceBkeReasonApi[]
   DETAILS?: EInvoiceBkeDetailApi[]
 }
 
-export interface EInvoiceBkeInfo extends Required<Omit<EInvoiceBkeInfoApi, "COMPANY_CD" | "CREATE_BY" | "CREATE_DT" | "UPDATE_BY" | "UPDATE_DT" | "REASONS" | "DETAILS">> {
+export interface EInvoiceBkeInfo extends Required<Omit<EInvoiceBkeInfoApi, "COMPANY_CD" | "REASONS" | "DETAILS">> {
   COMPANY_CD: string
-  CREATE_BY: string
-  CREATE_DT: string
-  UPDATE_BY: string
-  UPDATE_DT: string
   REASONS: EInvoiceBkeReason[]
   DETAILS: EInvoiceBkeDetail[]
 }
@@ -131,18 +115,10 @@ export interface EInvoicePxkInfoApi {
   HDSO?: EInvoiceText
   PTVCHUYEN?: EInvoiceText
   EXTRA_JSON?: EInvoiceText
-  CREATE_BY?: EInvoiceText
-  CREATE_AT?: EInvoiceText
-  UPDATE_BY?: EInvoiceText
-  UPDATE_AT?: EInvoiceText
   ISDEL?: number | null
 }
 
-export interface EInvoicePxkInfo extends Required<Omit<EInvoicePxkInfoApi, "CREATE_BY" | "CREATE_AT" | "UPDATE_BY" | "UPDATE_AT">> {
-  CREATE_BY: string
-  CREATE_AT: string
-  UPDATE_BY: string
-  UPDATE_AT: string
+export interface EInvoicePxkInfo extends Required<EInvoicePxkInfoApi> {
 }
 
 export interface EInvoiceDetailSpecialInfoApi {
@@ -160,18 +136,10 @@ export interface EInvoiceDetailSpecialInfoApi {
   MDDNG_HANG?: EInvoiceText
   /** Phụ lục XV extended tags (LTSan, TTTSan, XXu, DDi, DDen, THHVChuyen, TTTDat, ...). */
   EXTRA_JSON?: EInvoiceText
-  CREATE_USER?: EInvoiceText
-  CREATE_DT?: EInvoiceText
-  UPDATE_USER?: EInvoiceText
-  UPDATE_DT?: EInvoiceText
 }
 
-export interface EInvoiceDetailSpecialInfo extends Required<Omit<EInvoiceDetailSpecialInfoApi, "COMPANY_CD" | "CREATE_USER" | "CREATE_DT" | "UPDATE_USER" | "UPDATE_DT">> {
+export interface EInvoiceDetailSpecialInfo extends Required<Omit<EInvoiceDetailSpecialInfoApi, "COMPANY_CD">> {
   COMPANY_CD: string
-  CREATE_USER: string
-  CREATE_DT: string
-  UPDATE_USER: string
-  UPDATE_DT: string
 }
 
 export interface EInvoiceDetailApi {
@@ -199,10 +167,6 @@ export interface EInvoiceDetailApi {
   TSAUTHUE_VND?: number | null
   SPECIAL?: EInvoiceDetailSpecialInfoApi | null
   EXTRA_JSON?: EInvoiceText
-  CREATE_AT?: EInvoiceText
-  CREATE_BY?: EInvoiceText
-  UPDATE_AT?: EInvoiceText
-  UPDATE_BY?: EInvoiceText
   ISDEL?: number | null
 }
 
@@ -273,10 +237,6 @@ export interface EInvoiceApi {
   MAIL_STATUS?: number | null
   SOURCE_INVOICE_ID?: number | null
   ERROR_MESSAGE?: EInvoiceText
-  CREATE_BY?: EInvoiceText
-  CREATE_AT?: EInvoiceText
-  UPDATE_BY?: EInvoiceText
-  UPDATE_AT?: EInvoiceText
   ISDEL?: number | null
   PXK_INFO?: EInvoicePxkInfoApi | null
   RELATED?: EInvoiceRelatedInfoApi | null
@@ -284,22 +244,14 @@ export interface EInvoiceApi {
   DETAILS?: EInvoiceDetailApi[]
 }
 
-export interface EInvoiceDetail extends Required<Omit<EInvoiceDetailApi, "COMPANY_CD" | "CREATE_AT" | "CREATE_BY" | "UPDATE_AT" | "UPDATE_BY" | "SPECIAL">> {
+export interface EInvoiceDetail extends Required<Omit<EInvoiceDetailApi, "COMPANY_CD" | "SPECIAL">> {
   ROW_KEY: string
   COMPANY_CD: string
-  CREATE_AT: string
-  CREATE_BY: string
-  UPDATE_AT: string
-  UPDATE_BY: string
   SPECIAL: EInvoiceDetailSpecialInfo | null
 }
 
-export interface EInvoice extends Required<Omit<EInvoiceApi, "COMPANY_CD" | "CREATE_AT" | "CREATE_BY" | "UPDATE_AT" | "UPDATE_BY" | "DETAILS" | "SELLER_NM" | "SELLER_TAX_CD" | "PXK_INFO" | "RELATED" | "BKE_INFO">> {
+export interface EInvoice extends Required<Omit<EInvoiceApi, "COMPANY_CD" | "DETAILS" | "SELLER_NM" | "SELLER_TAX_CD" | "PXK_INFO" | "RELATED" | "BKE_INFO">> {
   COMPANY_CD: string
-  CREATE_AT: string
-  CREATE_BY: string
-  UPDATE_AT: string
-  UPDATE_BY: string
   SELLER_NM: string
   SELLER_TAX_CD: string
   PXK_INFO: EInvoicePxkInfo | null
@@ -395,8 +347,4 @@ export interface EInvoiceSeller {
   VERSION_NO?: number
   XSL_IS_DEFAULT?: number
   XSL_IS_ACTIVE?: number
-  CREATE_BY?: EInvoiceText
-  CREATE_AT?: EInvoiceText
-  UPDATE_BY?: EInvoiceText
-  UPDATE_AT?: EInvoiceText
 }

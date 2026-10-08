@@ -21,8 +21,6 @@ export type PitXslTemplate = {
   BACKGROUND_PATH?: string | null
   NEN_PATH?: string | null
   HAS_XSL_CONTENT: number
-  UPDATE_BY?: string
-  UPDATE_AT?: string
 }
 
 export type PitXslTemplateSaveRequest = {

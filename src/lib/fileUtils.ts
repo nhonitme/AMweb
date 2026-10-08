@@ -63,7 +63,8 @@ function saveBlobDirect(blob: Blob, fileName: string): Promise<boolean> {
       }
       return true
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return false
+      const isAbort = error instanceof DOMException && error.name === "AbortError"
+      if (isAbort) return false
       throw error
     }
   }

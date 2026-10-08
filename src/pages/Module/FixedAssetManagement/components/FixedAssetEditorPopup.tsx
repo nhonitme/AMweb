@@ -1,3 +1,4 @@
+import { requiredMasterMessage } from "@/components/forms/masterValidationMessages";
 import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import Button from 'devextreme-react/button'
 import Form, { GroupItem, Item, Tab, TabbedItem } from 'devextreme-react/form'
@@ -5,7 +6,6 @@ import type dxForm from 'devextreme/ui/form'
 import type { SelectionChangedEvent as TabPanelSelectionChangedEvent } from 'devextreme/ui/tab_panel'
 import LoadPanel from 'devextreme-react/load-panel'
 import Popup, { ToolbarItem } from 'devextreme-react/popup'
-import notify from 'devextreme/ui/notify'
 import { confirm } from 'devextreme/ui/dialog'
 
 import { LookupPopupProvider } from '@/components/lookup/LookupPopupHost'
@@ -40,6 +40,7 @@ import { flushActiveEditorValue } from '@/lib/shortcuts/shortcutUtils'
 import { createShortcutBindings } from '@/lib/shortcuts/shortcutBindings'
 import { SHORTCUT_ACTIONS } from '@/lib/shortcuts/shortcutDefinitions'
 import type { SysCode } from '@/api/sysCodeService'
+import { getApiErrorMessage } from '@/api/apiTypes'
 import type { FixedAssetGridRow } from '@/types/fixedAsset'
 import { getDataLanguageSuffix } from '@/utils/language'
 
@@ -75,6 +76,7 @@ type FixedAssetEditorPopupProps = {
   value: FixedAssetGridRow
   isUpdate: boolean
   loading: boolean
+  errorMessage?: string
   statusCodes: SysCode[]
   onClose: () => void
   onSave: (record: FixedAssetGridRow) => Promise<void>
@@ -95,11 +97,13 @@ export default function FixedAssetEditorPopup({
   value,
   isUpdate,
   loading,
+  errorMessage,
   statusCodes,
   onClose,
   onSave,
   onSaveAndNew,
 }: FixedAssetEditorPopupProps) {
+  const [validationMessage, setValidationMessage] = useState('')
   const popupShortcutScopeId = usePopupShortcutScopeId('fixed-asset-editor')
   const allocationGridRef = useRef<FixedAssetAllocationGridHandle | null>(null)
   const allocationColumnSettingStateRef = useRef<GridColumnSettingState | null>(null)
@@ -168,7 +172,7 @@ export default function FixedAssetEditorPopup({
   )
 
   const handlePreviewError = useCallback((message: string) => {
-    notify(message, 'error', 3000)
+    setValidationMessage(message)
   }, [])
 
   const handlePreviewApplied = useCallback(
@@ -392,11 +396,13 @@ export default function FixedAssetEditorPopup({
   }, [])
 
   const buildRecordForSave = useCallback(async () => {
+    setValidationMessage('')
     await flushPendingFormEditors()
 
     const form = formRef.current?.instance()
     const validationResult = form?.validate()
     if (validationResult && !validationResult.isValid) {
+      setValidationMessage((validationResult.brokenRules ?? []).map(rule => rule.message).filter(Boolean).join('\n'))
       if (form) {
         setActiveFormTabIndex(resolveInvalidFormTabIndex(form))
       }
@@ -421,7 +427,7 @@ export default function FixedAssetEditorPopup({
     const validationIssue = getFixedAssetValidationIssue(record, t)
     if (validationIssue) {
       setActiveFormTabIndex(validationIssue.tabIndex)
-      notify(validationIssue.message, 'error', 3000)
+      setValidationMessage(validationIssue.message)
       return null
     }
 
@@ -434,10 +440,15 @@ export default function FixedAssetEditorPopup({
       return
     }
 
-    await onSave(record)
+    try {
+      await onSave(record)
+    } catch (error) {
+      setValidationMessage(getApiErrorMessage(error, t('SAVE_FAILED', 'Không lưu được tài sản.')))
+      return
+    }
     setAllocationDirty(false)
     setAllocationNeedsReview(false)
-  }, [buildRecordForSave, onSave])
+  }, [buildRecordForSave, onSave, t])
 
   const handleSaveAndNew = useCallback(async () => {
     const record = await buildRecordForSave()
@@ -445,15 +456,20 @@ export default function FixedAssetEditorPopup({
       return
     }
 
-    if (onSaveAndNew) {
-      await onSaveAndNew(record)
-    } else {
-      await onSave(record)
+    try {
+      if (onSaveAndNew) {
+        await onSaveAndNew(record)
+      } else {
+        await onSave(record)
+      }
+    } catch (error) {
+      setValidationMessage(getApiErrorMessage(error, t('SAVE_FAILED', 'Không lưu được tài sản.')))
+      return
     }
 
     setAllocationDirty(false)
     setAllocationNeedsReview(false)
-  }, [buildRecordForSave, onSave, onSaveAndNew])
+  }, [buildRecordForSave, onSave, onSaveAndNew, t])
 
   const handleClosePopup = useCallback(async () => {
     if (loading || closingRef.current) {
@@ -695,6 +711,11 @@ export default function FixedAssetEditorPopup({
 
       <LookupPopupProvider>
         <div className="fixed-asset-editor relative flex h-full flex-col overflow-hidden bg-slate-50">
+          {validationMessage || errorMessage ? (
+            <div role="alert" className="m-3 whitespace-pre-wrap rounded border border-red-200 bg-red-50 p-3 text-red-700">
+              {validationMessage || errorMessage}
+            </div>
+          ) : null}
           <LoadPanel visible={loading} showPane showIndicator shading />
           <ShortcutHelpPopup
             visible={shortcutHelpVisible}
@@ -741,7 +762,7 @@ export default function FixedAssetEditorPopup({
                         label={{ text: t('ASSET_CD', 'Mã tài sản') }}
                         editorOptions={createOutlinedEditorOptions({ validationMessageMode: 'always' })}
                         validationRules={[
-                          { type: 'required', message: t('MSG_MUST_ITEM', 'Vui lòng nhập mã tài sản.') },
+                          { type: 'required', message: requiredMasterMessage(t, t('ASSET_CD', 'Mã tài sản')) },
                         ]}
                       />
                       <Item
@@ -750,7 +771,7 @@ export default function FixedAssetEditorPopup({
                         colSpan={2}
                         editorOptions={createOutlinedEditorOptions({ validationMessageMode: 'always' })}
                         validationRules={[
-                          { type: 'required', message: t('MSG_MUST_ITEM', 'Vui lòng nhập tên tài sản.') },
+                          { type: 'required', message: requiredMasterMessage(t, t('ASSET_NM', 'Tên tài sản')) },
                         ]}
                       />
                       <Item
@@ -800,7 +821,7 @@ export default function FixedAssetEditorPopup({
                           validationMessageMode: 'always',
                         })}
                         validationRules={[
-                          { type: 'required', message: t('MSG_MUST_ITEM', 'Vui lòng nhập ngày bắt đầu sử dụng.') },
+                          { type: 'required', message: requiredMasterMessage(t, t('USE_START_YMD', 'Ngày bắt đầu sử dụng')) },
                         ]}
                       />
                        {/* <Item

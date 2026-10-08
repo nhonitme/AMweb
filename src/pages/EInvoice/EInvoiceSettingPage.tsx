@@ -135,10 +135,6 @@ function createDefaultSeller(companyCd: string): EInvoiceSellerSetting {
         USE_MULTI_TAX_RATE: 0,
         XSL_TEMPLATE_NM: null,
         HAS_XSL_TEMPLATE: 0,
-        CREATE_BY: null,
-        CREATE_AT: null,
-        UPDATE_BY: null,
-        UPDATE_AT: null,
     }
 }
 
@@ -180,10 +176,6 @@ function normalizeSellerRow(row: Partial<EInvoiceSeller>, companyCd: string): EI
         HAS_XSL_TEMPLATE: normalizeFlag(row.HAS_XSL_TEMPLATE),
         XSL_IS_DEFAULT: normalizeFlag(row.XSL_IS_DEFAULT),
         XSL_IS_ACTIVE: normalizeFlag(row.XSL_IS_ACTIVE, 1),
-        CREATE_BY: row.CREATE_BY ?? null,
-        CREATE_AT: row.CREATE_AT ?? null,
-        UPDATE_BY: row.UPDATE_BY ?? null,
-        UPDATE_AT: row.UPDATE_AT ?? null,
     }
 }
 
@@ -304,10 +296,6 @@ function createDefaultDecimalSetting(companyCd: string, xslId = 0): EInvoiceDeci
         IS_ACTIVE: 1,
         SORT_ORDER: 0,
         NOTE: "",
-        CREATE_USER: null,
-        CREATE_DT: null,
-        UPDATE_USER: null,
-        UPDATE_DT: null,
     }
 }
 
@@ -329,10 +317,6 @@ function normalizeDecimalSettingRow(row: Partial<EInvoiceDecimalSetting>, compan
         IS_ACTIVE: normalizeFlag(row.IS_ACTIVE, 1),
         SORT_ORDER: Math.trunc(normalizeNumber(row.SORT_ORDER, 0)),
         NOTE: normalizeText(row.NOTE),
-        CREATE_USER: row.CREATE_USER ?? null,
-        CREATE_DT: row.CREATE_DT ?? null,
-        UPDATE_USER: row.UPDATE_USER ?? null,
-        UPDATE_DT: row.UPDATE_DT ?? null,
     }
 }
 
@@ -345,8 +329,6 @@ function createDefaultUserSetting(companyCd: string): EInvoiceUserSetting {
         SETTING_VALUE: null,
         VALUE_TYPE: "STRING",
         ISDEL: 0,
-        CREATE_AT: null,
-        UPDATE_AT: null,
     }
 }
 
@@ -360,8 +342,6 @@ function normalizeUserSettingRow(row: Partial<EInvoiceUserSetting>, companyCd: s
         SETTING_VALUE: normalizeOptionalText(row.SETTING_VALUE),
         VALUE_TYPE: normalizeEInvoiceUserSettingValueType(row.VALUE_TYPE),
         ISDEL: normalizeFlag(row.ISDEL),
-        CREATE_AT: row.CREATE_AT ?? null,
-        UPDATE_AT: row.UPDATE_AT ?? null,
     }
 
     if (normalized.VALUE_TYPE === "BOOLEAN") {

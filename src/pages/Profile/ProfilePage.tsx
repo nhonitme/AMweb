@@ -19,7 +19,7 @@ import { useMyProfileInvalidate, useMyProfileQuery } from "@/hooks/queries/admin
 import { createOutlinedDateBoxEditorOptions } from "@/components/forms/devExtremeEditorOptions"
 import DxPage from "@/dx/DxPage"
 import { LanguageContext } from "@/lib/i18nLoader"
-import { normalizeDate, normalizeDateTime } from "@/lib/dateParser"
+import { normalizeDate } from "@/lib/dateParser"
 import { updateCurrentSession } from "@/lib/login"
 import type { ChangeUserPasswordPayload, UserProfile, UserProfileApi } from "@/types/profile"
 
@@ -68,10 +68,6 @@ const emptyProfile: UserProfile = {
   NOTE: "",
   IS_ACTIVE: true,
   ISDEL: false,
-  UPDATE_BY: "",
-  CREATE_BY: "",
-  CREATED_AT: null,
-  UPDATED_AT: null,
 }
 
 const emptyPasswordForm: PasswordFormState = {
@@ -140,10 +136,6 @@ function normalizeProfile(data?: Partial<UserProfileApi>): UserProfile {
     NOTE: normalizeText(data?.NOTE),
     IS_ACTIVE: normalizeFlag(data?.IS_ACTIVE, true),
     ISDEL: normalizeFlag(data?.ISDEL, false),
-    UPDATE_BY: normalizeText(data?.UPDATE_BY),
-    CREATE_BY: normalizeText(data?.CREATE_BY),
-    CREATED_AT: normalizeDateTime(data?.CREATED_AT),
-    UPDATED_AT: normalizeDateTime(data?.UPDATED_AT),
   }
 }
 

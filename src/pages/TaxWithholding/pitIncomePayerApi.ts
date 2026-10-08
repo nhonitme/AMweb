@@ -17,8 +17,6 @@ export type PitIncomePayer = {
   ADDRESS: string
   PHONE?: string | null
   EMAIL?: string | null
-  UPDATE_BY?: string | null
-  UPDATE_AT?: string | null
 }
 
 export type PitIncomePayerSaveRequest = {

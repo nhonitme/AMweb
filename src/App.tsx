@@ -899,7 +899,7 @@ function AppWorkspaceRoutes({
                         />
                         <Route
                             path="/tax/vat/reduction-appendix"
-                            element={<JournalReportPage reportCode="TAX_VAT_REDUCTION_APPENDIX" menuCode="VAT_REDUCTION_APPENDIX" titleKey="VAT_REDUCTION_APPENDIX" titleFallback="Phụ lục giảm thuế giá trị gia tăng" showExportExcel={true} exportFilePrefix="vat_reduction_appendix" exportSheetName="VatReductionAppendix" />}
+                            element={<JournalReportPage reportCode="TAX_VAT_REDUCTION_APPENDIX" menuCode="VAT_REDUCTION_APPENDIX" titleKey="VAT_REDUCTION_APPENDIX" titleFallback="Phụ lục giảm thuế giá trị gia tăng" showInvoiceStatusFilter={true} showInvoiceKindFilter={true} showCurrencyFilter={true} includeEmptyFilterParams={true} showExportExcel={true} exportFilePrefix="vat_reduction_appendix" exportSheetName="VatReductionAppendix" />}
                         />
                         <Route path="/assets" element={<ModuleContent moduleId="assets" />} />
                         <Route path="/invoices" element={<ModuleContent moduleId="invoices" />} />

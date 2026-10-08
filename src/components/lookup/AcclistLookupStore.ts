@@ -4,20 +4,10 @@ import { createLookupStore } from "./createLookupStore"
 import { EtcType, getEtcData } from "@/api/systemApi"
 import type CustomStore from "devextreme/data/custom_store"
 
-type EtcDataPayload = etcData[] | { data?: etcData[] | null } | null | undefined
-
 export type AcclistLookupStoreOptions = {
   etcType?: EtcType
   param1?: string
   param2?: string
-}
-
-function normalizeEtcDataRows(response: EtcDataPayload): etcData[] {
-  if (Array.isArray(response)) {
-    return response
-  }
-
-  return Array.isArray(response?.data) ? response.data : []
 }
 
 function buildAcclistLookupStoreKey(options: AcclistLookupStoreOptions = {}): string {
@@ -37,8 +27,7 @@ export function createAcclistLookupStore(options: AcclistLookupStoreOptions = {}
   return createLookupStore<etcData, "CD">(
     "CD",
     async () => {
-      const response = await getEtcData<EtcDataPayload>(etcType, param1, param2)
-      return normalizeEtcDataRows(response)
+      return await getEtcData(etcType, param1, param2)
     },
     () => `${getCurrentCompanyCd()}|${etcType}|${param1}|${param2}`,
   )

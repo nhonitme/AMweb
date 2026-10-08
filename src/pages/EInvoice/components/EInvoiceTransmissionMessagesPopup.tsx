@@ -107,7 +107,7 @@ export default function EInvoiceTransmissionMessagesPopup({
           <Column dataField="MST" caption={t("MST", "MST")} width={130} />
           <Column dataField="ERROR_MESSAGE" caption={t("ERROR_MESSAGE", "Lỗi")} minWidth={220} />
           <Column caption="XML" width={104} alignment="center" cellRender={renderViewCell} />
-          <Column dataField="CREATE_DT" caption={t("CREATE_DT", "Ngày tạo")} dataType="datetime" format="yyyy-MM-dd HH:mm:ss" width={170} />
+          <Column dataField="CREATE_AT" caption={t("CREATE_AT", "Ngày tạo")} dataType="datetime" format="yyyy-MM-dd HH:mm:ss" width={170} />
         </DataGrid>
 
         <LoadPanel visible={loading} showIndicator={true} showPane={true} shading={true} shadingColor="rgba(0, 0, 0, 0.12)" />

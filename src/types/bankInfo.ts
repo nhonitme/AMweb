@@ -11,8 +11,6 @@ export interface BankInfoApi {
   CITAD_CODE?: BankInfoText
   REMARK?: BankInfoText
   ISDEL?: BankInfoText
-  CREATE_BY?: BankInfoText
-  UPDATE_BY?: BankInfoText
 }
 
 export interface BankInfo {
@@ -26,8 +24,6 @@ export interface BankInfo {
   CITAD_CODE: string
   REMARK: string
   ISDEL: boolean
-  CREATE_BY: string
-  UPDATE_BY: string
 }
 
 export interface DeleteBankInfosRequest {

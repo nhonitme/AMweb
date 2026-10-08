@@ -5,7 +5,6 @@ export interface EInvoiceMinuteReasonApi {
   BBAN_ID?: number | null
   SORT_ORDER?: number | null
   LDO?: EInvoiceMinuteText
-  CREATE_DT?: EInvoiceMinuteText
   ISDEL?: number | null
 }
 
@@ -30,7 +29,6 @@ export interface EInvoiceMinuteLineApi {
   TTHUE?: number | null
   TSAUTHUE?: number | null
   EXTRA_JSON?: EInvoiceMinuteText
-  CREATE_DT?: EInvoiceMinuteText
   ISDEL?: number | null
 }
 
@@ -72,10 +70,6 @@ export interface EInvoiceMinuteApi {
   NMUA_SIGN_DT?: EInvoiceMinuteText
   IS_MAIL?: number | null
   CHECKSUM?: EInvoiceMinuteText
-  CREATE_BY?: EInvoiceMinuteText
-  CREATE_DT?: EInvoiceMinuteText
-  UPDATE_BY?: EInvoiceMinuteText
-  UPDATE_DT?: EInvoiceMinuteText
   ISDEL?: number | null
   REASONS?: EInvoiceMinuteReasonApi[]
   LINES_BEFORE?: EInvoiceMinuteLineApi[]
@@ -91,7 +85,6 @@ export interface EInvoiceMinuteReason {
   BBAN_ID: number
   SORT_ORDER: number
   LDO: string
-  CREATE_DT: string
   ISDEL: number
 }
 
@@ -117,7 +110,6 @@ export interface EInvoiceMinuteLine {
   TTHUE: number | null
   TSAUTHUE: number | null
   EXTRA_JSON: string
-  CREATE_DT: string
   ISDEL: number
 }
 
@@ -153,10 +145,6 @@ export interface EInvoiceMinute {
   NMUA_SIGN_DT: string
   IS_MAIL: number
   CHECKSUM: string
-  CREATE_BY: string
-  CREATE_DT: string
-  UPDATE_BY: string
-  UPDATE_DT: string
   ISDEL: number
   REASONS: EInvoiceMinuteReason[]
   LINES_BEFORE: EInvoiceMinuteLine[]

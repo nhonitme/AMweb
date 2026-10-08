@@ -14,8 +14,7 @@ export type SysNotificationItem = {
   ACTION_URL: string | null
   IS_READ: string
   READ_AT: string | null
-  CREATED_BY: string | null
-  CREATED_AT: string | null
+  CREATE_AT: string | null
   EXPIRED_AT: string | null
 }
 

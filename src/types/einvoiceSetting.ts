@@ -56,10 +56,6 @@ export interface EInvoiceDecimalSetting {
   IS_ACTIVE: number
   SORT_ORDER: number
   NOTE: string
-  CREATE_USER?: EInvoiceSettingText
-  CREATE_DT?: EInvoiceSettingText
-  UPDATE_USER?: EInvoiceSettingText
-  UPDATE_DT?: EInvoiceSettingText
 }
 
 export type EInvoiceSellerSettingSearchParams = import("./einvoice").EInvoiceSellerSearchParams
@@ -81,8 +77,6 @@ export interface EInvoiceUserSetting {
   SETTING_VALUE: string | null
   VALUE_TYPE: EInvoiceUserSettingValueType
   ISDEL: number
-  CREATE_AT?: EInvoiceSettingText
-  UPDATE_AT?: EInvoiceSettingText
 }
 
 export interface EInvoiceUserSettingSearchParams {
@@ -101,8 +95,6 @@ export interface EInvoiceAdminSetting {
   SETTING_VALUE: string | null
   VALUE_TYPE: EInvoiceUserSettingValueType
   ISDEL: number
-  CREATE_AT?: EInvoiceSettingText
-  UPDATE_AT?: EInvoiceSettingText
 }
 
 export interface EInvoiceAdminSettingSearchParams {
@@ -144,10 +136,6 @@ export interface EInvoiceMailSetting {
   HAS_COMPANY_SETTING: boolean
   IS_USING_SYSTEM_DEFAULT: boolean
   SYSTEM_SETTING?: EInvoiceMailSetting | null
-  CREATE_BY?: EInvoiceSettingText
-  CREATE_AT?: EInvoiceSettingText
-  UPDATE_BY?: EInvoiceSettingText
-  UPDATE_AT?: EInvoiceSettingText
 }
 
 export interface EInvoiceMailSettingSaveRequest {

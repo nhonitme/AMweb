@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react"
 import Popup from "devextreme-react/popup"
 import {
   disableBuiltInPopupEscape,
@@ -26,7 +26,14 @@ type LookupPopupContextValue = {
   isLookupPopupOpen: boolean
 }
 
+type LookupPopupCommands = {
+  openLookupPopup: (options: LookupPopupOptions) => void
+  closeLookupPopup: () => void
+  isLookupPopupOpenRef: MutableRefObject<boolean>
+}
+
 const LookupPopupContext = createContext<LookupPopupContextValue | null>(null)
+const LookupPopupCommandsContext = createContext<LookupPopupCommands | null>(null)
 
 export function LookupPopupProvider({ children }: { children: ReactNode }) {
   const [popupOptions, setPopupOptions] = useState<LookupPopupOptions | null>(null)
@@ -74,10 +81,18 @@ export function LookupPopupProvider({ children }: { children: ReactNode }) {
   )
 
   const getPopupContainer = () => getLookupOverlayContainer()
+  const isLookupPopupOpenRef = useRef(isLookupPopupOpen)
+  isLookupPopupOpenRef.current = isLookupPopupOpen
+  const commandValue = useMemo(
+    () => ({ openLookupPopup, closeLookupPopup, isLookupPopupOpenRef }),
+    [closeLookupPopup, openLookupPopup],
+  )
 
   return (
-    <LookupPopupContext.Provider value={contextValue}>
-      {children}
+    <LookupPopupCommandsContext.Provider value={commandValue}>
+      <LookupPopupContext.Provider value={contextValue}>
+        {children}
+      </LookupPopupContext.Provider>
       {popupOptions ? (
         <Popup
           visible={true}
@@ -107,10 +122,15 @@ export function LookupPopupProvider({ children }: { children: ReactNode }) {
           {popupOptions.renderContent({ closePopup: closeLookupPopup })}
         </Popup>
       ) : null}
-    </LookupPopupContext.Provider>
+    </LookupPopupCommandsContext.Provider>
   )
 }
 
 export function useLookupPopupHost() {
   return useContext(LookupPopupContext)
+}
+
+/** Stable popup commands for lookup controls that should not rerender when visibility changes. */
+export function useLookupPopupCommands() {
+  return useContext(LookupPopupCommandsContext)
 }

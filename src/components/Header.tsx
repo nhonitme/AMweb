@@ -1114,7 +1114,7 @@ export default function Header({ onLogout, currentMenuItem, systemMenuNode }: He
                                       <p className={`mt-1 text-sm ${mutedTextClass}`}>{notification.MESSAGE}</p>
                                     ) : null}
                                     <p className={`mt-2 text-xs ${mutedTextClass}`}>
-                                      {formatNotificationTime(notification.CREATED_AT)}
+                                      {formatNotificationTime(notification.CREATE_AT)}
                                     </p>
                                   </div>
                                   {unread ? (

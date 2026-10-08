@@ -1,4 +1,5 @@
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useCallback } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import {
   createAcclistInfo,
@@ -106,9 +107,13 @@ export function useProductListInvalidate() {
 
 export function useProductMutations() {
   const invalidateProducts = useProductListInvalidate()
-  const refreshProductData = async () => {
+  const queryClient = useQueryClient()
+  const refreshProductData = () => {
     clearInventoryLookupCache()
-    await invalidateProducts()
+    // Let the grid close the editor before the active product-list refetch starts.
+    window.setTimeout(() => {
+      void invalidateProducts().catch(() => undefined)
+    }, 0)
   }
 
   const createMutation = useMutation({
@@ -116,18 +121,25 @@ export function useProductMutations() {
     onSuccess: refreshProductData,
   })
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Partial<Product> }) =>
-      updateProduct(id, payload),
-    onSuccess: refreshProductData,
-  })
+  const updateProductAsync = useCallback((variables: { id: string; payload: Partial<Product> }) => {
+    // The edit popup already patches its existing row object and repaints only
+    // that row. Avoid subscribing the whole product grid to mutation status changes,
+    // which otherwise re-renders the whole grid when the request starts/ends.
+    const mutation = queryClient.getMutationCache().build(queryClient, {
+      mutationFn: ({ id, payload }: { id: string; payload: Partial<Product> }) => updateProduct(id, payload),
+      onSuccess: () => {
+        clearInventoryLookupCache()
+      },
+    })
+    return mutation.execute(variables)
+  }, [queryClient])
 
   const deleteMutation = useMutation({
     mutationFn: (productIds: number[]) => deleteProducts(productIds),
     onSuccess: refreshProductData,
   })
 
-  return { createMutation, updateMutation, deleteMutation, invalidateProducts }
+  return { createMutation, updateProductAsync, deleteMutation, invalidateProducts }
 }
 
 // ── Product kinds ─────────────────────────────────────────────────────────────
@@ -405,10 +417,7 @@ export function useCustomerExtListQuery(lang: string) {
 
   return useQuery({
     queryKey: queryKeys.master.customerExts(companyCd, langKey),
-    queryFn: async () => {
-      const response = await getCustomerExts(undefined, langKey)
-      return response.data
-    },
+    queryFn: async () => (await getCustomerExts(undefined, langKey)).data,
     enabled: Boolean(companyCd),
     staleTime: STALE_TIME.MASTER,
   })

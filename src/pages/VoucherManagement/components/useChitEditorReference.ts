@@ -230,10 +230,6 @@ export function useChitEditorReference({
                     CHIT_ID: null,
                     CHITDETAIL_CD: "",
                     SORT: index + 1,
-                    CREATE_BY: "",
-                    CREATE_AT: null,
-                    UPDATE_BY: "",
-                    UPDATE_AT: null,
                 }
             })
         },

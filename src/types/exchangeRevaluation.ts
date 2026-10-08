@@ -69,7 +69,6 @@ export interface ExchangeRevaluationHistoryItem {
   NEW_AMOUNT: number
   EXCHANGE_DIFF: number
   DIFF_TYPE: string
-  CREATED_BY?: string | null
 }
 
 export interface ExchangeRevaluationCurrencyItem {

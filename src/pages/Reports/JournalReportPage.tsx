@@ -147,6 +147,7 @@ type JournalReportPageProps = {
   showWarehouseFilter?: boolean
   showProductFilter?: boolean
   showAssetStatusFilter?: boolean
+  showInvoiceKindFilter?: boolean  
   showInvoiceTypeFilter?: boolean
   showInvoiceStatusFilter?: boolean
   showFetchFromGdt?: boolean
@@ -178,6 +179,7 @@ type ReportRouteFilterState = {
   assetStatusCodes: string[]
   invoiceType: "BUY" | "SELL"
   invoiceStatus: string
+  invoiceKind: string				 
   extraParams: Record<string, string>
 }
 
@@ -199,6 +201,7 @@ type JournalReportTabState = {
   assetStatusCodes: string[]
   invoiceType: VatInvoiceType
   invoiceStatus: string
+  invoiceKind: string				 
   searchText: string
   preview: ConfiguredReportPreview | null
   selectedReportOptionCode: string
@@ -383,6 +386,7 @@ function buildRouteFilterState(search: string): ReportRouteFilterState {
     warehouseCodes: splitFilterCodes(params.get("storeCd")),
     productCodes: splitFilterCodes(params.get("productCd")),
     assetStatusCodes: splitFilterCodes(params.get("assetStatus")),
+	invoiceKind: (params.get("invoiceKind") ?? "").trim(),													  
     invoiceType: normalizeInvoiceType(params.get("type")),
     invoiceStatus: (params.get("status") ?? "").trim(),
     extraParams,
@@ -637,6 +641,7 @@ export default function JournalReportPage({
   showWarehouseFilter = false,
   showProductFilter = false,
   showAssetStatusFilter = false,
+  showInvoiceKindFilter = false,							
   showInvoiceTypeFilter = false,
   showInvoiceStatusFilter = false,
   showFetchFromGdt = false,
@@ -728,6 +733,7 @@ export default function JournalReportPage({
   const [invoiceType, setInvoiceType] = useState<VatInvoiceType>(
     () => restoredTabState?.invoiceType ?? routeFilterState.invoiceType,
   )
+  const [invoiceKind, setInvoiceKind] = useState(() => restoredTabState?.invoiceKind ?? routeFilterState.invoiceKind)																													 
   const [invoiceStatus, setInvoiceStatus] = useState(
     () => restoredTabState?.invoiceStatus ?? routeFilterState.invoiceStatus,
   )
@@ -797,6 +803,7 @@ export default function JournalReportPage({
       assetStatusCodes,
       invoiceType,
       invoiceStatus,
+	  invoiceKind,		  
       searchText,
       preview: preview ?? existing?.preview ?? null,
       selectedReportOptionCode,
@@ -815,6 +822,7 @@ export default function JournalReportPage({
     exportPrintTemplate,
     fromDate,
     invoiceStatus,
+	invoiceKind,			
     invoiceType,
     cacheTabId,
     menuCode,
@@ -842,6 +850,18 @@ export default function JournalReportPage({
     [t],
   )
 
+  const invoiceKindOptions = useMemo(() => [
+    { value: "", label: t("ALL", "Tất cả") },
+    ...[
+      "Hóa đơn giá trị gia tăng",
+      "Hóa đơn bán hàng",
+      "Hóa đơn bán tài sản công",
+      "Hóa đơn bán hàng dự trữ quốc gia",
+      "Hóa đơn khác",
+      "Phiếu xuất kho kiêm vận chuyển nội bộ",
+      "Phiếu xuất kho hàng gửi bán đại lý",
+    ].map((label, index) => ({ value: String(index + 1), label: t(`EInvoiceKind_${index + 1}`, label) })),
+  ], [t])										
   const invoiceStatusOptions = useMemo(
     () =>
       VAT_INVOICE_STATUS_OPTIONS.map((option) => ({
@@ -935,6 +955,7 @@ export default function JournalReportPage({
     setAssetStatusCodes(routeFilterState.assetStatusCodes)
     setInvoiceType(routeFilterState.invoiceType)
     setInvoiceStatus(routeFilterState.invoiceStatus)
+	setInvoiceKind(routeFilterState.invoiceKind)										
     setSearchText("")
     setPreview(null)
     setPreviewLoading(false)
@@ -1096,6 +1117,7 @@ export default function JournalReportPage({
         ...(reportCode === "FA_DEPRECIATION_PERIOD_REPORT"
           ? { departmentCd: resolveFilterParam("", includeEmptyFilterParams) ?? "" }
           : {}),
+		invoiceKind: showInvoiceKindFilter ? invoiceKind : undefined,															 
         type: showInvoiceTypeFilter ? invoiceType : undefined,
         status: showInvoiceStatusFilter
           ? resolveFilterParam(invoiceStatus, includeEmptyFilterParams)
@@ -1107,7 +1129,7 @@ export default function JournalReportPage({
         templateId: storedTemplateId > 0 ? String(storedTemplateId) : undefined,
       }
     },
-    [accountCd, accountCodes, accountQueryParamKey, assetStatusCodes, bankCd, bankCodes, currencyCodes, customerCd, customerCodes, effectiveReportOptionGroupCode, fcType, includeEmptyFilterParams, invoiceStatus, invoiceType, lang, menuCode, moduleCd, productCd, productCodes, reportCode, reportOptions, reportVersion, routeFilterState.extraParams, searchText, selectedReportOptionCode, showAccountFilter, showAssetStatusFilter, showBankFilter, showCurrencyFilter, showCustomerFilter, showInvoiceStatusFilter, showInvoiceTypeFilter, showProductFilter, showWarehouseFilter, storeCd, unitDivisor, useUseStartYmdFilter, warehouseCodes],
+    [accountCd, accountCodes, accountQueryParamKey, assetStatusCodes, bankCd, bankCodes, currencyCodes, customerCd, customerCodes, effectiveReportOptionGroupCode, fcType, includeEmptyFilterParams, invoiceKind, showInvoiceKindFilter, invoiceStatus, invoiceType, lang, menuCode, moduleCd, productCd, productCodes, reportCode, reportOptions, reportVersion, routeFilterState.extraParams, searchText, selectedReportOptionCode, showAccountFilter, showAssetStatusFilter, showBankFilter, showCurrencyFilter, showCustomerFilter, showInvoiceStatusFilter, showInvoiceTypeFilter, showProductFilter, showWarehouseFilter, storeCd, unitDivisor, useUseStartYmdFilter, warehouseCodes],
   )
 
   const releaseAutoLoadInFlight = useCallback((requestId: number) => {
@@ -1554,8 +1576,24 @@ export default function JournalReportPage({
               accountFilterEtcType={accountFilterEtcType}
               accountFilterParam1={accountFilterParam1}
               accountFilterParam2={accountFilterParam2}
+			  initialFilters={showInvoiceKindFilter ? (
+                <>
+                  {showInvoiceStatusFilter ? (
+                    <SelectBox className={TOOLBAR_FIELD} dataSource={invoiceStatusOptions}
+                      displayExpr="label" valueExpr="value" value={invoiceStatus}
+                      stylingMode="outlined" label={t("TTHAI", "Trạng thái")}
+                      labelMode="floating" width={220} showClearButton={false}
+                      onValueChanged={(event) => setInvoiceStatus(String(event.value ?? ""))} />
+                  ) : null}
+                  <SelectBox className={TOOLBAR_FIELD} dataSource={invoiceKindOptions}
+                    displayExpr="label" valueExpr="value" value={invoiceKind}
+                    stylingMode="outlined" label={t("labelBillSymbolType", "Loại hóa đơn")}
+                    labelMode="floating" width={220} showClearButton={false}
+                    onValueChanged={(event) => setInvoiceKind(String(event.value ?? ""))} />
+                </>
+              ) : undefined}
               leadingFilters={
-                showInvoiceTypeFilter || showInvoiceStatusFilter ? (
+                !showInvoiceKindFilter && (showInvoiceTypeFilter || showInvoiceStatusFilter) ? (
                   <>
                     {showInvoiceTypeFilter ? (
                       <SelectBox

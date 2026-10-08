@@ -1,4 +1,6 @@
 ﻿import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+
+import "./ChitEditorPopup.css"
 import Button from "devextreme-react/button"
 import Form, { Item } from "devextreme-react/form"
 import type dxForm from "devextreme/ui/form"
@@ -431,7 +433,7 @@ export function ChitEditorPopup({
     return (
         <Popup
             visible={visible}
-            wrapperAttr={createPopupShortcutWrapperAttr(popupShortcutScopeId)}
+            wrapperAttr={{ class: "chit-editor-popup", ...createPopupShortcutWrapperAttr(popupShortcutScopeId) }}
             title={title}
             showTitle={true}
             showCloseButton={false}
@@ -510,7 +512,7 @@ export function ChitEditorPopup({
                 useGlobalLinkedStatus={true}
             />
             <LookupPopupProvider>
-                <div className="relative flex h-full flex-col overflow-hidden bg-slate-50">
+                <div className="relative flex h-full flex-col overflow-hidden bg-[#f3f4f6]">
                     <LoadPanel visible={loading} showPane={true} showIndicator={true} shading={true} />
                     <ShortcutHelpPopup
                         visible={shortcutHelpVisible}
@@ -518,74 +520,70 @@ export function ChitEditorPopup({
                         onClose={closeShortcutHelp}
                     />
 
-                    <div className="flex-shrink-0 p-3">
-                        <div className="rounded-md border border-slate-200 bg-white p-3">
-                            <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(280px,1fr)]">
-                                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                                    <Form formData={formData} labelLocation="top" colCount={2} readOnly={readOnly} onFieldDataChanged={handleFieldDataChanged}>
-                                        <Item
-                                            dataField="AMOUNT"
-                                            editorType="dxNumberBox"
-                                            label={{ text: t("AMOUNT", "Amount") }}
-                                            editorOptions={{ stylingMode: "outlined", format: "#,##0.00", readOnly: true }}
-                                        />
-                                        <Item
-                                            dataField="PAYER_INFO"
-                                            colSpan={2}
-                                            editorType="dxTextBox"
-                                            label={{ text: t("lblPayer", "Payer Info") }}
-                                            editorOptions={createVoucherEditorOptions()}
-                                        />
-                                    </Form>
-                                    <VoucherInfoDescriptionFields
-                                        companyCd={getCurrentCompanyCd()}
-                                        readOnly={readOnly}
-                                        t={t}
-                                        values={{
-                                            DESCRIPTION_VIET: formData.DESCRIPTION_VIET,
-                                            DESCRIPTION_ENG: formData.DESCRIPTION_ENG,
-                                            DESCRIPTION_KOR: formData.DESCRIPTION_KOR,
-                                        }}
-                                        onChange={(field, value) => {
-                                            handleFieldDataChanged({ dataField: field, value })
-                                        }}
+                    <div className="chit-voucher-fields-panel flex-shrink-0 px-4 pt-3 pb-3">
+                        <Form ref={formRef} formData={formData} labelLocation="top" colCount={3} readOnly={readOnly} onFieldDataChanged={handleFieldDataChanged}>
+                                    <Item
+                                        dataField="AMOUNT"
+                                        editorType="dxNumberBox"
+                                        label={{ text: t("AMOUNT", "Amount") }}
+                                        editorOptions={{ stylingMode: "outlined", format: "#,##0.00", readOnly: true }}
                                     />
-                                </div>
-
-                                <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-                                    <Form ref={formRef} formData={formData} labelLocation="top" colCount={1} readOnly={readOnly} onFieldDataChanged={handleFieldDataChanged}>
-                                        <Item
-                                            dataField="CHIT_NO"
-                                            editorType="dxTextBox"
-                                            label={{ text: t("CHIT_NO", "Document No") }}
-                                            editorOptions={createVoucherEditorOptions({
-                                                validationMessageMode: "always",
-                                            })}
-                                            validationRules={[
-                                                createRequiredRule(t("MSG_MUST_ITEM", "Document No is required")),
-                                                createTrimmedRequiredRule(t("MSG_MUST_ITEM", "Document No is required")),
-                                            ]}
-                                        />
-                                        <Item
-                                            dataField="CHIT_YMD"
-                                            editorType="dxDateBox"
-                                            label={{ text: t("CHIT_YMD", "Note Date") }}
-                                            editorOptions={createVoucherDateBoxEditorOptions({
-                                                validationMessageMode: "always",
-                                            })}
-                                            validationRules={[
-                                                createRequiredRule(t("MSG_MUST_ITEM", "Chit date is required")),
-                                                createDateRequiredRule(t("MSG_MUST_ITEM", "Chit date is required")),
-                                            ]}
-                                        />
-                                    </Form>
-                                </div>
-                            </div>
-                        </div>
+                                    <Item
+                                        dataField="PAYER_INFO"
+                                        editorType="dxTextBox"
+                                        label={{ text: t("lblPayer", "Payer Info") }}
+                                        editorOptions={createVoucherEditorOptions()}
+                                    />
+                                    <Item
+                                        dataField="CHIT_NO"
+                                        editorType="dxTextBox"
+                                        label={{ text: t("CHIT_NO", "Document No") }}
+                                        editorOptions={createVoucherEditorOptions({
+                                            validationMessageMode: "always",
+                                        })}
+                                        validationRules={[
+                                            createRequiredRule(t("MSG_MUST_ITEM", "Document No is required")),
+                                            createTrimmedRequiredRule(t("MSG_MUST_ITEM", "Document No is required")),
+                                        ]}
+                                    />
+                                    <Item
+                                        dataField="DESCRIPTION_VIET"
+                                        colSpan={2}
+                                        editorType="dxTextBox"
+                                        label={{ text: t("DESCRIPTION_VIET", "Description (VI)") }}
+                                        editorOptions={createVoucherEditorOptions()}
+                                    />
+                                    <Item
+                                        dataField="CHIT_YMD"
+                                        editorType="dxDateBox"
+                                        label={{ text: t("CHIT_YMD", "Note Date") }}
+                                        editorOptions={createVoucherDateBoxEditorOptions({
+                                            validationMessageMode: "always",
+                                        })}
+                                        validationRules={[
+                                            createRequiredRule(t("MSG_MUST_ITEM", "Chit date is required")),
+                                            createDateRequiredRule(t("MSG_MUST_ITEM", "Chit date is required")),
+                                        ]}
+                                    />
+                                </Form>
+                                <VoucherInfoDescriptionFields
+                                    companyCd={getCurrentCompanyCd()}
+                                    readOnly={readOnly}
+                                    t={t}
+                                    excludeFields={["DESCRIPTION_VIET"]}
+                                    values={{
+                                        DESCRIPTION_VIET: formData.DESCRIPTION_VIET,
+                                        DESCRIPTION_ENG: formData.DESCRIPTION_ENG,
+                                        DESCRIPTION_KOR: formData.DESCRIPTION_KOR,
+                                    }}
+                                    onChange={(field, value) => {
+                                        handleFieldDataChanged({ dataField: field, value })
+                                    }}
+                                />
                     </div>
 
-                    <div className="min-h-0 flex-1 px-3 pb-3">
-                        <div className="flex h-full min-h-0 flex-col rounded-md border border-slate-200 bg-white p-3">
+                    <div className="min-h-0 flex-1 px-4 pb-3">
+                        <div className="flex h-full min-h-0 flex-col">
                             <ChitDocumentEditorPanel
                                 gridRef={detailGridRef}
                                 companyCd={draft.COMPANY_CD}
@@ -604,13 +602,14 @@ export function ChitEditorPopup({
                         </div>
                     </div>
 
-                    <div className="flex flex-shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-white px-4 py-3">
+                    <div className="chit-editor-footer flex flex-shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-white px-4 py-3">
                         {!readOnly ? (
                         <Button
                             text={t("TIT_SAVE", "Save")}
                             icon="save"
                             type="default"
                             stylingMode="contained"
+                            elementAttr={{ class: "chit-editor-save-btn" }}
                             onClick={handleSave}
                             disabled={loading || !canSaveDraft}
                         />

@@ -65,10 +65,6 @@ export interface InventoryInputApi {
   CHITDETAIL_CD?: InventoryText
   SORT?: number | null
   ISDEL?: InventoryFlag
-  CREATE_BY?: InventoryText
-  CREATE_AT?: InventoryDateValue
-  UPDATE_BY?: InventoryText
-  UPDATE_AT?: InventoryDateValue
 }
 
 export interface InventoryOutputApi {
@@ -120,10 +116,6 @@ export interface InventoryOutputApi {
   CHITDETAIL_CD?: InventoryText
   SORT?: number | null
   ISDEL?: InventoryFlag
-  CREATE_BY?: InventoryText
-  CREATE_AT?: InventoryDateValue
-  UPDATE_BY?: InventoryText
-  UPDATE_AT?: InventoryDateValue
 }
 
 export interface InventoryInputLine {
@@ -301,10 +293,6 @@ export interface ChitDetailApi {
   DETAIL_DESCRIPTION_VIET?: ChitText
   DETAIL_DESCRIPTION_ENG?: ChitText
   DETAIL_DESCRIPTION_KOR?: ChitText
-  CREATE_BY?: ChitText
-  CREATE_AT?: ChitDateValue
-  UPDATE_BY?: ChitText
-  UPDATE_AT?: ChitDateValue
   INVENTORY_INPUTS?: InventoryInputApi[] | null
   INVENTORY_OUTPUTS?: InventoryOutputApi[] | null
 }
@@ -321,10 +309,6 @@ export interface ChitApi {
   AMOUNT?: number | null
   PAYER_INFO?: ChitText
   ISDEL?: ChitFlag
-  CREATE_BY?: ChitText
-  CREATE_AT?: ChitDateValue
-  UPDATE_BY?: ChitText
-  UPDATE_AT?: ChitDateValue
   IS_LOCK?: ChitFlag
   ISEXCEL?: ChitFlag
   EMAIL_EPAY?: ChitText
@@ -372,10 +356,6 @@ export interface InventoryVoucherApi {
   REMARK?: ChitText
   PAYER_INFO?: ChitText
   ISDEL?: ChitFlag
-  CREATE_BY?: ChitText
-  CREATE_AT?: ChitDateValue
-  UPDATE_BY?: ChitText
-  UPDATE_AT?: ChitDateValue
   IS_LOCK?: ChitFlag
   ISEXCEL?: ChitFlag
   EMAIL_EPAY?: ChitText
@@ -474,10 +454,6 @@ export interface ChitDetail {
   DETAIL_DESCRIPTION_VIET: string
   DETAIL_DESCRIPTION_ENG: string
   DETAIL_DESCRIPTION_KOR: string
-  CREATE_BY: string
-  CREATE_AT: ChitDateValue
-  UPDATE_BY: string
-  UPDATE_AT: ChitDateValue
   INVENTORY_INPUTS: InventoryInputLine[]
   INVENTORY_OUTPUTS: InventoryOutputLine[]
 }
@@ -494,10 +470,6 @@ export interface ChitInfo {
   AMOUNT: number | null
   PAYER_INFO: string
   ISDEL: boolean
-  CREATE_BY: string
-  CREATE_AT: ChitDateValue
-  UPDATE_BY: string
-  UPDATE_AT: ChitDateValue
   IS_LOCK: boolean
   ISEXCEL: boolean
   EMAIL_EPAY: string
@@ -528,10 +500,6 @@ export interface InventoryVoucher {
   REMARK: string
   PAYER_INFO: string
   ISDEL: boolean
-  CREATE_BY: string
-  CREATE_AT: ChitDateValue
-  UPDATE_BY: string
-  UPDATE_AT: ChitDateValue
   IS_LOCK: boolean
   ISEXCEL: boolean
   EMAIL_EPAY: string

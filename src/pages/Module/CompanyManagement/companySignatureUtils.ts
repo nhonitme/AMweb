@@ -44,8 +44,6 @@ export const createDefaultCompanySignatureInfo = (): CompanySignatureInfo => ({
   SORT_ORDER: 0,
   IS_ACTIVE: true,
   ISDEL: false,
-  CREATE_BY: "",
-  UPDATE_BY: "",
 })
 
 export const normalizeCompanySignatureRows = (
@@ -67,8 +65,6 @@ export const normalizeCompanySignatureRows = (
     SORT_ORDER: normalizeNumber(row.SORT_ORDER),
     IS_ACTIVE: normalizeFlag(row.IS_ACTIVE, true),
     ISDEL: normalizeFlag(row.ISDEL, false),
-    CREATE_BY: normalizeText(row.CREATE_BY),
-    UPDATE_BY: normalizeText(row.UPDATE_BY),
   }))
 
 export const mapCompanySignatureToApiPayload = (

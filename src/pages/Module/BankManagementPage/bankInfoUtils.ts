@@ -11,11 +11,6 @@ const toBool = (value: string | boolean | undefined | null): boolean => {
   return normalized === "1" || normalized === "Y" || normalized === "TRUE" || normalized === "T"
 }
 
-const toNullableDate = (value: string | null | undefined): string | null => {
-  const trimmed = (value ?? "").toString().trim()
-  return trimmed.length === 0 ? null : trimmed
-}
-
 export const normalizeBankInfo = (record: BankInfoApi): BankInfo => ({
   BANK_ID: typeof record.BANK_ID === "number" ? record.BANK_ID : null,
   COMPANY_CD: trimText(record.COMPANY_CD),
@@ -27,8 +22,6 @@ export const normalizeBankInfo = (record: BankInfoApi): BankInfo => ({
   CITAD_CODE: trimText(record.CITAD_CODE),
   REMARK: trimText(record.REMARK),
   ISDEL: toBool(record.ISDEL),
-  CREATE_BY: trimText(record.CREATE_BY),
-  UPDATE_BY: trimText(record.UPDATE_BY),
 })
 
 export const normalizeBankInfoRows = (records: BankInfoApi[]): BankInfo[] => records.map(normalizeBankInfo)
@@ -44,8 +37,6 @@ export const mapBankInfoToApiPayload = (record: BankInfo): Partial<BankInfoApi> 
   CITAD_CODE: trimText(record.CITAD_CODE),
   REMARK: trimText(record.REMARK),
   ISDEL: toFlag(record.ISDEL),
-  CREATE_BY: toNullableDate(record.CREATE_BY),
-  UPDATE_BY: toNullableDate(record.UPDATE_BY),
 })
 
 export const createDefaultBankInfo = (companyCd: string): BankInfo => ({
@@ -59,6 +50,4 @@ export const createDefaultBankInfo = (companyCd: string): BankInfo => ({
   CITAD_CODE: "",
   REMARK: "",
   ISDEL: false,
-  CREATE_BY: "",
-  UPDATE_BY: "",
 })

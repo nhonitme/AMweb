@@ -1,3 +1,9 @@
+import { captureMasterPopupError } from "@/components/datagrid/masterPopupValidation";
+import {
+  clearMasterFormDraft,
+  mergeMasterFormDraft,
+  seedMasterFormDraft,
+} from "@/components/lookup/masterFormDraft";
 import { downloadFile } from "@/lib/fileUtils"
 import { useCallback, useContext, useRef, useState } from "react"
 import { LoadPanel } from "devextreme-react"
@@ -179,10 +185,11 @@ export default function InventoryOpeningPage() {
   }
 
   const onRowInserting = (e: RowInsertingEventWithPromise) => {
+    const reportSaveError = captureMasterPopupError(e.component)
     e.promise = (async () => {
       try {
         const popupFormData = editFormRef.current?.option("formData") as Partial<InventoryOpening> | undefined
-        const payload = {
+        const payload = mergeMasterFormDraft({
           PRODUCT_ID: e.data?.PRODUCT_ID ?? popupFormData?.PRODUCT_ID,
           PRODUCT_CD: e.data?.PRODUCT_CD ?? popupFormData?.PRODUCT_CD,
           STORE_ID: e.data?.STORE_ID ?? popupFormData?.STORE_ID,
@@ -193,27 +200,28 @@ export default function InventoryOpeningPage() {
           UNIT_PRICE_CC: Number(e.data?.UNIT_PRICE_CC ?? popupFormData?.UNIT_PRICE_CC ?? 0),
           AMOUNT_CC: Number(e.data?.AMOUNT_CC ?? popupFormData?.AMOUNT_CC ?? 0),
           SUMMARY: e.data?.SUMMARY ?? popupFormData?.SUMMARY ?? "",
-        }
+        })
         await createMutation.mutateAsync(payload)
         notify(t("MSG_INSERT_SUCCESS", "Created successfully"), "success", 1000)
         if (e.component) {
           ;(e.component as dxDataGrid).cancelEditData()
         }
       } catch (error: unknown) {
-        notify(getApiErrorMessage(error, t("INSERT_FAILED", "Thêm mới thất bại")), "error", 3000)
+        reportSaveError(getApiErrorMessage(error, t("INSERT_FAILED", "Thêm mới thất bại")))
         throw error
       }
     })()
   }
 
   const onRowUpdating = (e: RowUpdatingEventWithPromise) => {
+    const reportSaveError = captureMasterPopupError(e.component)
     e.promise = (async () => {
       try {
         const popupFormData = editFormRef.current?.option("formData") as Partial<InventoryOpening> | undefined
         const definedNewData = Object.fromEntries(
           Object.entries(e.newData ?? {}).filter(([, value]) => value !== undefined),
         ) as Partial<InventoryOpening>
-        const merged = { ...e.oldData, ...popupFormData, ...definedNewData }
+        const merged = mergeMasterFormDraft({ ...e.oldData, ...popupFormData, ...definedNewData })
         const payload = {
           INPUT_ID: merged.INPUT_ID,
           TRANSFER_ID: merged.TRANSFER_ID,
@@ -234,7 +242,7 @@ export default function InventoryOpeningPage() {
           ;(e.component as dxDataGrid).cancelEditData()
         }
       } catch (error: unknown) {
-        notify(getApiErrorMessage(error, t("UPDATE_FAILED", "Cập nhật thất bại")), "error", 3000)
+        reportSaveError(getApiErrorMessage(error, t("UPDATE_FAILED", "Cập nhật thất bại")))
         throw error
       }
     })()
@@ -359,11 +367,14 @@ export default function InventoryOpeningPage() {
           onEditorPreparing={onEditorPreparing}
           onContextMenuPreparing={onContextMenuPreparing}
           onRowDblClick={handleRowDblClick}
-          onEditingStart={() => {
+          onEditingStart={(e) => {
             setIsUpdate(true)
+            seedMasterFormDraft(e.data as unknown as Record<string, unknown>)
           }}
+          onEditCanceled={() => clearMasterFormDraft()}
           onInitNewRow={(e) => {
             setIsUpdate(false)
+            seedMasterFormDraft(e.data as unknown as Record<string, unknown>)
             e.data.QUANTITY = 0
             e.data.UNIT_PRICE_CC = 0
             e.data.AMOUNT_CC = 0

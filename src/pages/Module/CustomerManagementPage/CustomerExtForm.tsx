@@ -16,6 +16,10 @@ import { renderSharedBankLookupPage } from "@/components/lookup/sharedMasterLook
 import { normalizeTaxCode } from "@/lib/taxCode"
 import type { BankInfo } from "@/types/bankInfo"
 import type { TaxLookupInfo } from "@/types/taxLookup"
+import { checkCodeExists } from "@/api/lookupApi"
+import { useMasterFormValidation } from "@/components/forms/useMasterFormValidation"
+import { requiredMasterMessage } from "@/components/forms/masterValidationMessages"
+import { MasterPopupFieldError } from "@/components/datagrid/masterPopupValidation"
 import {
   customerFieldGroups,
   customerFields,
@@ -23,7 +27,9 @@ import {
   type CustomerFieldKey,
 } from "./Columns/CustomerFields"
 import {
-  getCustomerEditSessionKey,
+  getCustomerEditSessionRevision,
+  getCustomerEditIdentity,
+  isCustomerEditIdentityDirty,
   patchCustomerEditIdentity,
   resolveCustomerIdentitySeed,
 } from "./customerEditSession"
@@ -109,11 +115,13 @@ const getEditorConfig = (
         <MasterLookupFormField<BankInfo>
           form={component as unknown as dxForm}
           dataField="BANK_ID"
+          draftValue={getCustomerEditIdentity().BANK_ID ?? null}
+          onDraftValueChange={(value) => patchCustomerEditIdentity({ BANK_ID: value == null ? null : Number(value) })}
           dataSource={bankLookupStore}
           valueExpr="BANK_ID"
           getValue={(item) => item.BANK_ID}
           displayExpr={displayExpr}
-          placeholder={caption}
+          placeholder={translate("SELECT", "Chọn")}
           popupTitle={translate("BANK_LIST", "Banks")}
           buttonHint={translate("SEARCH", "Open bank list")}
           filterFocusField="BANK_CD"
@@ -179,12 +187,6 @@ function readFormData(component: FormLike): Record<string, unknown> {
   return formData && typeof formData === "object" ? (formData as Record<string, unknown>) : {}
 }
 
-function updateFormField(component: FormLike, dataField: string, value: string) {
-  const form = resolveDxForm(component)
-  const target = (form as unknown as FormLike | null) ?? component
-  target.updateData(dataField, value)
-}
-
 function readIdentityValues(component: FormLike): IdentityValues {
   const formData = readFormData(component)
   return {
@@ -195,6 +197,7 @@ function readIdentityValues(component: FormLike): IdentityValues {
 }
 
 function pickIdentitySeed(component: FormLike): IdentityValues {
+  if (isCustomerEditIdentityDirty()) return getCustomerEditIdentity()
   const fromForm = readIdentityValues(component)
   if (fromForm.TAX_CD || fromForm.CUSTOMER_NM_VIET || fromForm.ADDRESS) {
     return fromForm
@@ -202,7 +205,6 @@ function pickIdentitySeed(component: FormLike): IdentityValues {
   return resolveCustomerIdentitySeed()
 }
 
-/** One React tree for MST + name + address so lookup setState always paints. */
 function CustomerIdentitySection({
   component,
   labels,
@@ -222,10 +224,12 @@ function CustomerIdentitySection({
         return false
       }
 
-      setValues(seed)
-      updateFormField(component, "TAX_CD", seed.TAX_CD)
-      updateFormField(component, "CUSTOMER_NM_VIET", seed.CUSTOMER_NM_VIET)
-      updateFormField(component, "ADDRESS", seed.ADDRESS)
+      setValues(current => current.TAX_CD === seed.TAX_CD &&
+        current.CUSTOMER_NM_VIET === seed.CUSTOMER_NM_VIET && current.ADDRESS === seed.ADDRESS
+        ? current : seed)
+
+
+
       return true
     }
 
@@ -244,8 +248,8 @@ function CustomerIdentitySection({
   const commitField = useCallback(
     (dataField: keyof IdentityValues, nextValue: string) => {
       patchCustomerEditIdentity({ [dataField]: nextValue })
-      setValues((current) => ({ ...current, [dataField]: nextValue }))
-      updateFormField(component, dataField, nextValue)
+      setValues((current) => current[dataField] === nextValue ? current : ({ ...current, [dataField]: nextValue }))
+
     },
     [component],
   )
@@ -261,9 +265,7 @@ function CustomerIdentitySection({
 
       patchCustomerEditIdentity(next)
       setValues(next)
-      updateFormField(component, "TAX_CD", next.TAX_CD)
-      updateFormField(component, "CUSTOMER_NM_VIET", next.CUSTOMER_NM_VIET)
-      updateFormField(component, "ADDRESS", next.ADDRESS)
+
     },
     [component],
   )
@@ -286,6 +288,7 @@ function CustomerIdentitySection({
           onValueChanged={(event) => commitField("CUSTOMER_NM_VIET", String(event.value ?? ""))}
           {...createOutlinedEditorOptions({})}
         />
+        <MasterPopupFieldError dataField="CUSTOMER_NM_VIET" />
       </div>
       <div className="min-w-0 md:col-span-2">
         <div className="dx-field-item-label-text mb-1 text-sm">{labels.address}</div>
@@ -307,12 +310,8 @@ function CustomerIdentityFormItem({
   component: FormLike
   labels: { taxCd: string; name: string; address: string }
 }) {
-  const formData = readFormData(component)
-  const sessionKey = getCustomerEditSessionKey()
-  const seed = resolveCustomerIdentitySeed()
-  const sectionKey = String(
-    sessionKey ?? formData.CUSTOMER_ID ?? formData.CUSTOMER_CD ?? (seed.TAX_CD || "new"),
-  )
+  // A draft value (such as TAX_CD) must never be a React key.
+  const sectionKey = String(getCustomerEditSessionRevision())
 
   return (
     <CustomerIdentitySection
@@ -341,6 +340,7 @@ export default function CustomerExtForm({
     },
     [translate, translateOverride],
   )
+  const validation = useMasterFormValidation(t)
 
   const identityLabels = useMemo(
     () => ({
@@ -354,7 +354,7 @@ export default function CustomerExtForm({
   const defaultGroups = useMemo(() => {
     const createItem = (fieldKey: CustomerFieldKey): FormItemConfig => {
       const field = customerFields.find((item) => item.key === fieldKey)
-      const caption = t(fieldKey, field?.caption ?? fieldKey)
+      const caption = t(fieldKey === "BANK_ID" ? "BANK_CD" : fieldKey, field?.caption ?? fieldKey)
       const { editorType, editorOptions, render } = getEditorConfig(fieldKey, caption, categoryCodes, customerTypeCodes, t)
 
       return {
@@ -364,7 +364,7 @@ export default function CustomerExtForm({
         editorOptions,
         render,
         validationRules: requiredCustomerFields.has(fieldKey)
-          ? [{ type: "required", message: t("MSG_MUST_ITEM", `${fieldKey} is required`) }]
+          ? [{ type: "required", message: requiredMasterMessage(t, caption) }]
           : undefined,
         colSpan: field?.colSpan,
       }
@@ -388,7 +388,7 @@ export default function CustomerExtForm({
             dataField: "CUSTOMER_NM_VIET",
             label: { visible: false },
             validationRules: requiredCustomerFields.has("CUSTOMER_NM_VIET")
-              ? [{ type: "required" as const, message: t("MSG_MUST_ITEM", "CUSTOMER_NM_VIET is required") }]
+              ? [{ type: "required" as const, message: requiredMasterMessage(t, identityLabels.name) }]
               : undefined,
             render: (data: { component: FormLike }) => (
               <CustomerIdentityFormItem component={data.component} labels={identityLabels} />
@@ -401,21 +401,7 @@ export default function CustomerExtForm({
         caption: t("COMPANY_INFO_CONTACT", "Contact Information"),
         colCount: 2,
         cssClass: "popup-card popup-card--contact",
-        items: customerFieldGroups.contact.map(createItem),
-      },
-      {
-        key: "finance",
-        caption: t("lblTAX_BANK_INFORMATION", "Tax / Bank"),
-        colCount: 3,
-        cssClass: "popup-card popup-card--bank",
-        items: customerFieldGroups.finance.map(createItem),
-      },
-      {
-        key: "other",
-        caption: t("Other", "Khác"),
-        colCount: 2,
-        cssClass: "popup-card popup-card--note",
-        items: customerFieldGroups.other.map(createItem),
+        items: [...customerFieldGroups.contact, ...customerFieldGroups.finance, ...customerFieldGroups.other].map(createItem),
       },
     ]
   }, [categoryCodes, customerTypeCodes, identityLabels, t])
@@ -424,7 +410,14 @@ export default function CustomerExtForm({
 
   return (
     <div className="customer-ext-form">
-      <DxForm colCount={1} labelLocation="top" width="100%">
+      <DxForm
+        colCount={1}
+        labelLocation="top"
+        width="100%"
+        onInitialized={validation.onInitialized}
+        onFieldDataChanged={validation.onFieldDataChanged}
+        customizeItem={validation.customizeItem}
+      >
         {groups.map((group) => (
           <GroupItem key={group.key} caption={group.caption} colCount={group.colCount} cssClass={group.cssClass}>
             {group.items.map((item) => (
@@ -434,7 +427,10 @@ export default function CustomerExtForm({
                 label={typeof item.label === "string" ? { text: item.label } : item.label}
                 editorType={item.editorType}
                 editorOptions={item.editorOptions}
-                validationRules={item.validationRules}
+                validationRules={item.dataField === "CUSTOMER_CD"
+                  ? validation.code("CUSTOMER_CD", "CUSTOMER_ID", (id, value) => id ? checkCodeExists("customer", value, id) : Promise.resolve(false), "Mã khách hàng")
+                  : item.validationRules}
+                cssClass={item.dataField === "CUSTOMER_NM_VIET" && item.render ? "master-custom-validation" : undefined}
                 colSpan={item.colSpan}
                 render={item.render}
               />

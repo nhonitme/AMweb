@@ -15,8 +15,6 @@ export interface UserInfoApi {
   DEFAULT_YN?: UserInfoText
   IS_ACTIVE?: UserInfoText
   ISDEL?: UserInfoText
-  CREATE_BY?: UserInfoText
-  UPDATE_BY?: UserInfoText
 }
 
 export interface UserInfo {
@@ -35,8 +33,6 @@ export interface UserInfo {
   DEFAULT_YN: boolean
   IS_ACTIVE: boolean
   ISDEL: boolean
-  CREATE_BY: string
-  UPDATE_BY: string
 }
 
 export interface DeleteUserInfosRequest {

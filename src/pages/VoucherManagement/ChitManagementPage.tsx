@@ -1031,10 +1031,6 @@ const openEditPopup = useCallback(
             CHIT_ID: null,
             CHITDETAIL_CD: "",
             SORT: index + 1,
-            CREATE_BY: "",
-            CREATE_AT: null,
-            UPDATE_BY: "",
-            UPDATE_AT: null,
           }
         })
       : [createDefaultChitDetail(1, companyCd)]
@@ -1049,10 +1045,6 @@ const openEditPopup = useCallback(
       DETAILS: duplicatedDetails,
       DETAIL_COUNT: duplicatedDetails.length,
       AMOUNT: calculateChitAmount(duplicatedDetails),
-      CREATE_BY: "",
-      CREATE_AT: null,
-      UPDATE_BY: "",
-      UPDATE_AT: null,
     })
     setPopupVisible(true)
   }, [chitType, selectedRow, t])
@@ -1228,7 +1220,7 @@ const openEditPopup = useCallback(
   )
 
   const masterCopyExcludeFields = useMemo(
-    () => ["CHIT_ID", "COMPANY_CD", "CHIT_TYPE", "USERID", "DETAIL_COUNT", "DETAILS", "CREATE_BY", "CREATE_AT", "MODIFY_BY", "MODIFY_DT"],
+    () => ["CHIT_ID", "COMPANY_CD", "CHIT_TYPE", "USERID", "DETAIL_COUNT", "DETAILS"],
     [],
   )
 

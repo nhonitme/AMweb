@@ -11,8 +11,6 @@ export interface CompanySignatureInfoApi {
   SORT_ORDER?: number | null
   IS_ACTIVE?: CompanySignatureText | boolean
   ISDEL?: CompanySignatureText | boolean
-  CREATE_BY?: CompanySignatureText
-  UPDATE_BY?: CompanySignatureText
 }
 
 export interface CompanySignatureInfo {
@@ -26,8 +24,6 @@ export interface CompanySignatureInfo {
   SORT_ORDER: number
   IS_ACTIVE: boolean
   ISDEL: boolean
-  CREATE_BY: string
-  UPDATE_BY: string
 }
 
 export interface DeleteCompanySignaturesRequest {

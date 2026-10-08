@@ -19,7 +19,7 @@ import {
   disableBuiltInPopupEscape,
   usePopupEscapeLayer,
 } from "@/components/popup/popupEscapeStack"
-import { useLookupPopupHost } from "./LookupPopupHost"
+import { useLookupPopupCommands } from "./LookupPopupHost"
 import type { LookupOpenMode } from "./LookupGridCellDisplay"
 import {
   overlayWrapperFromPopupContent,
@@ -44,6 +44,13 @@ export type LookupValue = string | number | null | undefined
 
 const LOOKUP_DROPDOWN_PAGE_SIZE = 40
 const LOOKUP_DROPDOWN_ROW_HEIGHT = 32
+
+function sameLookupValue(left: LookupValue, right: LookupValue): boolean {
+  const leftEmpty = left === null || left === undefined || left === ""
+  const rightEmpty = right === null || right === undefined || right === ""
+  if (leftEmpty || rightEmpty) return leftEmpty && rightEmpty
+  return String(left) === String(right)
+}
 
 function readCssPx(value: string): number {
   const parsed = Number.parseFloat(value)
@@ -153,6 +160,7 @@ type BaseLookupCellEditorProps<T extends object> = {
   popupHeight?: number | string
   popupGridHeight?: number | string
   popupPageSize?: number
+  deferDropdownRendering?: boolean
   renderPopupContent?: (options: { closePopup: () => void }) => ReactNode
   autoOpen?: LookupOpenMode | null
   grid?: LookupGridFocusHost
@@ -196,6 +204,7 @@ export default function BaseLookupCellEditor<T extends object>({
   popupHeight = "90vh",
   popupGridHeight = "calc(90vh - 92px)",
   popupPageSize = 20,
+  deferDropdownRendering = false,
   renderPopupContent,
   autoOpen,
   grid,
@@ -218,8 +227,7 @@ export default function BaseLookupCellEditor<T extends object>({
   resolveSelectedItem: resolveSelectedItemOverride,
   shouldHandleValueChange,
 }: BaseLookupCellEditorProps<T>) {
-  // Start closed; open after SelectBox init so production creates a real overlay
-  // (dump: first click had opened=true but dropdownClassCount=0).
+  // Start closed; open after SelectBox init so production creates a real overlay.
   const [opened, setOpened] = useState(false)
   const [popupVisible, setPopupVisible] = useState(false)
   const [dropDownAnchor, setDropDownAnchor] = useState<HTMLElement | null>(null)
@@ -231,7 +239,14 @@ export default function BaseLookupCellEditor<T extends object>({
   const autoOpenHandledRef = useRef(false)
   const pendingAutoOpenDropdownRef = useRef(autoOpen === "dropdown")
   const tabNavigationRef = useRef(false)
-  const lookupPopupHost = useLookupPopupHost()
+  const pendingAppliedValueRef = useRef<LookupValue>(undefined)
+  const lookupPopupHost = useLookupPopupCommands()
+
+  useEffect(() => {
+    if (pendingAppliedValueRef.current !== undefined && !sameLookupValue(value, pendingAppliedValueRef.current)) {
+      pendingAppliedValueRef.current = undefined
+    }
+  }, [value])
 
   const selectedRowKeys = useMemo(() => {
     if (value === null || value === undefined || value === "") {
@@ -291,11 +306,21 @@ export default function BaseLookupCellEditor<T extends object>({
 
   const handleApply = useCallback(
     (item: T) => {
+      const itemValue = item[valueExpr] as LookupValue
+      if (itemValue !== undefined && itemValue !== null && itemValue !== "") {
+        if (sameLookupValue(itemValue, value)) {
+          return
+        }
+        if (sameLookupValue(itemValue, pendingAppliedValueRef.current)) {
+          return
+        }
+        pendingAppliedValueRef.current = itemValue
+      }
       onApply(item)
       lookupPopupHost?.closeLookupPopup()
       closeLookup()
     },
-    [closeLookup, lookupPopupHost, onApply],
+    [closeLookup, lookupPopupHost, onApply, value, valueExpr],
   )
 
   const resolveSelectedItemDefault = useCallback(
@@ -331,7 +356,7 @@ export default function BaseLookupCellEditor<T extends object>({
         return
       }
 
-      if (lookupPopupHost?.isLookupPopupOpen) {
+      if (lookupPopupHost?.isLookupPopupOpenRef.current) {
         return
       }
 
@@ -619,7 +644,7 @@ export default function BaseLookupCellEditor<T extends object>({
         itemRender={itemRender as ((item: unknown) => ReactNode) | undefined}
         opened={openedOverride ?? opened}
         openOnFieldClick={!readOnly && !disabled}
-        deferRendering={false}
+        deferRendering={deferDropdownRendering}
         showClearButton={showClearButton && !readOnly && !disabled}
         disabled={disabled}
         readOnly={readOnly}

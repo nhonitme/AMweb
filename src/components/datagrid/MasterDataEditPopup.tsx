@@ -1,7 +1,8 @@
 import { Popup as DataGridPopup } from "devextreme-react/data-grid";
 import { Popup as TreeListPopup } from "devextreme-react/tree-list";
 import type { HiddenEvent, HidingEvent, ShownEvent } from "devextreme/ui/popup";
-import { useMemo, type ComponentProps } from "react";
+import { useMemo, useState, type ComponentProps } from "react";
+import { MasterPopupValidationSummary } from "./masterPopupValidation";
 
 import { useCurrentMenuTitle } from "@/hooks/useCurrentMenuTitle";
 import {
@@ -20,6 +21,7 @@ export const MASTER_DATA_EDIT_POPUP_FIELD_SCROLL_THRESHOLD = 8;
 type DataGridPopupProps = ComponentProps<typeof DataGridPopup>;
 type TreeListPopupProps = ComponentProps<typeof TreeListPopup>;
 type MasterDataPopupProps = MasterDataEditPopupProps | MasterDataTreeListEditPopupProps;
+type MasterDataPopupShowingEvent = Parameters<NonNullable<MasterDataPopupProps["onShowing"]>>[0];
 type MasterDataPopupShownEvent = Parameters<NonNullable<MasterDataPopupProps["onShown"]>>[0];
 type MasterDataPopupHiddenEvent = Parameters<NonNullable<MasterDataPopupProps["onHidden"]>>[0];
 type MasterDataPopupHidingEvent = Parameters<NonNullable<MasterDataPopupProps["onHiding"]>>[0];
@@ -132,12 +134,13 @@ function unregisterMasterDataPopupEscape(event: HiddenEvent) {
 }
 
 function cancelHideWhenNestedPopupIsOpen(event: HidingEvent): boolean {
-  if (!popupEscapeCleanup.get(event.component)?.hasLayerAbove()) {
-    return false;
+  const layerAbove = popupEscapeCleanup.get(event.component)?.hasLayerAbove();
+  if (layerAbove) {
+    event.cancel = true;
+    return true;
   }
 
-  event.cancel = true;
-  return true;
+  return false;
 }
 
 export function shouldUseMasterDataEditPopupScroll(fieldCount: number): boolean {
@@ -183,7 +186,7 @@ function resolveMasterDataEditPopupProps({
       ...wrapperAttr,
       class: buildWrapperClass(scrollable, wrapperAttr),
     },
-    onShowing: (event: MasterDataPopupShownEvent) => {
+    onShowing: (event: MasterDataPopupShowingEvent) => {
       if (document.querySelector(".dx-overlay-wrapper.am-lookup-popup")) {
         raiseOverlayAboveSiblings(overlayWrapperFromPopupContent(event.component.content()));
       }
@@ -232,8 +235,10 @@ export default function MasterDataEditPopup({
   titleRender,
   ...props
 }: MasterDataEditPopupProps) {
+  const [errorHost, setErrorHost] = useState<HTMLElement | null>(null);
   const stableTitleComponent = useMasterPopupTitleComponent(title, showTitle, titleComponent, titleRender);
   return (
+    <>
     <DataGridPopup
       {...resolveMasterDataEditPopupProps({
         ...props,
@@ -241,8 +246,25 @@ export default function MasterDataEditPopup({
         showTitle,
         titleComponent: stableTitleComponent,
         titleRender,
+        onShown: (event) => {
+          const content = event.component.content() as HTMLElement;
+          let host = content.querySelector<HTMLElement>(".master-popup-validation");
+          if (!host) {
+            host = document.createElement("div");
+            host.className = "master-popup-validation";
+            content.prepend(host);
+          }
+          setErrorHost(host);
+          props.onShown?.(event);
+        },
+        onHidden: (event) => {
+          setErrorHost(null);
+          props.onHidden?.(event);
+        },
       })}
     />
+    <MasterPopupValidationSummary host={errorHost} />
+    </>
   );
 }
 
@@ -253,8 +275,10 @@ export function MasterDataTreeListEditPopup({
   titleRender,
   ...props
 }: MasterDataTreeListEditPopupProps) {
+  const [errorHost, setErrorHost] = useState<HTMLElement | null>(null);
   const stableTitleComponent = useMasterPopupTitleComponent(title, showTitle, titleComponent, titleRender);
   return (
+    <>
     <TreeListPopup
       {...resolveMasterDataEditPopupProps({
         ...props,
@@ -262,7 +286,24 @@ export function MasterDataTreeListEditPopup({
         showTitle,
         titleComponent: stableTitleComponent,
         titleRender,
+        onShown: (event) => {
+          const content = event.component.content() as HTMLElement;
+          let host = content.querySelector<HTMLElement>(".master-popup-validation");
+          if (!host) {
+            host = document.createElement("div");
+            host.className = "master-popup-validation";
+            content.prepend(host);
+          }
+          setErrorHost(host);
+          props.onShown?.(event);
+        },
+        onHidden: (event) => {
+          setErrorHost(null);
+          props.onHidden?.(event);
+        },
       })}
     />
+    <MasterPopupValidationSummary host={errorHost} />
+    </>
   );
 }

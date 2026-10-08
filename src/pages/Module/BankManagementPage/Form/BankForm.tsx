@@ -5,6 +5,8 @@ import { GroupItem, Item } from "devextreme-react/form"
 import { createOutlinedEditorOptions } from "@/components/forms/devExtremeEditorOptions"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { bankFieldGroups, bankFields } from "../Columns/BankFields"
+import { checkCodeExists } from "@/api/lookupApi"
+import { useMasterFormValidation } from "@/components/forms/useMasterFormValidation"
 
 interface BankFormProps {
   isUpdate: boolean
@@ -35,6 +37,7 @@ export default function BankForm({ isUpdate }: BankFormProps) {
   }
 
   const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+  const validation = useMasterFormValidation(t)
 
   const groups = useMemo(() => {
     const createItem = (fieldKey: string): FormItemConfig => {
@@ -75,7 +78,7 @@ export default function BankForm({ isUpdate }: BankFormProps) {
 
   return (
     <div className="bank-form">
-      <DxForm colCount={1} labelLocation="top" width="100%">
+      <DxForm colCount={1} labelLocation="top" width="100%" onInitialized={validation.onInitialized} onFieldDataChanged={validation.onFieldDataChanged}>
         {groups.map((group) => (
           <GroupItem key={group.key} caption={group.caption} colCount={group.colCount}>
             {group.items.map((item) => (
@@ -86,6 +89,9 @@ export default function BankForm({ isUpdate }: BankFormProps) {
                 editorType={item.editorType}
                 editorOptions={item.editorOptions}
                 colSpan={item.colSpan}
+                validationRules={item.dataField === "BANK_CD"
+                  ? validation.code("BANK_CD", "BANK_ID", (id, value) => checkCodeExists("bank", value, id), item.label)
+                  : item.dataField === "BANK_NM" ? validation.required("BANK_NM", item.label) : []}
               />
             ))}
           </GroupItem>

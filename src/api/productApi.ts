@@ -22,7 +22,7 @@ export async function createProduct(payload: Partial<Product>): Promise<ApiRespo
     return resp.data;
 }
 
-export async function updateProduct(id: string, payload: Partial<Product>): Promise<ApiResponse<object>> {
+export async function updateProduct(id: string, payload: Partial<Product>): Promise<ApiResponse<Product>> {
     const resp = await axios.put<ApiResponse<object>>(`${API_URL}/${encodeURIComponent(id)}`, payload);
     return resp.data;
 }

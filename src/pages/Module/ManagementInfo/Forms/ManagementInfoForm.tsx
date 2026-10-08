@@ -10,6 +10,8 @@ import { filterActiveLangFields, isLangFieldVisible, pickLocalizedText, useCompa
 import { LanguageContext } from "@/lib/i18nLoader"
 import type { ManagementInfo } from "@/types/managementInfo"
 import { managementInfoFieldGroups } from "../Columns/ManagementInfoColumns"
+import { checkCodeExists } from "@/api/lookupApi"
+import { useMasterFormValidation } from "@/components/forms/useMasterFormValidation"
 
 type FormItemConfig = {
   dataField: string
@@ -23,6 +25,7 @@ export function ManagementInfoForm() {
 
   const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
   const companyLangRevision = useCompanyLangRevision()
+  const validation = useMasterFormValidation(t)
 
   const groups = useMemo(() => {
     const createItem = (fieldKey: string): FormItemConfig => ({
@@ -50,7 +53,7 @@ export function ManagementInfoForm() {
 
   return (
     <div className="management-info-form">
-      <DxForm colCount={1} labelLocation="top" width="100%">
+      <DxForm colCount={1} labelLocation="top" width="100%" onInitialized={validation.onInitialized} onFieldDataChanged={validation.onFieldDataChanged}>
         {groups.map((group) => (
           <GroupItem key={group.key} caption={group.caption} colCount={group.colCount}>
             {group.items.map((item) =>
@@ -98,6 +101,8 @@ export function ManagementInfoForm() {
                   label={{ text: item.label }}
                   editorType="dxTextBox"
                   editorOptions={createOutlinedEditorOptions({})}
+                  validationRules={item.dataField === "MG_CD"
+                    ? validation.code("MG_CD", "MG_ID", (id, value) => checkCodeExists("management", value, id), item.label) : []}
                 />
               ),
             )}

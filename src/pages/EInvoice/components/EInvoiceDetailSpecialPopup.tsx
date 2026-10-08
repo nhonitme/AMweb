@@ -139,10 +139,6 @@ function draftToSpecial(draft: SpecialDraft): EInvoiceDetailSpecialInfo {
     MSTNG_HANG: draft.MSTNG_HANG,
     MDDNG_HANG: draft.MDDNG_HANG,
     EXTRA_JSON: stringifySpecialExtraJson(extraValues),
-    CREATE_USER: draft.CREATE_USER,
-    CREATE_DT: draft.CREATE_DT,
-    UPDATE_USER: draft.UPDATE_USER,
-    UPDATE_DT: draft.UPDATE_DT,
   }
 }
 

@@ -125,7 +125,7 @@ type EInvoiceListQueryState = {
 
 type InvoiceStatusActionKey = "edit-mail" | "mail-history" | "transmission-history"
 
-const EINVOICE_COPY_EXCLUDE_FIELDS = ["INVOICE_ID", "COMPANY_CD", "DETAILS", "MTRACUU", "CREATE_AT", "CREATE_BY", "UPDATE_AT", "UPDATE_BY"]
+const EINVOICE_COPY_EXCLUDE_FIELDS = ["INVOICE_ID", "COMPANY_CD", "DETAILS", "MTRACUU"]
 
 function trimGridCellText(value: unknown): string {
     return String(value ?? "").trim()

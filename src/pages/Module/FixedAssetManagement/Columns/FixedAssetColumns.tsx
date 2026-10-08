@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useMemo } from 'react'
-import { Column, RequiredRule } from 'devextreme-react/data-grid'
+import { Column } from 'devextreme-react/data-grid'
 
 import type { SysCode } from '@/api/sysCodeService'
 import { normalizeYmd } from '@/pages/Accounting/accountingDateUtils'
@@ -94,22 +94,6 @@ export const FixedAssetColumns: React.FC<FixedAssetColumnsProps> = ({
     <>
       {resolvedColumns.map((column) => {
         const base = buildBaseColumnProps(column)
-
-        if (column.fieldName === 'ASSET_CD') {
-          return (
-            <Column key={column.fieldName} {...base}>
-              <RequiredRule message={t('MSG_MUST_ITEM', 'Vui lòng nhập mã tài sản.')} />
-            </Column>
-          )
-        }
-
-        if (column.fieldName === 'ASSET_NM') {
-          return (
-            <Column key={column.fieldName} {...base}>
-              <RequiredRule message={t('MSG_MUST_ITEM', 'Vui lòng nhập tên tài sản.')} />
-            </Column>
-          )
-        }
 
         if (column.fieldName === 'RECEIVE_YMD' || column.fieldName === 'USE_START_YMD') {
           return (

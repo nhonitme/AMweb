@@ -117,13 +117,15 @@ async function waitForPendingEditorCommit() {
 
 export async function flushActiveEditorValue(target: EventTarget | null = document.activeElement) {
   const element = getEditableShortcutElement(target)
-  if (element instanceof HTMLElement) {
-    element.dispatchEvent(new Event("input", { bubbles: true, cancelable: true }))
-    element.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }))
+  if (!(element instanceof HTMLElement)) {
+    return
+  }
 
-    if (typeof element.blur === "function") {
-      element.blur()
-    }
+  element.dispatchEvent(new Event("input", { bubbles: true, cancelable: true }))
+  element.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }))
+
+  if (typeof element.blur === "function") {
+    element.blur()
   }
 
   await waitForPendingEditorCommit()

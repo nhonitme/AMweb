@@ -27,8 +27,6 @@ export const normalizeManagementInfo = (record: ManagementInfoApi): ManagementIn
   MG_DESC_ENG: trimText(record.MG_DESC_ENG),
   MG_DESC_VIET: trimText(record.MG_DESC_VIET),
   ISDEL: toBool(record.ISDEL),
-  CREATE_BY: trimText(record.CREATE_BY),
-  UPDATE_BY: trimText(record.UPDATE_BY),
   MG_CD_ROOT: trimText(record.MG_CD_ROOT),
 })
 
@@ -43,12 +41,10 @@ export const mapManagementInfoToApiPayload = (record: ManagementInfo): Partial<M
   MG_DESC_ENG: trimText(record.MG_DESC_ENG),
   MG_DESC_VIET: trimText(record.MG_DESC_VIET),
   ISDEL: toFlag(record.ISDEL),
-  CREATE_BY: trimText(record.CREATE_BY),
-  UPDATE_BY: trimText(record.UPDATE_BY),
   MG_CD_ROOT: trimText(record.MG_CD_ROOT),
 })
 
-export const createDefaultManagementInfo = (companyCd: string, userId: string): ManagementInfo => ({
+export const createDefaultManagementInfo = (companyCd: string): ManagementInfo => ({
   MG_ID: null,
   COMPANY_CD: companyCd,
   MG_CD: "",
@@ -56,7 +52,5 @@ export const createDefaultManagementInfo = (companyCd: string, userId: string): 
   MG_DESC_ENG: "",
   MG_DESC_VIET: "",
   ISDEL: false,
-  CREATE_BY: userId,
-  UPDATE_BY: userId,
   MG_CD_ROOT: "",
 })

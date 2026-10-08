@@ -1,3 +1,5 @@
+import { getApiArrayPayload } from "./apiTypes";
+import type { etcData } from "@/types/etcData";
 import axios from "./axiosClient";
 import API_BASE_URL from "../config/apiConfig";
 import { getCurrentCompanyCd, getCurrentUserId } from "@/lib/login";
@@ -144,7 +146,7 @@ export async function getEtcData(
   etcType: EtcType,
   param1?: string,
   param2?: string,
-) {
+): Promise<etcData[]> {
   const params: Record<string, string | number> = {};
 
   params.etcType = etcType;
@@ -162,5 +164,5 @@ export async function getEtcData(
     params,
   });
 
-  return unwrapPayload(response.data);
+  return getApiArrayPayload<etcData>(response.data);
 }

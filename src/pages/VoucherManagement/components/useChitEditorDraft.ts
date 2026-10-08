@@ -227,10 +227,6 @@ export function useChitEditorDraft({
             CHIT_ID: null,
             CHITDETAIL_CD: "",
             SORT: index + 1,
-            CREATE_BY: "",
-            CREATE_AT: null,
-            UPDATE_BY: "",
-            UPDATE_AT: null,
         }))
 
         setDraft((current) => ({
@@ -241,10 +237,6 @@ export function useChitEditorDraft({
             DETAILS: duplicatedDetails,
             DETAIL_COUNT: duplicatedDetails.length,
             AMOUNT: calculateChitAmount(duplicatedDetails),
-            CREATE_BY: "",
-            CREATE_AT: null,
-            UPDATE_BY: "",
-            UPDATE_AT: null,
         }))
     }, [detailGridRef, draftRef, setDraft])
 

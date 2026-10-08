@@ -141,7 +141,6 @@ export async function exportExchangeHistoryToExcel(rows: ExchangeRevaluationHist
     { header: "New Amount", key: "NEW_AMOUNT", width: 18 },
     { header: "Diff", key: "EXCHANGE_DIFF", width: 18 },
     { header: "Diff Type", key: "DIFF_TYPE", width: 14 },
-    { header: "Created By", key: "CREATED_BY", width: 16 },
   ]
 
   rows.forEach((row) => {
@@ -158,7 +157,6 @@ export async function exportExchangeHistoryToExcel(rows: ExchangeRevaluationHist
       NEW_AMOUNT: row.NEW_AMOUNT ?? 0,
       EXCHANGE_DIFF: row.EXCHANGE_DIFF ?? 0,
       DIFF_TYPE: row.DIFF_TYPE ?? "",
-      CREATED_BY: row.CREATED_BY ?? "",
     })
   })
 

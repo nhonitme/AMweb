@@ -1,5 +1,6 @@
 import { useCallback, useContext, useMemo, useRef } from 'react'
 import { Column, Lookup, RequiredRule } from 'devextreme-react/data-grid'
+import { requiredMasterMessage } from '@/components/forms/masterValidationMessages'
 import type { ColumnCellTemplateData, ColumnEditCellTemplateData } from 'devextreme/ui/data_grid'
 
 import { EtcType } from '@/api/systemApi'
@@ -293,7 +294,7 @@ export function FixedAssetAllocationColumns({
               }}
             >
               <Lookup dataSource={allocationTypes} valueExpr="value" displayExpr="text" />
-              <RequiredRule message={t('MSG_MUST_ITEM', 'Bắt buộc')} />
+              <RequiredRule message={requiredMasterMessage(t, column.caption)} />
             </Column>
           )
         }
@@ -309,7 +310,7 @@ export function FixedAssetAllocationColumns({
                 renderLookupEditor(debitEditor(cellInfo, consumeLookupAutoOpen(cellInfo, 'DEBIT_ACCT_CD')))
               }
             >
-              <RequiredRule message={t('MSG_MUST_ITEM', 'Bắt buộc')} />
+              <RequiredRule message={requiredMasterMessage(t, column.caption)} />
             </Column>
           )
         }
@@ -341,7 +342,7 @@ export function FixedAssetAllocationColumns({
                 renderLookupEditor(creditEditor(cellInfo, consumeLookupAutoOpen(cellInfo, 'CREDIT_ACCT_CD')))
               }
             >
-              <RequiredRule message={t('MSG_MUST_ITEM', 'Bắt buộc')} />
+              <RequiredRule message={requiredMasterMessage(t, column.caption)} />
             </Column>
           )
         }

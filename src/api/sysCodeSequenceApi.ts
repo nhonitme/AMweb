@@ -16,8 +16,6 @@ export interface SysCodeSequence {
   RESET_TYPE: string;
   RESET_KEY: string;
   IS_USE: string;
-  CREATE_AT?: string | null;
-  UPDATE_AT?: string | null;
 }
 
 export interface SysCodeSequenceRequest {

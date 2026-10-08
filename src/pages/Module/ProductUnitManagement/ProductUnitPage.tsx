@@ -1,3 +1,4 @@
+import { captureMasterPopupError } from "@/components/datagrid/masterPopupValidation";
 import { downloadFile } from "@/lib/fileUtils"
 import { useCallback, useContext, useRef, useState } from "react";
 import { LoadPanel } from "devextreme-react";
@@ -14,7 +15,7 @@ import { GridToolbar } from "@/components/toolbar/GridToolbar";
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout";
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup";
 import { exportToExcel } from "@/api/productUnitApi";
-import { getCurrentCompanyCd, getCurrentUserId } from "@/lib/login";
+import { getCurrentCompanyCd } from "@/lib/login";
 import { assignSequencePreviewCode, getSequenceSubmitCode } from "@/lib/codeSequence";
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage";
 import { buildMasterGridReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig";
@@ -81,6 +82,7 @@ export default function ProductUnitList({
   useMasterListLoadError(isError, loadError, t, "Failed to load product unit list");
 
   const handleRowInserting = useCallback((event: RowInsertingEvent) => {
+    const reportSaveError = captureMasterPopupError(event.component)
     event.cancel = true;
 
     void (async () => {
@@ -88,7 +90,6 @@ export default function ProductUnitList({
         const payload = {
           ...event.data,
           UNIT_CD: getSequenceSubmitCode(event.data?.UNIT_CD),
-          USERID: getCurrentUserId() || "unknown",
           ISUSE: "1",
         };
 
@@ -99,12 +100,13 @@ export default function ProductUnitList({
           (event.component as dxDataGrid).cancelEditData();
         }
       } catch (error: unknown) {
-        notify(getApiErrorMessage(error, t("INSERT_FAILED", "Thêm mới thất bại")), "error", 3000);
+        reportSaveError(getApiErrorMessage(error, t("INSERT_FAILED", "Thêm mới thất bại")));
       }
     })();
   }, [createMutation, t]);
 
   const handleRowUpdating = useCallback((event: RowUpdatingEvent) => {
+    const reportSaveError = captureMasterPopupError(event.component)
     event.cancel = true;
 
     void (async () => {
@@ -117,7 +119,7 @@ export default function ProductUnitList({
           (event.component as dxDataGrid).cancelEditData();
         }
       } catch (error: unknown) {
-        notify(getApiErrorMessage(error, t("UPDATE_FAILED", "Cập nhật thất bại")), "error", 3000);
+        reportSaveError(getApiErrorMessage(error, t("UPDATE_FAILED", "Cập nhật thất bại")));
       }
     })();
   }, [t, updateMutation]);

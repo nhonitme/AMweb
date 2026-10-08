@@ -20,6 +20,7 @@ const fieldFallbacks: Record<VoucherInfoDescriptionField, string> = {
 type VoucherInfoDescriptionFieldsProps = {
   companyCd: string
   readOnly?: boolean
+  excludeFields?: VoucherInfoDescriptionField[]
   values: Partial<Record<VoucherInfoDescriptionField, string | null>>
   t: (key: string, fallback?: string) => string
   onChange: (field: VoucherInfoDescriptionField, value: string) => void
@@ -28,6 +29,7 @@ type VoucherInfoDescriptionFieldsProps = {
 export function VoucherInfoDescriptionFields({
   companyCd,
   readOnly = false,
+  excludeFields = [],
   values,
   t,
   onChange,
@@ -40,8 +42,11 @@ export function VoucherInfoDescriptionFields({
   }, [companyCd])
 
   const available = useMemo(
-    () => VOUCHER_INFO_DESCRIPTION_FIELDS.filter((field) => isLangFieldVisible(field)),
-    [companyLangRevision],
+    () =>
+      VOUCHER_INFO_DESCRIPTION_FIELDS.filter(
+        (field) => isLangFieldVisible(field) && !excludeFields.includes(field),
+      ),
+    [companyLangRevision, excludeFields],
   )
   const shown = available.filter((field) => opened.includes(field) || String(values[field] ?? "").trim())
   const nextField = available.find((field) => !shown.includes(field))

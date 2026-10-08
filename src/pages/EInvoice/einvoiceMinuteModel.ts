@@ -155,7 +155,6 @@ export function createDefaultMinuteReason(index: number, bbanId = 0): EInvoiceMi
     BBAN_ID: bbanId,
     SORT_ORDER: index,
     LDO: "",
-    CREATE_DT: "",
     ISDEL: 0,
   }
 }
@@ -183,7 +182,6 @@ export function createDefaultMinuteLine(index: number, lineSide: number, bbanId 
     TTHUE: null,
     TSAUTHUE: null,
     EXTRA_JSON: "",
-    CREATE_DT: "",
     ISDEL: 0,
   }
 }
@@ -211,7 +209,6 @@ function mapInvoiceDetailToMinuteLine(detail: EInvoiceDetail, index: number, lin
     TTHUE: detail.TTHUE,
     TSAUTHUE: detail.TSAUTHUE,
     EXTRA_JSON: trimText(detail.EXTRA_JSON),
-    CREATE_DT: "",
     ISDEL: 0,
   }
 }
@@ -357,10 +354,6 @@ export function createDefaultMinute(companyCd: string): EInvoiceMinute {
     NMUA_SIGN_DT: "",
     IS_MAIL: 0,
     CHECKSUM: "",
-    CREATE_BY: "",
-    CREATE_DT: "",
-    UPDATE_BY: "",
-    UPDATE_DT: "",
     ISDEL: 0,
     REASONS: [createDefaultMinuteReason(1)],
     LINES_BEFORE: [],
@@ -393,7 +386,6 @@ export function normalizeMinuteLine(record: EInvoiceMinuteLineApi, index: number
     TTHUE: record.TTHUE ?? null,
     TSAUTHUE: record.TSAUTHUE ?? null,
     EXTRA_JSON: trimText(record.EXTRA_JSON),
-    CREATE_DT: trimText(record.CREATE_DT),
     ISDEL: toNumber(record.ISDEL, 0),
   }
 }
@@ -405,7 +397,6 @@ export function normalizeMinuteReason(record: EInvoiceMinuteReasonApi, index: nu
     BBAN_ID: toNumber(record.BBAN_ID, bbanId),
     SORT_ORDER: toNumber(record.SORT_ORDER, index + 1),
     LDO: trimText(record.LDO),
-    CREATE_DT: trimText(record.CREATE_DT),
     ISDEL: toNumber(record.ISDEL, 0),
   }
 }
@@ -471,10 +462,6 @@ export function normalizeMinute(record: EInvoiceMinuteApi, companyCd: string): E
     NMUA_SIGN_DT: trimText(record.NMUA_SIGN_DT),
     IS_MAIL: toNumber(record.IS_MAIL, 0) === 1 ? 1 : 0,
     CHECKSUM: trimText(record.CHECKSUM),
-    CREATE_BY: trimText(record.CREATE_BY),
-    CREATE_DT: trimText(record.CREATE_DT),
-    UPDATE_BY: trimText(record.UPDATE_BY),
-    UPDATE_DT: trimText(record.UPDATE_DT),
     ISDEL: toNumber(record.ISDEL, 0),
     REASONS: reasons.length > 0 ? reasons : [createDefaultMinuteReason(1, bbanId)],
     LINES_BEFORE: renumberMinuteLines(linesBefore),

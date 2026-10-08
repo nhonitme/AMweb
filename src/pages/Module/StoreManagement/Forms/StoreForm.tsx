@@ -1,3 +1,5 @@
+import { checkCodeExists } from "@/api/lookupApi";
+import { useMasterFormValidation } from "@/components/forms/useMasterFormValidation";
 import { useContext } from 'react';
 import { Form } from 'devextreme-react/data-grid';
 import { Item } from 'devextreme-react/form';
@@ -16,8 +18,9 @@ export function StoreForm() {
   const lblKind = translate ? translate('STORE_KIND_CD', 'Store Kind') : 'Store Kind';
   const lblChoose = translate ? translate('lblChoose', 'Choose') : 'Choose';
 
+  const validation = useMasterFormValidation(translate);
   return (
-    <Form key={companyLangRevision} colCount={2}>
+    <Form key={companyLangRevision} colCount={2} onInitialized={validation.onInitialized} onFieldDataChanged={validation.onFieldDataChanged}>
       <Item
         dataField="STORE_KIND_ID"
         label={{ text: lblKind }}
@@ -49,20 +52,20 @@ export function StoreForm() {
       />
 
       <Item
-        dataField="STORE_CD"
+        dataField="STORE_CD" validationRules={validation.code("STORE_CD", "STORE_ID", (id, value) => checkCodeExists("store", value, id))}
         editorOptions={createOutlinedEditorOptions({ validationMessageMode: 'always' })}
       />
 
       <Item dataField="STORE_NM_VIET" colSpan={2}
-        visible={isLangFieldVisible('STORE_NM_VIET')}
-        isRequired={isDefaultLangField('STORE_NM_VIET')}
+        visible={isLangFieldVisible('STORE_NM_VIET') || isDefaultLangField('STORE_NM_VIET')}
+        validationRules={isDefaultLangField('STORE_NM_VIET') ? validation.required('STORE_NM_VIET') : []}
         editorOptions={createOutlinedEditorOptions({ validationMessageMode: "always" })}
       >
       </Item>
 
-      <Item dataField="STORE_NM_ENG" colSpan={2} visible={isLangFieldVisible('STORE_NM_ENG')} isRequired={isDefaultLangField('STORE_NM_ENG')} editorOptions={createOutlinedEditorOptions()} />
-      <Item dataField="STORE_NM_KOR" colSpan={2} visible={isLangFieldVisible('STORE_NM_KOR')} isRequired={isDefaultLangField('STORE_NM_KOR')} editorOptions={createOutlinedEditorOptions()} />
-      <Item dataField="STORE_NM_CHINA" colSpan={2} visible={isLangFieldVisible('STORE_NM_CHINA')} isRequired={isDefaultLangField('STORE_NM_CHINA')} editorOptions={createOutlinedEditorOptions()} />
+      <Item dataField="STORE_NM_ENG" colSpan={2} visible={isLangFieldVisible('STORE_NM_ENG') || isDefaultLangField('STORE_NM_ENG')} validationRules={isDefaultLangField('STORE_NM_ENG') ? validation.required('STORE_NM_ENG') : []} editorOptions={createOutlinedEditorOptions()} />
+      <Item dataField="STORE_NM_KOR" colSpan={2} visible={isLangFieldVisible('STORE_NM_KOR') || isDefaultLangField('STORE_NM_KOR')} validationRules={isDefaultLangField('STORE_NM_KOR') ? validation.required('STORE_NM_KOR') : []} editorOptions={createOutlinedEditorOptions()} />
+      <Item dataField="STORE_NM_CHINA" colSpan={2} visible={isLangFieldVisible('STORE_NM_CHINA') || isDefaultLangField('STORE_NM_CHINA')} validationRules={isDefaultLangField('STORE_NM_CHINA') ? validation.required('STORE_NM_CHINA') : []} editorOptions={createOutlinedEditorOptions()} />
     </Form>
   );
 }

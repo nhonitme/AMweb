@@ -1,3 +1,4 @@
+import { captureMasterPopupError } from "@/components/datagrid/masterPopupValidation";
 import { downloadFile } from "@/lib/fileUtils"
 import { useCallback, useContext, useRef, useState } from "react";
 import { LoadPanel } from "devextreme-react";
@@ -20,7 +21,7 @@ import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup";
 import { useStoreImportConfig } from "./Columns/StoreKindImportConfig";
 import { confirm } from "devextreme/ui/dialog";
 import { StoreKindInfo } from "@/types/storeKind";
-import { getCurrentCompanyCd, getCurrentUserId } from "@/lib/login";
+import { getCurrentCompanyCd } from "@/lib/login";
 import { normalizeMessageLanguageKey } from "@/utils/language";
 import MasterDataEditPopup from "@/components/datagrid/MasterDataEditPopup";
 import { getApiErrorMessage } from "@/api/apiTypes";
@@ -99,13 +100,13 @@ export default function StoreKindList({
   };
 
   const onRowInserting = (e: RowInsertingEventWithPromise) => {
+    const reportSaveError = captureMasterPopupError(e.component)
     e.promise = (async () => {
       try {
         const newData = {
           ...e.data,
           STORE_KIND_CD: getSequenceSubmitCode(e.data?.STORE_KIND_CD),
         };
-        newData.USERID = getCurrentUserId() || "unknown";
 
         await createMutation.mutateAsync(newData);
         notify(t("MSG_INSERT_SUCCESS", "Insert successful"), "success", 1000);
@@ -114,12 +115,13 @@ export default function StoreKindList({
           (e.component as dxDataGrid).cancelEditData();
         }
       } catch (error: unknown) {
-        notify(getApiErrorMessage(error, t("INSERT_FAILED", "Thêm mới thất bại")), "error", 3000);
+        reportSaveError(getApiErrorMessage(error, t("INSERT_FAILED", "Thêm mới thất bại")));
       }
     })();
   };
 
   const onRowUpdating = (e: RowUpdatingEventWithPromise) => {
+    const reportSaveError = captureMasterPopupError(e.component)
     e.promise = (async () => {
       try {
         const payload = { ...e.oldData, ...e.newData };
@@ -129,7 +131,7 @@ export default function StoreKindList({
           (e.component as dxDataGrid).cancelEditData();
         }
       } catch (error: unknown) {
-        notify(getApiErrorMessage(error, t("UPDATE_FAILED", "Cập nhật thất bại")), "error", 3000);
+        reportSaveError(getApiErrorMessage(error, t("UPDATE_FAILED", "Cập nhật thất bại")));
       }
     })();
   };

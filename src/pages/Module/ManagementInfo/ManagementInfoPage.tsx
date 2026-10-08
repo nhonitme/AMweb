@@ -1,6 +1,12 @@
+import { captureMasterPopupError } from "@/components/datagrid/masterPopupValidation";
+import {
+  clearMasterFormDraft,
+  mergeMasterFormDraft,
+  seedMasterFormDraft,
+} from "@/components/lookup/masterFormDraft";
 import { useCallback, useContext, useMemo, useRef, useState } from "react"
 import { LoadPanel } from "devextreme-react"
-import { AsyncRule, Column, Editing, RequiredRule } from "devextreme-react/data-grid"
+import { Column, Editing } from "devextreme-react/data-grid"
 import {
   RowDblClickEvent,
   RowInsertingEvent,
@@ -21,16 +27,14 @@ import DxPage from "@/dx/DxPage"
 import {
   exportManagementInfoExcel,
 } from "@/api/managementInfoApi"
-import { checkCodeExists } from "@/api/lookupApi"
 import MasterDataEditPopup from "@/components/datagrid/MasterDataEditPopup"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { downloadFile } from "@/lib/fileUtils"
 import { LanguageContext } from "@/lib/i18nLoader"
-import { getCurrentCompanyCd, getCurrentUserId } from "@/lib/login"
+import { getCurrentCompanyCd } from "@/lib/login"
 import { assignSequencePreviewCode, getSequenceSubmitCode } from "@/lib/codeSequence"
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
 import { buildMasterGridReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
-import { createDuplicateCodeValidator } from "@/utils/gridValidation"
 import type { ManagementInfo, ManagementInfoApi } from "@/types/managementInfo"
 import {
   useManagementInfoListQuery,
@@ -51,11 +55,6 @@ type TKey = string | number
 type RowInsertingEventWithPromise = RowInsertingEvent<ManagementInfo, TKey> & { promise?: Promise<void> }
 type RowUpdatingEventWithPromise = RowUpdatingEvent<ManagementInfo, TKey> & { promise?: Promise<void> }
 type RowRemovingEventWithPromise = RowRemovingEvent<ManagementInfo, TKey> & { promise?: Promise<void> }
-
-const validateManagementCd = createDuplicateCodeValidator({
-  idField: "MG_ID",
-  exists: (managementId, mgCd) => checkCodeExists("management", mgCd, managementId),
-})
 
 export type ManagementInfoPageMode = "page" | "lookup"
 
@@ -106,13 +105,7 @@ export default function ManagementInfoPage({
 
   const excludedFields = useMemo(
     () =>
-      new Set<string>([
-        "MG_ID",
-        "COMPANY_CD",
-        "ISDEL",
-        "CREATE_BY",
-        "UPDATE_BY",
-      ]),
+      new Set<string>(["MG_ID", "COMPANY_CD", "ISDEL"]),
     [],
   )
 
@@ -120,9 +113,8 @@ export default function ManagementInfoPage({
 
   const buildCreatePayload = useCallback((data: Partial<ManagementInfo>): Partial<ManagementInfoApi> => {
     const currentCompanyCd = getCurrentCompanyCd()
-    const currentUserId = getCurrentUserId()
     const nextRow: ManagementInfo = {
-      ...createDefaultManagementInfo(currentCompanyCd, currentUserId),
+      ...createDefaultManagementInfo(currentCompanyCd),
       ...data,
       COMPANY_CD: data.COMPANY_CD || currentCompanyCd,
       MG_CD: getSequenceSubmitCode(data.MG_CD),
@@ -133,11 +125,11 @@ export default function ManagementInfoPage({
 
   const buildUpdatePayload = useCallback((event: RowUpdatingEventWithPromise): Partial<ManagementInfoApi> => {
     const currentCompanyCd = event.oldData?.COMPANY_CD || getCurrentCompanyCd()
-    const currentUserId = getCurrentUserId()
     const mergedRow: ManagementInfo = {
-      ...createDefaultManagementInfo(currentCompanyCd, currentUserId),
+      ...createDefaultManagementInfo(currentCompanyCd),
       ...(event.oldData ?? {}),
       ...(event.newData ?? {}),
+      ...mergeMasterFormDraft({}),
       COMPANY_CD: currentCompanyCd,
     }
 
@@ -146,15 +138,16 @@ export default function ManagementInfoPage({
 
   const onRowInserting = useCallback(
     (event: RowInsertingEventWithPromise) => {
+    const reportSaveError = captureMasterPopupError(event.component)
       event.promise = (async () => {
         try {
-          const payload = buildCreatePayload({ ...(event.data ?? {}) })
+          const payload = buildCreatePayload(mergeMasterFormDraft(event.data ?? {}))
           await createMutation.mutateAsync(payload)
           notify(t("MSG_INSERT_SUCCESS", "Created successfully"), "success", 3000)
           event.component?.cancelEditData()
         } catch (error) {
           console.error("Create management info error", error)
-          notify(getApiErrorMessage(error, t("INSERT_FAILED", "Thêm mới thất bại")), "error", 3000)
+          reportSaveError(getApiErrorMessage(error, t("INSERT_FAILED", "Thêm mới thất bại")))
           throw error
         }
       })()
@@ -164,6 +157,7 @@ export default function ManagementInfoPage({
 
   const onRowUpdating = useCallback(
     (event: RowUpdatingEventWithPromise) => {
+    const reportSaveError = captureMasterPopupError(event.component)
       event.promise = (async () => {
         try {
           const payload = buildUpdatePayload(event)
@@ -172,7 +166,7 @@ export default function ManagementInfoPage({
           event.component?.cancelEditData()
         } catch (error) {
           console.error("Update management info error", error)
-          notify(getApiErrorMessage(error, t("UPDATE_FAILED", "Cập nhật thất bại")), "error", 3000)
+          reportSaveError(getApiErrorMessage(error, t("UPDATE_FAILED", "Cập nhật thất bại")))
           throw error
         }
       })()
@@ -329,7 +323,9 @@ export default function ManagementInfoPage({
         onEditingStart={(event) => {
           const rowId = Number(event.key)
           setIsUpdate(Number.isFinite(rowId) && rowId > 0)
+          seedMasterFormDraft(event.data as unknown as Record<string, unknown>)
         }}
+        onEditCanceled={() => clearMasterFormDraft()}
         onInitialized={(event) => {
           gridRef.current = event.component ?? null
         }}
@@ -339,9 +335,10 @@ export default function ManagementInfoPage({
         onInitNewRow={(event) => {
           setIsUpdate(false)
           event.data = {
-            ...createDefaultManagementInfo(getCurrentCompanyCd(), getCurrentUserId()),
+            ...createDefaultManagementInfo(getCurrentCompanyCd()),
             ...(event.data ?? {}),
           }
+          seedMasterFormDraft(event.data as unknown as Record<string, unknown>)
           event.promise = assignSequencePreviewCode(event.data, menuCode, "MG_CD").then(() => undefined)
         }}
       >
@@ -366,15 +363,7 @@ export default function ManagementInfoPage({
           <Column
             key={field.key}
             dataField={field.key}
-            caption={t(field.key, field.caption)}
-          >
-            {field.key === "MG_CD" && (
-              <RequiredRule message={t("MSG_MUST_ITEM", "MG_CD is required")} />
-            )}
-            {field.key === "MG_CD" && (
-              <AsyncRule message={t("MsgEqualCode", "MG_CD already exists")} validationCallback={validateManagementCd} />
-            )}
-          </Column>
+           />
         ))}
       </BaseDataGrid>
 

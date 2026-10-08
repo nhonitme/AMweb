@@ -16,7 +16,5 @@ export interface EInvoiceEmailHistory {
   RETRY_COUNT?: number | null
   ERROR_MESSAGE?: EInvoiceEmailHistoryText
   SEND_DT?: EInvoiceEmailHistoryText
-  CREATE_USER?: EInvoiceEmailHistoryText
-  CREATE_DT?: EInvoiceEmailHistoryText
-  UPDATE_DT?: EInvoiceEmailHistoryText
+  CREATE_AT?: EInvoiceEmailHistoryText
 }

@@ -1,0 +1,78 @@
+.inventory-editor-popup .dx-popup-content {
+    padding: 0;
+}
+
+.inventory-editor-popup > .dx-overlay-content > .dx-popup-title {
+    border-bottom: 1px solid #dce0e5;
+}
+
+/* ---------- Top field panel ---------- */
+.inventory-editor-popup .dx-field-item-label-text {
+    color: #414853;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.inventory-editor-popup .dx-field-item-required-mark {
+    color: #c83239;
+}
+
+.inventory-editor-popup .dx-texteditor.dx-editor-outlined {
+    border-radius: 5px;
+    border-color: #cbd0d7;
+    box-shadow: none;
+}
+
+/* DevExtreme draws a separate bottom accent line (the material-style
+   underline) on outlined editors; it stays theme-blue on focus unless
+   explicitly disabled, which clashes with our red focus border. */
+.inventory-editor-popup .dx-texteditor.dx-editor-outlined:before {
+    border-bottom: 0 !important;
+}
+
+.inventory-editor-popup .dx-texteditor.dx-editor-outlined.dx-state-hover:not(.dx-state-focused):not(.dx-invalid):not(.dx-state-disabled):not(.dx-state-readonly) {
+    border-color: #9da5b1;
+}
+
+.inventory-editor-popup .dx-texteditor.dx-editor-outlined.dx-state-focused:not(.dx-invalid) {
+    border-color: #c83239;
+    box-shadow: 0 0 0 2px rgba(200, 50, 57, 0.14);
+}
+
+.inventory-editor-popup .dx-texteditor.dx-state-readonly.dx-editor-outlined {
+    background-color: #f5f6f8;
+}
+
+/* Small divider separating the "Voucher No / Voucher Date" column
+   from the rest of the top panel (3-column form: col index 2 = rightmost). */
+.inventory-voucher-fields-panel .dx-field-item.dx-col-2 {
+    border-left: 1px solid #dce0e5;
+    padding-left: 8px;
+}
+
+/* ---------- Footer action bar ---------- */
+.inventory-editor-footer {
+    border-color: #dce0e5 !important;
+}
+
+/* Primary save button: flat red, matching the approved accent (#c83239) */
+.inventory-editor-save-btn.dx-button {
+    background: #c83239 !important;
+    border-color: #c83239 !important;
+    border-radius: 5px !important;
+    box-shadow: none;
+}
+
+.inventory-editor-save-btn.dx-button .dx-icon,
+.inventory-editor-save-btn.dx-button .dx-button-text {
+    color: #ffffff;
+}
+
+.inventory-editor-save-btn.dx-button:hover {
+    background: #b4262e !important;
+    border-color: #b4262e !important;
+}
+
+.inventory-editor-save-btn.dx-button.dx-state-disabled {
+    box-shadow: none;
+}

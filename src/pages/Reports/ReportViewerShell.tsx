@@ -12,7 +12,7 @@ import { useCompanyLangRevision } from "@/lib/companyLang"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { getReportLanguageOptions, normalizeReportLanguage, type ReportLanguageCode } from "./reportLanguage"
 import ReportSignatureMappingEditor from "./ReportSignatureMappingEditor"
-import { configureReportViewerRequests, getReportViewerHost } from "./reportViewerConfig"
+import { configureReportViewerRequests, getReportViewerHost, patchReportViewerSaveAs } from "./reportViewerConfig"
 
 type ReportViewerShellProps = {
   companyCd: string
@@ -68,7 +68,7 @@ function createReportLanguageToolbarIcon(label: string) {
     const fontSize = label.length > 2 ? 4.6 : 6.25
 
     return (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="am-report-viewer-icon am-report-viewer-icon-language">
         <path
           className="dxd-icon-fill"
           d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm6.9 9h-2.1a15 15 0 0 0-1.6-5 8.1 8.1 0 0 1 3.7 5ZM12 4.1c1.1 1.3 2 3.9 2.4 6.9H9.6c.4-3 1.3-5.6 2.4-6.9ZM8.8 6a15 15 0 0 0-1.6 5H5.1a8.1 8.1 0 0 1 3.7-5Zm-3.7 7h2.1a15 15 0 0 0 1.6 5 8.1 8.1 0 0 1-3.7-5Zm6.9 6.9c-1.1-1.3-2-3.9-2.4-6.9h4.8c-.4 3-1.3 5.6-2.4 6.9Zm3.2-1.9a15 15 0 0 0 1.6-5h2.1a8.1 8.1 0 0 1-3.7 5Z"
@@ -91,7 +91,7 @@ function createReportLanguageToolbarIcon(label: string) {
 
 reportViewerTemplateEngine.setTemplate(REFRESH_TEMPLATE_NAME, function RefreshToolbarIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="am-report-viewer-icon am-report-viewer-icon-refresh">
       <path
         className="dxd-icon-fill"
         d="M12 4a8 8 0 0 1 7.2 4.5V6h2v6h-6v-2h2.8A6 6 0 1 0 18 15h2a8 8 0 1 1-8-11Z"
@@ -102,7 +102,7 @@ reportViewerTemplateEngine.setTemplate(REFRESH_TEMPLATE_NAME, function RefreshTo
 
 reportViewerTemplateEngine.setTemplate(EDIT_SIGNATURES_TEMPLATE_NAME, function EditSignaturesToolbarIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="am-report-viewer-icon am-report-viewer-icon-signatures">
       <path
         className="dxd-icon-fill"
         d="m3 17.3 8.9-8.9 3.7 3.7-8.9 8.9H3v-3.7Zm10.3-10.4 1.3-1.3a2 2 0 0 1 2.8 0l1 1a2 2 0 0 1 0 2.8l-1.3 1.3-3.8-3.8Z"
@@ -174,7 +174,13 @@ export default function ReportViewerShell({
 
   const setPreviewOptions = useCallback(() => {
     const viewerInstance = viewerRef.current?.instance()
-    if (!viewerInstance || typeof viewerInstance.GetReportPreview !== "function") {
+    if (!viewerInstance) {
+      return
+    }
+
+    patchReportViewerSaveAs(viewerInstance)
+
+    if (typeof viewerInstance.GetReportPreview !== "function") {
       return
     }
 
@@ -196,6 +202,15 @@ export default function ReportViewerShell({
     const timer = window.setTimeout(() => setPreviewOptions(), 100)
     return () => window.clearTimeout(timer)
   }, [setPreviewOptions, versionedReportUrl])
+
+  // exportHandler được DevExpress tạo lại mỗi khi nạp báo cáo -> phải vá lại sau mỗi lần đổi reportUrl.
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      patchReportViewerSaveAs(viewerRef.current?.instance())
+    }, 400)
+
+    return () => window.clearInterval(intervalId)
+  }, [versionedReportUrl])
 
   const currentLanguageTemplateName = useMemo(
     () => languageTemplateNames[normalizeReportLanguage(reportLanguage)],
@@ -227,7 +242,7 @@ export default function ReportViewerShell({
 
     const refreshAction = new CustomAction({
       id: REFRESH_REPORT_ACTION_ID,
-      text: t("btnRefresh", "Refresh"),
+      text: t("btnRefresh", "Làm mới"),
       container: "toolbar",
       imageTemplateName: REFRESH_TEMPLATE_NAME,
       visible: true,
@@ -242,7 +257,7 @@ export default function ReportViewerShell({
     if (companyCd && normalizedReportKey) {
       const editAction = new CustomAction({
         id: EDIT_SIGNATURES_ACTION_ID,
-        text: t("EDIT_SIGNATURES", "Edit signatures"),
+        text: t("EDIT_SIGNATURES", "Sửa chữ ký"),
         container: "toolbar",
         imageTemplateName: EDIT_SIGNATURES_TEMPLATE_NAME,
         visible: true,
@@ -273,7 +288,7 @@ export default function ReportViewerShell({
   const viewerKey = versionedReportUrl
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-slate-100">
+    <div className="am-report-viewer flex h-full min-h-0 flex-col bg-slate-100">
      
 
       <div className="min-h-0 flex-1 bg-white">
@@ -292,7 +307,7 @@ export default function ReportViewerShell({
 
       <Popup
         visible={signatureEditorVisible}
-        title={t("EDIT_SIGNATURES", "Edit signatures")}
+        title={t("EDIT_SIGNATURES", "Sửa chữ ký")}
         showTitle={true}
         dragEnabled={false}
         hideOnOutsideClick={false}

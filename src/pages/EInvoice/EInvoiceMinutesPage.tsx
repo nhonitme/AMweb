@@ -71,20 +71,7 @@ interface PendingSignMinute {
   rawXml: string
 }
 
-const COPY_EXCLUDE_FIELDS = [
-  "BBAN_ID",
-  "COMPANY_CD",
-  "REASONS",
-  "MTRACUU",
-  "NDBBAN_XML",
-  "SIGNED_XML",
-  "NMUA_IS_SIGNED",
-  "NMUA_SIGN_DT",
-  "CREATE_BY",
-  "CREATE_DT",
-  "UPDATE_BY",
-  "UPDATE_DT",
-]
+const COPY_EXCLUDE_FIELDS = ["BBAN_ID", "COMPANY_CD", "REASONS", "MTRACUU", "NDBBAN_XML", "SIGNED_XML", "NMUA_IS_SIGNED", "NMUA_SIGN_DT"]
 
 function formatText(template: string, values: Array<string | number>): string {
   return values.reduce((text, value, index) => text.replace(`{${index}}`, String(value)), template)

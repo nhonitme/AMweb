@@ -353,10 +353,6 @@ export function createDefaultDeclarationDetail(index: number, detailType: EInvoi
     DNGAY: "",
     GCHU: "",
     RAW_DETAIL_XML: "",
-    CREATE_BY: "",
-    CREATE_AT: "",
-    UPDATE_BY: "",
-    UPDATE_AT: "",
     ISDEL: 0,
   }
 }
@@ -662,10 +658,6 @@ export function createDefaultDeclaration(companyCd: string): EInvoiceDeclaration
     MTDIEP: "",
     MGDDTU: "",
     ERROR_MESSAGE: "",
-    CREATE_BY: "",
-    CREATE_AT: "",
-    UPDATE_BY: "",
-    UPDATE_AT: "",
     ISDEL: 0,
     DETAILS: [],
   }
@@ -708,10 +700,6 @@ export function normalizeDeclarationDetail(record: EInvoiceDeclarationDetailApi,
     DNGAY: toDetailDateText(record.DNGAY, detailType),
     GCHU: toText(record.GCHU),
     RAW_DETAIL_XML: toText(record.RAW_DETAIL_XML),
-    CREATE_BY: toText(record.CREATE_BY),
-    CREATE_AT: toDateText(record.CREATE_AT),
-    UPDATE_BY: toText(record.UPDATE_BY),
-    UPDATE_AT: toDateText(record.UPDATE_AT),
     ISDEL: toFlag(record.ISDEL),
   }
 }
@@ -777,10 +765,6 @@ export function normalizeDeclaration(record: EInvoiceDeclarationApi, companyCd: 
     CQT_STATUS: toNumber(record.CQT_STATUS, 0),
     MCCQT: toText(record.MCCQT),
     ERROR_MESSAGE: toText(record.ERROR_MESSAGE),
-    CREATE_BY: toText(record.CREATE_BY),
-    CREATE_AT: toDateText(record.CREATE_AT),
-    UPDATE_BY: toText(record.UPDATE_BY),
-    UPDATE_AT: toDateText(record.UPDATE_AT),
     ISDEL: toFlag(record.ISDEL),
     DETAILS: renumberDeclarationDetails(details),
   }
@@ -805,10 +789,6 @@ export function createDeclarationCopy(source: EInvoiceDeclaration, companyCd: st
     TNGAY: detail.DETAIL_TYPE === "TCTN" || detail.DETAIL_TYPE === "TCGP" ? today : detail.TNGAY,
     DNGAY: detail.DETAIL_TYPE === "CTS" ? detail.DNGAY : "",
     RAW_DETAIL_XML: "",
-    CREATE_AT: "",
-    CREATE_BY: "",
-    UPDATE_AT: "",
-    UPDATE_BY: "",
     ISDEL: 0,
   }))
 
@@ -820,10 +800,6 @@ export function createDeclarationCopy(source: EInvoiceDeclaration, companyCd: st
     XML: "",
     IS_SIGNED: 0,
     ERROR_MESSAGE: "",
-    CREATE_AT: "",
-    CREATE_BY: "",
-    UPDATE_AT: "",
-    UPDATE_BY: "",
     ISDEL: 0,
     DETAILS: renumberDeclarationDetails(details),
   }

@@ -1,3 +1,4 @@
+import { captureMasterPopupError } from "@/components/datagrid/masterPopupValidation";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { LoadPanel } from "devextreme-react";
 import { Editing } from 'devextreme-react/tree-list';
@@ -24,7 +25,6 @@ import { downloadFile } from "@/lib/fileUtils";
 import { getCurrentCompanyCd } from "@/lib/login";
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage";
 import { buildMasterGridReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig";
-import { normalizeMessageLanguageKey } from "@/utils/language";
 import { getApiErrorMessage } from "@/api/apiTypes";
 import {
   useAcclistListQuery,
@@ -104,7 +104,8 @@ export default function AcclistPage({
   }, [getCodesByType, translate]);
 
   const onRowInserting = (e: RowInsertingEventWithPromise) => {
-    e.promise = (async () => {
+    const reportSaveError = captureMasterPopupError(e.component)
+    e.cancel = (async () => {
       try {
         const newData = e.data;
         await createMutation.mutateAsync(newData);
@@ -114,13 +115,15 @@ export default function AcclistPage({
           (e.component as dxTreeList).cancelEditData();
         }
       } catch (error) {
-          notify(getApiErrorMessage(error, t("MSG_INSERT_ERROR", "Insert failed")), "error", 3000);
+          reportSaveError(getApiErrorMessage(error, t("MSG_INSERT_ERROR", "Insert failed")));
       }
+      return true;
     })();
   };
 
   const onRowUpdating = (e: RowUpdatingEventWithPromise) => {
-    e.promise = (async () => {
+    const reportSaveError = captureMasterPopupError(e.component)
+    e.cancel = (async () => {
       try {
         const payload = { ...e.oldData, ...e.newData };
         await updateMutation.mutateAsync(payload);
@@ -130,8 +133,9 @@ export default function AcclistPage({
           (e.component as dxTreeList).cancelEditData();
         }
       } catch (error) {
-        notify(getApiErrorMessage(error, t("MSG_EDIT_ERROR", "Edit failed")), "error", 3000);
+        reportSaveError(getApiErrorMessage(error, t("MSG_EDIT_ERROR", "Edit failed")));
       }
+      return true;
     })();
   };
 

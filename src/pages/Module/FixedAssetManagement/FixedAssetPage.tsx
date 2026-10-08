@@ -107,6 +107,7 @@ export default function FixedAssetPage() {
   const [statusFilterDraft, setStatusFilterDraft] = useState(() => createEmptyFixedAssetListFilters().status)
   const [accFilterDraft, setAccFilterDraft] = useState(() => createEmptyFixedAssetListFilters().accCd)
   const [appliedFilters, setAppliedFilters] = useState<FixedAssetListFilters>(createEmptyFixedAssetListFilters())
+  const [editorError, setEditorError] = useState("")
   const [editorVisible, setEditorVisible] = useState(false)
   const [editorLoading, setEditorLoading] = useState(false)
   const [editorSessionKey, setEditorSessionKey] = useState(0)
@@ -117,6 +118,7 @@ export default function FixedAssetPage() {
   )
 
   const beginEditorSession = useCallback(() => {
+    setEditorError("")
     setEditorSessionKey((current) => current + 1)
   }, [])
 
@@ -199,8 +201,7 @@ export default function FixedAssetPage() {
     async (row: FixedAssetGridRow, editMode: boolean): Promise<boolean> => {
       const validationMessage = validateFixedAssetRow(row, t)
       if (validationMessage) {
-        notify(validationMessage, 'error', 3000)
-        return false
+        throw new Error(validationMessage)
       }
 
       const payload = buildFixedAssetSaveRequest(row)
@@ -295,6 +296,7 @@ export default function FixedAssetPage() {
       )
       setEditorVisible(true)
       setEditorLoading(true)
+      setEditorError("")
 
       try {
         const resolved = await resolveRowForEdit(row)
@@ -359,6 +361,7 @@ export default function FixedAssetPage() {
   const handleSave = useCallback(
     async (record: FixedAssetGridRow) => {
       setEditorLoading(true)
+      setEditorError("")
 
       try {
         const saved = await persistRow(record, isUpdate)
@@ -375,7 +378,8 @@ export default function FixedAssetPage() {
         await invalidateFixedAssets()
       } catch (error) {
         console.error('Save fixed asset failed', error)
-        notify(getApiErrorMessage(error, t('SAVE_FAILED', 'Không lưu được tài sản.')), 'error', 3000)
+        setEditorError(getApiErrorMessage(error, t('SAVE_FAILED', 'Không lưu được tài sản.')))
+        throw error
       } finally {
         setEditorLoading(false)
       }
@@ -386,6 +390,7 @@ export default function FixedAssetPage() {
   const handleSaveAndNew = useCallback(
     async (record: FixedAssetGridRow) => {
       setEditorLoading(true)
+      setEditorError("")
 
       try {
         const saved = await persistRow(record, isUpdate)
@@ -404,7 +409,8 @@ export default function FixedAssetPage() {
         setEditorRow(createDefaultFixedAssetRow(getCurrentCompanyCd()))
       } catch (error) {
         console.error('Save fixed asset failed', error)
-        notify(getApiErrorMessage(error, t('SAVE_FAILED', 'Không lưu được tài sản.')), 'error', 3000)
+        setEditorError(getApiErrorMessage(error, t('SAVE_FAILED', 'Không lưu được tài sản.')))
+        throw error
       } finally {
         setEditorLoading(false)
       }
@@ -631,6 +637,7 @@ export default function FixedAssetPage() {
         value={editorRow}
         isUpdate={isUpdate}
         loading={editorLoading}
+        errorMessage={editorError}
         statusCodes={statusCodes}
         onClose={handleCloseEditor}
         onSave={handleSave}

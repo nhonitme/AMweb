@@ -21,8 +21,6 @@ export interface CustomerExtApi {
   IDNUMBER?: string | null
   BUYER_NM?: string | null
   ISDEL?: string | boolean | null
-  CREATE_BY?: string | null
-  UPDATE_BY?: string | null
 }
 
 export interface CustomerExt {
@@ -48,8 +46,6 @@ export interface CustomerExt {
   IDNUMBER: string
   BUYER_NM: string
   ISDEL: boolean
-  CREATE_BY: string
-  UPDATE_BY: string
 }
 
 export interface DeleteCustomerInfosRequest {

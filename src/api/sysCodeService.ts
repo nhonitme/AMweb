@@ -10,8 +10,6 @@ export interface SysCode {
   SORT_ORDER: number;
   IS_ACTIVE: number;
   ISDEL: string;
-  CREATED_AT?: string;
-  UPDATED_AT?: string;
 }
 
 export interface SysCodeApiResponse {

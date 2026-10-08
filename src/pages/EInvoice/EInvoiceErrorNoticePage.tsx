@@ -120,7 +120,7 @@ interface ErrorNoticeEditorPopupProps {
   onSaved: (notice: EInvoiceErrorNotice) => void | Promise<void>
 }
 
-const COPY_EXCLUDE_FIELDS = ["TBAO_ID", "COMPANY_CD", "DETAILS", "XML", "CREATE_AT", "CREATE_BY", "UPDATE_AT", "UPDATE_BY"]
+const COPY_EXCLUDE_FIELDS = ["TBAO_ID", "COMPANY_CD", "DETAILS", "XML"]
 
 function createMonthStartDate(): Date {
   const date = new Date()

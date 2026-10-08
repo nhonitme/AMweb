@@ -111,6 +111,7 @@ type ReportToolbarProps = {
   dateFilterMode?: "range" | "useStartYmd"
   useStartYmd?: Date | null
   onUseStartYmdChange?: (value: Date | null) => void
+  initialFilters?: ReactNode
   leadingFilters?: ReactNode
   /** "flat" drops the bordered/shadowed toolbar card in favor of a borderless row (used by Sổ quỹ tiền mặt). */
   variant?: "boxed" | "flat"
@@ -224,6 +225,7 @@ export function ReportToolbar({
   onUseStartYmdChange,
   accountLookupStore: accountLookupStoreProp,
   accountLookupSingleSelect = false,
+  initialFilters,
   leadingFilters,
   variant = "boxed",
 }: ReportToolbarProps) {
@@ -622,6 +624,7 @@ export function ReportToolbar({
     <div className="page-toolbar report-toolbar">
       <div className={`page-toolbar__row${variant === "flat" ? " page-toolbar__row--flat" : ""}`}>
         <div className="page-toolbar__filters">
+          {initialFilters}
           {periodOptions ? (
             <SelectBox
               className={TOOLBAR_FIELD}

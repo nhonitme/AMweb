@@ -11,6 +11,10 @@ export function raiseOverlayAboveSiblings(wrapper: HTMLElement | null | undefine
   if (!wrapper) {
     return 0
   }
+  return raiseOverlayAboveSiblingsCore(wrapper)
+}
+
+function raiseOverlayAboveSiblingsCore(wrapper: HTMLElement): number {
 
   let max = 0
   document.querySelectorAll(OVERLAY_SELECTOR).forEach((node) => {
@@ -76,6 +80,10 @@ export function watchNewestPopupAboveSiblings(): void {
   }
 
   const observer = new MutationObserver((mutations) => {
+    runMutationScan(mutations)
+  })
+
+  function runMutationScan(mutations: MutationRecord[]): void {
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
         if (!(node instanceof HTMLElement)) {
@@ -90,7 +98,7 @@ export function watchNewestPopupAboveSiblings(): void {
         }
       }
     }
-  })
+  }
 
   observer.observe(document.body, { childList: true, subtree: true })
 }

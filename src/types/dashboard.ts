@@ -75,7 +75,6 @@ export type DashboardRecentVoucher = {
   ChitCd: string
   ChitType: string
   Amount: number
-  CreateBy: string
   Status: string
   Description: string
 }

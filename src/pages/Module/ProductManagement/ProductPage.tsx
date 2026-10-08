@@ -1,3 +1,10 @@
+import { captureMasterPopupError } from "@/components/datagrid/masterPopupValidation";
+import {
+  clearMasterFormDraft,
+  getMasterFormDraftChanges,
+  mergeMasterFormDraft,
+  seedMasterFormDraft,
+} from "@/components/lookup/masterFormDraft";
 import { downloadFile } from "@/lib/fileUtils"
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { LoadPanel } from "devextreme-react";
@@ -13,7 +20,7 @@ import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout";
 import { exportToExcel } from "@/api/productApi";
 import DxPage from "@/dx/DxPage";
 import { LanguageContext } from "@/lib/i18nLoader";
-import { getCurrentCompanyCd, getCurrentUserId } from "@/lib/login";
+import { getCurrentCompanyCd } from "@/lib/login";
 import { assignSequencePreviewCode, getSequenceSubmitCode } from "@/lib/codeSequence";
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage";
 import { buildMasterGridReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig";
@@ -59,7 +66,7 @@ export default function ProductList({
     error: loadError,
     refetch: refetchProducts,
   } = useProductListQuery();
-  const { createMutation, updateMutation, deleteMutation } = useProductMutations();
+  const { createMutation, updateProductAsync, deleteMutation, invalidateProducts } = useProductMutations();
   const loading = isLoading || isFetching;
 
   const { translate, lang } = useContext(LanguageContext) as {
@@ -89,50 +96,55 @@ export default function ProductList({
   }, [isError, loadError, t]);
 
 
-  const handleRowInserting = useCallback((event: RowInsertingEvent) => {
-    event.cancel = true;
-
-    void (async () => {
+  const handleRowInserting = useCallback((event: RowInsertingEvent & { promise?: Promise<void> }) => {
+    const reportSaveError = captureMasterPopupError(event.component)
+    event.promise = (async () => {
       try {
-        const payload = {
+        const payload = mergeMasterFormDraft({
           ...event.data,
           PRODUCT_CD: getSequenceSubmitCode(event.data?.PRODUCT_CD),
           PRODUCT_KIND_ID: event.data?.PRODUCT_KIND_ID || null,
           UNIT_ID: event.data?.UNIT_ID,
           STORE_ID: event.data?.STORE_ID || null,
-          USERID: getCurrentUserId() || "unknown",
           ISUSE: "1",
-        };
+        });
 
-        await createMutation.mutateAsync(payload);
-        notify(t("MSG_INSERT_SUCCESS", "Created successfully"), "success", 3000);
-
-        if (event.component) {
-          (event.component as dxDataGrid).cancelEditData();
+        const result = await createMutation.mutateAsync(payload);
+        if (result?.Success === false) {
+          throw new Error(result.Message || t("INSERT_FAILED", "Thêm mới thất bại"));
         }
+        notify(t("MSG_INSERT_SUCCESS", "Created successfully"), "success", 3000);
+        clearMasterFormDraft();
       } catch (error: unknown) {
-        notify(getApiErrorMessage(error, t("INSERT_FAILED", "Thêm mới thất bại")), "error", 3000);
+        reportSaveError(getApiErrorMessage(error, t("INSERT_FAILED", "Thêm mới thất bại")));
+        throw error;
       }
     })();
   }, [createMutation, t]);
 
-  const handleRowUpdating = useCallback((event: RowUpdatingEvent) => {
-    event.cancel = true;
-
-    void (async () => {
+  const handleRowUpdating = useCallback((event: RowUpdatingEvent & { promise?: Promise<void> }) => {
+    const reportSaveError = captureMasterPopupError(event.component)
+    event.promise = (async () => {
       try {
-        const payload = { ...event.oldData, ...event.newData };
-        await updateMutation.mutateAsync({ id: String(event.key), payload });
-        notify(t("MSG_EDIT_SUCCESS", "Updated successfully"), "success", 3000);
-
-        if (event.component) {
-          (event.component as dxDataGrid).cancelEditData();
+        const payload = mergeMasterFormDraft({ ...event.oldData, ...event.newData });
+        const result = await updateProductAsync({ id: String(event.key), payload });
+        if (result?.Success === false) {
+          throw new Error(result.Message || t("UPDATE_FAILED", "Cập nhật thất bại"));
         }
+        const updatedProduct = result?.Data;
+        if (event.oldData && updatedProduct && typeof updatedProduct.PRODUCT_ID === "number") {
+          Object.assign(event.oldData, updatedProduct);
+        } else {
+          void invalidateProducts();
+        }
+        notify(t("MSG_EDIT_SUCCESS", "Updated successfully"), "success", 3000);
+        clearMasterFormDraft();
       } catch (error: unknown) {
-        notify(getApiErrorMessage(error, t("UPDATE_FAILED", "Cập nhật thất bại")), "error", 3000);
+        reportSaveError(getApiErrorMessage(error, t("UPDATE_FAILED", "Cập nhật thất bại")));
+        throw error;
       }
     })();
-  }, [t, updateMutation]);
+  }, [invalidateProducts, t, updateProductAsync]);
 
   const handleRowRemoving = useCallback((event: RowRemovingEvent) => {
     event.cancel = true;
@@ -260,12 +272,35 @@ export default function ProductList({
           onRowUpdating={handleRowUpdating}
           onRowRemoving={handleRowRemoving}
           onRowDblClick={handleRowDblClick}
+          onSaving={(event) => {
+              const lookupChanges = isLookup ? {} : getMasterFormDraftChanges();
+            const lookupFields = Object.keys(lookupChanges);
+            if (lookupFields.length > 0) {
+              const changes = event.changes ?? [];
+              const target = changes.find((change) => change.type === "update" || change.type === "insert");
+              if (target) {
+                target.data = { ...target.data, ...lookupChanges } as Partial<Product>;
+              } else {
+                const editingKey = event.component?.option("editing.editRowKey");
+                const newRow = event.component?.getVisibleRows().find((row) => row.isNewRow)?.data;
+                const change = editingKey !== null && editingKey !== undefined
+                  ? { type: "update" as const, key: editingKey as number, data: lookupChanges as Partial<Product> }
+                  : { type: "insert" as const, data: { ...(newRow as Product | undefined), ...lookupChanges } as Product };
+                event.changes = [...changes, change];
+              }
+            }
+          }}
           onEditingStart={(event) => {
             const rowId = Number(event.key);
             setIsUpdate(Number.isFinite(rowId) && rowId > 0);
+            seedMasterFormDraft(event.data as unknown as Record<string, unknown>);
+          }}
+          onEditCanceled={() => {
+            clearMasterFormDraft();
           }}
           onInitNewRow={(event) => {
             setIsUpdate(false);
+            seedMasterFormDraft(event.data as unknown as Record<string, unknown>);
             event.data.ISUSE = "1";
             event.promise = assignSequencePreviewCode(event.data, menuCode, "PRODUCT_CD").then(() => undefined);
           }}
@@ -276,6 +311,7 @@ export default function ProductList({
             allowAdding={true}
             allowDeleting={true}
             confirmDelete={true}
+            startEditAction="dblClick"
           >
             <MasterDataEditPopup
               key={lang}

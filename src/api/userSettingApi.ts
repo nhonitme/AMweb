@@ -9,7 +9,6 @@ export type UserSettingResolved = {
   VALUE: string
   NOTE: string
   SOURCE: "USER" | "COMPANY" | "SYSTEM" | "DEFAULT" | string
-  UPDATE_DT?: string | null
 }
 
 type ApiPayload = Record<string, unknown>
@@ -34,7 +33,6 @@ function normalizeSettingList(data: unknown): UserSettingResolved[] {
       VALUE: String(item.VALUE ?? ""),
       NOTE: String(item.NOTE ?? ""),
       SOURCE: String(item.SOURCE ?? ""),
-      UPDATE_DT: item.UPDATE_DT ?? null,
     }))
 }
 

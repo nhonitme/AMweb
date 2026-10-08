@@ -71,7 +71,7 @@ export default function PitTransmissionPopup({
               )}
             />
             <Column dataField="ERROR_MESSAGE" caption={t("ERROR_MESSAGE", "Lỗi")} minWidth={220} />
-            <Column dataField="CREATE_DT" caption={t("CREATE_DT", "Ngày tạo")} dataType="datetime" format="dd/MM/yyyy HH:mm:ss" width={170} />
+            <Column dataField="CREATE_AT" caption={t("CREATE_AT", "Ngày tạo")} dataType="datetime" format="dd/MM/yyyy HH:mm:ss" width={170} />
             <Column
               caption="XML"
               width={90}

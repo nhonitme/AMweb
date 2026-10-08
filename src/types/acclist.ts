@@ -19,9 +19,5 @@ export interface AcclistInfo {
   DECISION: string;
   DESTINATION_ACC_CD: string;
 
-  CREATE_BY: string;
-  CREATE_AT: Date | string;
-  UPDATE_BY: string;
-  UPDATE_AT: Date | string;
   ISDEL: string;
 }

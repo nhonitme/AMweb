@@ -1,4 +1,4 @@
-.master-data-edit-popup .dx-overlay-content {
+.master-data-edit-popup > .dx-overlay-content {
   height: auto !important;
   max-height: 80vh;
   display: flex;
@@ -38,7 +38,7 @@
 }
 
 /* Scrollable master popups (customer, product, …): flex height + DevExtreme dx-scrollable wheel scroll. */
-.master-data-edit-popup--scrollable .dx-overlay-content {
+.master-data-edit-popup--scrollable > .dx-overlay-content {
   height: 80vh !important;
   max-height: 80vh;
   display: flex;
@@ -72,7 +72,7 @@
 
 /* ===== Visual polish for master-data edit/add popups (v5 — light/modern cards, 2026-09-10) ===== */
 
-.master-data-edit-popup .dx-overlay-content {
+.master-data-edit-popup > .dx-overlay-content {
   border-radius: 14px;
   overflow: hidden;
 }

@@ -6,23 +6,22 @@ import { createOutlinedEditorOptions } from "@/components/forms/devExtremeEditor
 import { isDefaultLangField, isLangFieldVisible, useCompanyLangRevision } from "@/lib/companyLang"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { departmentFieldGroups, type DepartmentFieldKey } from "./Columns/DepartmentFields"
+import { checkCodeExists } from "@/api/lookupApi"
+import { useMasterFormValidation } from "@/components/forms/useMasterFormValidation"
+import type { ValidationRule } from "devextreme/common"
 
 interface DepartmentInfoFormProps {
   isUpdate: boolean
 }
 
 type DepartmentEditorType = "dxTextBox"
-type RequiredFormRule = {
-  type: "required"
-  message: string
-}
 
 type FormItemConfig = {
   dataField: DepartmentFieldKey
   label: string
   editorType?: DepartmentEditorType
   editorOptions?: Record<string, unknown>
-  validationRules?: RequiredFormRule[]
+  validationRules?: ValidationRule[]
   colSpan?: number
   cssClass?: string
 }
@@ -50,6 +49,7 @@ export default function DepartmentInfoForm({ isUpdate }: DepartmentInfoFormProps
 
   const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
   const companyLangRevision = useCompanyLangRevision()
+  const validation = useMasterFormValidation(t)
 
   const groups = useMemo(() => {
     const createItem = (fieldKey: DepartmentFieldKey, groupItemCount: number): FormItemConfig => {
@@ -64,9 +64,9 @@ export default function DepartmentInfoForm({ isUpdate }: DepartmentInfoFormProps
         editorType,
         editorOptions,
         validationRules:
-          requiredDepartmentFields.has(fieldKey) || isDefaultLangField(fieldKey)
-            ? [{ type: "required", message: t("MSG_MUST_ITEM", `${fieldKey} is required`) }]
-            : undefined,
+          requiredDepartmentFields.has(fieldKey)
+            ? validation.code(fieldKey, "DEPARTMENT_ID", (id, value) => checkCodeExists("department", value, id), baseCaption)
+            : isDefaultLangField(fieldKey) ? validation.required(fieldKey, baseCaption) : [],
         // When a group has just one field, keep the input at a readable width
         // instead of letting it stretch across the whole (otherwise-empty) row.
         cssClass: groupItemCount === 1 ? "field-narrow" : undefined,
@@ -76,7 +76,7 @@ export default function DepartmentInfoForm({ isUpdate }: DepartmentInfoFormProps
     const basicItems = departmentFieldGroups.basic.map((fieldKey) =>
       createItem(fieldKey, departmentFieldGroups.basic.length),
     )
-    const visibleNameFields = departmentFieldGroups.names.filter((fieldKey) => isLangFieldVisible(fieldKey))
+    const visibleNameFields = departmentFieldGroups.names.filter((fieldKey) => isLangFieldVisible(fieldKey) || isDefaultLangField(fieldKey))
     const namesItems = visibleNameFields.map((fieldKey) => createItem(fieldKey, visibleNameFields.length))
 
     // Match the group's column count to how many fields it actually has, so a
@@ -103,7 +103,7 @@ export default function DepartmentInfoForm({ isUpdate }: DepartmentInfoFormProps
 
   return (
     <div className="department-info-form">
-      <DxForm colCount={1} labelLocation="top" width="100%">
+      <DxForm colCount={1} labelLocation="top" width="100%" onInitialized={validation.onInitialized} onFieldDataChanged={validation.onFieldDataChanged}>
         {groups.map((group) => (
           <GroupItem
             key={group.key}

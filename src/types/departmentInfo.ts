@@ -9,8 +9,6 @@ export interface DepartmentInfoApi {
   DEP_NAME_ENG?: DepartmentInfoText
   DEP_NAME_VIET?: DepartmentInfoText
   DEP_NAME_CHINA?: DepartmentInfoText
-  UPDATE_BY?: DepartmentInfoText
-  CREATE_BY?: DepartmentInfoText
   ISDEL?: DepartmentInfoText
 }
 
@@ -23,8 +21,6 @@ export interface DepartmentInfo {
   DEP_NAME_ENG: string
   DEP_NAME_VIET: string
   DEP_NAME_CHINA: string
-  UPDATE_BY: string
-  CREATE_BY: string
   ISDEL: boolean
 }
 

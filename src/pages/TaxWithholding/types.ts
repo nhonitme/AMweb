@@ -5,7 +5,7 @@ export interface PitData { Fields: Record<string,string>; Certificates: PitCerti
 export interface PitDocument {
   DOCUMENT_ID: number; KIND: PitKind; DOC_VERSION: number; DOC_DATE?: string | null; TAX_CD: string; DISPLAY_NAME: string
   SERIES?: string; XSL_ID?: number; DOC_NO?: number; DATA: PitData; IS_SIGNED: number; CQT_STATUS: number; ERROR_MESSAGE?: string
-  MTDIEP?: string; MGDDTU?: string; QUEUED: number; UPDATE_BY?: string; UPDATE_AT?: string
+  MTDIEP?: string; MGDDTU?: string; QUEUED: number;  
 }
 export interface PitSearchParams {
   fromYmd?: string
@@ -24,7 +24,7 @@ export interface PitTransmissionMessage {
   MTDTCHIEU?: string
   MST?: string
   ERROR_MESSAGE?: string
-  CREATE_DT: string
+  CREATE_AT: string
   RESPONSE_XML: string
 }
 export interface PitField { Key: string; Label: string; Group: string; Type: string; Required: boolean; MaxLength: number; Options?: { Value: string; Label: string }[]; Default?: string }
