@@ -346,10 +346,10 @@ export default function MultiLookupCellEditor<T extends object>({
     const classes = [
       className,
       isToolbarVariant ? "page-toolbar__field--tagbox" : undefined,
-      isToolbarVariant && selectedValues.length > 0 ? "page-toolbar__field--tagbox-filled" : undefined,
+      isToolbarVariant && displayValues.length > 0 ? "page-toolbar__field--tagbox-filled" : undefined,
     ].filter(Boolean)
     return classes.length > 0 ? classes.join(" ") : undefined
-  }, [className, isToolbarVariant, selectedValues.length])
+  }, [className, displayValues.length, isToolbarVariant])
 
   const resolvedLabel = label ?? (labelMode === "floating" ? placeholder : undefined)
   const resolvedPlaceholder =
