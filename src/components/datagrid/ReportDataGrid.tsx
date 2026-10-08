@@ -236,7 +236,7 @@ function buildNumberFormat(places: number, useGrouping = true): string {
 
 function formatUsesGrouping(format: string | null | undefined): boolean {
   // .NET numeric formats (N0, N2, etc.) always use thousand separators.
-  return !format || /^n\\d{1,2}$/i.test(format.trim()) || format.includes(",") || format.includes("#")
+  return !format || /^n\d{1,2}$/i.test(format.trim()) || format.includes(",") || format.includes("#")
 }
 
 function isYmdFieldName(fieldName: string | null | undefined): boolean {
@@ -252,7 +252,7 @@ function resolveDevExtremeColumnFormat(format: string | null | undefined): strin
   // DevExtreme does not interpret .NET-style "N0" as a numeric format:
   // it renders the literal N followed by the value (e.g. N4).
   // Convert N0/N2/... to DevExtreme-compatible number masks.
-  const dotNetNumericFormat = /^n(\\d{1,2})$/i.exec(normalized)
+  const dotNetNumericFormat = /^n(\d{1,2})$/i.exec(normalized)
   if (dotNetNumericFormat) {
     const places = Number(dotNetNumericFormat[1])
     if (places <= 12) {
