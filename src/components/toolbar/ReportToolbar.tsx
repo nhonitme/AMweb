@@ -789,7 +789,7 @@ export function ReportToolbar({
 
           {showCurrencyFilter ? (
             <MultiLookupCellEditor<SysCode>
-              className={TOOLBAR_FIELD}
+              className={`${TOOLBAR_FIELD} report-toolbar__currency-filter`}
               {...toolbarLookupProps}
                 dataSource={currencyLookupStore}
                 values={effectiveCurrencyCodes}
@@ -802,7 +802,7 @@ export function ReportToolbar({
                 onApply={handleCurrencyApply}
                 onClear={handleCurrencyClear}
                 width={140}
-                height={26}
+                height={30}
                 columns={[
                   { dataField: "CODE_CD", caption: t("CURRENCY", "Currency"), width: 140 },
                   {
