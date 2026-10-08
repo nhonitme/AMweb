@@ -65,6 +65,8 @@ type ReportToolbarProps = {
   accountCodes?: string[]
   bankCodes?: string[]
   currencyCodes?: string[]
+  /** Display 'All' when the VAT reduction appendix has no currency restriction. */
+  currencyAllOptionEnabled?: boolean
   vatRates?: string[]
   warehouseCodes?: string[]
   departmentCodes?: string[]
@@ -179,6 +181,7 @@ export function ReportToolbar({
   accountCodes,
   bankCodes,
   currencyCodes,
+  currencyAllOptionEnabled = false,
   vatRates,
   warehouseCodes,
   departmentCodes,
@@ -789,20 +792,20 @@ export function ReportToolbar({
 
           {showCurrencyFilter ? (
             <MultiLookupCellEditor<SysCode>
-              className={`${TOOLBAR_FIELD} report-toolbar__currency-filter`}
+              className={currencyAllOptionEnabled ? `${TOOLBAR_FIELD} report-toolbar__currency-filter` : TOOLBAR_FIELD}
               {...toolbarLookupProps}
                 dataSource={currencyLookupStore}
                 values={effectiveCurrencyCodes}
                 valueExpr="CODE_CD"
                 searchExpr={["CODE_CD", "CODE_NAME"]}
                 placeholder={t("CURRENCY", "Currency")}
-                allOption={{ value: "__ALL_CURRENCIES__", text: t("ALL", "Tất cả") }}
+                allOption={currencyAllOptionEnabled ? { value: "__ALL_CURRENCIES__", text: t("ALL", "Tất cả") } : undefined}
                 labelMode="floating"
                 buttonHint={t("OPEN_CURRENCY_LOOKUP", "Open currency lookup")}
                 onApply={handleCurrencyApply}
                 onClear={handleCurrencyClear}
                 width={140}
-                height={30}
+                height={currencyAllOptionEnabled ? 30 : 26}
                 columns={[
                   { dataField: "CODE_CD", caption: t("CURRENCY", "Currency"), width: 140 },
                   {
