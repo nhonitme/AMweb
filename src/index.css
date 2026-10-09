@@ -826,7 +826,7 @@ Cột filler + khoảng trống bên phải luôn nền trắng để tách rõ 
   position: absolute;
   top: 0;
   bottom: 0;
-  left: var(--report-grid-divider-x);
+  left: var(--report-filler-divider-left);
   width: 1px;
   background: #cecccc;
   pointer-events: none;
@@ -869,6 +869,18 @@ Cột filler + khoảng trống bên phải luôn nền trắng để tách rõ 
   background-image: none !important;
 }
 
+/* When the host overlay is visible, disable individual filler borders so
+   the separation line is exactly one pixel wide from top to bottom. */
+.report-data-grid-host--vat-reduction.report-data-grid-host--filler-divider-ready
+  .report-data-grid .dx-datagrid-headers .dx-row > td.report-grid-filler-column,
+.report-data-grid-host--vat-reduction.report-data-grid-host--filler-divider-ready
+  .report-data-grid .dx-datagrid-rowsview .dx-row > td.report-grid-filler-column,
+.report-data-grid-host--vat-reduction.report-data-grid-host--filler-divider-ready
+  .report-data-grid .dx-datagrid-total-footer .dx-row > td.report-grid-filler-column,
+.report-data-grid-host--vat-reduction.report-data-grid-host--filler-divider-ready
+  .report-data-grid .dx-datagrid-filter-row > td.report-grid-filler-column {
+  border-left: 0 !important;
+}
 .report-data-grid .dx-header-row .report-grid-filler-column .dx-datagrid-text-content,
 .report-data-grid .dx-header-row .report-grid-filler-column .dx-column-indicators,
 .report-data-grid .dx-header-row .report-grid-filler-column .dx-header-filter {
