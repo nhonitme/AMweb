@@ -1968,23 +1968,39 @@ function ReportDataGrid(
     const fillerHeader = host?.querySelector<HTMLElement>(
       ".dx-datagrid-headers td.report-grid-filler-column",
     )
-    const groupCell = host?.querySelector<HTMLTableCellElement>(
-      ".dx-datagrid-rowsview .dx-group-row > td:last-child:not(.report-grid-filler-column)",
-    )
-    if (!host || !fillerHeader || !groupCell) {
+    if (!host || !fillerHeader) {
       return
     }
 
     const fillerRect = fillerHeader.getBoundingClientRect()
-    const cellRect = groupCell.getBoundingClientRect()
-    // Virtual scrolling can briefly leave a row unmeasured; keep the last
-    // valid CSS boundary rather than flashing the whole group row blue.
-    if (fillerRect.width <= 0 || cellRect.width <= 0) {
+    const hostRect = host.getBoundingClientRect()
+    if (fillerRect.width <= 0 || hostRect.width <= 0) {
       return
     }
+
+    // One vertical divider shared by header, group and data rows.
+    const dividerX = fillerRect.left - hostRect.left
+    const nextDividerX = `${dividerX}px`
+    if (host.style.getPropertyValue("--report-grid-divider-x") !== nextDividerX) {
+      host.style.setProperty("--report-grid-divider-x", nextDividerX)
+    }
+    host.classList.add("report-data-grid-host--filler-divider-ready")
+
+    // The merged group row still needs a white region, without its own border.
+    const groupCell = host.querySelector<HTMLTableCellElement>(
+      ".dx-datagrid-rowsview .dx-group-row > td:last-child:not(.report-grid-filler-column)",
+    )
+    if (!groupCell) {
+      return
+    }
+
+    const cellRect = groupCell.getBoundingClientRect()
+    if (cellRect.width <= 0) {
+      return
+    }
+
     const fillerWidth = Math.max(0, Math.min(cellRect.width, cellRect.right - fillerRect.left))
     const nextWidth = `${fillerWidth}px`
-
     if (host.style.getPropertyValue("--report-group-filler-width") !== nextWidth) {
       host.style.setProperty("--report-group-filler-width", nextWidth)
     }
