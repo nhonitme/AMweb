@@ -1982,9 +1982,11 @@ function ReportDataGrid(
         }
 
         const whiteStart = Math.max(0, Math.min(cellRect.width, fillerRect.left - cellRect.left))
+        // Match the filler column's 1px left border across the merged group cell.
+        const borderStart = Math.max(0, whiteStart - 1)
         cell.style.setProperty(
           "background-image",
-          `linear-gradient(to right, transparent ${whiteStart}px, #ffffff ${whiteStart}px)`,
+          `linear-gradient(to right, transparent ${borderStart}px, #cecccc ${borderStart}px ${whiteStart}px, #ffffff ${whiteStart}px)`,
           "important",
         )
       })
