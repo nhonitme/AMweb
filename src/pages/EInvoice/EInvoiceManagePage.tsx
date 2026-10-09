@@ -38,6 +38,7 @@ import {
 } from "@/hooks/queries/useEInvoiceEditorQueries"
 import { saveEInvoiceDetailCache } from "@/lib/einvoiceDetailCache"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults"
 import { buildAppPath, getCurrentCompanyCd } from "@/lib/login"
 import {
     DEFAULT_PAGE_SIZE,
@@ -131,19 +132,6 @@ function trimGridCellText(value: unknown): string {
     return String(value ?? "").trim()
 }
 
-function createMonthStartDate(): Date {
-    const date = new Date()
-    date.setDate(1)
-    date.setHours(0, 0, 0, 0)
-    return date
-}
-
-function createToday(): Date {
-    const date = new Date()
-    date.setHours(0, 0, 0, 0)
-    return date
-}
-
 function formatText(template: string, values: Array<string | number>): string {
     return values.reduce<string>((text, value, index) => text.replace(`{${index}}`, String(value)), template)
 }
@@ -181,8 +169,8 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
         (nextKeyword?: string, targetPage?: number, targetPageSize?: number, nextFilters?: EInvoiceAdvancedFilters) => boolean
     >(() => false)
     const [actionLoading, setActionLoading] = useState(false)
-    const [fromDate, setFromDate] = useState<Date | null>(() => createMonthStartDate())
-    const [toDate, setToDate] = useState<Date | null>(() => createToday())
+    const [fromDate, setFromDate] = useState<Date | null>(() => createCurrentMonthDateRange().fromDate)
+    const [toDate, setToDate] = useState<Date | null>(() => createCurrentMonthDateRange().toDate)
     const [keyword, setKeyword] = useState("")
     const [advancedSearchOpen, setAdvancedSearchOpen] = useState(false)
     const [advancedDraft, setAdvancedDraft] = useState<EInvoiceAdvancedFilters>(() => createEmptyEInvoiceAdvancedFilters())
@@ -821,8 +809,9 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
         setAdvancedDraft(empty)
         setAdvancedApplied(empty)
         setAdvancedSearchOpen(false)
-        setFromDate(createMonthStartDate())
-        setToDate(createToday())
+        const dateRange = createCurrentMonthDateRange()
+        setFromDate(dateRange.fromDate)
+        setToDate(dateRange.toDate)
         setPageNumber(1)
         setPageSize(DEFAULT_PAGE_SIZE)
         initialLoadTriggeredRef.current = true

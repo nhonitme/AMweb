@@ -657,19 +657,6 @@ export function applyInvoiceToMinute(record: EInvoiceMinute, invoice: EInvoice):
   }
 }
 
-export function createMinuteMonthStartDate(): Date {
-  const date = new Date()
-  date.setDate(1)
-  date.setHours(0, 0, 0, 0)
-  return date
-}
-
-export function createMinuteTodayDate(): Date {
-  const date = new Date()
-  date.setHours(0, 0, 0, 0)
-  return date
-}
-
 export function formatMinuteTypeText(
   value: number,
   options: EInvoiceMinuteTypeOption[],

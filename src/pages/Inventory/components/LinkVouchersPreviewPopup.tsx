@@ -5,6 +5,7 @@ import DropDownButton from "devextreme-react/drop-down-button"
 import LoadPanel from "devextreme-react/load-panel"
 import Popup from "devextreme-react/popup"
 import notify from "devextreme/ui/notify"
+import { ArrowDown } from "lucide-react"
 
 import { DateRangeBox } from "@/components/toolbar/DateRangeBox"
 import { LanguageContext } from "@/lib/i18nLoader"
@@ -400,8 +401,14 @@ export default function LinkVouchersPreviewPopup({
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-slate-200">
-          <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
-            {t("LINK_VOUCHERS_PAIRS", "Kết quả liên kết")}
+          <div
+            className="flex h-12 items-center justify-center border-b border-emerald-100 bg-gradient-to-r from-emerald-50 via-green-50 to-lime-50"
+            aria-label={t("LINK_VOUCHERS_PAIRS", "Kết quả liên kết")}
+            title={t("LINK_VOUCHERS_PAIRS", "Kết quả liên kết")}
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 shadow-md ring-2 ring-white">
+              <ArrowDown size={20} strokeWidth={2.8} aria-hidden="true" />
+            </span>
           </div>
           <DataGrid
             dataSource={pairRows}

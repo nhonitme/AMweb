@@ -134,7 +134,7 @@ function normalizeSearchText(value: string): string {
   return value.trim().toLowerCase()
 }
 
-function normalizeColumnKey(value: unknown): string {
+export function normalizeColumnKey(value: unknown): string {
   return typeof value === "string" ? value.trim().toUpperCase() : ""
 }
 
@@ -218,8 +218,8 @@ function toFiniteNumber(value: ReportPreviewCellValue): number | null {
   return null
 }
 
-const TEMP_DECIMAL_PLACE_OPTIONS = [0, 1, 2, 3, 4, 6] as const
-const REPORT_CELL_KEY_ATTR = "data-report-cell-key"
+export const TEMP_DECIMAL_PLACE_OPTIONS = [0, 1, 2, 3, 4, 6] as const
+export const REPORT_CELL_KEY_ATTR = "data-report-cell-key"
 
 type ReportCellSelectionStats = {
   numericCount: number
@@ -319,11 +319,11 @@ function resolveYmdCellValue(row: ReportDataGridRow, fieldName: string): Date | 
   return normalizeYmd(row[fieldName])
 }
 
-function makeReportCellKey(rowKey: string, fieldName: string): string {
+export function makeReportCellKey(rowKey: string, fieldName: string): string {
   return `${rowKey}::${fieldName}`
 }
 
-function parseReportCellKey(cellKey: string): { rowKey: string; fieldName: string } | null {
+export function parseReportCellKey(cellKey: string): { rowKey: string; fieldName: string } | null {
   const separatorIndex = cellKey.indexOf("::")
   if (separatorIndex <= 0) {
     return null
@@ -338,7 +338,7 @@ function parseReportCellKey(cellKey: string): { rowKey: string; fieldName: strin
   return { rowKey, fieldName }
 }
 
-function resolveReportCellKeyFromTarget(target: EventTarget | null): string | null {
+export function resolveReportCellKeyFromTarget(target: EventTarget | null): string | null {
   if (!(target instanceof Element)) {
     return null
   }
@@ -564,7 +564,7 @@ function computeBalanceSheetFooterTotals(
   }
 }
 
-function computeReportCellSelectionStats(
+export function computeReportCellSelectionStats(
   rowsByKey: Map<string, ReportDataGridRow>,
   selectedKeys: ReadonlySet<string>,
   numberFieldNames: ReadonlySet<string>,
@@ -604,7 +604,7 @@ function computeReportCellSelectionStats(
   }
 }
 
-function syncReportCellSelectionHighlights(
+export function syncReportCellSelectionHighlights(
   root: ParentNode | null,
   selectedKeys: ReadonlySet<string>,
 ): void {
@@ -625,7 +625,7 @@ function syncReportCellSelectionHighlights(
   })
 }
 
-function buildCellRangeKeys(
+export function buildCellRangeKeys(
   anchorKey: string,
   focusKey: string,
   visibleRows: ReportDataGridRow[],
@@ -681,7 +681,7 @@ function buildCellRangeKeys(
   return keys
 }
 
-function mergeUniqueCellKeys(...groups: ReadonlyArray<ReadonlyArray<string>>): string[] {
+export function mergeUniqueCellKeys(...groups: ReadonlyArray<ReadonlyArray<string>>): string[] {
   const merged = new Set<string>()
   groups.forEach((group) => {
     group.forEach((key) => {
@@ -693,7 +693,7 @@ function mergeUniqueCellKeys(...groups: ReadonlyArray<ReadonlyArray<string>>): s
   return Array.from(merged)
 }
 
-function toggleCellKey(keys: readonly string[], cellKey: string): string[] {
+export function toggleCellKey(keys: readonly string[], cellKey: string): string[] {
   if (keys.includes(cellKey)) {
     return keys.filter((key) => key !== cellKey)
   }
@@ -713,7 +713,7 @@ function formatCellValueForClipboard(value: ReportPreviewCellValue | undefined):
   return String(value)
 }
 
-function buildSelectedCellsClipboardText(
+export function buildSelectedCellsClipboardText(
   selectedKeys: readonly string[],
   rowsByKey: Map<string, ReportDataGridRow>,
   visibleRows: ReportDataGridRow[],
@@ -790,7 +790,7 @@ function buildSelectedCellsClipboardText(
   return lines.join("\n")
 }
 
-async function copyTextToClipboard(text: string): Promise<boolean> {
+export async function copyTextToClipboard(text: string): Promise<boolean> {
   if (!text) {
     return false
   }
@@ -1299,7 +1299,7 @@ function formatCellValue(value: ReportPreviewCellValue | undefined, text: string
   return String(value)
 }
 
-function resolveColumnDataType(column: ReportPreviewColumn): ReportPreviewColumnDataType {
+export function resolveColumnDataType(column: ReportPreviewColumn): ReportPreviewColumnDataType {
   if (isYmdFieldName(column.FIELD_NAME)) {
     return "date"
   }

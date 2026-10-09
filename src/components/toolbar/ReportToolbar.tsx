@@ -4,6 +4,7 @@ import Button from "devextreme-react/button"
 import SelectBox from "devextreme-react/select-box"
 import TextBox from "devextreme-react/text-box"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults"
 import MultiLookupCellEditor from "@/components/lookup/MultiLookupCellEditor"
 import DateRangeBox from "@/components/toolbar/DateRangeBox"
 import DateBox from "devextreme-react/date-box"
@@ -127,25 +128,6 @@ function normalizeDate(value: Date | null): Date | null {
   const normalized = new Date(value)
   normalized.setHours(0, 0, 0, 0)
   return normalized
-}
-
-function addMonths(value: Date, months: number): Date {
-  const result = new Date(value)
-  result.setMonth(result.getMonth() + months)
-  result.setHours(0, 0, 0, 0)
-  return result
-}
-
-function buildMonthRange(base: Date) {
-  const start = new Date(base)
-  start.setDate(1)
-  start.setHours(0, 0, 0, 0)
-
-  const end = addMonths(start, 1)
-  end.setDate(end.getDate() - 1)
-  end.setHours(0, 0, 0, 0)
-
-  return { start, end }
 }
 
 function getLookupText(item: unknown, fields: string[]) {
@@ -285,7 +267,7 @@ export function ReportToolbar({
   )
 
   const today = useMemo(() => normalizeDate(new Date()) ?? new Date(), [])
-  const currentMonthRange = useMemo(() => buildMonthRange(today), [today])
+  const currentMonthRange = useMemo(() => createCurrentMonthDateRange(today), [today])
 
   const showCustomerFilter = Boolean(onCustomerCodesChange || (customerCodes && customerCodes.length > 0))
   const showAccountFilter = Boolean(onAccountCodesChange || (accountCodes && accountCodes.length > 0))
@@ -297,8 +279,8 @@ export function ReportToolbar({
   const showProductFilter = Boolean(onProductCodesChange || (productCodes && productCodes.length > 0))
   const showAssetStatusFilter = Boolean(onAssetStatusCodesChange || (assetStatusCodes && assetStatusCodes.length > 0))
 
-  const [localFromDate, setLocalFromDate] = useState<Date>(currentMonthRange.start)
-  const [localToDate, setLocalToDate] = useState<Date>(currentMonthRange.end)
+  const [localFromDate, setLocalFromDate] = useState<Date>(currentMonthRange.fromDate)
+  const [localToDate, setLocalToDate] = useState<Date>(currentMonthRange.toDate)
 
   const [localUseStartYmd, setLocalUseStartYmd] = useState<Date>(today)
 
@@ -310,25 +292,25 @@ export function ReportToolbar({
   const handleFromDateChange = useCallback(
     (value: Date | null) => {
       if (!onFromDateChange) {
-        setLocalFromDate(value ?? currentMonthRange.start)
+        setLocalFromDate(value ?? currentMonthRange.fromDate)
         return
       }
 
       onFromDateChange(value)
     },
-    [currentMonthRange.start, onFromDateChange],
+    [currentMonthRange.fromDate, onFromDateChange],
   )
 
   const handleToDateChange = useCallback(
     (value: Date | null) => {
       if (!onToDateChange) {
-        setLocalToDate(value ?? currentMonthRange.end)
+        setLocalToDate(value ?? currentMonthRange.toDate)
         return
       }
 
       onToDateChange(value)
     },
-    [currentMonthRange.end, onToDateChange],
+    [currentMonthRange.toDate, onToDateChange],
   )
 
   const handleUseStartYmdChange = useCallback(
@@ -969,18 +951,22 @@ export function ReportToolbar({
             </div>
           ) : null}
 
-          {visibleActionButtons.map((button) => (
-            <Button
-              key={button.key}
-              className="page-toolbar__action-btn"
-              stylingMode={"stylingMode" in button && button.stylingMode ? button.stylingMode : "text"}
-              icon={button.icon}
-              text={"text" in button ? button.text : undefined}
-              hint={button.hint}
-              type={"type" in button && button.type ? button.type : "normal"}
-              onClick={button.onClick}
-            />
-          ))}
+          {visibleActionButtons.length > 0 ? (
+            <div className="page-toolbar__icon-cluster">
+              {visibleActionButtons.map((button) => (
+                <Button
+                  key={button.key}
+                  className="page-toolbar__action-btn"
+                  stylingMode={"stylingMode" in button && button.stylingMode ? button.stylingMode : "text"}
+                  icon={button.icon}
+                  text={"text" in button ? button.text : undefined}
+                  hint={button.hint}
+                  type={"type" in button && button.type ? button.type : "normal"}
+                  onClick={button.onClick}
+                />
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

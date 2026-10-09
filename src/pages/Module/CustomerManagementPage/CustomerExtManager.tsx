@@ -290,15 +290,13 @@ export default function CustomerExtManager({
 
   const handleExportPdf = useCallback(() => {
     const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
-    const selectedCustomerId = selectedKeys.length > 0 ? Number(selectedKeys[0]) : undefined
-    const customerId =
-      typeof selectedCustomerId === "number" && Number.isFinite(selectedCustomerId) && selectedCustomerId > 0
-        ? selectedCustomerId
-        : undefined
+    const selectedCustomerIds = selectedKeys
+      .map((key) => Number(key))
+      .filter((customerId) => Number.isSafeInteger(customerId) && customerId > 0)
 
     const targetUrl = buildMasterGridReportViewerPageUrl({
       companyCd: getCurrentCompanyCd(),
-      customerId: customerId ? String(customerId) : undefined,
+      printSelectedCustomerIds: selectedCustomerIds.length > 0 ? selectedCustomerIds.join(",") : undefined,
       reportCode: "CUSTOMER_INFO",
       menuCode,
       screenCd: customerScreenCd,

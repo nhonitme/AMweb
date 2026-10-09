@@ -37,6 +37,7 @@ import { useMasterListLoadError } from "@/hooks/queries/master/masterQueryHelper
 import useShortcutBindings from "@/hooks/useShortcutBindings"
 import useShortcutHelp from "@/hooks/useShortcutHelp"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults"
 import { EInvoiceTableShell } from "./components/EInvoiceTableShell"
 import { EInvoiceErrorNoticeStatusCell } from "./components/EInvoiceErrorNoticeStatusCell"
 import {
@@ -121,19 +122,6 @@ interface ErrorNoticeEditorPopupProps {
 }
 
 const COPY_EXCLUDE_FIELDS = ["TBAO_ID", "COMPANY_CD", "DETAILS", "XML"]
-
-function createMonthStartDate(): Date {
-  const date = new Date()
-  date.setDate(1)
-  date.setHours(0, 0, 0, 0)
-  return date
-}
-
-function createToday(): Date {
-  const date = new Date()
-  date.setHours(0, 0, 0, 0)
-  return date
-}
 
 function formatText(template: string, values: Array<string | number>): string {
   return values.reduce((text, value, index) => text.replace(`{${index}}`, String(value)), template)
@@ -744,11 +732,11 @@ function EInvoiceErrorNoticePage() {
   const location = useLocation()
   const gridRef = useRef<dxDataGrid<EInvoiceErrorNotice, GridKey> | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
-  const [fromDate, setFromDate] = useState<Date | null>(() => createMonthStartDate())
-  const [toDate, setToDate] = useState<Date | null>(() => createToday())
+  const [fromDate, setFromDate] = useState<Date | null>(() => createCurrentMonthDateRange().fromDate)
+  const [toDate, setToDate] = useState<Date | null>(() => createCurrentMonthDateRange().toDate)
   const [listQuery, setListQuery] = useState(() => ({
-    fromYmd: formatDateToYmd(createMonthStartDate()) ?? undefined,
-    toYmd: formatDateToYmd(createToday()) ?? undefined,
+    fromYmd: formatDateToYmd(createCurrentMonthDateRange().fromDate) ?? undefined,
+    toYmd: formatDateToYmd(createCurrentMonthDateRange().toDate) ?? undefined,
   }))
   const [popupVisible, setPopupVisible] = useState(false)
   const [editingNoticeId, setEditingNoticeId] = useState(0)

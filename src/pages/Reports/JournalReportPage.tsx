@@ -29,6 +29,7 @@ import { useMasterListLoadError } from "@/hooks/queries/master/masterQueryHelper
 import { useReportOptionsQuery } from "@/hooks/queries/useReportQueries"
 import { exportToExcel } from "@/lib/excelUtils"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { createMonthStartDate } from "@/lib/dateRangeDefaults"
 import { getCurrentCompanyCd, buildAppPath } from "@/lib/login"
 import { getStoredGridTemplateId } from "@/lib/sysGridColumnTemplateStorage"
 import {
@@ -148,7 +149,7 @@ type JournalReportPageProps = {
   showWarehouseFilter?: boolean
   showProductFilter?: boolean
   showAssetStatusFilter?: boolean
-  showInvoiceKindFilter?: boolean  
+  showInvoiceKindFilter?: boolean
   showInvoiceTypeFilter?: boolean
   showInvoiceStatusFilter?: boolean
   showFetchFromGdt?: boolean
@@ -163,7 +164,6 @@ type JournalReportPageProps = {
   reportVersion?: string
   unitDivisor?: string
   reportOptionGroupCode?: string
-  defaultDateRange?: "month" | "year"
   useUseStartYmdFilter?: boolean
 }
 
@@ -180,7 +180,7 @@ type ReportRouteFilterState = {
   assetStatusCodes: string[]
   invoiceType: "BUY" | "SELL"
   invoiceStatus: string
-  invoiceKind: string				 
+  invoiceKind: string
   extraParams: Record<string, string>
 }
 
@@ -202,7 +202,7 @@ type JournalReportTabState = {
   assetStatusCodes: string[]
   invoiceType: VatInvoiceType
   invoiceStatus: string
-  invoiceKind: string				 
+  invoiceKind: string
   searchText: string
   preview: ConfiguredReportPreview | null
   selectedReportOptionCode: string
@@ -387,7 +387,7 @@ function buildRouteFilterState(search: string): ReportRouteFilterState {
     warehouseCodes: splitFilterCodes(params.get("storeCd")),
     productCodes: splitFilterCodes(params.get("productCd")),
     assetStatusCodes: splitFilterCodes(params.get("assetStatus")),
-	invoiceKind: (params.get("invoiceKind") ?? "").trim(),													  
+	invoiceKind: (params.get("invoiceKind") ?? "").trim(),
     invoiceType: normalizeInvoiceType(params.get("type")),
     invoiceStatus: (params.get("status") ?? "").trim(),
     extraParams,
@@ -547,22 +547,10 @@ function setQueryCodes(query: URLSearchParams, key: string, values: string[]): v
   }
 }
 
-function getYearStart(baseDate: Date): Date {
-  return new Date(baseDate.getFullYear(), 0, 1)
-}
-
-function getMonthStart(baseDate: Date): Date {
-  return new Date(baseDate.getFullYear(), baseDate.getMonth(), 1)
-}
-
 function getToday(): Date {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   return today
-}
-
-function getDefaultFromDate(baseDate: Date, defaultDateRange: "month" | "year"): Date {
-  return defaultDateRange === "month" ? getMonthStart(baseDate) : getYearStart(baseDate)
 }
 
 function resolveFilterParam(value: string, includeEmpty: boolean): string | undefined {
@@ -642,7 +630,7 @@ export default function JournalReportPage({
   showWarehouseFilter = false,
   showProductFilter = false,
   showAssetStatusFilter = false,
-  showInvoiceKindFilter = false,							
+  showInvoiceKindFilter = false,
   showInvoiceTypeFilter = false,
   showInvoiceStatusFilter = false,
   showFetchFromGdt = false,
@@ -657,7 +645,6 @@ export default function JournalReportPage({
   reportVersion,
   unitDivisor,
   reportOptionGroupCode,
-  defaultDateRange = "month",
   useUseStartYmdFilter = false,
 }: JournalReportPageProps) {
   const location = useLocation()
@@ -683,7 +670,7 @@ export default function JournalReportPage({
   const restoredTabState = restoredTabStateRef.current ?? undefined
   const lastHandledPageIdentityRef = useRef(`${routeIdentity}|${reportCode}|${menuCode}`)
   const [fromDate, setFromDateState] = useState<Date | null>(
-    () => restoredTabState?.fromDate ?? routeFilterState.fromDate ?? getDefaultFromDate(today, defaultDateRange),
+    () => restoredTabState?.fromDate ?? routeFilterState.fromDate ?? createMonthStartDate(today),
   )
   const [toDate, setToDateState] = useState<Date | null>(
     () => restoredTabState?.toDate ?? routeFilterState.toDate ?? today,
@@ -734,7 +721,7 @@ export default function JournalReportPage({
   const [invoiceType, setInvoiceType] = useState<VatInvoiceType>(
     () => restoredTabState?.invoiceType ?? routeFilterState.invoiceType,
   )
-  const [invoiceKind, setInvoiceKind] = useState(() => restoredTabState?.invoiceKind ?? routeFilterState.invoiceKind)																													 
+  const [invoiceKind, setInvoiceKind] = useState(() => restoredTabState?.invoiceKind ?? routeFilterState.invoiceKind)
   const [invoiceStatus, setInvoiceStatus] = useState(
     () => restoredTabState?.invoiceStatus ?? routeFilterState.invoiceStatus,
   )
@@ -804,7 +791,7 @@ export default function JournalReportPage({
       assetStatusCodes,
       invoiceType,
       invoiceStatus,
-	  invoiceKind,		  
+	  invoiceKind,
       searchText,
       preview: preview ?? existing?.preview ?? null,
       selectedReportOptionCode,
@@ -823,7 +810,7 @@ export default function JournalReportPage({
     exportPrintTemplate,
     fromDate,
     invoiceStatus,
-	invoiceKind,			
+	invoiceKind,
     invoiceType,
     cacheTabId,
     menuCode,
@@ -862,7 +849,7 @@ export default function JournalReportPage({
       "Phiếu xuất kho kiêm vận chuyển nội bộ",
       "Phiếu xuất kho hàng gửi bán đại lý",
     ].map((label, index) => ({ value: String(index + 1), label: t(`EInvoiceKind_${index + 1}`, label) })),
-  ], [t])										
+  ], [t])
   const invoiceStatusOptions = useMemo(
     () =>
       VAT_INVOICE_STATUS_OPTIONS.map((option) => ({
@@ -941,7 +928,7 @@ export default function JournalReportPage({
 
     lastHandledPageIdentityRef.current = pageIdentity
     abortPreviewRequest()
-    setFromDate(routeFilterState.fromDate ?? getDefaultFromDate(today, defaultDateRange))
+    setFromDate(routeFilterState.fromDate ?? createMonthStartDate(today))
     setToDate(routeFilterState.toDate ?? today)
     setUseStartYmd(routeFilterState.useStartYmd ?? today)
     const resolvedAccountCodes = resolveInitialFilterCodes(routeFilterState.accountCodes, accountCd)
@@ -956,12 +943,12 @@ export default function JournalReportPage({
     setAssetStatusCodes(routeFilterState.assetStatusCodes)
     setInvoiceType(routeFilterState.invoiceType)
     setInvoiceStatus(routeFilterState.invoiceStatus)
-	setInvoiceKind(routeFilterState.invoiceKind)										
+	setInvoiceKind(routeFilterState.invoiceKind)
     setSearchText("")
     setPreview(null)
     setPreviewLoading(false)
     setAutoLoadVersion((version) => version + 1)
-  }, [abortPreviewRequest, accountCd, accountLookupSingleSelect, bankCd, customerCd, defaultDateRange, fcType, menuCode, productCd, reportCode, routeFilterState, routeIdentity, showAccountFilter, storeCd, today])
+  }, [abortPreviewRequest, accountCd, accountLookupSingleSelect, bankCd, customerCd, fcType, menuCode, productCd, reportCode, routeFilterState, routeIdentity, showAccountFilter, storeCd, today])
 
   useEffect(() => {
     if (restoredTabState) {
@@ -1118,7 +1105,7 @@ export default function JournalReportPage({
         ...(reportCode === "FA_DEPRECIATION_PERIOD_REPORT"
           ? { departmentCd: resolveFilterParam("", includeEmptyFilterParams) ?? "" }
           : {}),
-		invoiceKind: showInvoiceKindFilter ? invoiceKind : undefined,															 
+		invoiceKind: showInvoiceKindFilter ? invoiceKind : undefined,
         type: showInvoiceTypeFilter ? invoiceType : undefined,
         status: showInvoiceStatusFilter
           ? resolveFilterParam(invoiceStatus, includeEmptyFilterParams)
@@ -1305,14 +1292,15 @@ export default function JournalReportPage({
     setSelectedReportOptionCode(nextOptionCode)
   }, [])
 
+  const useReportTreeList = preview?.VIEW_TYPE?.trim().toUpperCase() === "TREE_LIST"
   const handleOpenGridSettings = useCallback(() => {
-    if (effectiveDashboardReportCode.trim().toUpperCase() === "INVENTORY_QUANTITY_REPORT") {
+    if (useReportTreeList) {
       void reportTreeRef.current?.openColumnSettings()
       return
     }
 
     void reportGridRef.current?.openColumnSettings()
-  }, [effectiveDashboardReportCode])
+  }, [useReportTreeList])
 
   const handleOpenFormulaSettings = useCallback(() => {
     const query = new URLSearchParams()
@@ -1357,14 +1345,13 @@ export default function JournalReportPage({
       }
 
       const drillType = readReportRowText(row, DRILL_TYPE_FIELD_CANDIDATES)?.toUpperCase() ?? ""
-      if (drillType === "NONE") {
-        return
-      }
-
       const parsedRowKey = parseReportDetailRowKey(readReportRowText(row, ["__ROW_KEY", "ROW_KEY"]))
       const sourceDocType = normalizeSourceDocType(readReportRowText(row, SOURCE_DOC_TYPE_FIELD_CANDIDATES))
       const sourceDocId = readReportRowNumber(row, SOURCE_DOC_ID_FIELD_CANDIDATES) ?? parsedRowKey?.chitId ?? null
       const canOpenDocument = Boolean(sourceDocId)
+      if (drillType === "NONE") {
+        return
+      }
 
       if ((drillType === "DOCUMENT" || (!drillType && canOpenDocument)) && sourceDocId) {
         const resolved = resolveAccountingLedger(
@@ -1703,7 +1690,7 @@ export default function JournalReportPage({
                 : "min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
             }
           >
-            {effectiveDashboardReportCode.trim().toUpperCase() === "INVENTORY_QUANTITY_REPORT" ? (
+            {useReportTreeList ? (
               <ReportTreeList
                 key={effectiveDashboardReportCode}
                 ref={reportTreeRef}

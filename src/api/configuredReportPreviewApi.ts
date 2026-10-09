@@ -13,6 +13,8 @@ export type ReportPreviewColumnAlign = "left" | "center" | "right"
 
 export type ReportPreviewMode = "FLAT_REPORT" | "OUTLINE_GRID"
 
+export type ReportViewType = "DATA_GRID" | "TREE_LIST"
+
 export type ReportPreviewColumn = {
   COLUMN_KEY: string
   FIELD_NAME: string
@@ -35,6 +37,7 @@ export type ConfiguredReportPreview = {
   REPORT_CODE: string
   REPORT_NAME: string
   PREVIEW_MODE: ReportPreviewMode
+  VIEW_TYPE?: ReportViewType | null
   COLUMNS: ReportPreviewColumn[]
   ROWS: ReportPreviewRow[]
 }

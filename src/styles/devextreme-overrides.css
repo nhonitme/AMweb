@@ -312,13 +312,14 @@
   position: relative;
 }
 
+/* Shared subtle cell separators for every DevExtreme DataGrid and TreeList. */
 .dx-datagrid .dx-datagrid-headers .dx-row > td,
 .dx-treelist .dx-treelist-headers .dx-row > td {
   background-color: #eef1f6;
   color: #0f172a;
   font-weight: 700;
-  border-bottom: 1px solid #d7deea !important;
-  border-right: 1px solid #e2e7ef !important;
+  border-bottom: 0.5px solid #c3d0df !important;
+  border-right: 0.5px solid #c3d0df !important;
 }
 
 .dx-datagrid .dx-datagrid-headers .dx-row > td .dx-datagrid-text-content,
@@ -356,8 +357,27 @@
 
 .dx-datagrid .dx-datagrid-rowsview .dx-row > td,
 .dx-treelist .dx-treelist-rowsview .dx-row > td {
-  border-right: 1px solid #f5f6f8 !important;
-  border-bottom: 1px solid #f5f6f8;
+  border-right: 0.5px solid #c3d0df !important;
+  border-bottom: 0.5px solid #d1dbe7 !important;
+}
+
+.dx-datagrid .dx-datagrid-total-footer .dx-row > td {
+  border-right: 0.5px solid #c3d0df !important;
+  border-bottom: 0.5px solid #d1dbe7 !important;
+}
+
+/* Continue row separators through DevExtreme's empty free-space row without adding data. */
+.dx-datagrid .dx-datagrid-rowsview .dx-freespace-row > td,
+.dx-treelist .dx-treelist-rowsview .dx-freespace-row > td {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(var(--am-grid-row-height, 24px) - 0.5px),
+    #d1dbe7 calc(var(--am-grid-row-height, 24px) - 0.5px),
+    #d1dbe7 var(--am-grid-row-height, 24px)
+  ) !important;
+  background-repeat: repeat-y !important;
+  background-size: 100% var(--am-grid-row-height, 24px) !important;
 }
 
 /* ==== Data grid visual refresh: zebra rows, hover, action buttons, pager ==== */
@@ -652,3 +672,47 @@
   opacity: 0;
   cursor: pointer;
 }
+
+/* Shared TreeList row styling: distinguish hierarchy and report summary rows. */
+.report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="GROUP"] > td,
+.report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="SECTION"] > td,
+.report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="OPENING_TOTAL"] > td,
+.report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="TOTAL_PERIOD"] > td,
+.report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="ENDING_TOTAL"] > td {
+  border-top: 0.5px solid #d1dbe7 !important;
+}
+
+.report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="GROUP"] > td {
+  background-color: #eaf2ff !important;
+  color: #1e3a8a;
+  font-weight: 700;
+}
+
+.report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="SECTION"] > td {
+  background-color: #ecfeff !important;
+  color: #155e75;
+  font-weight: 600;
+}
+
+.report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="OPENING_TOTAL"] > td {
+  background-color: #fff7ed !important;
+  color: #9a3412;
+  font-weight: 600;
+}
+
+.report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="TOTAL_PERIOD"] > td {
+  background-color: #f8fafc !important;
+  color: #334155;
+  font-weight: 600;
+}
+
+.report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="ENDING_TOTAL"] > td {
+  background-color: #f0fdf4 !important;
+  color: #166534;
+  font-weight: 700;
+}
+
+.report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="DETAIL"] > td {
+  background-color: #ffffff !important;
+}
+

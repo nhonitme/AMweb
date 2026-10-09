@@ -28,6 +28,7 @@ import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import DxPage from "@/dx/DxPage"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults"
 import { isForeignCurrencyCode } from "@/lib/currency"
 import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/shortcutDefinitions"
 import { getCurrentCompanyCd, getCurrentUserId } from "@/lib/login"
@@ -342,12 +343,8 @@ export function ChitManagementPage({
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false)
   const [columnSettingsVisible, setColumnSettingsVisible] = useState(false)
   const [columnSettingsTabs, setColumnSettingsTabs] = useState<GridColumnSettingsPopupTab[]>([])
-  const today = useMemo(() => {
-    const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    return d
-  }, [])
-  const [fromDate, setFromDate] = useState<Date | null>(today)
+  const { fromDate: monthStart, toDate: today } = useMemo(() => createCurrentMonthDateRange(), [])
+  const [fromDate, setFromDate] = useState<Date | null>(monthStart)
   const [toDate, setToDate] = useState<Date | null>(today)
   const rowsRef = useRef<ChitInfo[]>([])
   const totalRecordsRef = useRef(0)
@@ -365,7 +362,7 @@ export function ChitManagementPage({
   const [linkInventoryCandidates, setLinkInventoryCandidates] = useState<LinkAmountCandidate[]>([])
   const [linkDetailCandidates, setLinkDetailCandidates] = useState<LinkDetailCandidate[]>([])
   const [linkOptionKey, setLinkOptionKey] = useState(chitType)
-  const [linkFromDate, setLinkFromDate] = useState<Date | null>(today)
+  const [linkFromDate, setLinkFromDate] = useState<Date | null>(monthStart)
   const [linkToDate, setLinkToDate] = useState<Date | null>(today)
   const [listQueryToYmd, setListQueryToYmd] = useState("")
   const [listFetchEnabled, setListFetchEnabled] = useState(false)

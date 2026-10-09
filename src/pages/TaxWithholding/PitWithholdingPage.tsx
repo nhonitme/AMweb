@@ -20,6 +20,7 @@ import DxPage from "@/dx/DxPage"
 import PageGrid from "@/components/datagrid/PageGrid"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults"
 import { getCurrentCompanyCd } from "@/lib/login"
 import { getCompanyInfo } from "@/api/companyInfoApi"
 import { getApiErrorMessage } from "@/api/apiTypes"
@@ -47,19 +48,6 @@ import "./pit.css"
 type GridKey = string | number
 type PitGrid = dxDataGrid<PitDocument, GridKey>
 
-const createMonthStart = () => {
-  const value = new Date()
-  value.setDate(1)
-  value.setHours(0, 0, 0, 0)
-  return value
-}
-
-const createToday = () => {
-  const value = new Date()
-  value.setHours(0, 0, 0, 0)
-  return value
-}
-
 export default function PitWithholdingPage({ kind }: { kind: PitKind }) {
   const { translate } = useContext(LanguageContext) as { translate?: (key: string, fallback?: string) => string }
   const t = useCallback((key: string, fallback: string) => translate?.(key, fallback) ?? fallback, [translate])
@@ -68,13 +56,13 @@ export default function PitWithholdingPage({ kind }: { kind: PitKind }) {
   const gridRef = useRef<PitGrid | null>(null)
   const rowsRef = useRef<PitDocument[]>([])
   const totalRef = useRef(0)
-  const [fromDate, setFromDate] = useState<Date | null>(createMonthStart)
-  const [toDate, setToDate] = useState<Date | null>(createToday)
+  const [fromDate, setFromDate] = useState<Date | null>(() => createCurrentMonthDateRange().fromDate)
+  const [toDate, setToDate] = useState<Date | null>(() => createCurrentMonthDateRange().toDate)
   const [keywordDraft, setKeywordDraft] = useState("")
   const [signedDraft, setSignedDraft] = useState<number | null>(null)
   const [cqtDraft, setCqtDraft] = useState<number | null>(null)
   const [advancedOpen, setAdvancedOpen] = useState(false)
-  const [filters, setFilters] = useState({ fromYmd: formatDateToYmd(createMonthStart()) ?? "", toYmd: formatDateToYmd(createToday()) ?? "", keyword: "", signed: null as number | null, cqtStatus: null as number | null })
+  const [filters, setFilters] = useState({ fromYmd: formatDateToYmd(createCurrentMonthDateRange().fromDate) ?? "", toYmd: formatDateToYmd(createCurrentMonthDateRange().toDate) ?? "", keyword: "", signed: null as number | null, cqtStatus: null as number | null })
   const [pageNumber, setPageNumber] = useState(1)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [selectedRows, setSelectedRows] = useState<PitDocument[]>([])

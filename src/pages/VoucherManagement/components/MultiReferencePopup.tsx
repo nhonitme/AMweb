@@ -11,6 +11,7 @@ import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import { getInventoryLinkStatuses } from "@/api/inventoryLinkApi"
 import { getChits } from "@/api/voucherApi"
 import { useDecimalColumnFormats } from "@/hooks/useDecimalColumnFormats"
+import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults"
 import { createDefaultChit, normalizeChitRows } from "../chitUtils"
 import type { ChitInfo, ChitLedger, ChitType, InventoryLinkStatus } from "@/types/voucher"
 
@@ -150,17 +151,9 @@ export default function MultiReferencePopup({
       ),
     [pendingUnlinkSourceIds],
   )
-  const [fromDate, setFromDate] = useState<Date | null>(() => {
-    const date = new Date()
-    date.setHours(0, 0, 0, 0)
-    date.setDate(date.getDate() - 30)
-    return date
-  })
-  const [toDate, setToDate] = useState<Date | null>(() => {
-    const date = new Date()
-    date.setHours(0, 0, 0, 0)
-    return date
-  })
+  const defaultDateRange = useMemo(createCurrentMonthDateRange, [])
+  const [fromDate, setFromDate] = useState<Date | null>(defaultDateRange.fromDate)
+  const [toDate, setToDate] = useState<Date | null>(defaultDateRange.toDate)
   const fromDateRef = useRef(fromDate)
   const toDateRef = useRef(toDate)
   fromDateRef.current = fromDate

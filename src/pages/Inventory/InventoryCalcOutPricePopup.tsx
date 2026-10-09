@@ -18,6 +18,7 @@ import { trimLookupText } from "@/components/lookup/lookupHelpers";
 import { warehouseLookupStore } from "@/components/lookup/warehouseLookupStore";
 import { DateRangeBox } from "@/components/toolbar/DateRangeBox";
 import { LanguageContext } from "@/lib/i18nLoader";
+import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults";
 import { queryKeys } from "@/lib/query/queryKeys";
 import {
   buildInventoryValuationMethodOptions,
@@ -32,8 +33,6 @@ type CalculationPhase = "IDLE" | "RUNNING" | "DONE" | "ERROR";
 
 type TranslationFn = (key: string, fallback: string) => string;
 
-const defaultFromDate = new Date(new Date().setDate(1));
-const defaultToDate = new Date();
 const PROGRESS_POLL_INTERVAL_MS = 500;
 
 function getLookupText(row: Record<string, unknown>, fields: string[]): string {
@@ -48,8 +47,9 @@ function getLookupText(row: Record<string, unknown>, fields: string[]): string {
 
 export default function InventoryCalcOutPricePopup() {
   const queryClient = useQueryClient();
-  const [fromDate, setFromDate] = useState<Date | null>(defaultFromDate);
-  const [toDate, setToDate] = useState<Date | null>(defaultToDate);
+  const dateRange = useMemo(createCurrentMonthDateRange, [])
+  const [fromDate, setFromDate] = useState<Date | null>(dateRange.fromDate);
+  const [toDate, setToDate] = useState<Date | null>(dateRange.toDate);
   const [productCodes, setProductCodes] = useState<string[]>([]);
   const [warehouseCodes, setWarehouseCodes] = useState<string[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<InventoryValuationMethodCode>("PERIOD_END_AVG");

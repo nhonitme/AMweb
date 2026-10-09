@@ -31,6 +31,7 @@ import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import DxPage from "@/dx/DxPage"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults"
 import { getCurrentCompanyCd, getCurrentUserId } from "@/lib/login"
 import type { GridColumnSettingEditorItem } from "@/types/sysGridColumnSetting"
 import type { InventoryInputType, InventoryVoucher } from "@/types/voucher"
@@ -167,12 +168,8 @@ export default function InventoryManagementPage({
   const detailColumnSettingStateRef = useRef<GridColumnSettingState | null>(null)
   const initialLoadTriggeredRef = useRef(false)
   const initialPagingEventsSuppressedRef = useRef(false)
-  const today = useMemo(() => {
-    const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    return d
-  }, [])
-  const [fromDate, setFromDate] = useState<Date | null>(today)
+  const { fromDate: monthStart, toDate: today } = useMemo(() => createCurrentMonthDateRange(), [])
+  const [fromDate, setFromDate] = useState<Date | null>(monthStart)
   const [toDate, setToDate] = useState<Date | null>(today)
   const [rows, setRows] = useState<InventoryVoucher[]>([])
   const [selectedRow, setSelectedRow] = useState<InventoryVoucher | null>(null)
@@ -190,7 +187,7 @@ export default function InventoryManagementPage({
   const [linkInventoryCandidates, setLinkInventoryCandidates] = useState<LinkAmountCandidate[]>([])
   const [linkDetailCandidates, setLinkDetailCandidates] = useState<LinkDetailCandidate[]>([])
   const [linkOptionKey, setLinkOptionKey] = useState("")
-  const [linkFromDate, setLinkFromDate] = useState<Date | null>(today)
+  const [linkFromDate, setLinkFromDate] = useState<Date | null>(monthStart)
   const [linkToDate, setLinkToDate] = useState<Date | null>(today)
   const [columnSettingsVisible, setColumnSettingsVisible] = useState(false)
   const [columnSettingsTabs, setColumnSettingsTabs] = useState<GridColumnSettingsPopupTab[]>([])

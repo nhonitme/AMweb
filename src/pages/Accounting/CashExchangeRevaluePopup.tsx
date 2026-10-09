@@ -17,6 +17,7 @@ import type { CurrencyLookupItem } from "@/components/lookup/currencyLookupStore
 import { trimLookupText } from "@/components/lookup/lookupHelpers"
 import { DateRangeBox } from "@/components/toolbar/DateRangeBox"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults"
 import { queryKeys } from "@/lib/query/queryKeys"
 import { normalizeCurrencyCodes } from "@/lib/currency"
 import { buildChitYmdPayload, formatRateDateForApi } from "@/pages/Accounting/exchangeRevaluationUtils"
@@ -28,16 +29,11 @@ type TranslationFn = (key: string, fallback: string) => string
 const rateMethod = "WEIGHTED_AVERAGE"
 const PROGRESS_POLL_INTERVAL_MS = 500
 
-const defaultToday = new Date()
-defaultToday.setHours(0, 0, 0, 0)
-
-const defaultFromDate = new Date(defaultToday)
-defaultFromDate.setDate(1)
-
 export default function CashExchangeRevaluePopup() {
   const queryClient = useQueryClient()
-  const [fromDate, setFromDate] = useState<Date | null>(defaultFromDate)
-  const [toDate, setToDate] = useState<Date | null>(defaultToday)
+  const dateRange = useMemo(createCurrentMonthDateRange, [])
+  const [fromDate, setFromDate] = useState<Date | null>(dateRange.fromDate)
+  const [toDate, setToDate] = useState<Date | null>(dateRange.toDate)
   const [currencyCodes, setCurrencyCodes] = useState<string[]>([])
   const [phase, setPhase] = useState<RevaluationPhase>("IDLE")
   const [progressValue, setProgressValue] = useState(0)

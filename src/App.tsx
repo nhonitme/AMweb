@@ -768,7 +768,7 @@ function AppWorkspaceRoutes({
                         />
                         <Route
                             path="/gl/book/general-ledger"
-                            element={<JournalReportPage reportCode="GL_GENERAL_LEDGER_S02C1DN" menuCode="GL_BOOK_LEDGER" titleKey="GL_GENERAL_LEDGER_S02C1DN" titleFallback="Sổ cái tài khoản" showAccountFilter={true} showExportExcel={true} exportFilePrefix="general_ledger" exportSheetName="GeneralLedger" />}
+                            element={<JournalReportPage reportCode="GL_GENERAL_LEDGER_S02C1DN" menuCode="GL_BOOK_LEDGER" titleKey="GL_GENERAL_LEDGER_S02C1DN" titleFallback="Sổ cái tài khoản" showAccountFilter={true} includeEmptyFilterParams={true} showExportExcel={true} exportFilePrefix="general_ledger" exportSheetName="GeneralLedger" />}
                         />
                         <Route
                             path="/gl/book/account-detail"
@@ -849,20 +849,20 @@ function AppWorkspaceRoutes({
 
                         <Route
                             path="/bank/bank-book"
-                            element={<JournalReportPage reportCode="BANK_DEPOSIT_BOOK" menuCode="BA_BANK_BOOK" titleKey="BANK_DEPOSIT_BOOK" titleFallback="Sổ tiền gửi ngân hàng" showAccountFilter={true} accountLookupMode="parentChild" accountFilterEtcType={EtcType.cbxBankDepositBookAccount} showBankFilter={true} showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} exportFilePrefix="bank_deposit_book" exportSheetName="BankBook" moduleCd="" />}
+                            element={<JournalReportPage reportCode="BANK_DEPOSIT_BOOK" menuCode="BA_BANK_BOOK" titleKey="BANK_DEPOSIT_BOOK" titleFallback="Sổ tiền gửi ngân hàng" showAccountFilter={true} accountLookupMode="parentChild" accountFilterEtcType={EtcType.cbxBankDepositBookAccount} showBankFilter={true} fcType="VND" showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} exportFilePrefix="bank_deposit_book" exportSheetName="BankBook" moduleCd="" />}
                         />
                         <Route
                             path="/gl/book/bank"
-                            element={<JournalReportPage reportCode="BANK_DEPOSIT_BOOK" menuCode="BA_BANK_BOOK" titleKey="BANK_DEPOSIT_BOOK" titleFallback="Sổ tiền gửi ngân hàng" showAccountFilter={true} accountLookupMode="parentChild" accountFilterEtcType={EtcType.cbxBankDepositBookAccount} showBankFilter={true} showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} exportFilePrefix="bank_deposit_book" exportSheetName="BankBook" moduleCd="" />}
+                            element={<JournalReportPage reportCode="BANK_DEPOSIT_BOOK" menuCode="BA_BANK_BOOK" titleKey="BANK_DEPOSIT_BOOK" titleFallback="Sổ tiền gửi ngân hàng" showAccountFilter={true} accountLookupMode="parentChild" accountFilterEtcType={EtcType.cbxBankDepositBookAccount} showBankFilter={true} fcType="VND" showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} exportFilePrefix="bank_deposit_book" exportSheetName="BankBook" moduleCd="" />}
                         />
                         <Route path="/bank/revalue" element={<ExchangeRateRecalculationPage />} />
                         <Route
                             path="/gl/book/cash"
-                            element={<JournalReportPage reportCode="CASH_BOOK" menuCode="CA_CASH_BOOK" titleKey="CASH_BOOK" titleFallback="Sổ quỹ tiền mặt" showAccountFilter={true} accountLookupMode="parentChild" accountFilterEtcType={EtcType.cbxCashBookAccount} showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} exportFilePrefix="cash_book" exportSheetName="CashBook" moduleCd="" />}
+                            element={<JournalReportPage reportCode="CASH_BOOK" menuCode="CA_CASH_BOOK" titleKey="CASH_BOOK" titleFallback="Sổ quỹ tiền mặt" showAccountFilter={true} accountLookupMode="parentChild" accountFilterEtcType={EtcType.cbxCashBookAccount} fcType="VND" showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} exportFilePrefix="cash_book" exportSheetName="CashBook" moduleCd="" />}
                         />
                         <Route
                             path="/cash/cash-book"
-                            element={<JournalReportPage reportCode="CASH_BOOK" menuCode="CA_CASH_BOOK" titleKey="CASH_BOOK" titleFallback="Sổ quỹ tiền mặt" showAccountFilter={true} accountLookupMode="parentChild" accountFilterEtcType={EtcType.cbxCashBookAccount} showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} exportFilePrefix="cash_book" exportSheetName="CashBook" moduleCd="" />}
+                            element={<JournalReportPage reportCode="CASH_BOOK" menuCode="CA_CASH_BOOK" titleKey="CASH_BOOK" titleFallback="Sổ quỹ tiền mặt" showAccountFilter={true} accountLookupMode="parentChild" accountFilterEtcType={EtcType.cbxCashBookAccount} fcType="VND" showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} exportFilePrefix="cash_book" exportSheetName="CashBook" moduleCd="" />}
                         />
                         <Route path="/cash/revalue" element={<CashExchangeRateRecalculationPage />} />
                         <Route path="/banking" element={<ModuleContent moduleId="banking" />} />

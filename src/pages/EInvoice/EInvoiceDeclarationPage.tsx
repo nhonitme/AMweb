@@ -38,6 +38,7 @@ import { useMasterListLoadError } from "@/hooks/queries/master/masterQueryHelper
 import useShortcutBindings from "@/hooks/useShortcutBindings"
 import useShortcutHelp from "@/hooks/useShortcutHelp"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults"
 import { EInvoiceTableShell } from "./components/EInvoiceTableShell"
 import { EInvoiceDeclarationStatusCell } from "./components/EInvoiceDeclarationStatusCell"
 import { EInvoicePartyCell } from "./components/einvoiceTableUi"
@@ -139,19 +140,6 @@ const declarationRequiredFields: readonly DeclarationRequiredField[] = [
   { field: "DTLHE", labelKey: "DTLHE", fallback: "Contact phone" },
   { field: "DDANH", labelKey: "DDANH", fallback: "Place" },
 ]
-
-function createMonthStartDate(): Date {
-  const date = new Date()
-  date.setDate(1)
-  date.setHours(0, 0, 0, 0)
-  return date
-}
-
-function createToday(): Date {
-  const date = new Date()
-  date.setHours(0, 0, 0, 0)
-  return date
-}
 
 function formatText(template: string, values: Array<string | number>): string {
   return values.reduce((text, value, index) => text.replace(`{${index}}`, String(value)), template)
@@ -1209,12 +1197,12 @@ export default function EInvoiceDeclarationPage() {
   const location = useLocation()
   const gridRef = useRef<dxDataGrid<EInvoiceDeclaration, GridKey> | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
-  const [fromDate, setFromDate] = useState<Date | null>(() => createMonthStartDate())
-  const [toDate, setToDate] = useState<Date | null>(() => createToday())
+  const [fromDate, setFromDate] = useState<Date | null>(() => createCurrentMonthDateRange().fromDate)
+  const [toDate, setToDate] = useState<Date | null>(() => createCurrentMonthDateRange().toDate)
   // Applied query only — typing dates must not refetch until Search / Enter.
   const [listQuery, setListQuery] = useState(() => ({
-    fromYmd: formatDateToYmd(createMonthStartDate()) ?? undefined,
-    toYmd: formatDateToYmd(createToday()) ?? undefined,
+    fromYmd: formatDateToYmd(createCurrentMonthDateRange().fromDate) ?? undefined,
+    toYmd: formatDateToYmd(createCurrentMonthDateRange().toDate) ?? undefined,
   }))
   const [popupVisible, setPopupVisible] = useState(false)
   const [editingId, setEditingId] = useState(0)

@@ -11,6 +11,7 @@ import type { ShownEvent } from "devextreme/ui/popup"
 import notify from "devextreme/ui/notify"
 
 import { createDateBoxEditorOptions } from "@/components/forms/dateBoxEditorOptions"
+import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults"
 import { disableBuiltInPopupEscape, usePopupEscapeLayer } from "@/components/popup/popupEscapeStack"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { EInvoiceDocNoCell, EInvoicePartyCell } from "@/pages/EInvoice/components/einvoiceTableUi"
@@ -24,19 +25,6 @@ import PitStatusCell from "./PitStatusCell"
 
 type GridKey = number
 type ListQuery = { fromYmd: string; toYmd: string; keyword: string }
-
-function createMonthStartDate() {
-  const date = new Date()
-  date.setDate(1)
-  date.setHours(0, 0, 0, 0)
-  return date
-}
-
-function createToday() {
-  const date = new Date()
-  date.setHours(0, 0, 0, 0)
-  return date
-}
 
 function parseDateBoxValue(value: unknown): Date | null {
   if (value instanceof Date) {
@@ -65,12 +53,12 @@ export default function PitCertificateSelectPopup({
   onSelect,
 }: Props) {
   const gridRef = useRef<dxDataGrid<PitDocument, GridKey> | null>(null)
-  const [fromDate, setFromDate] = useState<Date | null>(() => createMonthStartDate())
-  const [toDate, setToDate] = useState<Date | null>(() => createToday())
+  const [fromDate, setFromDate] = useState<Date | null>(() => createCurrentMonthDateRange().fromDate)
+  const [toDate, setToDate] = useState<Date | null>(() => createCurrentMonthDateRange().toDate)
   const [keywordDraft, setKeywordDraft] = useState("")
   const [listQuery, setListQuery] = useState<ListQuery>(() => ({
-    fromYmd: formatDateToYmd(createMonthStartDate()) ?? "",
-    toYmd: formatDateToYmd(createToday()) ?? "",
+    fromYmd: formatDateToYmd(createCurrentMonthDateRange().fromDate) ?? "",
+    toYmd: formatDateToYmd(createCurrentMonthDateRange().toDate) ?? "",
     keyword: "",
   }))
   const [selectedRows, setSelectedRows] = useState<PitDocument[]>([])

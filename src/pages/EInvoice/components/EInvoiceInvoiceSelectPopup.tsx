@@ -12,6 +12,7 @@ import { useEInvoiceListQuery } from "@/hooks/queries/useEInvoiceListQuery"
 import { useMasterListLoadError } from "@/hooks/queries/master/masterQueryHelpers"
 import useShortcutBindings from "@/hooks/useShortcutBindings"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults"
 import { createPopupShortcutWrapperAttr, isPopupShortcutScopeTopMost, usePopupShortcutScopeId } from "@/lib/popupShortcutScope"
 import { useSysCodes } from "@/lib/sysCodeContext"
 import { createShortcutBindings } from "@/lib/shortcuts/shortcutBindings"
@@ -58,19 +59,6 @@ type InvoiceSelectListQuery = {
   filters: EInvoiceAdvancedFilters
 }
 
-function createMonthStartDate(): Date {
-  const date = new Date()
-  date.setDate(1)
-  date.setHours(0, 0, 0, 0)
-  return date
-}
-
-function createToday(): Date {
-  const date = new Date()
-  date.setHours(0, 0, 0, 0)
-  return date
-}
-
 /** DateBox may emit Date or serialized string (dateSerializationFormat); treat both. */
 function parseDateBoxValue(value: unknown): Date | null {
   if (value instanceof Date) {
@@ -92,8 +80,8 @@ function parseDateBoxValue(value: unknown): Date | null {
 
 function createInitialListQuery(): InvoiceSelectListQuery {
   return {
-    fromYmd: formatDateToYmd(createMonthStartDate()) ?? undefined,
-    toYmd: formatDateToYmd(createToday()) ?? undefined,
+    fromYmd: formatDateToYmd(createCurrentMonthDateRange().fromDate) ?? undefined,
+    toYmd: formatDateToYmd(createCurrentMonthDateRange().toDate) ?? undefined,
     filters: createEmptyEInvoiceAdvancedFilters(),
   }
 }
@@ -123,8 +111,8 @@ export default function EInvoiceInvoiceSelectPopup({
   onSelect,
 }: EInvoiceInvoiceSelectPopupProps) {
   const gridRef = useRef<dxDataGrid<EInvoice, GridKey> | null>(null)
-  const [fromDate, setFromDate] = useState<Date | null>(() => createMonthStartDate())
-  const [toDate, setToDate] = useState<Date | null>(() => createToday())
+  const [fromDate, setFromDate] = useState<Date | null>(() => createCurrentMonthDateRange().fromDate)
+  const [toDate, setToDate] = useState<Date | null>(() => createCurrentMonthDateRange().toDate)
   const [listQuery, setListQuery] = useState<InvoiceSelectListQuery>(() => createInitialListQuery())
   const [advancedDraft, setAdvancedDraft] = useState<EInvoiceAdvancedFilters>(() => createEmptyEInvoiceAdvancedFilters())
   const [advancedSearchOpen, setAdvancedSearchOpen] = useState(false)

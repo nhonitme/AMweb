@@ -25,6 +25,7 @@ import {
 } from "@/hooks/queries/useEInvoiceListQuery"
 import { useMasterListLoadError } from "@/hooks/queries/master/masterQueryHelpers"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults"
 import { buildAppPath, getCurrentCompanyCd } from "@/lib/login"
 import { useSysCodes } from "@/lib/sysCodeContext"
 import { formatDateToYmd } from "@/pages/Accounting/accountingDateUtils"
@@ -38,8 +39,6 @@ import {
   buildMinuteTypeOptions,
   buildEInvoiceMailStatusOptions,
   createMinuteCopy,
-  createMinuteMonthStartDate,
-  createMinuteTodayDate,
   EINV_BBAN_TYPE_CODE_TYPE,
   EINV_MAIL_STATUS_CODE_TYPE,
   formatMinuteInvoiceRefSummaryText,
@@ -83,11 +82,11 @@ export default function EInvoiceMinutesPage() {
   const companyCd = getCurrentCompanyCd()
   const screenCd = useMemo(() => location.pathname, [location.pathname])
 
-  const [fromDate, setFromDate] = useState<Date | null>(() => createMinuteMonthStartDate())
-  const [toDate, setToDate] = useState<Date | null>(() => createMinuteTodayDate())
+  const [fromDate, setFromDate] = useState<Date | null>(() => createCurrentMonthDateRange().fromDate)
+  const [toDate, setToDate] = useState<Date | null>(() => createCurrentMonthDateRange().toDate)
   const [listQuery, setListQuery] = useState(() => ({
-    fromYmd: formatDateToYmd(createMinuteMonthStartDate()) ?? undefined,
-    toYmd: formatDateToYmd(createMinuteTodayDate()) ?? undefined,
+    fromYmd: formatDateToYmd(createCurrentMonthDateRange().fromDate) ?? undefined,
+    toYmd: formatDateToYmd(createCurrentMonthDateRange().toDate) ?? undefined,
   }))
   const [actionLoading, setActionLoading] = useState(false)
   const [deleteDisabled, setDeleteDisabled] = useState(false)

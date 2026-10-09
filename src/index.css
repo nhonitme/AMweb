@@ -355,13 +355,9 @@ tbody {
   z-index: 30000 !important;
 }
 
-/* Style for the button in the grid row */
 .am-grid-row-btn.dx-button {
-  /* width: 26px !important; */
   height: 26px !important;
-  /* min-width: 26px !important; */
   min-height: 26px !important;
-  /* max-width: 26px !important; */
   max-height: 26px !important;
   padding: 0 !important;
   box-sizing: border-box !important;
@@ -388,10 +384,8 @@ tbody {
   line-height: 14px !important;
   margin: 0 !important;
 }
-/*-- Style for the button in the grid row */
 
 
-/* Data cell canh theo column.ALIGN */
 .report-data-grid .dx-datagrid-rowsview .dx-data-row > td.report-cell-align-left {
   text-align: left !important;
 }
@@ -405,6 +399,11 @@ tbody {
 }
 
 .report-data-grid-host {
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.report-tree-list-host {
   user-select: none;
   touch-action: manipulation;
 }
@@ -761,14 +760,13 @@ tbody {
 
 }
 
+.report-tree-list .dx-treelist-rowsview .dx-data-row > td.report-cell-selected,
 .report-data-grid .dx-datagrid-rowsview .dx-data-row > td.report-cell-selected {
   background-color: #dbeafe !important;
   outline: 1px solid #60a5fa;
   outline-offset: -1px;
 }
-/* Data cell canh theo column.ALIGN */
 
-/* Group row: giữ icon expand canh giữa khi focus */
 .report-data-grid .dx-group-row > td {
   vertical-align: middle !important;
 }
@@ -787,7 +785,6 @@ tbody {
   padding-bottom: 10px !important;
 }
 
-/* Summary/footer cũng canh theo column.ALIGN */
 .report-data-grid .dx-datagrid-total-footer td.report-cell-align-left {
   text-align: left !important;
 }
@@ -799,7 +796,6 @@ tbody {
 .report-data-grid .dx-datagrid-total-footer td.report-cell-align-right {
   text-align: right !important;
 }
-/* Summary/footer cũng canh theo column.ALIGN */
 
 
 /*Grid chiếm full vùng còn trống.
@@ -849,7 +845,7 @@ Cột filler + khoảng trống bên phải luôn nền trắng để tách rõ 
 .report-data-grid .dx-datagrid-filter-row > td.report-grid-filler-column {
   background-color: #ffffff !important;
   background-image: none !important;
-  border-left: 1px solid #cecccc !important;
+  border-left: 0.5px solid #c3d0df !important;
   border-right: none !important;
   color: transparent !important;
   pointer-events: none;
@@ -881,23 +877,17 @@ Cột filler + khoảng trống bên phải luôn nền trắng để tách rõ 
 .report-data-grid .dx-header-row .report-grid-filler-column .dx-header-filter {
   display: none !important;
 }
-/**/
 
-/*DevExtreme TotalItem có sẵn alignment và cssClass cho summary item. valueFormat dùng để format giá trị summary*/
-/* Align summary/footer cells based on column alignment */
 .dx-datagrid-total-footer .report-cell-align-left {
   text-align: left;
-  border-left: 1px solid #cecccc;
 }
 
 .dx-datagrid-total-footer .report-cell-align-center {
   text-align: center;
-  border-left: 1px solid #cecccc;
 }
 
 .dx-datagrid-total-footer .report-cell-align-right {
   text-align: right;
-  border-left: 1px solid #cecccc;
 }
 
 .dx-datagrid-total-footer .dx-datagrid-summary-item.report-total-footer-cell {
@@ -1025,7 +1015,6 @@ Cột filler + khoảng trống bên phải luôn nền trắng để tách rõ 
   z-index: 2;
 }
 
-/* M�u icon toolbar report (WebDocumentViewer). DevExpress m?c d?nh dxd-icon-fill = #606060. */
 .am-report-viewer .dxrd-toolbar .dxd-icon-fill {
   fill: #334155;
   transition: fill 0.15s ease;
@@ -1041,7 +1030,6 @@ Cột filler + khoảng trống bên phải luôn nền trắng để tách rõ 
   fill: #cbd5e1;
 }
 
-/* Nh�m icon xanh duong: zoom, ph�n trang, t�m ki?m */
 .am-report-viewer .dxrd-toolbar .dxrd-toolbar-item-zoom .dxd-icon-fill,
 .am-report-viewer .dxrd-toolbar .dxrd-preview-pager .dxd-icon-fill,
 .am-report-viewer .dxrd-toolbar .dxrd-switch-icon .dxd-icon-fill {
@@ -1053,7 +1041,6 @@ Cột filler + khoảng trống bên phải luôn nền trắng để tách rõ 
   fill: #0369a1;
 }
 
-/* Nh�m icon xanh l�: xu?t PDF, in ?n */
 .am-report-viewer .dxrd-toolbar .dxrd-preview-export-toolbar-item .dxd-icon-fill {
   fill: #15803d;
 }
@@ -1062,7 +1049,6 @@ Cột filler + khoảng trống bên phải luôn nền trắng để tách rõ 
   fill: #166534;
 }
 
-/* Icon custom c?a app: refresh (xanh duong), s?a ch? k� (h?ng), ng�n ng? (t�m) */
 .am-report-viewer .am-report-viewer-icon-refresh .dxd-icon-fill {
   fill: #2563eb;
 }
