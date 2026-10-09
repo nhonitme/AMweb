@@ -1977,6 +1977,11 @@ function ReportDataGrid(
 
     const fillerRect = fillerHeader.getBoundingClientRect()
     const cellRect = groupCell.getBoundingClientRect()
+    // Virtual scrolling can briefly leave a row unmeasured; keep the last
+    // valid CSS boundary rather than flashing the whole group row blue.
+    if (fillerRect.width <= 0 || cellRect.width <= 0) {
+      return
+    }
     const fillerWidth = Math.max(0, Math.min(cellRect.width, cellRect.right - fillerRect.left))
     const nextWidth = `${fillerWidth}px`
 
