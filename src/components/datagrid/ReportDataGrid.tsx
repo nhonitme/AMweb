@@ -1956,7 +1956,9 @@ function ReportDataGrid(
     return grid?.getScrollable?.() ?? null
   }, [])
 
-  // A DevExtreme group row spans the trailing filler column; keep that area white.
+  // A group row is one merged cell that spans the trailing filler column.
+  // Keep its filler boundary on the stable grid host so virtual row recycling
+  // never briefly paints the filler blue before JavaScript styles the new row.
   const syncGroupRowFillerBackground = useCallback(() => {
     if (reportCode.trim().toUpperCase() !== "TAX_VAT_REDUCTION_APPENDIX") {
       return
@@ -1966,30 +1968,22 @@ function ReportDataGrid(
     const fillerHeader = host?.querySelector<HTMLElement>(
       ".dx-datagrid-headers td.report-grid-filler-column",
     )
-    const fillerRect = fillerHeader?.getBoundingClientRect()
+    const groupCell = host?.querySelector<HTMLTableCellElement>(
+      ".dx-datagrid-rowsview .dx-group-row > td:last-child:not(.report-grid-filler-column)",
+    )
+    if (!host || !fillerHeader || !groupCell) {
+      return
+    }
 
-    host?.querySelectorAll<HTMLTableCellElement>(".dx-datagrid-rowsview .dx-group-row > td")
-      .forEach((cell) => {
-        if (!fillerRect || fillerRect.width <= 0 || cell.classList.contains("report-grid-filler-column")) {
-          cell.style.removeProperty("background-image")
-          return
-        }
+    const fillerRect = fillerHeader.getBoundingClientRect()
+    const cellRect = groupCell.getBoundingClientRect()
+    const fillerWidth = Math.max(0, Math.min(cellRect.width, cellRect.right - fillerRect.left))
+    const nextWidth = `${fillerWidth}px`
 
-        const cellRect = cell.getBoundingClientRect()
-        if (fillerRect.left >= cellRect.right) {
-          cell.style.removeProperty("background-image")
-          return
-        }
-
-        const whiteStart = Math.max(0, Math.min(cellRect.width, fillerRect.left - cellRect.left))
-        // Match the filler column's 1px left border across the merged group cell.
-        const borderStart = Math.max(0, whiteStart - 1)
-        cell.style.setProperty(
-          "background-image",
-          `linear-gradient(to right, transparent ${borderStart}px, #cecccc ${borderStart}px ${whiteStart}px, #ffffff ${whiteStart}px)`,
-          "important",
-        )
-      })
+    if (host.style.getPropertyValue("--report-group-filler-width") !== nextWidth) {
+      host.style.setProperty("--report-group-filler-width", nextWidth)
+    }
+    host.classList.toggle("report-data-grid-host--group-filler-ready", fillerWidth > 0)
   }, [reportCode])
 
   const syncHorizontalScrollProxyFromGrid = useCallback(() => {
@@ -2653,11 +2647,13 @@ function ReportDataGrid(
           <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
             <div
               ref={gridHostRef}
-              className={
-                hasPeriodHeaderCaptions
-                  ? "report-data-grid-host report-data-grid-host--period-headers min-h-0 w-full min-w-0 flex-1 overflow-hidden"
-                  : "report-data-grid-host min-h-0 w-full min-w-0 flex-1 overflow-hidden"
-              }
+              className={[
+                "report-data-grid-host min-h-0 w-full min-w-0 flex-1 overflow-hidden",
+                hasPeriodHeaderCaptions ? "report-data-grid-host--period-headers" : "",
+                reportCode.trim().toUpperCase() === "TAX_VAT_REDUCTION_APPENDIX"
+                  ? "report-data-grid-host--vat-reduction"
+                  : "",
+              ].filter(Boolean).join(" ")}
               onPointerDown={handleGridPointerDown}
               onPointerMove={handleGridPointerMove}
               onPointerUp={handleGridPointerUp}
