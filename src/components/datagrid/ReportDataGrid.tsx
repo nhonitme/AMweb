@@ -1956,9 +1956,7 @@ function ReportDataGrid(
     return grid?.getScrollable?.() ?? null
   }, [])
 
-  // A group row is one merged cell that spans the trailing filler column.
-  // Keep its filler boundary on the stable grid host so virtual row recycling
-  // never briefly paints the filler blue before JavaScript styles the new row.
+  // Keep one divider on the stable grid host, not on recycled group cells.
   const syncGroupRowFillerBackground = useCallback(() => {
     if (reportCode.trim().toUpperCase() !== "TAX_VAT_REDUCTION_APPENDIX") {
       return
@@ -1972,21 +1970,22 @@ function ReportDataGrid(
       return
     }
 
-    const fillerRect = fillerHeader.getBoundingClientRect()
     const hostRect = host.getBoundingClientRect()
-    if (fillerRect.width <= 0 || hostRect.width <= 0) {
+    const fillerRect = fillerHeader.getBoundingClientRect()
+    if (hostRect.width <= 0 || fillerRect.width <= 0) {
       return
     }
 
-    // One vertical divider shared by header, group and data rows.
-    const dividerX = fillerRect.left - hostRect.left
-    const nextDividerX = `${dividerX}px`
-    if (host.style.getPropertyValue("--report-grid-divider-x") !== nextDividerX) {
-      host.style.setProperty("--report-grid-divider-x", nextDividerX)
+    const dividerLeft = fillerRect.left - hostRect.left
+    const dividerVisible = dividerLeft >= 0 && dividerLeft < hostRect.width
+    if (dividerVisible) {
+      const left = `${dividerLeft}px`
+      if (host.style.getPropertyValue("--report-filler-divider-left") !== left) {
+        host.style.setProperty("--report-filler-divider-left", left)
+      }
     }
-    host.classList.add("report-data-grid-host--filler-divider-ready")
+    host.classList.toggle("report-data-grid-host--filler-divider-ready", dividerVisible)
 
-    // The merged group row still needs a white region, without its own border.
     const groupCell = host.querySelector<HTMLTableCellElement>(
       ".dx-datagrid-rowsview .dx-group-row > td:last-child:not(.report-grid-filler-column)",
     )
@@ -1998,7 +1997,6 @@ function ReportDataGrid(
     if (cellRect.width <= 0) {
       return
     }
-
     const fillerWidth = Math.max(0, Math.min(cellRect.width, cellRect.right - fillerRect.left))
     const nextWidth = `${fillerWidth}px`
     if (host.style.getPropertyValue("--report-group-filler-width") !== nextWidth) {
