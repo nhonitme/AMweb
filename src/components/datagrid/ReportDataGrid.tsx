@@ -2672,6 +2672,7 @@ function ReportDataGrid(
                 reportCode.trim().toUpperCase() === "TAX_VAT_REDUCTION_APPENDIX"
                   ? "report-data-grid-host--vat-reduction"
                   : "",
+                filteredRows.length > 0 ? "report-data-grid-host--has-data" : "",
               ].filter(Boolean).join(" ")}
               onPointerDown={handleGridPointerDown}
               onPointerMove={handleGridPointerMove}
