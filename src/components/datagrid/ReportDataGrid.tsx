@@ -1956,7 +1956,42 @@ function ReportDataGrid(
     return grid?.getScrollable?.() ?? null
   }, [])
 
+  // A DevExtreme group row spans the trailing filler column; keep that area white.
+  const syncGroupRowFillerBackground = useCallback(() => {
+    if (reportCode.trim().toUpperCase() !== "TAX_VAT_REDUCTION_APPENDIX") {
+      return
+    }
+
+    const host = gridHostRef.current
+    const fillerHeader = host?.querySelector<HTMLElement>(
+      ".dx-datagrid-headers td.report-grid-filler-column",
+    )
+    const fillerRect = fillerHeader?.getBoundingClientRect()
+
+    host?.querySelectorAll<HTMLTableCellElement>(".dx-datagrid-rowsview .dx-group-row > td")
+      .forEach((cell) => {
+        if (!fillerRect || fillerRect.width <= 0 || cell.classList.contains("report-grid-filler-column")) {
+          cell.style.removeProperty("background-image")
+          return
+        }
+
+        const cellRect = cell.getBoundingClientRect()
+        if (fillerRect.left >= cellRect.right) {
+          cell.style.removeProperty("background-image")
+          return
+        }
+
+        const whiteStart = Math.max(0, Math.min(cellRect.width, fillerRect.left - cellRect.left))
+        cell.style.setProperty(
+          "background-image",
+          `linear-gradient(to right, transparent ${whiteStart}px, #ffffff ${whiteStart}px)`,
+          "important",
+        )
+      })
+  }, [reportCode])
+
   const syncHorizontalScrollProxyFromGrid = useCallback(() => {
+    syncGroupRowFillerBackground()
     const scrollable = resolveGridScrollable()
     if (!scrollable) {
       return
@@ -1991,7 +2026,7 @@ function ReportDataGrid(
         horizontalScrollSyncingRef.current = false
       })
     }
-  }, [resolveGridScrollable, resolveProxyScrollContainer])
+  }, [resolveGridScrollable, resolveProxyScrollContainer, syncGroupRowFillerBackground])
 
   const handleHorizontalScrollProxyScroll = useCallback(() => {
     const proxyScrollContainer = resolveProxyScrollContainer()
@@ -2436,6 +2471,7 @@ function ReportDataGrid(
       if (event.rowType === "group" && event.rowElement && groupConfig) {
         const visualStyle = resolveDevExtremeGroupRowVisualStyle()
         applyRowVisualStyle(event.rowElement, visualStyle, "GROUP", true)
+        syncGroupRowFillerBackground()
       }
 
       if (event.rowType === "data" && event.rowElement) {
@@ -2458,7 +2494,7 @@ function ReportDataGrid(
 
       onRowPrepared?.(event)
     },
-    [groupConfig, onRowPrepared, outlineMode, pinnedBottomRow, shouldRenderPinnedBottomSummary],
+    [groupConfig, onRowPrepared, outlineMode, pinnedBottomRow, shouldRenderPinnedBottomSummary, syncGroupRowFillerBackground],
   )
 
   const calculatePinnedBottomSummary = useCallback(
