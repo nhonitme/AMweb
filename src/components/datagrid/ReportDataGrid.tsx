@@ -1704,10 +1704,20 @@ function ReportDataGrid(
         labelValue = t(`EInvoiceKind_${groupValue}`, "")
       }
 
-      const prefix = t(groupConfig.labelPrefixKey ?? "VAT_INOUT_TYPE", groupConfig.labelPrefixFallback ?? "Loại hóa đơn")
       const valueText = String(groupValue ?? "").trim()
       const labelText = labelValue?.trim() ?? ""
 
+      // The appendix group label already contains "I." / "II." from ITEM_KIND.
+      // Do not prepend "Loại hóa đơn: 1/2" to these report sections.
+      if (reportCode.trim().toUpperCase() === "TAX_VAT_REDUCTION_APPENDIX") {
+        return (
+          <span className="font-semibold text-indigo-950">
+            {labelText || valueText}
+          </span>
+        )
+      }
+
+      const prefix = t(groupConfig.labelPrefixKey ?? "VAT_INOUT_TYPE", groupConfig.labelPrefixFallback ?? "Loại hóa đơn")
       return (
         <span className="font-semibold text-indigo-950">
           {prefix}: {valueText}
@@ -1715,7 +1725,7 @@ function ReportDataGrid(
         </span>
       )
     },
-    [filteredRows, groupConfig, t],
+    [filteredRows, groupConfig, reportCode, t],
   )
 
   const columnsComponents = useMemo(() => {
