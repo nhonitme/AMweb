@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Globe, Building2, User, Lock, AlertCircle, CheckCircle, ArrowRight, PieChart, Network, Fingerprint } from 'lucide-react';
-import { getDevLoginDefaults } from '@/config/devLoginDefaults';
 import { buildAppPath, login, resolveDefaultCompanyCd } from '../lib/login';
 import notify from 'devextreme/ui/notify';
 import { languages, type Language, getCurrentLangArray, setCurrentLang } from '@/utils/language';
@@ -202,30 +201,17 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   }, [selectedLanguage.code]);
 
   useEffect(() => {
-    const devDefaults = getDevLoginDefaults();
     const savedRememberMe = localStorage.getItem('rememberMe') === 'true';
+    if (!savedRememberMe) return;
 
-    if (savedRememberMe) {
-      setRememberMe(true);
-      const lastUserId = localStorage.getItem('lastUserId') || '';
-      const lastCompanyTaxCode = localStorage.getItem('lastCompanyTaxCode') || '';
-      setFormData(prev => ({
-        ...prev,
-        userId: lastUserId,
-        password: devDefaults?.password ?? prev.password,
-        companyTaxCode: lastCompanyTaxCode || (devDefaults?.companyTaxCode ?? prev.companyTaxCode),
-      }));
-      return;
-    }
-
-    if (devDefaults) {
-      setFormData(prev => ({
-        ...prev,
-        userId: devDefaults.userId,
-        password: devDefaults.password,
-        companyTaxCode: devDefaults.companyTaxCode,
-      }));
-    }
+    setRememberMe(true);
+    const lastUserId = localStorage.getItem('lastUserId') || '';
+    const lastCompanyTaxCode = localStorage.getItem('lastCompanyTaxCode') || '';
+    setFormData(prev => ({
+      ...prev,
+      userId: lastUserId,
+      companyTaxCode: lastCompanyTaxCode,
+    }));
   }, []);
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {

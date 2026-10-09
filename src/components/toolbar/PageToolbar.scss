@@ -301,18 +301,18 @@
   // Currency is a TagBox while status / invoice kind use SelectBox.
   // Align its outlined field and floating label with those 30px controls.
   .report-toolbar__currency-filter.dx-tagbox {
-    height: 30px;
-    min-height: 30px;
-    max-height: 30px;
+    height: 27px;
+    min-height: 27px;
+    max-height: 27px;
 
     .dx-texteditor-container {
-      height: 30px;
-      min-height: 30px;
-      max-height: 30px;
+      height: 27px;
+      min-height: 27px;
+      max-height: 27px;
     }
 
     .dx-texteditor-input-container {
-      max-height: 30px;
+      max-height: 27px;
     }
   }
 
