@@ -815,15 +815,35 @@ Cột filler + khoảng trống bên phải luôn nền trắng để tách rõ 
   background-color: #ffffff;
 }
 
-/* The VAT appendix group cell spans the trailing blank filler. Render its
-   white area and the 1px boundary in CSS, before virtual rows first paint. */
+/* VAT appendix: a single overlay line follows the actual filler column edge
+   across the header, group rows and data rows. */
+.report-data-grid-host--vat-reduction {
+  position: relative;
+}
+
+.report-data-grid-host--vat-reduction.report-data-grid-host--filler-divider-ready::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--report-grid-divider-x);
+  width: 1px;
+  background: #cecccc;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Hide only the VAT appendix filler borders; the overlay owns the separator. */
+.report-data-grid-host--vat-reduction .report-data-grid td.report-grid-filler-column {
+  border-left: 0 !important;
+}
+
+/* The merged group cell still needs its white filler, but no separate line. */
 .report-data-grid-host--vat-reduction.report-data-grid-host--group-filler-ready
   .report-data-grid .dx-datagrid-rowsview .dx-group-row > td:last-child:not(.report-grid-filler-column) {
   background-image: linear-gradient(
     to right,
-    transparent calc(100% - var(--report-group-filler-width) - 1px),
-    #cecccc calc(100% - var(--report-group-filler-width) - 1px),
-    #cecccc calc(100% - var(--report-group-filler-width)),
+    transparent calc(100% - var(--report-group-filler-width)),
     #ffffff calc(100% - var(--report-group-filler-width))
   ) !important;
 }
