@@ -1,0 +1,11 @@
+/* Retain the JournalReportPage grid appearance while using native Master-Detail.
+   ReportDataGrid normally provides its own external horizontal scrollbar, but
+   this page uses DevExtreme's internal scrollbar. */
+.ap-service-allocation-grid .dx-scrollbar-horizontal {
+  display: block !important;
+}
+
+.ap-service-allocation-grid .dx-scrollbar-horizontal .dx-scrollable-scroll {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
