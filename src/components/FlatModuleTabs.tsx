@@ -107,6 +107,15 @@ function getDescendantRoutePaths(node: MenuTreeNode): string[] {
 
 function isApUtilityFolder(node: MenuTreeNode): boolean {
   if (!node.children?.length) return false
+
+  const childPaths = node.children.flatMap(getDescendantRoutePaths)
+  if (childPaths.length === 0) return false
+
+  // A dedicated utility group can itself have a landing route outside
+  // /ap/utility; its children still belong to this dropdown.
+  const isNamedUtilityGroup = ["AP_UTILITY", "GRP_AP_UTILITY"].includes(node.code.toUpperCase())
+  if (isNamedUtilityGroup && childPaths.some(isApUtilityRoute)) return true
+
   const paths = getDescendantRoutePaths(node)
   return paths.length > 0 && paths.every(isApUtilityRoute)
 }
