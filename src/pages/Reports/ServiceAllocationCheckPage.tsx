@@ -131,7 +131,7 @@ function ServiceAllocationDetailGrid({ data }: {
         columnResizingMode="widget"
         noDataText={t("NO_DATA", "Không có dữ liệu phân bổ")}
       >
-        <FilterRow visible />
+        <FilterRow visible={false} />
         <HeaderFilter visible />
         <Scrolling mode="standard" showScrollbar="always" />
         {detailColumnDefs.map((column) => (
@@ -147,9 +147,9 @@ function ServiceAllocationDetailGrid({ data }: {
             showInColumnChooser={false}
           />
         ))}
-        <Summary>
+        {/* <Summary>
           <TotalItem column="AMOUNT_SHARE" summaryType="sum" valueFormat={FORMAT_NUMBER} displayFormat="{0}" />
-        </Summary>
+        </Summary> */}
       </DataGrid>
     </div>
   )
@@ -387,11 +387,11 @@ export default function ServiceAllocationCheckPage() {
               />
             ))}
             <MasterDetail enabled component={ServiceAllocationDetailGrid} />
-            <Summary>
+            {/* <Summary>
               <TotalItem column="TOTAL_COST" summaryType="sum" valueFormat={FORMAT_NUMBER} displayFormat="{0}" />
               <TotalItem column="COST_NOT_YET_ALLOCATED" summaryType="sum" valueFormat={FORMAT_NUMBER} displayFormat="{0}" />
               <TotalItem column="COST_REMAIN" summaryType="sum" valueFormat={FORMAT_NUMBER} displayFormat="{0}" />
-            </Summary>
+            </Summary> */}
               </DataGrid>
               </div>
             </div>
