@@ -1349,6 +1349,7 @@ export default function JournalReportPage({
       const sourceDocType = normalizeSourceDocType(readReportRowText(row, SOURCE_DOC_TYPE_FIELD_CANDIDATES))
       const sourceDocId = readReportRowNumber(row, SOURCE_DOC_ID_FIELD_CANDIDATES) ?? parsedRowKey?.chitId ?? null
       const canOpenDocument = Boolean(sourceDocId)
+
       if (drillType === "NONE") {
         return
       }
@@ -1363,7 +1364,8 @@ export default function JournalReportPage({
           return
         }
 
-        void voucherEditorHostRef.current?.open(resolved.ledger, resolved.chitType, sourceDocId)
+        const voucherHost = voucherEditorHostRef.current
+        void voucherHost?.open(resolved.ledger, resolved.chitType, sourceDocId)
         return
       }
 

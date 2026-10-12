@@ -77,13 +77,6 @@ export default function WarehouseLookupCellEditor({
       const warehouseId = toLookupNumber(warehouse.STORE_ID)
       const warehouseCd = trimLookupText(warehouse.STORE_CD)
 
-      if (import.meta.env.DEV) {
-        console.debug("[inventory-lookup] apply warehouse", {
-          rowIndex, warehouseId, warehouseCd,
-          previousId: rowData[warehouseIdField], previousCd: rowData[warehouseCdField],
-        })
-      }
-
       setValue(valueMode === "code" ? warehouseCd || null : warehouseId)
       setLookupGridCellValue(grid, rowIndex, warehouseIdField, warehouseId)
       setLookupGridCellValue(grid, rowIndex, warehouseCdField, warehouseCd)

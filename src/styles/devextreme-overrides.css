@@ -318,8 +318,8 @@
   background-color: #eef1f6;
   color: #0f172a;
   font-weight: 700;
-  border-bottom: 0.5px solid #c3d0df !important;
-  border-right: 0.5px solid #c3d0df !important;
+  border-bottom: 0.2px solid rgba(148, 163, 184, 0.28) !important;
+  border-right: 0.2px solid rgba(148, 163, 184, 0.28) !important;
 }
 
 .dx-datagrid .dx-datagrid-headers .dx-row > td .dx-datagrid-text-content,
@@ -357,13 +357,13 @@
 
 .dx-datagrid .dx-datagrid-rowsview .dx-row > td,
 .dx-treelist .dx-treelist-rowsview .dx-row > td {
-  border-right: 0.5px solid #c3d0df !important;
-  border-bottom: 0.5px solid #d1dbe7 !important;
+  border-right: 0.2px solid rgba(148, 163, 184, 0.22) !important;
+  border-bottom: 0.2px solid rgba(148, 163, 184, 0.22) !important;
 }
 
 .dx-datagrid .dx-datagrid-total-footer .dx-row > td {
-  border-right: 0.5px solid #c3d0df !important;
-  border-bottom: 0.5px solid #d1dbe7 !important;
+  border-right: 0.2px solid rgba(148, 163, 184, 0.22) !important;
+  border-bottom: 0.2px solid rgba(148, 163, 184, 0.22) !important;
 }
 
 /* Keep DevExtreme's unused free-space row visually blank across all grids. */
@@ -667,45 +667,59 @@
 }
 
 /* Shared TreeList row styling: distinguish hierarchy and report summary rows. */
+.report-tree-list .dx-treelist-rowsview .dx-data-row > td + td {
+  border-left: 1px solid #d6e4f7 !important;
+}
+
 .report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="GROUP"] > td,
 .report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="SECTION"] > td,
 .report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="OPENING_TOTAL"] > td,
 .report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="TOTAL_PERIOD"] > td,
 .report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="ENDING_TOTAL"] > td {
-  border-top: 0.5px solid #d1dbe7 !important;
+  border-top: 0.2px solid rgba(148, 163, 184, 0.22) !important;
 }
 
 .report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="GROUP"] > td {
   background-color: #eaf2ff !important;
   color: #1e3a8a;
   font-weight: 700;
+  border-top: 1px solid #93c5fd !important;
+  border-bottom: 1px solid #bfdbfe !important;
 }
 
 .report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="SECTION"] > td {
   background-color: #ecfeff !important;
   color: #155e75;
   font-weight: 600;
+  border-top: 1px dashed #67e8f9 !important;
+  border-bottom: 1px solid #a5f3fc !important;
 }
 
 .report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="OPENING_TOTAL"] > td {
   background-color: #fff7ed !important;
   color: #9a3412;
   font-weight: 600;
+  border-top: 1px solid #fed7aa !important;
+  border-bottom: 1px solid #fed7aa !important;
 }
 
 .report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="TOTAL_PERIOD"] > td {
   background-color: #f8fafc !important;
   color: #334155;
   font-weight: 600;
+  border-top: 1px solid #cbd5e1 !important;
+  border-bottom: 1px solid #cbd5e1 !important;
 }
 
 .report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="ENDING_TOTAL"] > td {
   background-color: #f0fdf4 !important;
   color: #166534;
   font-weight: 700;
+  border-top: 1px solid #86efac !important;
+  border-bottom: 1px solid #86efac !important;
 }
 
 .report-tree-list .dx-treelist-rowsview .dx-data-row[data-report-row-type="DETAIL"] > td {
   background-color: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
 }
-

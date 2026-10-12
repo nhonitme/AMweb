@@ -105,13 +105,6 @@ export default function InventoryLookupCellEditor({
       const productId = toLookupNumber(product.PRODUCT_ID)
       const productCd = trimLookupText(product.PRODUCT_CD)
 
-      if (import.meta.env.DEV) {
-        console.debug("[inventory-lookup] apply product", {
-          rowIndex, productId, productCd,
-          storeId: product.STORE_ID, storeCd: product.STORE_CD,
-        })
-      }
-
       setValue(valueMode === "code" ? productCd || null : productId)
       setLookupGridCellValue(grid, rowIndex, productIdField, productId)
       setLookupGridCellValue(grid, rowIndex, productCdField, productCd)

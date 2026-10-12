@@ -344,7 +344,7 @@ function ReportTreeList(
 
       onRowDblClick?.(event as unknown as RowDblClickEvent<ReportDataGridRow, string>)
     },
-    [onRowDblClick, parentIds, reportCode],
+    [onRowDblClick, parentIds],
   )
   const handleRowPrepared = useCallback(
     (event: RowPreparedEvent<ReportTreeRow, string>) => {
