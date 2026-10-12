@@ -21,8 +21,8 @@ export async function downloadFile(request: DownloadRequest): Promise<boolean> {
   return result.status === "completed"
 }
 
-export function downloadBlobFile(blob: Blob, fileName: string): Promise<boolean> {
-  return downloadFile({ fileName, retryable: false, load: async () => blob })
+export function downloadBlobFile(blob: Blob, fileName: string, language?: string): Promise<boolean> {
+  return downloadFile({ fileName, language, retryable: false, load: async () => blob })
 }
 
 export function downloadUrlFile(url: string, fileName: string): Promise<boolean> {

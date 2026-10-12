@@ -1,6 +1,7 @@
 import { fetchSetup } from "@devexpress/analytics-core/analytics-utils";
 import API_BASE_URL from "@/config/apiConfig";
 import { downloadBlobFile } from "@/lib/fileUtils";
+import { buildDownloadFileName } from "@/lib/downloadQueue";
 import { buildAppPath, getCurrentCompanyCd } from "@/lib/login";
 import { getStoredGridTemplateId } from "@/lib/sysGridColumnTemplateStorage";
 import { getCurrentLang } from "@/utils/language";
@@ -88,15 +89,24 @@ export function patchReportViewerSaveAs(viewerInstance: unknown): boolean {
       .then((response) => response.blob())
       .then((blob) => {
         urlApi?.revokeObjectURL(url);
-        return downloadBlobFile(blob, resolveExportFileName(fileMetadata));
+        return downloadBlobFile(blob, resolveExportFileName(fileMetadata), resolveReportExportLanguage());
       })
       .catch(() => {
-        previousHandleFile?.call(handler, fileMetadata, urlApi);
+        const fallbackFileMetadata = {
+          ...fileMetadata,
+          contentFilename: buildDownloadFileName(resolveExportFileName(fileMetadata), resolveReportExportLanguage()),
+        };
+        previousHandleFile?.call(handler, fallbackFileMetadata, urlApi);
       });
   };
 
   handler.__amnoteSaveAsPatched = true;
   return true;
+}
+
+function resolveReportExportLanguage(): string | undefined {
+  const searchParams = new URLSearchParams(window.location.search);
+  return searchParams.get("language") || searchParams.get("lang") || undefined;
 }
 
 function resolveExportFileName(fileMetadata: ReportExportFileMetadata): string {

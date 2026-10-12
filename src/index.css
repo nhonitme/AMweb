@@ -798,12 +798,7 @@ tbody {
 }
 
 
-/*Grid chiếm full vùng còn trống.
-Các cột thật giữ đúng width cấu hình.
-Phần dư bên phải do cột giả ăn.
-Kéo rộng cột thật sẽ ăn vào vùng trống trước.
-Chỉ khi tổng width cột thật vượt màn hình mới hiện scrollbar.
-Cột filler + khoảng trống bên phải luôn nền trắng để tách rõ vùng dữ liệu.*/
+/*Report grids fill the viewport width; the final filler column keeps row styling through unused space.*/
 .report-data-grid .dx-datagrid-headers,
 .report-data-grid .dx-datagrid-rowsview,
 .report-data-grid .dx-datagrid-headers .dx-datagrid-content,
@@ -843,21 +838,24 @@ Cột filler + khoảng trống bên phải luôn nền trắng để tách rõ 
 .report-data-grid .dx-datagrid-rowsview .dx-row > td.report-grid-filler-column,
 .report-data-grid .dx-datagrid-total-footer .dx-row > td.report-grid-filler-column,
 .report-data-grid .dx-datagrid-filter-row > td.report-grid-filler-column {
-  background-color: #ffffff !important;
-  background-image: none !important;
-  border-left: 0.5px solid #c3d0df !important;
-  border-right: none !important;
+  border-left: 1px solid #c3d0df !important;
+  border-right: 1px solid #c3d0df !important;
   color: transparent !important;
   pointer-events: none;
 }
 
-.report-data-grid .dx-datagrid-headers .dx-row > td.report-grid-filler-column:hover,
-.report-data-grid .dx-datagrid-rowsview .dx-data-row:hover > td.report-grid-filler-column,
-.report-data-grid .dx-datagrid-rowsview .dx-data-row.dx-row-focused > td.report-grid-filler-column,
-.report-data-grid .dx-datagrid-rowsview .dx-data-row.dx-selection > td.report-grid-filler-column,
-.report-data-grid .dx-datagrid-rowsview .dx-data-row.dx-row-alt > td.report-grid-filler-column {
+.report-data-grid .dx-datagrid-rowsview .dx-data-row > td.report-grid-filler-column {
   background-color: #ffffff !important;
-  background-image: none !important;
+  border-bottom: 1px solid #c3d0df !important;
+}
+
+.report-data-grid .dx-datagrid-rowsview .dx-data-row.dx-row-alt > td.report-grid-filler-column {
+  background-color: #f3f4f6 !important;
+}
+
+.report-data-grid .dx-datagrid-rowsview .dx-data-row.dx-row-focused > td.report-grid-filler-column,
+.report-data-grid .dx-datagrid-rowsview .dx-data-row.dx-selection > td.report-grid-filler-column {
+  background-color: #ffffff !important;
 }
 
 /* When the host overlay is visible, disable individual filler borders so

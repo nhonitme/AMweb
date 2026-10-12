@@ -1,10 +1,39 @@
+import { getCurrentLang, normalizeMessageLanguageKey } from "@/utils/language"
+
 export type DownloadStatus = "queued" | "downloading" | "ready" | "saving" | "completed" | "cancelled" | "failed"
 export type DownloadResult = { id: string; status: "completed" | "cancelled" | "failed"; error?: string }
 export type DownloadProgress = { loaded: number; total?: number }
 export type DownloadJobView = { id: string; fileName: string; batchId?: string; status: DownloadStatus; error?: string; size?: number; retryable?: boolean; progress?: DownloadProgress }
-export type DownloadRequest = { fileName: string; batchId?: string; retryable?: boolean; load: (signal: AbortSignal, progress: (value: DownloadProgress) => void) => Promise<Blob> }
+export type DownloadRequest = { fileName: string; language?: string; batchId?: string; retryable?: boolean; load: (signal: AbortSignal, progress: (value: DownloadProgress) => void) => Promise<Blob> }
 type Job = DownloadJobView & { request: DownloadRequest; controller: AbortController; blob?: Blob; readyOrder?: number; resolve: (result: DownloadResult) => void }
 export const DOWNLOAD_LIMITS = { concurrent: 5, readyFiles: 5, readyBytes: 128 * 1024 * 1024 } as const
+
+let downloadFileSequence = 0
+
+export function buildDownloadFileName(fileName: string, language = getCurrentLang()): string {
+  const trimmedName = fileName.trim() || "download"
+  const extensionIndex = trimmedName.lastIndexOf(".")
+  const hasExtension = extensionIndex > 0
+  const extension = hasExtension ? trimmedName.slice(extensionIndex).toLowerCase() : ""
+  let baseName = hasExtension ? trimmedName.slice(0, extensionIndex) : trimmedName
+
+  // Remove legacy timestamp and language suffixes before applying the shared convention.
+  baseName = baseName
+    .replace(/[_-](?:VIET|ENG|KOR|JPN|THA|CHN)$/i, "")
+    .replace(/[_-](?:\d{8}T?\d{6}(?:\d{3})?Z?|\d{8}T\d{6}Z?)$/i, "")
+    .replace(/[_-](?:VIET|ENG|KOR|JPN|THA|CHN)$/i, "")
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .toLocaleLowerCase("en-US")
+    .replace(/[^\p{L}\p{N}]+/gu, "_")
+    .replace(/^_+|_+$/g, "") || "download"
+
+  const isoTimestamp = new Date().toISOString().replace(/[-:.]/g, "")
+  downloadFileSequence += 1
+  const languageKey = normalizeMessageLanguageKey(language || getCurrentLang())
+  const timestamp = `${isoTimestamp}_${String(downloadFileSequence).padStart(4, "0")}`
+  return `${baseName}_${languageKey}_${timestamp}${extension}`
+}
 
 export class DownloadQueue {
   private jobs: Job[] = []
@@ -21,8 +50,9 @@ export class DownloadQueue {
     this.listeners.forEach(listener => listener())
   }
   enqueue(request: DownloadRequest): Promise<DownloadResult> {
+    const normalizedRequest = { ...request, fileName: buildDownloadFileName(request.fileName, request.language) }
     return new Promise(resolve => {
-      this.jobs.push({ id: crypto.randomUUID(), fileName: request.fileName, batchId: request.batchId, retryable: request.retryable !== false, status: "queued", request, controller: new AbortController(), resolve })
+      this.jobs.push({ id: crypto.randomUUID(), fileName: normalizedRequest.fileName, batchId: normalizedRequest.batchId, retryable: normalizedRequest.retryable !== false, status: "queued", request: normalizedRequest, controller: new AbortController(), resolve })
       this.publish()
       this.pump()
     })

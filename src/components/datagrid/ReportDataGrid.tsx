@@ -2537,11 +2537,9 @@ function ReportDataGrid(
       }
 
       const dataFieldRaw = typeof event.column?.dataField === "string" ? event.column.dataField : ""
-      const isFillerColumn = dataFieldRaw === REPORT_GRID_FILLER_FIELD
 
-      // Cột bù khoảng trống: luôn nền trắng, không nhận màu outline/header/footer.
-      if (isFillerColumn) {
-        event.cellElement.style.setProperty("background-color", "#ffffff", "important")
+      // Filler column only completes the visible grid width; keep it unselected and out of report styling.
+      if (dataFieldRaw === REPORT_GRID_FILLER_FIELD) {
         event.cellElement.style.setProperty("background-image", "none", "important")
         event.cellElement.style.removeProperty("border-top")
         event.cellElement.style.removeProperty("color")
@@ -2766,6 +2764,7 @@ function ReportDataGrid(
                   cssClass="report-grid-filler-column"
                   visibleIndex={99999999999999999}
                 />
+
               </DataGrid>
             </div>
 
