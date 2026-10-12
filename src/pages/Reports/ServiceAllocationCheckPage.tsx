@@ -22,6 +22,7 @@ import {
   getServiceAllocationCheck,
   type ServiceAllocationVoucher,
   type ServiceAllocationDetail,
+  type ServiceAllocationFilters,
 } from "@/api/serviceAllocationCheckApi"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { exportToExcel } from "@/lib/excelUtils"
@@ -193,6 +194,7 @@ export default function ServiceAllocationCheckPage() {
   const [columnSettingsLoading, setColumnSettingsLoading] = useState(false)
   const [columnSettingsItems, setColumnSettingsItems] = useState<GridColumnSettingEditorItem[]>([])
   const requestVersion = useRef(0)
+  const appliedFiltersRef = useRef<ServiceAllocationFilters | null>(null)
   const masterGridRef = useRef<dxDataGrid | null>(null)
 
   const { getGridColumnSettings } = useSysGridColumnSettings()
@@ -232,23 +234,13 @@ export default function ServiceAllocationCheckPage() {
     { value: 1, label: t("SERVICE_NOT_ALLOCATED", "Chưa phân bổ") },
   ], [t])
 
-  const reload = useCallback(async () => {
-    const fromYmd = formatDateToYmd(fromDate)
-    const toYmd = formatDateToYmd(toDate)
-    if (!fromYmd || !toYmd || fromYmd > toYmd) {
-      notify(t("INVALID_DATE_RANGE", "Khoảng ngày không hợp lệ"), "warning", 3000)
-      return
-    }
-
+  // Form values are drafts. The API only receives filters after Search.
+  // Refresh reuses the last submitted filters, never unsent form changes.
+  const loadSubmittedFilters = useCallback(async (filters: ServiceAllocationFilters) => {
     const currentRequest = ++requestVersion.current
     setLoading(true)
     try {
-      const result = await getServiceAllocationCheck({
-        fromYmd,
-        toYmd,
-        customerId,
-        allocationFilter,
-      })
+      const result = await getServiceAllocationCheck(filters)
       if (currentRequest === requestVersion.current) setRows(result.ITEMS)
     } catch (error) {
       if (currentRequest === requestVersion.current) {
@@ -257,12 +249,38 @@ export default function ServiceAllocationCheckPage() {
     } finally {
       if (currentRequest === requestVersion.current) setLoading(false)
     }
-  }, [allocationFilter, customerId, fromDate, t, toDate])
+  }, [t])
 
-  useEffect(() => {
-    void reload()
-    return () => { requestVersion.current += 1 }
-  }, [reload])
+  const handleSearch = useCallback(() => {
+    const fromYmd = formatDateToYmd(fromDate)
+    const toYmd = formatDateToYmd(toDate)
+    if (!fromYmd || !toYmd || fromYmd > toYmd) {
+      notify(t("INVALID_DATE_RANGE", "Khoảng ngày không hợp lệ"), "warning", 3000)
+      return
+    }
+
+    const submittedFilters: ServiceAllocationFilters = {
+      fromYmd,
+      toYmd,
+      customerId,
+      allocationFilter,
+    }
+    appliedFiltersRef.current = submittedFilters
+    void loadSubmittedFilters(submittedFilters)
+  }, [allocationFilter, customerId, fromDate, loadSubmittedFilters, t, toDate])
+
+  const handleRefresh = useCallback(() => {
+    const filters = appliedFiltersRef.current
+    if (!filters) {
+      notify(t("SEARCH_FIRST", "Vui lòng nhấn Tìm kiếm để tải dữ liệu"), "info", 2500)
+      return
+    }
+    void loadSubmittedFilters(filters)
+  }, [loadSubmittedFilters, t])
+
+  useEffect(() => () => {
+    requestVersion.current += 1
+  }, [])
 
   const handleExportExcel = useCallback(async () => {
     // The main DataGrid data source contains filtered/sorted master records only.
@@ -370,8 +388,8 @@ export default function ServiceAllocationCheckPage() {
             toDate={toDate}
             onFromDateChange={setFromDate}
             onToDateChange={setToDate}
-            onSearch={() => void reload()}
-            onRefresh={() => void reload()}
+            onSearch={handleSearch}
+            onRefresh={handleRefresh}
             onExportExcel={() => void handleExportExcel()}
             onSysGridColumnSettings={() => void openColumnSettings()}
             searchText={searchText}
