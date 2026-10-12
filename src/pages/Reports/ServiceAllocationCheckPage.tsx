@@ -24,12 +24,14 @@ import {
   type ServiceAllocationDetail,
 } from "@/api/serviceAllocationCheckApi"
 import { getApiErrorMessage } from "@/api/apiTypes"
+import { exportToExcel } from "@/lib/excelUtils"
+import type { ColumnConfig } from "@/types/table"
 import { customerLookupStore } from "@/components/lookup/customerLookupStore"
 import { ReportToolbar } from "@/components/toolbar/ReportToolbar"
 import DxPage from "@/dx/DxPage"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { useSysGridColumnSettings } from "@/lib/sysGridColumnSettingContext"
-import { formatDateToYmd } from "@/pages/Accounting/accountingDateUtils"
+import { formatDateToYmd, formatYmdForDisplay } from "@/pages/Accounting/accountingDateUtils"
 import type { CustomerExt } from "@/types/customerExt"
 import type { SysGridColumn } from "@/types/sysGridColumnSetting"
 import "./ServiceAllocationCheckPage.scss"
@@ -241,6 +243,63 @@ export default function ServiceAllocationCheckPage() {
     return () => { requestVersion.current += 1 }
   }, [reload])
 
+  const handleExportExcel = useCallback(async () => {
+    // The main DataGrid data source contains filtered/sorted master records only.
+    // Avoid the DevExtreme built-in export here because expanded Detail Grids
+    // must not be included in the generated workbook.
+    const grid = masterGridRef.current
+    const masterFields = new Map(masterColumnDefs.map((column) => [column.field, column]))
+    const excelColumns: ColumnConfig[] = (grid?.getVisibleColumns() ?? [])
+      .filter((column) => typeof column.dataField === "string" && masterFields.has(column.dataField))
+      .map((column, index) => {
+        const field = column.dataField as string
+        const fallback = masterFields.get(field)!
+        return {
+          id: field,
+          dataField: field,
+          displayName: column.caption || t(field, fallback.caption),
+          width: typeof column.width === "number" ? column.width : fallback.width,
+          visible: true,
+          pinned: Boolean(column.fixed),
+          originalOrder: index,
+        }
+      })
+
+    const masterRows = grid?.getDataSource()?.items() as ServiceAllocationVoucher[] | undefined
+    if (!masterRows?.length || !excelColumns.length) {
+      notify(t("NO_DATA_TO_EXPORT", "Không có dữ liệu để xuất Excel"), "warning", 2500)
+      return
+    }
+
+    // Export only visible master columns, in their current displayed order.
+    // The ALLOCATIONS child collection and Detail Grid are deliberately omitted.
+    const excelRows: Record<string, unknown>[] = masterRows.map((row) => {
+      const item: Record<string, unknown> = {}
+      for (const column of excelColumns) {
+        const value = row[column.dataField as keyof ServiceAllocationVoucher]
+        item[column.dataField] =
+          column.dataField === "CHIT_YMD" || column.dataField === "VAT_YMD"
+            ? typeof value === "string" || value instanceof Date
+              ? formatYmdForDisplay(value)
+              : ""
+            : value
+      }
+      return item
+    })
+
+    try {
+      const timeStamp = new Date().toISOString().replace(/[:.-]/g, "")
+      await exportToExcel(
+        excelRows,
+        excelColumns,
+        `ap_service_allocation_${timeStamp}.xlsx`,
+        "Service Allocation",
+      )
+    } catch (error) {
+      notify(getApiErrorMessage(error, t("EXPORT_EXCEL_FAILED", "Xuất Excel thất bại")), "error", 4000)
+    }
+  }, [t])
+
   const openColumnSettings = useCallback(async () => {
     if (!columnSettingState.enabled || !masterGridRef.current) return
 
@@ -292,6 +351,7 @@ export default function ServiceAllocationCheckPage() {
             onToDateChange={setToDate}
             onSearch={() => void reload()}
             onRefresh={() => void reload()}
+            onExportExcel={() => void handleExportExcel()}
             onSysGridColumnSettings={() => void openColumnSettings()}
             searchText={searchText}
             onSearchTextChange={setSearchText}
@@ -299,7 +359,7 @@ export default function ServiceAllocationCheckPage() {
             showRefresh
             showPrint={false}
             showExportPdf={false}
-            showExportExcel={false}
+            showExportExcel={true}
             initialFilters={
               <>
                 <SelectBox
