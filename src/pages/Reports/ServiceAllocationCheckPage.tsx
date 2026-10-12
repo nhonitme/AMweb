@@ -34,6 +34,7 @@ import { useSysGridColumnSettings } from "@/lib/sysGridColumnSettingContext"
 import { formatDateToYmd } from "@/pages/Accounting/accountingDateUtils"
 import type { CustomerExt } from "@/types/customerExt"
 import type { SysGridColumn } from "@/types/sysGridColumnSetting"
+import "./ServiceAllocationCheckPage.scss"
 
 const GRID_ID = "AP_UTILITY_CHECK_ALLOC"
 const FORMAT_NUMBER = "#,##0"
@@ -183,8 +184,8 @@ export default function ServiceAllocationCheckPage() {
   }
   const t = useCallback((key: string, fallback: string) => translate?.(key, fallback) ?? fallback, [translate])
   const columns = useMemo(
-    () => getColumns(masterColumnDefs, getGridColumnSettings(GRID_ID), t),
-    [getGridColumnSettings, t],
+    () => getColumns(masterColumnDefs, getGridColumnSettings(GRID_ID, columnSettingState.currentTemplateId), t),
+    [getGridColumnSettings, columnSettingState.currentTemplateId, t],
   )
 
   const visibleRows = useMemo(() => {
@@ -339,7 +340,7 @@ export default function ServiceAllocationCheckPage() {
           <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <div className="h-full min-h-0">
               <DataGrid
-            className="report-data-grid"
+            className="report-data-grid ap-service-allocation-grid"
             onInitialized={(event) => { masterGridRef.current = event.component }}
             dataSource={visibleRows}
             keyExpr="SERVICES_CHIT_ID"
