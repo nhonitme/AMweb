@@ -82,3 +82,101 @@
   color: #d1d5db;
   cursor: not-allowed;
 }
+
+/* One-row AP Utility dropdown, matching the Finance/Voucher menu behavior. */
+.flat-module-tabs__utility-dd {
+  position: relative;
+  flex: 0 0 auto;
+  margin: 4px 0;
+}
+
+.flat-module-tabs__utility-trigger {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.flat-module-tabs__utility-trigger:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+.flat-module-tabs__utility-trigger--active,
+.flat-module-tabs__utility-trigger--active:hover:not(:disabled) {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.flat-module-tabs__utility-trigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.flat-module-tabs__utility-trigger svg {
+  transition: transform 150ms ease;
+}
+
+.flat-module-tabs__utility-trigger[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.flat-module-tabs__utility-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+}
+
+.flat-module-tabs__utility-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  min-width: 220px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 6px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 12px 28px -10px rgba(15, 23, 42, 0.25);
+}
+
+.flat-module-tabs__utility-item {
+  appearance: none;
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: #374151;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.flat-module-tabs__utility-item:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.flat-module-tabs__utility-item--active,
+.flat-module-tabs__utility-item--active:hover:not(:disabled) {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.flat-module-tabs__utility-item:disabled {
+  color: #d1d5db;
+  cursor: not-allowed;
+}
