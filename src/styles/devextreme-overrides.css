@@ -366,18 +366,11 @@
   border-bottom: 0.5px solid #d1dbe7 !important;
 }
 
-/* Continue row separators through DevExtreme's empty free-space row without adding data. */
+/* Keep DevExtreme's unused free-space row visually blank across all grids. */
 .dx-datagrid .dx-datagrid-rowsview .dx-freespace-row > td,
 .dx-treelist .dx-treelist-rowsview .dx-freespace-row > td {
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent 0,
-    transparent calc(var(--am-grid-row-height, 24px) - 0.5px),
-    #d1dbe7 calc(var(--am-grid-row-height, 24px) - 0.5px),
-    #d1dbe7 var(--am-grid-row-height, 24px)
-  ) !important;
-  background-repeat: repeat-y !important;
-  background-size: 100% var(--am-grid-row-height, 24px) !important;
+  border: 0 !important;
+  background-image: none !important;
 }
 
 /* ==== Data grid visual refresh: zebra rows, hover, action buttons, pager ==== */

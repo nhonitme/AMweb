@@ -453,6 +453,7 @@ export function BaseTreeList<T extends object>({
         rootValue={rootValue}
         width="100%"
         height="100%"
+        autoExpandAll
         onSelectionChanged={onSelectionChanged}
         showBorders
         columnAutoWidth={!hasConfiguredColumnWidths}

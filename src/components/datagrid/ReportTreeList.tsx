@@ -231,13 +231,8 @@ function ReportTreeList(
     () => resolveTreeRows(toLocalizedReportDataGridRows(preview, t, reportCode)),
     [preview, reportCode, t],
   )
-  // Optional procedure metadata controls initial expansion without report-specific logic.
-  const defaultExpandAll = useMemo(() => {
-    const setting = treeRows
-      .map((row) => readTechnicalField(row, ["__TREE_EXPAND_ALL", "TREE_EXPAND_ALL"]))
-      .find((value) => value !== null)
-    return setting == null || !["0", "FALSE", "N", "NO"].includes(setting.toUpperCase())
-  }, [treeRows])
+  // Report tree views always start fully expanded; users can collapse branches afterward.
+  const defaultExpandAll = true
 
   const parentIds = useMemo(() => {
     const idsWithChildren = new Set(
