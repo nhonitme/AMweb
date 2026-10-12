@@ -7,7 +7,7 @@ const BASE_URL = `${API_BASE_URL}/ap/utility/check-service-allocation`
 export type ServiceAllocationDetail = {
   SERVICES_CHIT_ID: number
   SERVICES_CHIT_CD: string | null
-  CHIT_TYPE: number | null
+  CHIT_TYPE: string | null
   INVENTORY_CHIT_ID: number
   INVENTORY_CHIT_CD: string | null
   CHIT_NO: string | null
