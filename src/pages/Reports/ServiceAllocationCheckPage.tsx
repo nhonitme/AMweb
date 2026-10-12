@@ -5,8 +5,6 @@ import DataGrid, {
   FilterRow,
   HeaderFilter,
   MasterDetail,
-  Pager,
-  Paging,
   Scrolling,
   StateStoring,
   Summary,
@@ -339,6 +337,7 @@ export default function ServiceAllocationCheckPage() {
 
           <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <div className="h-full min-h-0">
+              <div className="report-data-grid-host h-full min-h-0 w-full overflow-hidden">
               <DataGrid
             className="report-data-grid ap-service-allocation-grid"
             onInitialized={(event) => { masterGridRef.current = event.component }}
@@ -374,8 +373,6 @@ export default function ServiceAllocationCheckPage() {
               />
             ) : null}
             <Scrolling mode="standard" useNative={false} showScrollbar="always" />
-            <Paging defaultPageSize={50} />
-            <Pager showPageSizeSelector allowedPageSizes={[20, 50, 100]} showInfo />
             {columns.map((column) => (
               <Column
                 key={column.field}
@@ -396,6 +393,7 @@ export default function ServiceAllocationCheckPage() {
               <TotalItem column="COST_REMAIN" summaryType="sum" valueFormat={FORMAT_NUMBER} displayFormat="{0}" />
             </Summary>
               </DataGrid>
+              </div>
             </div>
           </div>
         </section>
