@@ -37,6 +37,7 @@ import type { SysGridColumn } from "@/types/sysGridColumnSetting"
 import "./ServiceAllocationCheckPage.scss"
 
 const GRID_ID = "AP_UTILITY_CHECK_ALLOC"
+const DETAIL_GRID_ID = "AP_UTILITY_CHECK_ALLOC_DETAIL"
 const FORMAT_NUMBER = "#,##0"
 const TOOLBAR_FIELD = "page-toolbar__field"
 
@@ -62,11 +63,20 @@ const masterColumnDefs: ColumnDef[] = [
   { field: "COST_NOW_ALLOCATES", caption: "Chi phí phân bổ kỳ này", width: 185, type: "number", alignment: "right", format: FORMAT_NUMBER },
 ]
 
+// Schema fields returned by the second result set of sp_chit_inventory_service_get.
+// sys_grid_column decides which of these columns are displayed and in what order.
 const detailColumnDefs: ColumnDef[] = [
-  { field: "CHIT_NO", caption: "Số chứng từ", width: 175 },
-  { field: "CHIT_YMD", caption: "Ngày giao dịch", width: 155, type: "date", format: "dd/MM/yyyy" },
-  { field: "AMOUNT_SHARE", caption: "Tiền phân bổ", width: 200, type: "number", alignment: "right", format: FORMAT_NUMBER },
+  { field: "SERVICES_CHIT_ID", caption: "Mã ID chứng từ dịch vụ", width: 100, type: "number" },
+  { field: "SERVICES_CHIT_CD", caption: "Mã chứng từ dịch vụ", width: 130 },
+  { field: "INVENTORY_CHIT_ID", caption: "Mã ID chứng từ phân bổ", width: 110, type: "number" },
+  { field: "INVENTORY_CHIT_CD", caption: "Mã chứng từ phân bổ", width: 150 },
+  { field: "CHIT_TYPE", caption: "Loại chứng từ", width: 115, type: "string" },
+  { field: "CHIT_NO", caption: "Số chứng từ", width: 165 },
+  { field: "CHIT_YMD", caption: "Ngày giao dịch", width: 140, type: "date", format: "dd/MM/yyyy" },
+  { field: "AMOUNT_SHARE", caption: "Tiền phân bổ", width: 185, type: "number", alignment: "right", format: FORMAT_NUMBER },
 ]
+
+const defaultDetailFields = new Set(["CHIT_NO", "CHIT_YMD", "AMOUNT_SHARE"])
 
 function getColumns(
   columns: ColumnDef[],
@@ -108,10 +118,20 @@ function formatCustomer(item: CustomerExt | null | undefined): string {
 function ServiceAllocationDetailGrid({ data }: {
   data: { data: ServiceAllocationVoucher }
 }) {
+  const { getGridColumnSettings } = useSysGridColumnSettings()
   const { translate } = useContext(LanguageContext) as {
     translate?: (key: string, fallback?: string) => string
   }
   const t = useCallback((key: string, fallback: string) => translate?.(key, fallback) ?? fallback, [translate])
+  const columns = useMemo(() => {
+    const settings = getGridColumnSettings(DETAIL_GRID_ID)
+    // While sys_grid_column is not configured/loaded, retain the original
+    // three-column detail view rather than revealing technical ID fields.
+    const schema = settings.length > 0
+      ? detailColumnDefs
+      : detailColumnDefs.filter((column) => defaultDetailFields.has(column.field))
+    return getColumns(schema, settings, t)
+  }, [getGridColumnSettings, t])
   const rows = useMemo(
     () => (data.data.ALLOCATIONS ?? []).map((row: ServiceAllocationDetail, index) => ({
       ...row,
@@ -136,15 +156,16 @@ function ServiceAllocationDetailGrid({ data }: {
         <FilterRow visible={false} />
         <HeaderFilter visible />
         <Scrolling mode="standard" showScrollbar="always" />
-        {detailColumnDefs.map((column) => (
+        {columns.map((column) => (
           <Column
             key={column.field}
             dataField={column.field}
-            caption={t(column.field, column.caption)}
+            caption={column.caption}
             dataType={column.type}
             width={column.width}
             format={column.format}
             alignment={column.alignment}
+            visible={column.visible}
             allowHiding={false}
             showInColumnChooser={false}
           />
