@@ -1,18 +1,24 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import DataGrid, {
   Column,
-  ColumnChooser,
+  ColumnFixing,
   FilterRow,
   HeaderFilter,
   MasterDetail,
   Pager,
   Paging,
   Scrolling,
+  StateStoring,
   Summary,
   TotalItem,
 } from "devextreme-react/data-grid"
 import SelectBox from "devextreme-react/select-box"
 import notify from "devextreme/ui/notify"
+import type dxDataGrid from "devextreme/ui/data_grid"
+
+import GridColumnSettingsPopup from "@/components/datagrid/GridColumnSettingsPopup"
+import { useGridColumnSettingState } from "@/components/datagrid/useGridColumnSettingState"
+import type { GridColumnSettingEditorItem } from "@/types/sysGridColumnSetting"
 
 import {
   getServiceAllocationCheck,
@@ -30,7 +36,6 @@ import type { CustomerExt } from "@/types/customerExt"
 import type { SysGridColumn } from "@/types/sysGridColumnSetting"
 
 const GRID_ID = "AP_UTILITY_CHECK_ALLOC"
-const DETAIL_GRID_ID = "AP_UTILITY_CHECK_ALLOC_DETAIL"
 const FORMAT_NUMBER = "#,##0"
 const TOOLBAR_FIELD = "page-toolbar__field"
 
@@ -102,15 +107,10 @@ function formatCustomer(item: CustomerExt | null | undefined): string {
 function ServiceAllocationDetailGrid({ data }: {
   data: { data: ServiceAllocationVoucher }
 }) {
-  const { getGridColumnSettings } = useSysGridColumnSettings()
   const { translate } = useContext(LanguageContext) as {
     translate?: (key: string, fallback?: string) => string
   }
   const t = useCallback((key: string, fallback: string) => translate?.(key, fallback) ?? fallback, [translate])
-  const columns = useMemo(
-    () => getColumns(detailColumnDefs, getGridColumnSettings(DETAIL_GRID_ID), t),
-    [getGridColumnSettings, t],
-  )
   const rows = useMemo(
     () => (data.data.ALLOCATIONS ?? []).map((row: ServiceAllocationDetail, index) => ({
       ...row,
@@ -135,17 +135,17 @@ function ServiceAllocationDetailGrid({ data }: {
         <FilterRow visible />
         <HeaderFilter visible />
         <Scrolling mode="standard" showScrollbar="always" />
-        {columns.map((column) => (
+        {detailColumnDefs.map((column) => (
           <Column
             key={column.field}
             dataField={column.field}
-            caption={column.caption}
+            caption={t(column.field, column.caption)}
             dataType={column.type}
             width={column.width}
             format={column.format}
             alignment={column.alignment}
-            visible={column.visible}
-            allowHiding={column.allowHiding}
+            allowHiding={false}
+            showInColumnChooser={false}
           />
         ))}
         <Summary>
@@ -166,10 +166,18 @@ export default function ServiceAllocationCheckPage() {
   const [allocationFilter, setAllocationFilter] = useState<0 | 1 | null>(null)
   const [rows, setRows] = useState<ServiceAllocationVoucher[]>([])
   const [loading, setLoading] = useState(false)
+  const [searchText, setSearchText] = useState("")
+  const [columnSettingsVisible, setColumnSettingsVisible] = useState(false)
+  const [columnSettingsLoading, setColumnSettingsLoading] = useState(false)
+  const [columnSettingsItems, setColumnSettingsItems] = useState<GridColumnSettingEditorItem[]>([])
   const requestVersion = useRef(0)
-  const gridRef = useRef<DataGrid>(null)
+  const masterGridRef = useRef<dxDataGrid | null>(null)
 
   const { getGridColumnSettings } = useSysGridColumnSettings()
+  const columnSettingState = useGridColumnSettingState({
+    gridId: GRID_ID,
+    hideColumnsMissingFromSettings: true,
+  })
   const { translate } = useContext(LanguageContext) as {
     translate?: (key: string, fallback?: string) => string
   }
@@ -178,6 +186,23 @@ export default function ServiceAllocationCheckPage() {
     () => getColumns(masterColumnDefs, getGridColumnSettings(GRID_ID), t),
     [getGridColumnSettings, t],
   )
+
+  const visibleRows = useMemo(() => {
+    const search = searchText.trim().toLocaleLowerCase()
+    if (!search) return rows
+    return rows.filter((row) =>
+      [
+        row.SERVICES_CHIT_NO,
+        row.SERVICES_CHIT_CD,
+        row.CUSTOMER_CD,
+        row.VAT_CHIT_NO,
+        row.CONTENTS,
+        row.TOTAL_COST,
+        row.COST_NOT_YET_ALLOCATED,
+        row.COST_REMAIN,
+      ].some((value) => String(value ?? "").toLocaleLowerCase().includes(search)),
+    )
+  }, [rows, searchText])
 
   const statuses = useMemo(() => [
     { value: null, label: t("ALL", "Tất cả") },
@@ -217,18 +242,60 @@ export default function ServiceAllocationCheckPage() {
     return () => { requestVersion.current += 1 }
   }, [reload])
 
+  const openColumnSettings = useCallback(async () => {
+    if (!columnSettingState.enabled || !masterGridRef.current) return
+
+    setColumnSettingsLoading(true)
+    setColumnSettingsVisible(true)
+    try {
+      setColumnSettingsItems(await columnSettingState.loadEditorItems(masterGridRef.current))
+    } catch (error) {
+      setColumnSettingsVisible(false)
+      notify(getApiErrorMessage(error, t("LOAD_ERROR", "Không thể tải thiết lập cột")), "error", 4000)
+    } finally {
+      setColumnSettingsLoading(false)
+    }
+  }, [columnSettingState, t])
+
+  const saveColumnSettings = useCallback(async (items: GridColumnSettingEditorItem[]) => {
+    const saved = masterGridRef.current
+      ? await columnSettingState.applyEditorItemsToComponent(masterGridRef.current, items)
+      : await columnSettingState.saveEditorItems(items)
+    setColumnSettingsItems(saved)
+    setColumnSettingsVisible(false)
+  }, [columnSettingState])
+
+  const resetColumnSettings = useCallback(async () => {
+    setColumnSettingsItems(await columnSettingState.resetEditorItems(masterGridRef.current))
+  }, [columnSettingState])
+
+  const changeColumnTemplate = useCallback(async (templateId: number) => {
+    setColumnSettingsItems(await columnSettingState.changeTemplate(templateId, masterGridRef.current))
+  }, [columnSettingState])
+
+  const createColumnTemplate = useCallback(async (payload: { templateName: string; isDefaultTemplate: boolean }) => {
+    setColumnSettingsItems(await columnSettingState.createTemplate(payload, masterGridRef.current))
+  }, [columnSettingState])
+
+  const setDefaultColumnTemplate = useCallback(async (templateId: number) => {
+    await columnSettingState.setDefaultTemplate(templateId)
+  }, [columnSettingState])
+
   return (
     <DxPage>
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
-        <div className="flex-shrink-0">
-          <ReportToolbar
+        <section className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+          <div className="flex-shrink-0">
+            <ReportToolbar
             fromDate={fromDate}
             toDate={toDate}
             onFromDateChange={setFromDate}
             onToDateChange={setToDate}
             onSearch={() => void reload()}
             onRefresh={() => void reload()}
-            onSysGridColumnSettings={() => gridRef.current?.instance().showColumnChooser()}
+            onSysGridColumnSettings={() => void openColumnSettings()}
+            searchText={searchText}
+            onSearchTextChange={setSearchText}
             showSearch
             showRefresh
             showPrint={false}
@@ -267,27 +334,45 @@ export default function ServiceAllocationCheckPage() {
               </>
             }
           />
-        </div>
+          </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden p-2">
-          <DataGrid
-            ref={gridRef}
-            dataSource={rows}
+          <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div className="h-full min-h-0">
+              <DataGrid
+            className="report-data-grid"
+            onInitialized={(event) => { masterGridRef.current = event.component }}
+            dataSource={visibleRows}
             keyExpr="SERVICES_CHIT_ID"
             height="100%"
+            width="100%"
             showBorders
+            showRowLines
+            showColumnLines
             hoverStateEnabled
+            focusedRowEnabled
             rowAlternationEnabled
             columnAutoWidth={false}
             allowColumnResizing
+            allowColumnReordering
             columnResizingMode="widget"
-            loadPanel={{ enabled: true }}
+            wordWrapEnabled={false}
+            cellHintEnabled
+            loadPanel={{ enabled: loading }}
             noDataText={loading ? t("LOADING", "Đang tải...") : t("NO_DATA", "Không có dữ liệu")}
           >
-            <FilterRow visible />
+            <FilterRow visible={Boolean(searchText.trim())} />
             <HeaderFilter visible />
-            <ColumnChooser enabled mode="select" />
-            <Scrolling mode="standard" showScrollbar="always" />
+            <ColumnFixing enabled />
+            {columnSettingState.enabled ? (
+              <StateStoring
+                enabled
+                type="custom"
+                customLoad={columnSettingState.customLoad}
+                customSave={columnSettingState.customSave}
+                savingTimeout={500}
+              />
+            ) : null}
+            <Scrolling mode="standard" useNative={false} showScrollbar="always" />
             <Paging defaultPageSize={50} />
             <Pager showPageSizeSelector allowedPageSizes={[20, 50, 100]} showInfo />
             {columns.map((column) => (
@@ -309,9 +394,27 @@ export default function ServiceAllocationCheckPage() {
               <TotalItem column="COST_NOT_YET_ALLOCATED" summaryType="sum" valueFormat={FORMAT_NUMBER} displayFormat="{0}" />
               <TotalItem column="COST_REMAIN" summaryType="sum" valueFormat={FORMAT_NUMBER} displayFormat="{0}" />
             </Summary>
-          </DataGrid>
-        </div>
+              </DataGrid>
+            </div>
+          </div>
+        </section>
       </div>
+
+      <GridColumnSettingsPopup
+        visible={columnSettingsVisible}
+        title={t("SYS_GRID_COLUMN_SETTING", "Thiết lập cột hiển thị")}
+        items={columnSettingsItems}
+        loading={columnSettingsLoading}
+        onClose={() => setColumnSettingsVisible(false)}
+        onSave={saveColumnSettings}
+        onReset={resetColumnSettings}
+        templates={columnSettingState.templateOptions}
+        selectedTemplateId={columnSettingState.currentTemplateId}
+        templateLoading={columnSettingState.templateLoading}
+        onTemplateChange={changeColumnTemplate}
+        onCreateTemplate={createColumnTemplate}
+        onSetDefaultTemplate={setDefaultColumnTemplate}
+      />
     </DxPage>
   )
 }
