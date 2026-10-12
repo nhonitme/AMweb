@@ -1,4 +1,5 @@
-import { useContext, useMemo } from "react"
+import { ChevronDown } from "lucide-react"
+import { useContext, useEffect, useMemo, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 
 import { findMenuById, getMenuPath } from "@/api/menuApi"
@@ -88,8 +89,30 @@ function findFirstRoutePath(node: MenuTreeNode): string | null {
   return null
 }
 
+const AP_UTILITY_ROUTE_PREFIX = "/ap/utility"
+
+function isApUtilityRoute(routePath: string | null): boolean {
+  if (!routePath) return false
+  const route = normalizePath(routePath).toLowerCase()
+  return route === AP_UTILITY_ROUTE_PREFIX || route.startsWith(`${AP_UTILITY_ROUTE_PREFIX}/`)
+}
+
+function getDescendantRoutePaths(node: MenuTreeNode): string[] {
+  const paths = node.routePath ? [node.routePath] : []
+  for (const child of node.children ?? []) {
+    paths.push(...getDescendantRoutePaths(child))
+  }
+  return paths
+}
+
+function isApUtilityFolder(node: MenuTreeNode): boolean {
+  if (!node.children?.length) return false
+  const paths = getDescendantRoutePaths(node)
+  return paths.length > 0 && paths.every(isApUtilityRoute)
+}
+
 function isUtilitiesTab(child: MenuTreeNode): boolean {
-  return child.code.toUpperCase().endsWith("_UTILITY")
+  return child.code.toUpperCase().endsWith("_UTILITY") || isApUtilityFolder(child)
 }
 
 function resolveVisibleChildren(children: MenuTreeNode[]): MenuTreeNode[] {
@@ -97,8 +120,43 @@ function resolveVisibleChildren(children: MenuTreeNode[]): MenuTreeNode[] {
     ...children.filter((child) => !isUtilitiesTab(child)),
     ...children.filter((child) => isUtilitiesTab(child)),
   ]
-  return ordered.flatMap((child) => {
-    if (child.children && child.children.length === 1) {
+
+  // A customer database may place utility pages directly under Purchase
+  // instead of under an AP_UTILITY folder. Present both shapes identically.
+  const directUtilityPages = ordered.filter(
+    (child) => !child.children?.length && isApUtilityRoute(child.routePath),
+  )
+  const existingUtilityFolder = ordered.find(isApUtilityFolder)
+  const directIds = new Set(directUtilityPages.map((page) => page.id))
+  const withoutDirectPages = ordered.filter((child) => !directIds.has(child.id))
+
+  const groupedChildren = existingUtilityFolder
+    ? withoutDirectPages.map((child) =>
+        child.id === existingUtilityFolder.id
+          ? { ...child, children: [...(child.children ?? []), ...directUtilityPages] }
+          : child,
+      )
+    : directUtilityPages.length > 0
+      ? [
+          ...withoutDirectPages,
+          {
+            ...directUtilityPages[0],
+            id: "__AP_UTILITY_DROPDOWN__",
+            code: "AP_UTILITY",
+            name: "Tiện ích",
+            labelText: "AP_UTILITY",
+            caption: "Tiện ích",
+            routePath: null,
+            isDisabled: false,
+            children: directUtilityPages,
+          },
+        ]
+      : withoutDirectPages
+
+  return groupedChildren.flatMap((child) => {
+    // Unlike general-purpose tabs, AP utility must remain a dropdown even
+    // when it currently contains only a single page.
+    if (!isApUtilityFolder(child) && child.children?.length === 1) {
       return [child.children[0]]
     }
     return [child]
@@ -108,6 +166,21 @@ function resolveVisibleChildren(children: MenuTreeNode[]): MenuTreeNode[] {
 export default function FlatModuleTabs() {
   const location = useLocation()
   const navigate = useNavigate()
+  const [openUtilityId, setOpenUtilityId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setOpenUtilityId(null)
+  }, [location.pathname])
+
+  useEffect(() => {
+    if (!openUtilityId) return
+
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenUtilityId(null)
+    }
+    window.addEventListener("keydown", onEscape)
+    return () => window.removeEventListener("keydown", onEscape)
+  }, [openUtilityId])
   const languageContext = useContext(LanguageContext) as
     | { translate?: (key: string, fallback?: string) => string }
     | undefined
@@ -150,7 +223,11 @@ export default function FlatModuleTabs() {
 
   const visibleChildren = resolveVisibleChildren(topMenu.children)
   const activeFolder =
-    visibleChildren.find((child) => (child.children?.length ?? 0) > 0 && containsMenuId(child, activeLeafId)) ?? null
+    visibleChildren.find((child) =>
+      !isApUtilityFolder(child)
+      && (child.children?.length ?? 0) > 0
+      && containsMenuId(child, activeLeafId),
+    ) ?? null
 
   return (
     <div className="flat-module-tabs-stack">
@@ -158,6 +235,54 @@ export default function FlatModuleTabs() {
         {visibleChildren.map((child) => {
           const hasChildren = Boolean(child.children && child.children.length > 0)
           const isActive = hasChildren ? containsMenuId(child, activeLeafId) : child.id === activeLeafId
+
+          if (isApUtilityFolder(child)) {
+            const isOpen = openUtilityId === child.id
+            return (
+              <div key={child.id} className="flat-module-tabs__utility-dd">
+                <button
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={isOpen}
+                  disabled={child.isDisabled}
+                  className={`flat-module-tabs__utility-trigger${isActive ? " flat-module-tabs__utility-trigger--active" : ""}`}
+                  onClick={() => setOpenUtilityId(isOpen ? null : child.id)}
+                >
+                  {label(child)}
+                  <ChevronDown size={14} aria-hidden="true" />
+                </button>
+                {isOpen ? (
+                  <>
+                    <div
+                      className="flat-module-tabs__utility-overlay"
+                      onClick={() => setOpenUtilityId(null)}
+                    />
+                    <div className="flat-module-tabs__utility-menu" role="menu" aria-label={label(child)}>
+                      {child.children!.map((item) => {
+                        const selected = item.id === activeLeafId || containsMenuId(item, activeLeafId)
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            role="menuitem"
+                            disabled={item.isDisabled}
+                            aria-current={selected ? "page" : undefined}
+                            className={`flat-module-tabs__utility-item${selected ? " flat-module-tabs__utility-item--active" : ""}`}
+                            onClick={() => {
+                              setOpenUtilityId(null)
+                              goTo(item.routePath ?? findFirstRoutePath(item))
+                            }}
+                          >
+                            {label(item)}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            )
+          }
 
           return (
             <button
