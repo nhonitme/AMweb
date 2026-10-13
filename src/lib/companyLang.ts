@@ -27,6 +27,7 @@ const listeners = new Set<() => void>()
 let revision = 0
 let loadPromise: Promise<CompanyLangState> | null = null
 let loadedCompanyCd = ""
+let inFlightCompanyCd = ""
 let state: CompanyLangState = {
   configured: false,
   defaultLang: "VIET",
@@ -271,6 +272,7 @@ export function parseCompanyLangRows(rows: Array<Record<string, unknown>>): Comp
 
 export function clearCompanyLangCache(publish = true): void {
   loadedCompanyCd = ""
+  inFlightCompanyCd = ""
   loadPromise = null
   state = {
     configured: false,
@@ -286,11 +288,19 @@ export function clearCompanyLangCache(publish = true): void {
   }
 }
 
-export async function loadCompanyLangSettings(companyCd: string, force = false): Promise<CompanyLangState> {
+export async function loadCompanyLangSettings(
+  companyCd: string,
+  force = false,
+): Promise<CompanyLangState> {
   const resolved = companyCd.trim()
+
   if (!resolved) {
     clearCompanyLangCache()
     return state
+  }
+
+  if (inFlightCompanyCd === resolved && loadPromise) {
+    return loadPromise
   }
 
   if (!force && loadedCompanyCd === resolved && loadPromise) {
@@ -298,7 +308,7 @@ export async function loadCompanyLangSettings(companyCd: string, force = false):
   }
 
   loadedCompanyCd = resolved
-  loadPromise = axios
+  const requestPromise = axios
     .get(`${API_BASE_URL}/SysConfig`, {
       params: { configGroup: "LANG", activeOnly: false },
     })
@@ -315,5 +325,16 @@ export async function loadCompanyLangSettings(companyCd: string, force = false):
       return state
     })
 
-  return loadPromise
+  loadPromise = requestPromise
+  inFlightCompanyCd = resolved
+  void requestPromise.then(
+    () => {
+      if (loadPromise === requestPromise) inFlightCompanyCd = ""
+    },
+    () => {
+      if (loadPromise === requestPromise) inFlightCompanyCd = ""
+    },
+  )
+
+  return requestPromise
 }

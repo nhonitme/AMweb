@@ -354,6 +354,9 @@ export interface InventoryVoucherApi {
   AMOUNT?: number | null
   TOTAL_QTY?: number | null
   REMARK?: ChitText
+  CUSTOMER_ID?: number | null
+  CUSTOMER_CD?: ChitText
+  CLEAR_CUSTOMER?: boolean | null
   PAYER_INFO?: ChitText
   ISDEL?: ChitFlag
   IS_LOCK?: ChitFlag
@@ -498,6 +501,8 @@ export interface InventoryVoucher {
   AMOUNT: number | null
   TOTAL_QTY: number | null
   REMARK: string
+  CUSTOMER_ID: number | null
+  CUSTOMER_CD: string
   PAYER_INFO: string
   ISDEL: boolean
   IS_LOCK: boolean

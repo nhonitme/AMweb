@@ -23,9 +23,11 @@ function calcAmount(quantity: unknown, unitPrice: unknown): number {
 }
 
 export const InventoryOpeningColumns: React.FC = () => {
-  const { lang } = useContext(LanguageContext) as {
+  const { lang, translate } = useContext(LanguageContext) as {
     lang: string
+    translate: (key: string, fallback?: string) => string
   }
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
   const langKey = normalizeMessageLanguageKey(lang)
   const productNameField = useMemo(() => getInventoryOpeningProductNameField(langKey), [langKey])
   const storeNameField = useMemo(() => getInventoryOpeningStoreNameField(langKey), [langKey])
@@ -73,6 +75,7 @@ export const InventoryOpeningColumns: React.FC = () => {
       <Column dataField="UNIT_NM" visible={true} allowEditing={false} />
       <Column
         dataField="QUANTITY"
+        caption={t("QUANTITY", "Quantity")}
         dataType="number"
         format={quantityFormat}
         editorOptions={createNumberEditorOptions(quantityFormat)}
@@ -106,7 +109,7 @@ export const InventoryOpeningColumns: React.FC = () => {
           newData.AMOUNT_CC = toNumber(value)
         }}
       />
-      <Column dataField="SUMMARY" visible={true} />
+      <Column dataField="SUMMARY" caption={t("SUMMARY", "Summary")} visible={true} />
     </>
   )
 }

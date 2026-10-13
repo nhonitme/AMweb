@@ -19,6 +19,7 @@ import Sidebar from './components/Sidebar';
 import { loadCompanyLangSettings } from '@/lib/companyLang';
 import { LanguageContext } from '@/lib/i18nLoader';
 import { useSysCodes } from '@/lib/sysCodeContext';
+import { warmupSysCodesCache } from '@/lib/sysCodeCache';
 import { useSysGridColumnSettings } from '@/lib/sysGridColumnSettingContext';
 import { useMenuTreeQuery } from '@/hooks/queries/useMenuTreeQuery';
 import {
@@ -1093,7 +1094,7 @@ function AuthenticatedApp() {
                 if (authenticated) {
                     const preloadTasks: Promise<unknown>[] = [
                         refreshGridColumnSettings(true),
-                        refreshSysCodes(),
+                        warmupSysCodesCache(false),
                         loadCompanyLangSettings(getCurrentCompanyCd(), true),
                     ];
                     if (typeof refreshLabels === 'function') {
@@ -1113,7 +1114,7 @@ function AuthenticatedApp() {
         return () => {
             mounted = false;
         };
-    }, [refreshGridColumnSettings, refreshLabels, refreshSysCodes]);
+    }, [refreshGridColumnSettings, refreshLabels]);
 
     // Keep UI login state in sync with session cache. Idle token/session drops used to
     // clear React Query (incl. sys codes) while isLoggedIn stayed true → zombie page with

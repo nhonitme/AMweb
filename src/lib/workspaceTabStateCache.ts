@@ -1,4 +1,5 @@
 export const JOURNAL_REPORT_TAB_STATE_KEY = "journal-report"
+export const SERVICE_ALLOCATION_CHECK_TAB_STATE_KEY = "service-allocation-check"
 
 const workspaceTabState = new Map<string, Map<string, unknown>>()
 

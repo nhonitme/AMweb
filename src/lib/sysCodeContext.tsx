@@ -74,7 +74,7 @@ export function SysCodeProvider({ children }: { children: React.ReactNode }) {
 
       // Token refresh re-fires this event. Only reload when cache was wiped
       // (logout / queryClient.clear / idle session drop) so lookups recover.
-      if (!hasSysCodeEntries(sysCodeMapRef.current)) {
+      if (!hasSysCodeEntries(sysCodeMapRef.current) && fetchStatus !== "fetching") {
         void refreshSysCodes()
       }
     }
@@ -83,7 +83,7 @@ export function SysCodeProvider({ children }: { children: React.ReactNode }) {
     return () => {
       window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, handleSessionChanged)
     }
-  }, [clearSysCodes, refreshSysCodes])
+  }, [clearSysCodes, fetchStatus, refreshSysCodes])
 
   useEffect(() => {
     return setSysCodeDropdownRefreshHandler(async (codeType: string) => {

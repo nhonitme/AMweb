@@ -6,6 +6,10 @@ import DataGrid, { Column, Editing, RequiredRule, Summary, TotalItem } from "dev
 import type dxDataGrid from "devextreme/ui/data_grid"
 import AccountLookupCellEditor from "@/components/lookup/AccountLookupCellEditor"
 import { getAcclistLookupStore } from "@/components/lookup/AcclistLookupStore"
+import MasterLookupFormField from "@/components/lookup/MasterLookupFormField"
+import { customerLookupStore } from "@/components/lookup/customerLookupStore"
+import { renderSharedCustomerLookupPage } from "@/components/lookup/sharedMasterLookupPages"
+import { buildCustomerLookupSearchExpr, getCustomerLookupName } from "@/components/lookup/customerLookupUtils"
 import { getCurrentDataLanguageSuffix } from "@/utils/language"
 import DropDownButton from "devextreme-react/drop-down-button"
 import Form, { Item } from "devextreme-react/form"
@@ -35,6 +39,7 @@ import { createPopupShortcutWrapperAttr, isPopupShortcutScopeTopMost, usePopupSh
 import useShortcutBindings from "@/hooks/useShortcutBindings"
 import useStateRef from "@/hooks/useStateRef"
 import type { ChitInfo, InventoryInputLine, InventoryOutputLine, InventoryVoucher } from "@/types/voucher"
+import type { CustomerExt } from "@/types/customerExt"
 import { getVoucherRouteByChitType, normalizeChitRows } from "@/pages/VoucherManagement/chitUtils"
 import {
   buildInventoryAccountingReferenceOptions,
@@ -1008,6 +1013,34 @@ export default function InventoryEditorPopup({
                 editorType="dxTextBox"
                 label={{ text: t("PAYER_INFO", "Payer") }}
                 editorOptions={createVoucherEditorOptions()}
+              />
+              <Item
+                dataField="CUSTOMER_ID"
+                label={{ text: t("CUSTOMER_CD", "Customer") }}
+                render={({ component }) => (
+                  <MasterLookupFormField<CustomerExt>
+                    form={component}
+                    dataField="CUSTOMER_ID"
+                    dataSource={customerLookupStore}
+                    valueExpr="CUSTOMER_ID"
+                    getValue={(item) => item.CUSTOMER_ID}
+                    onApplyItem={(item) => component.updateData("CUSTOMER_CD", item.CUSTOMER_CD ?? "")}
+                    onClear={() => component.updateData("CUSTOMER_CD", "")}
+                    displayExpr={(item) => {
+                      if (!item) return ""
+                      const code = String(item.CUSTOMER_CD ?? "").trim()
+                      const name = getCustomerLookupName(item, `CUSTOMER_NM_${getCurrentDataLanguageSuffix()}`)
+                      return code && name ? `${code} - ${name}` : code || name
+                    }}
+                    placeholder={t("SELECT", "Select")}
+                    popupTitle={t("CUSTOMER_LIST", "Customers")}
+                    buttonHint={t("SEARCH", "Open customer list")}
+                    searchExpr={buildCustomerLookupSearchExpr(`CUSTOMER_NM_${getCurrentDataLanguageSuffix()}`)}
+                    renderPopupContent={({ closePopup, onPick }) =>
+                      renderSharedCustomerLookupPage({ closePopup, onPick })
+                    }
+                  />
+                )}
               />
               <Item
                 dataField="CHIT_NO"

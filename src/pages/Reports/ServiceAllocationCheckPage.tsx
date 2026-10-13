@@ -1,4 +1,5 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { useLocation } from "react-router-dom"
 import DataGrid, {
   Column,
   ColumnFixing,
@@ -7,8 +8,6 @@ import DataGrid, {
   MasterDetail,
   Scrolling,
   StateStoring,
-  Summary,
-  TotalItem,
 } from "devextreme-react/data-grid"
 import SelectBox from "devextreme-react/select-box"
 import notify from "devextreme/ui/notify"
@@ -29,8 +28,15 @@ import { exportToExcel } from "@/lib/excelUtils"
 import type { ColumnConfig } from "@/types/table"
 import { customerLookupStore } from "@/components/lookup/customerLookupStore"
 import { ReportToolbar } from "@/components/toolbar/ReportToolbar"
+import { useWorkspaceTabRoute } from "@/components/workspaceTabs/WorkspaceTabs"
 import DxPage from "@/dx/DxPage"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { resolveSysGridColumnDisplayCaption } from "@/lib/gridColumnSettingUtils"
+import {
+  readWorkspaceTabState,
+  SERVICE_ALLOCATION_CHECK_TAB_STATE_KEY,
+  writeWorkspaceTabState,
+} from "@/lib/workspaceTabStateCache"
 import { useSysGridColumnSettings } from "@/lib/sysGridColumnSettingContext"
 import { formatDateToYmd, formatYmdForDisplay } from "@/pages/Accounting/accountingDateUtils"
 import type { CustomerExt } from "@/types/customerExt"
@@ -41,6 +47,17 @@ const GRID_ID = "AP_UTILITY_CHECK_ALLOC"
 const DETAIL_GRID_ID = "AP_UTILITY_CHECK_ALLOC_DETAIL"
 const FORMAT_NUMBER = "#,##0"
 const TOOLBAR_FIELD = "page-toolbar__field"
+
+type ServiceAllocationCheckTabState = {
+  fromDate: Date | null
+  toDate: Date | null
+  customerId: number | null
+  allocationFilter: 0 | 1 | null
+  searchText: string
+  rows: ServiceAllocationVoucher[]
+  hasLoaded: boolean
+  appliedFilters: ServiceAllocationFilters | null
+}
 
 type ColumnDef = {
   field: string
@@ -96,7 +113,13 @@ function getColumns(
       const original = available.get(setting.FIELD_NAME.toUpperCase())!
       return {
         ...original,
-        caption: translate(setting.LABEL_TEXT || original.field, setting.CAPTION || original.caption),
+        caption: resolveSysGridColumnDisplayCaption(
+          setting.LABEL_TEXT,
+          setting.COLUMN_LABEL_TEXT,
+          setting.FIELD_NAME,
+          setting.CAPTION || original.caption,
+          translate,
+        ),
         width: setting.COLUMN_WIDTH ?? original.width,
         visible: setting.IS_VISIBLE !== "0",
         allowHiding: setting.ALLOW_HIDING !== "0",
@@ -180,22 +203,46 @@ function ServiceAllocationDetailGrid({ data }: {
 }
 
 export default function ServiceAllocationCheckPage() {
+  const location = useLocation()
+  const tabRoute = useWorkspaceTabRoute()
+  const cacheTabId = tabRoute?.tabId ?? location.key
+  const [restoredTabState] = useState(() =>
+    readWorkspaceTabState<ServiceAllocationCheckTabState>(cacheTabId, SERVICE_ALLOCATION_CHECK_TAB_STATE_KEY),
+  )
   const [fromDate, setFromDate] = useState<Date | null>(() => {
+    if (restoredTabState) return restoredTabState.fromDate
     const today = new Date()
     return new Date(today.getFullYear(), today.getMonth(), 1)
   })
-  const [toDate, setToDate] = useState<Date | null>(() => new Date())
-  const [customerId, setCustomerId] = useState<number | null>(null)
-  const [allocationFilter, setAllocationFilter] = useState<0 | 1 | null>(null)
-  const [rows, setRows] = useState<ServiceAllocationVoucher[]>([])
+  const [toDate, setToDate] = useState<Date | null>(() => restoredTabState ? restoredTabState.toDate : new Date())
+  const [customerId, setCustomerId] = useState<number | null>(() => restoredTabState?.customerId ?? null)
+  const [allocationFilter, setAllocationFilter] = useState<0 | 1 | null>(() => restoredTabState?.allocationFilter ?? null)
+  const [rows, setRows] = useState<ServiceAllocationVoucher[]>(() => restoredTabState?.rows ?? [])
+  const [hasLoaded, setHasLoaded] = useState(() => restoredTabState?.hasLoaded ?? false)
+  const [appliedFilters, setAppliedFilters] = useState<ServiceAllocationFilters | null>(
+    () => restoredTabState?.appliedFilters ?? null,
+  )
   const [loading, setLoading] = useState(false)
-  const [searchText, setSearchText] = useState("")
+  const [searchText, setSearchText] = useState(() => restoredTabState?.searchText ?? "")
   const [columnSettingsVisible, setColumnSettingsVisible] = useState(false)
   const [columnSettingsLoading, setColumnSettingsLoading] = useState(false)
   const [columnSettingsItems, setColumnSettingsItems] = useState<GridColumnSettingEditorItem[]>([])
   const requestVersion = useRef(0)
-  const appliedFiltersRef = useRef<ServiceAllocationFilters | null>(null)
+  const autoLoadStartedRef = useRef(false)
   const masterGridRef = useRef<dxDataGrid | null>(null)
+
+  useEffect(() => {
+    writeWorkspaceTabState<ServiceAllocationCheckTabState>(cacheTabId, SERVICE_ALLOCATION_CHECK_TAB_STATE_KEY, {
+      fromDate,
+      toDate,
+      customerId,
+      allocationFilter,
+      searchText,
+      rows,
+      hasLoaded,
+      appliedFilters,
+    })
+  }, [allocationFilter, appliedFilters, cacheTabId, customerId, fromDate, hasLoaded, rows, searchText, toDate])
 
   const { getGridColumnSettings } = useSysGridColumnSettings()
   const columnSettingState = useGridColumnSettingState({
@@ -234,14 +281,17 @@ export default function ServiceAllocationCheckPage() {
     { value: 1, label: t("SERVICE_NOT_ALLOCATED", "Chưa phân bổ") },
   ], [t])
 
-  // Form values are drafts. The API only receives filters after Search.
+  // Load the initial filters once; subsequent form changes remain drafts until Search.
   // Refresh reuses the last submitted filters, never unsent form changes.
   const loadSubmittedFilters = useCallback(async (filters: ServiceAllocationFilters) => {
     const currentRequest = ++requestVersion.current
     setLoading(true)
     try {
       const result = await getServiceAllocationCheck(filters)
-      if (currentRequest === requestVersion.current) setRows(result.ITEMS)
+      if (currentRequest === requestVersion.current) {
+        setRows(result.ITEMS)
+        setHasLoaded(true)
+      }
     } catch (error) {
       if (currentRequest === requestVersion.current) {
         notify(getApiErrorMessage(error, t("LOAD_ERROR", "Không thể tải dữ liệu")), "error", 4000)
@@ -265,22 +315,33 @@ export default function ServiceAllocationCheckPage() {
       customerId,
       allocationFilter,
     }
-    appliedFiltersRef.current = submittedFilters
+    setAppliedFilters(submittedFilters)
     void loadSubmittedFilters(submittedFilters)
   }, [allocationFilter, customerId, fromDate, loadSubmittedFilters, t, toDate])
 
   const handleRefresh = useCallback(() => {
-    const filters = appliedFiltersRef.current
+    const filters = appliedFilters
     if (!filters) {
       notify(t("SEARCH_FIRST", "Vui lòng nhấn Tìm kiếm để tải dữ liệu"), "info", 2500)
       return
     }
     void loadSubmittedFilters(filters)
-  }, [loadSubmittedFilters, t])
+  }, [appliedFilters, loadSubmittedFilters, t])
 
   useEffect(() => () => {
     requestVersion.current += 1
+    autoLoadStartedRef.current = false
   }, [])
+
+  useEffect(() => {
+    if (restoredTabState?.hasLoaded || autoLoadStartedRef.current) return
+    autoLoadStartedRef.current = true
+    if (restoredTabState?.appliedFilters) {
+      void loadSubmittedFilters(restoredTabState.appliedFilters)
+    } else {
+      handleSearch()
+    }
+  }, [handleSearch, loadSubmittedFilters, restoredTabState])
 
   const handleExportExcel = useCallback(async () => {
     // The main DataGrid data source contains filtered/sorted master records only.
