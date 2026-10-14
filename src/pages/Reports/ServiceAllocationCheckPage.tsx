@@ -48,6 +48,11 @@ const GRID_ID = "AP_UTILITY_CHECK_ALLOC"
 const DETAIL_GRID_ID = "AP_UTILITY_CHECK_ALLOC_DETAIL"
 const FORMAT_NUMBER = "#,##0"
 const TOOLBAR_FIELD = "page-toolbar__field"
+const ALLOCATION_FILTER_BY_CODE: Record<string, 0 | 1 | null> = {
+  ALL: null,
+  SERVICE_ALLOCATED: 0,
+  SERVICE_NOT_ALLOCATED: 1,
+}
 
 type ServiceAllocationCheckTabState = {
   fromDate: Date | null
@@ -276,17 +281,33 @@ export default function ServiceAllocationCheckPage() {
     )
   }, [rows, searchText])
 
-  const { getCodesByType } = useSysCodes()
-  const statuses = useMemo(() => {
-    const options = getCodesByType("ALLOCATION_STATUS")
-      .filter((code) => code.CODE_CD.trim() === "0" || code.CODE_CD.trim() === "1")
-      .map((code) => ({
-        value: Number(code.CODE_CD) as 0 | 1,
-        label: t(code.CODE_NAME, code.CODE_NAME),
-      }))
+  const { getCodesByType, refreshSysCodes, sysCodeMap } = useSysCodes()
+  const allocationStatusCodes = getCodesByType("ALLOCATION_STATUS")
+  const statusRefreshAttemptedRef = useRef(false)
 
-    return [{ value: null, label: t("ALL", "Tất cả") }, ...options]
-  }, [getCodesByType, t])
+  useEffect(() => {
+    // A newly configured code type may be absent from an existing sys-code cache.
+    if (statusRefreshAttemptedRef.current || allocationStatusCodes.length > 0 || Object.keys(sysCodeMap).length === 0) {
+      return
+    }
+
+    statusRefreshAttemptedRef.current = true
+    void refreshSysCodes().catch((error) => {
+      notify(getApiErrorMessage(error, t("LOAD_ERROR", "Không thể tải trạng thái phân bổ")), "error", 4000)
+    })
+  }, [allocationStatusCodes.length, refreshSysCodes, sysCodeMap, t])
+
+  const statuses = useMemo(() =>
+    allocationStatusCodes
+      .filter((code) => Object.prototype.hasOwnProperty.call(ALLOCATION_FILTER_BY_CODE, code.CODE_CD.trim()))
+      .map((code) => {
+        const nameKey = code.CODE_NAME.trim() || code.CODE_CD.trim()
+        return {
+          value: ALLOCATION_FILTER_BY_CODE[code.CODE_CD.trim()],
+          label: t(nameKey, code.NOTE?.trim() || nameKey),
+        }
+      }),
+  [allocationStatusCodes, t])
 
   // Load the initial filters once; subsequent form changes remain drafts until Search.
   // Refresh reuses the last submitted filters, never unsent form changes.
