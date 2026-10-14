@@ -31,6 +31,7 @@ import { ReportToolbar } from "@/components/toolbar/ReportToolbar"
 import { useWorkspaceTabRoute } from "@/components/workspaceTabs/WorkspaceTabs"
 import DxPage from "@/dx/DxPage"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { useSysCodes } from "@/lib/sysCodeContext"
 import { resolveSysGridColumnDisplayCaption } from "@/lib/gridColumnSettingUtils"
 import {
   readWorkspaceTabState,
@@ -275,11 +276,17 @@ export default function ServiceAllocationCheckPage() {
     )
   }, [rows, searchText])
 
-  const statuses = useMemo(() => [
-    { value: null, label: t("ALL", "Tất cả") },
-    { value: 0, label: t("SERVICE_ALLOCATED", "Đã phân bổ") },
-    { value: 1, label: t("SERVICE_NOT_ALLOCATED", "Chưa phân bổ") },
-  ], [t])
+  const { getCodesByType } = useSysCodes()
+  const statuses = useMemo(() => {
+    const options = getCodesByType("ALLOCATION_STATUS")
+      .filter((code) => code.CODE_CD.trim() === "0" || code.CODE_CD.trim() === "1")
+      .map((code) => ({
+        value: Number(code.CODE_CD) as 0 | 1,
+        label: t(code.CODE_NAME, code.CODE_NAME),
+      }))
+
+    return [{ value: null, label: t("ALL", "Tất cả") }, ...options]
+  }, [getCodesByType, t])
 
   // Load the initial filters once; subsequent form changes remain drafts until Search.
   // Refresh reuses the last submitted filters, never unsent form changes.
