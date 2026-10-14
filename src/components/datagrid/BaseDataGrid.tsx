@@ -140,6 +140,7 @@ interface BaseDataGridProps<T> {
     onContentReady?: (e: ContentReadyEvent) => void;
     onToolbarPreparing?: (e: ToolbarPreparingEvent) => void;
     onContextMenuPreparing?: (e: ContextMenuPreparingEvent) => void;
+    onCellClick?: (e: CellClickEvent) => void;
     onContextMenuUpdate?: (rowData: T) => void;
     onContextMenuCopy?: (rowData: T) => void;
     onContextMenuDelete?: (rowData: T) => void;
@@ -153,11 +154,13 @@ interface BaseDataGridProps<T> {
     onFocusedRowChanged?: (e: FocusedRowChangedEvent) => void;
     onRowPrepared?: (e: RowPreparedEvent) => void;
     defaultSelectedRowKeys?: Array<string | number>;
-    selectMode?: "single" | "multiple";
+    selectMode?: "none" | "single" | "multiple";
     selectAllMode?: "allPages" | "page";
     focusRowEnabled?: boolean;
     autoNavigateToFocusedRow?: boolean;
     selectByClick?: boolean;
+    enableModifierSelection?: boolean;
+    enableDragSelection?: boolean;
     pagingEnabled?: boolean;
     showPager?: boolean;
     pageSize?: number;
@@ -173,6 +176,8 @@ interface BaseDataGridProps<T> {
     onRowRemoved?: (e: RowRemovedEvent) => void;
     onEditorPreparing?: (e: EditorPreparingEvent) => void;
     wordWrapEnabled?: boolean;
+    keyboardNavigation?: DataGridTypes.Properties["keyboardNavigation"];
+    showGridFilters?: boolean;
   onOptionChanged?: (e: OptionChangedEvent) => void;    
     columnSettingStateRef?: React.MutableRefObject<GridColumnSettingState | null>;
     runtimeColumnVisibility?: RuntimeColumnVisibilityOptions;
@@ -202,6 +207,7 @@ export function BaseDataGrid<T>({
     onContentReady,
     onToolbarPreparing,
     onContextMenuPreparing,
+    onCellClick,
     onContextMenuUpdate,
     onContextMenuCopy,
     onContextMenuDelete,
@@ -219,6 +225,8 @@ export function BaseDataGrid<T>({
     selectMode = "multiple",
     selectAllMode = "allPages",
     selectByClick = true,
+    enableModifierSelection = false,
+    enableDragSelection = false,
     focusRowEnabled = false,
     autoNavigateToFocusedRow = true,
     pagingEnabled = true,
@@ -236,6 +244,8 @@ export function BaseDataGrid<T>({
     remoteOperations,
     loadPanelEnabled = false,
     wordWrapEnabled,
+    keyboardNavigation,
+    showGridFilters = true,
     columnSettingStateRef,
     runtimeColumnVisibility,
     onAdd,
@@ -259,6 +269,15 @@ export function BaseDataGrid<T>({
         columnSettingStateRef.current = columnSettingState;
     }
     const gridInstanceRef = React.useRef<GridComponentInstance | null>(null);
+    const dragSelectionRef = React.useRef<{
+        pointerId: number;
+        startY: number;
+        startKeyToken: string;
+        preserveSelection: boolean;
+        active: boolean;
+        lastRangeToken: string;
+    } | null>(null);
+    const suppressClickAfterDragRef = React.useRef(false);
     const onAddRef = React.useRef(onAdd);
     onAddRef.current = onAdd;
     const [columnSettingsVisible, setColumnSettingsVisible] = React.useState(false);
@@ -619,7 +638,118 @@ export function BaseDataGrid<T>({
     const gridKeyExprProps =
         shouldApplyDataGridKeyExpr(dataSource) && keyExpr ? { keyExpr } : {};
 
+    const selectionKeyToken = (key: unknown) => `${typeof key}:${String(key)}`;
+
+    const getSelectionRowElement = (target: EventTarget | null) => {
+        if (!(target instanceof Element)) {
+            return null;
+        }
+        return target.closest<HTMLElement>("tr.dx-data-row[data-base-grid-selection-key]");
+    };
+
+    const handleDragSelectionPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+        if (!enableDragSelection || selectMode !== "multiple" || event.pointerType !== "mouse" || event.button !== 0) {
+            return;
+        }
+
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target || target.closest(".dx-command-select, .dx-select-checkbox, button, a, input, textarea, select, [contenteditable='true']")) {
+            return;
+        }
+
+        const rowElement = getSelectionRowElement(event.target);
+        const startKeyToken = rowElement?.dataset.baseGridSelectionKey;
+        if (!startKeyToken) {
+            return;
+        }
+
+        dragSelectionRef.current = {
+            pointerId: event.pointerId,
+            startY: event.clientY,
+            startKeyToken,
+            preserveSelection: Boolean(event.ctrlKey || event.metaKey),
+            active: false,
+            lastRangeToken: "",
+        };
+    };
+
+    const handleDragSelectionPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+        const drag = dragSelectionRef.current;
+        if (!enableDragSelection || !drag || drag.pointerId !== event.pointerId) {
+            return;
+        }
+
+        if (!drag.active && Math.abs(event.clientY - drag.startY) < 5) {
+            return;
+        }
+
+        const target = document.elementFromPoint(event.clientX, event.clientY);
+        const rowElement = getSelectionRowElement(target);
+        const targetKeyToken = rowElement?.dataset.baseGridSelectionKey;
+        const component = gridInstanceRef.current;
+        if (!targetKeyToken || !component) {
+            return;
+        }
+
+        const visibleKeys = (component.getVisibleRows?.() ?? [])
+            .filter((row) => (row as { rowType?: string }).rowType === "data")
+            .map((row) => (row as { key?: unknown }).key)
+            .filter((key): key is string | number => typeof key === "string" || typeof key === "number");
+        const startIndex = visibleKeys.findIndex((key) => selectionKeyToken(key) === drag.startKeyToken);
+        const targetIndex = visibleKeys.findIndex((key) => selectionKeyToken(key) === targetKeyToken);
+        if (startIndex < 0 || targetIndex < 0) {
+            return;
+        }
+
+        const firstIndex = Math.min(startIndex, targetIndex);
+        const lastIndex = Math.max(startIndex, targetIndex);
+        const rangeKeys = visibleKeys.slice(firstIndex, lastIndex + 1);
+        const rangeToken = rangeKeys.map(selectionKeyToken).join("|");
+        drag.active = true;
+        event.preventDefault();
+        if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.setPointerCapture(event.pointerId);
+        }
+
+        if (rangeToken !== drag.lastRangeToken) {
+            drag.lastRangeToken = rangeToken;
+            component.selectRows(rangeKeys as never[], drag.preserveSelection);
+        }
+    };
+
+    const finishDragSelection = (event: React.PointerEvent<HTMLDivElement>) => {
+        const drag = dragSelectionRef.current;
+        if (!drag || drag.pointerId !== event.pointerId) {
+            return;
+        }
+        dragSelectionRef.current = null;
+        if (drag.active) {
+            suppressClickAfterDragRef.current = true;
+            window.setTimeout(() => {
+                suppressClickAfterDragRef.current = false;
+            }, 0);
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                event.currentTarget.releasePointerCapture(event.pointerId);
+            }
+        }
+    };
+
+    const handleRowPreparedInternal = (event: RowPreparedEvent<T>) => {
+        if (enableDragSelection && event.rowType === "data") {
+            const dxElement = event.rowElement as unknown as HTMLElement & { 0?: HTMLElement; get?: (index: number) => HTMLElement };
+            const rowNode = dxElement instanceof HTMLElement ? dxElement : dxElement[0] ?? dxElement.get?.(0);
+            rowNode?.setAttribute("data-base-grid-selection-key", selectionKeyToken(event.key));
+        }
+        onRowPrepared?.(event);
+    };
+
     const handleCellClickInternal = (e: CellClickEvent) => {
+        if (suppressClickAfterDragRef.current) {
+            suppressClickAfterDragRef.current = false;
+            e.event?.preventDefault();
+            return;
+        }
+        onCellClick?.(e);
         if (e.rowType !== "data" || selectMode !== "multiple") {
             return;
         }
@@ -628,8 +758,23 @@ export function BaseDataGrid<T>({
         const columnType = e.column?.type;
         const isSelectionColumn = columnType === "selection" || columnCommand === "select";
         const isCommandColumn = columnType === "buttons";
+        const clickTarget = e.event?.target instanceof Element ? e.event.target : null;
+        const clickedSelectionControl = Boolean(clickTarget?.closest(".dx-command-select, .dx-select-checkbox"));
 
-        if (isSelectionColumn || isCommandColumn || e.key === undefined || e.key === null) {
+        if (isSelectionColumn || clickedSelectionControl || isCommandColumn || e.key === undefined || e.key === null) {
+            return;
+        }
+
+        const nativeEvent = e.event as MouseEvent | undefined;
+        const modifierPressed = enableModifierSelection && Boolean(nativeEvent?.ctrlKey || nativeEvent?.metaKey);
+        if (modifierPressed) {
+            const selectedKeys = e.component.getSelectedRowKeys?.() ?? [];
+            const isAlreadySelected = selectedKeys.some((key) => key === e.key);
+            if (isAlreadySelected) {
+                e.component.deselectRows([e.key]);
+            } else {
+                e.component.selectRows([e.key], true);
+            }
             return;
         }
 
@@ -684,7 +829,13 @@ export function BaseDataGrid<T>({
 
     return (
         <MasterPopupValidationContext.Provider value={popupValidation}>
-        <div className={`data-grid-container relative h-full w-full${emptyAddAvailable && isGridEmpty ? " data-grid-container--empty-add" : ""}`}>
+        <div
+            className={`data-grid-container relative h-full w-full${emptyAddAvailable && isGridEmpty ? " data-grid-container--empty-add" : ""}`}
+            onPointerDown={handleDragSelectionPointerDown}
+            onPointerMove={handleDragSelectionPointerMove}
+            onPointerUp={finishDragSelection}
+            onPointerCancel={finishDragSelection}
+        >
             <DataGrid
                 key={gridRemountKey}
                 loadPanel={{ enabled: loadPanelEnabled }}
@@ -704,6 +855,7 @@ export function BaseDataGrid<T>({
                 autoNavigateToFocusedRow={focusRowEnabled ? autoNavigateToFocusedRow : false}
                 hoverStateEnabled
                 wordWrapEnabled={wordWrapEnabled}
+                keyboardNavigation={keyboardNavigation}
                 remoteOperations={remoteOperations}
                 rowAlternationEnabled
                 onFocusedRowChanged={onFocusedRowChanged}
@@ -722,7 +874,7 @@ export function BaseDataGrid<T>({
                 onCellPrepared={(event: CellPreparedEvent) => {
                     applyHeaderFieldNameTooltip(event);
                 }}
-                onRowPrepared={onRowPrepared}
+                onRowPrepared={handleRowPreparedInternal}
                 defaultSelectedRowKeys={defaultSelectedRowKeys}
                 onToolbarPreparing={(e) => {
                     handleToolbarPreparingDefault(e);
@@ -767,10 +919,14 @@ export function BaseDataGrid<T>({
                     onInitNewRow?.(e);
                 }}
             >
-                <HeaderFilter visible />
-                <FilterRow showOperationChooser />
-                <FilterPanel />
-                <FilterBuilderPopup />
+                {showGridFilters ? (
+                    <>
+                        <HeaderFilter visible />
+                        <FilterRow showOperationChooser />
+                        <FilterPanel />
+                        <FilterBuilderPopup />
+                    </>
+                ) : null}
 
                 <Selection
                     mode={selectMode}

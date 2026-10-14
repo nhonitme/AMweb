@@ -1,7 +1,8 @@
-import type { ComponentType, MutableRefObject } from "react"
+import type { ComponentType, MutableRefObject, ReactNode } from "react"
 
 import type { GridColumnSettingState } from "@/components/datagrid/useGridColumnSettingState"
-import type { ChitInfo, ChitType } from "@/types/voucher"
+import type { ChitDetail, ChitInfo, ChitType } from "@/types/voucher"
+import type { LinkedInventoryTarget } from "@/pages/Inventory/inventoryAccountingLinkUtils"
 
 import { ChitDetailGridPopup, type ChitDetailGridHandle } from "./ChitDetailGridPopup"
 import type { VoucherDetailColumnsProps } from "./ChitDetailColumnsPopup"
@@ -17,9 +18,16 @@ interface ChitDocumentEditorPanelProps {
   readOnly?: boolean
   layoutVersion: number
   DetailColumns?: ComponentType<VoucherDetailColumnsProps>
+  quickCreateCustomer?: boolean
   screenCd: string
   gridId: string
   columnSettingStateRef: MutableRefObject<GridColumnSettingState | null>
+  onOpenInventory?: (row: ChitDetail, target?: LinkedInventoryTarget) => Promise<void>
+  inventoryBusy?: boolean
+  pendingInventoryRowKeys?: string[]
+  inventoryRefreshVersion?: number
+  showInventoryLinkActions?: boolean
+  linkSlot?: ReactNode
 }
 
 export default function ChitDocumentEditorPanel({
@@ -33,9 +41,16 @@ export default function ChitDocumentEditorPanel({
   readOnly = false,
   layoutVersion,
   DetailColumns,
+  quickCreateCustomer = false,
   screenCd,
   gridId,
   columnSettingStateRef,
+  onOpenInventory,
+  inventoryBusy,
+  pendingInventoryRowKeys,
+  inventoryRefreshVersion,
+  showInventoryLinkActions,
+  linkSlot,
 }: ChitDocumentEditorPanelProps) {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden pt-2">
@@ -51,10 +66,17 @@ export default function ChitDocumentEditorPanel({
         readOnly={readOnly}
         layoutVersion={layoutVersion}
         ChitDetailColumns={DetailColumns}
+        quickCreateCustomer={quickCreateCustomer}
         screenCd={screenCd}
         gridId={gridId}
         persistColumnSettings={true}
         columnSettingStateRef={columnSettingStateRef}
+        onOpenInventory={onOpenInventory}
+        inventoryBusy={inventoryBusy}
+        pendingInventoryRowKeys={pendingInventoryRowKeys}
+        inventoryRefreshVersion={inventoryRefreshVersion}
+        showInventoryLinkActions={showInventoryLinkActions}
+        linkSlot={linkSlot}
       />
     </div>
   )

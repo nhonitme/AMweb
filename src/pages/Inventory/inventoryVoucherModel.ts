@@ -214,8 +214,6 @@ export function createDefaultInventoryOutputLine(
   sort = 1,
 ): InventoryOutputLine {
   return {
-    COGS_DEBIT: "",
-    COGS_CREDIT: "",
     ROW_KEY: createRowKey(),
     OUTPUT_ID: null,
     OUTPUT_CD: "",
@@ -249,11 +247,15 @@ export function createDefaultInventoryOutputLine(
     UNIT_NM_CHINA: "",
     QUANTITY: 1,
     UNIT_PRICE_CC: null,
+    REVENUE_UNIT_PRICE_CC: null,
     FC_TYPE: DEFAULT_CURRENCY_CODE,
     UNIT_PRICE_FC: 0,
+    REVENUE_UNIT_PRICE_FC: 0,
     EXCHANGE_RATES: 0,
     AMOUNT_CC: null,
+    REVENUE_AMOUNT_CC: null,
     AMOUNT_FC: 0,
+    REVENUE_AMOUNT_FC: 0,
     SUMMARY: "",
     INVENTORY_YMD: headerDate ?? null,
     INPUT_INVENTORY_YMD: headerDate ?? null,
@@ -282,6 +284,7 @@ export function createDefaultInventoryVoucher(
     CHIT_NO: "",
     CHIT_YMD: headerDate,
     CHIT_TYPE: chitType,
+    IS_COGS: false,
     AMOUNT: 0,
     TOTAL_QTY: 0,
     REMARK: "",
@@ -403,6 +406,7 @@ export function createInventoryVoucherCopy(
     ...base,
     ...source,
     COGS: null,
+    IS_COGS: false,
     CHIT_ID: null,
     COMPANY_CD: targetCompanyCd,
     INPUT_TYPE: getInventoryLedger(chitType),
@@ -410,6 +414,7 @@ export function createInventoryVoucherCopy(
     CHIT_NO: "",
     CHIT_YMD: headerDate,
     CHIT_TYPE: chitType,
+    IS_COGS: toBool(item.IS_COGS) || Boolean(item.COGS),
     AMOUNT: calculateInventoryAmount(activeLines),
     ISDEL: false,
     IS_LOCK: false,
@@ -596,11 +601,15 @@ function createAdjustmentInputFromOutput(
     UNIT_NM_CHINA: output.UNIT_NM_CHINA,
     QUANTITY: output.QUANTITY,
     UNIT_PRICE_CC: output.UNIT_PRICE_CC,
+    REVENUE_UNIT_PRICE_CC: output.REVENUE_UNIT_PRICE_CC,
     FC_TYPE: output.FC_TYPE,
     UNIT_PRICE_FC: output.UNIT_PRICE_FC,
+    REVENUE_UNIT_PRICE_FC: output.REVENUE_UNIT_PRICE_FC,
     EXCHANGE_RATES: output.EXCHANGE_RATES,
     AMOUNT_CC: output.AMOUNT_CC,
+    REVENUE_AMOUNT_CC: output.REVENUE_AMOUNT_CC,
     AMOUNT_FC: output.AMOUNT_FC,
+    REVENUE_AMOUNT_FC: output.REVENUE_AMOUNT_FC,
     SUMMARY: output.SUMMARY,
     INVENTORY_YMD: inputDate,
     STATE: output.STATE,
@@ -638,13 +647,6 @@ export function mapInventoryVoucherToApiPayload(record: InventoryVoucher): Inven
     : record.CHIT_TYPE === "IA"
       ? adjustmentOutputs
     : []
-  if (record.CHIT_TYPE === "IO") {
-    for (const line of activeOutputs) {
-      if (line.AMOUNT_CC === null || !Number.isFinite(line.AMOUNT_CC) || line.AMOUNT_CC < 0) {
-        throw new Error(`Dòng xuất kho ${line.PRODUCT_CD}: giá vốn không hợp lệ hoặc chưa được nhập.`)
-      }
-    }
-  }
   const totalAmount = record.CHIT_TYPE === "IR"
     ? calculateInventoryAmount(activeInputs)
     : record.CHIT_TYPE === "IO"
@@ -660,6 +662,7 @@ export function mapInventoryVoucherToApiPayload(record: InventoryVoucher): Inven
     CHIT_NO: trimText(record.CHIT_NO),
     CHIT_YMD: formatInventoryDate(record.CHIT_YMD),
     CHIT_TYPE: record.CHIT_TYPE,
+    IS_COGS: toFlag(record.IS_COGS),
     AMOUNT: totalAmount,
     TOTAL_QTY: totalQty,
     REMARK: trimText(record.REMARK) || trimText(record.NOTE),

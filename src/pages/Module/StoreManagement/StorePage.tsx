@@ -282,6 +282,8 @@ const handleToolbarDelete = async () => {
 
     >
         <BaseDataGrid<StoreInfo>
+          enableModifierSelection
+          enableDragSelection
           dataSource={gridData}
           keyExpr="STORE_ID"
           menuCode={menuCode}

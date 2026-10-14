@@ -34,7 +34,7 @@ import { LanguageContext } from "@/lib/i18nLoader"
 import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults"
 import { getCurrentCompanyCd, getCurrentUserId } from "@/lib/login"
 import type { GridColumnSettingEditorItem } from "@/types/sysGridColumnSetting"
-import type { InventoryInputType, InventoryVoucher } from "@/types/voucher"
+import type { InventoryInputType, InventoryVoucher, VoucherOpenLocationState } from "@/types/voucher"
 import ChitColumns from "@/pages/VoucherManagement/components/ChitColumns"
 import {
   buildInventoryAccountingReferenceOptions,
@@ -192,6 +192,7 @@ export default function InventoryManagementPage({
   const [columnSettingsVisible, setColumnSettingsVisible] = useState(false)
   const [columnSettingsTabs, setColumnSettingsTabs] = useState<GridColumnSettingsPopupTab[]>([])
   const [isUpdate, setIsUpdate] = useState(false)
+  const [initialIssueTab, setInitialIssueTab] = useState<"output" | "cogs">("output")
   const [pageNumber, setPageNumber] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [, setTotalRecords] = useState(0)
@@ -350,6 +351,10 @@ export default function InventoryManagementPage({
     async (openChitId: number): Promise<boolean> => {
       setPopupLoading(true)
       try {
+        const navigationState = location.state as VoucherOpenLocationState | null
+        const requestedTab = navigationState?.openTab
+          ?? new URLSearchParams(location.search).get("openTab")
+        setInitialIssueTab(requestedTab === "cogs" ? "cogs" : "output")
         const targetRow = await loadInventoryVoucherForDirectOpen(ledger, chitType, openChitId)
         if (!targetRow) {
           notify(t("SOURCE_VOUCHER_NOT_FOUND", "Source voucher not found"), "warning", 3000)
@@ -367,7 +372,7 @@ export default function InventoryManagementPage({
         setPopupLoading(false)
       }
     },
-    [chitType, ledger, t],
+    [chitType, ledger, location.search, location.state, t],
   )
 
   const openChitRoute = useVoucherOpenChitIdRoute({
@@ -432,6 +437,7 @@ export default function InventoryManagementPage({
 
   const openEditor = useCallback((record: InventoryVoucher, update: boolean) => {
     selectedChitIdRef.current = record.CHIT_ID ?? null
+    setInitialIssueTab("output")
     setEditingRow(ensureInventoryDefaultLine(record))
     setIsUpdate(update)
     setPopupVisible(true)
@@ -633,9 +639,14 @@ export default function InventoryManagementPage({
       setSelectedRow(saved)
       selectedChitIdRef.current = saved.CHIT_ID ?? null
       setSelectedLines(getInventoryDetailLines(saved, chitType))
-      notify(result.message || t("SAVE_SUCCESS", "Saved successfully"), "success", 2000)
+      const cogsVoucherNo = String(saved.COGS?.CHIT_NO ?? "").trim()
+      const saveMessage = saved.IS_COGS
+        ? `${isUpdate ? t("INVENTORY_COGS_UPDATED", "Đã cập nhật") : t("INVENTORY_COGS_CREATED", "Đã tạo")} ${t("INVENTORY_COGS_VOUCHER", "phiếu giá vốn")}${cogsVoucherNo ? ` ${cogsVoucherNo}` : ""} ${t("INVENTORY_COGS_LOCATION_OT", "trong Phiếu khác (OT)")}.`
+        : result.message || t("SAVE_SUCCESS", "Saved successfully")
+      notify(saveMessage, "success", 3000)
 
       if (reopenNew) {
+        setInitialIssueTab("output")
         setEditingRow(createDefaultInventoryVoucher(chitType, getCurrentCompanyCd(), getCurrentUserId()))
         setIsUpdate(false)
         setPopupVisible(true)
@@ -1118,6 +1129,7 @@ export default function InventoryManagementPage({
       <InventoryEditorPopup
         visible={popupVisible}
         value={editingRow}
+        initialIssueTab={initialIssueTab}
         chitType={chitType}
         voucherLabel={title}
         isUpdate={isUpdate}

@@ -16,7 +16,7 @@
   padding: 11px 14px;
   font-size: 12.5px;
   font-weight: 600;
-  color: #6b7280;
+  color: #374151;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   white-space: nowrap;
@@ -28,8 +28,8 @@
 }
 
 .module-sub-tabs__tab--active {
-  color: #2563eb;
-  border-bottom-color: #2563eb;
+  color: #1d4ed8;
+  border-bottom-color: #1d4ed8;
 }
 
 .module-sub-tabs__tab:disabled {

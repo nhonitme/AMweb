@@ -525,7 +525,7 @@
 
 /*
  * Company switcher chip in the Header's top-right icon cluster (moved out
- * of the breadcrumb) — a rounded two-line "icon + code + name" card. Its
+ * of the breadcrumb) — a compact code chip. Its
  * visible content is entirely custom (see renderCompanySwitcherField in
  * Header.tsx via the SelectBox fieldRender prop); the SelectBox's own
  * outlined border/background is stripped here so only our card shows, and
@@ -552,7 +552,7 @@
   align-items: center;
   gap: 8px;
   height: 40px;
-  padding: 4px 10px 4px 4px;
+  padding: 4px 10px 4px 12px;
   border-radius: 12px;
   border: 1px solid #bfdbfe;
   background-color: #eff6ff;
@@ -584,14 +584,6 @@
   align-items: baseline;
   gap: 6px;
   line-height: 1.2;
-}
-
-.am-company-switcher-field__label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #64748b;
 }
 
 .am-company-switcher-field__code {

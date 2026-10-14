@@ -317,6 +317,8 @@ export default function BankManagementPage({
       }
     >
       <BaseDataGrid<BankInfo>
+      enableModifierSelection
+      enableDragSelection
         dataSource={gridData}
         keyExpr="BANK_ID"
         menuCode={menuCode}

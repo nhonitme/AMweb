@@ -9,6 +9,9 @@ import {
 } from "./customerLookupUtils"
 import { customerLookupStore } from "./customerLookupStore"
 import { renderSharedCustomerLookupPage } from "./sharedMasterLookupPages"
+import Button from "devextreme-react/button"
+import { useState } from "react"
+import { VatCustomerQuickCreatePopup } from "./VatQuickCreatePopups"
 import type { LookupOpenMode } from "./LookupGridCellDisplay"
 import {
   hasLookupRowField,
@@ -37,6 +40,7 @@ type Props = {
   popupTitle?: string
   buttonHint?: string
   autoOpen?: LookupOpenMode | null
+  quickCreateEnabled?: boolean
 }
 
 export default function CustomerLookupCellEditor({
@@ -57,7 +61,9 @@ export default function CustomerLookupCellEditor({
   popupTitle = "Select customer",
   buttonHint = "Open customer list",
   autoOpen,
+  quickCreateEnabled = false,
 }: Props) {
+  const [quickCreateVisible, setQuickCreateVisible] = useState(false)
   const displayExpr = useCallback(
     (item: CustomerExt | null) => {
       const customerCd = trimLookupText(item?.CUSTOMER_CD)
@@ -89,10 +95,16 @@ export default function CustomerLookupCellEditor({
 
       if (hasLookupRowField(rowData, taxCdField)) {
         setLookupGridCellValue(grid, rowIndex, taxCdField, trimLookupText(customer.TAX_CD))
+      } else if (quickCreateEnabled && hasLookupRowField(rowData, "VAT_COMPANY_TAXCD")) {
+        setLookupGridCellValue(grid, rowIndex, "VAT_COMPANY_TAXCD", trimLookupText(customer.TAX_CD))
       }
 
       if (hasLookupRowField(rowData, addressField)) {
         setLookupGridCellValue(grid, rowIndex, addressField, trimLookupText(customer.ADDRESS))
+      } else if (quickCreateEnabled && hasLookupRowField(rowData, "UNDEFINE")) {
+        const address = trimLookupText(customer.ADDRESS)
+        const taxCode = trimLookupText(customer.TAX_CD)
+        setLookupGridCellValue(grid, rowIndex, "UNDEFINE", [address, taxCode].filter(Boolean).join(" | "))
       }
 
       restoreLookupGridCellFocus(grid, rowIndex, customerCdField)
@@ -105,6 +117,7 @@ export default function CustomerLookupCellEditor({
       grid,
       rowData,
       rowIndex,
+      quickCreateEnabled,
       setValue,
       taxCdField,
     ],
@@ -137,7 +150,16 @@ export default function CustomerLookupCellEditor({
     taxCdField,
   ])
 
+  const undefine = trimLookupText((rowData as Record<string, unknown> | undefined)?.UNDEFINE)
+  const undefineParts = undefine.split("|").map((part) => part.trim())
+  const seed = {
+    name: trimLookupText((rowData as Record<string, unknown> | undefined)?.[customerNmField]),
+    taxCode: undefineParts[undefineParts.length - 1] || trimLookupText((rowData as Record<string, unknown> | undefined)?.VAT_COMPANY_TAXCD),
+    address: trimLookupText((rowData as Record<string, unknown> | undefined)?.ADDRESS) || undefineParts[0] || "",
+  }
+
   return (
+    <div className="flex min-w-0 items-center gap-1">
     <BaseLookupCellEditor<CustomerExt>
       dataSource={dataSource}
       value={value}
@@ -166,5 +188,15 @@ export default function CustomerLookupCellEditor({
         renderSharedCustomerLookupPage({ closePopup, onPick: applyCustomer })
       }
     />
+    {quickCreateEnabled ? <>
+      <Button icon="plus" stylingMode="text" hint="Tạo nhanh khách hàng" elementAttr={{ "aria-label": "Tạo nhanh khách hàng" }} disabled={false} onClick={() => setQuickCreateVisible(true)} />
+      <VatCustomerQuickCreatePopup
+        visible={quickCreateVisible}
+        seed={seed}
+        onClose={() => setQuickCreateVisible(false)}
+        onSaved={applyCustomer}
+      />
+    </> : null}
+    </div>
   )
 }

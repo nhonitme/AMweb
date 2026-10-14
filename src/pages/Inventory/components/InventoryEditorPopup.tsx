@@ -2,10 +2,6 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "r
 
 import "./InventoryEditorPopup.css"
 import Button from "devextreme-react/button"
-import DataGrid, { Column, Editing, RequiredRule, Summary, TotalItem } from "devextreme-react/data-grid"
-import type dxDataGrid from "devextreme/ui/data_grid"
-import AccountLookupCellEditor from "@/components/lookup/AccountLookupCellEditor"
-import { getAcclistLookupStore } from "@/components/lookup/AcclistLookupStore"
 import MasterLookupFormField from "@/components/lookup/MasterLookupFormField"
 import { customerLookupStore } from "@/components/lookup/customerLookupStore"
 import { renderSharedCustomerLookupPage } from "@/components/lookup/sharedMasterLookupPages"
@@ -17,6 +13,7 @@ import LoadPanel from "devextreme-react/load-panel"
 import Popup, { ToolbarItem } from "devextreme-react/popup"
 import notify from "devextreme/ui/notify"
 import { useLocation, useNavigate } from "react-router-dom"
+
 
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { getInventorySourceVoucher } from "@/api/inventoryLinkApi"
@@ -38,7 +35,7 @@ import { SHORTCUT_ACTIONS, type ShortcutActionCode } from "@/lib/shortcuts/short
 import { createPopupShortcutWrapperAttr, isPopupShortcutScopeTopMost, usePopupShortcutScopeId } from "@/lib/popupShortcutScope"
 import useShortcutBindings from "@/hooks/useShortcutBindings"
 import useStateRef from "@/hooks/useStateRef"
-import type { ChitInfo, InventoryInputLine, InventoryOutputLine, InventoryVoucher } from "@/types/voucher"
+import type { ChitInfo, ChitType, InventoryInputLine, InventoryOutputLine, InventoryVoucher } from "@/types/voucher"
 import type { CustomerExt } from "@/types/customerExt"
 import { getVoucherRouteByChitType, normalizeChitRows } from "@/pages/VoucherManagement/chitUtils"
 import {
@@ -56,7 +53,6 @@ import {
 import {
   calculateInventoryAmount,
   ensureInventoryDefaultLine,
-  hasInventoryLineContent,
   type InventoryLine,
   type InventoryVoucherType,
 } from "../inventoryVoucherModel"
@@ -77,10 +73,14 @@ interface InventoryEditorPopupProps {
   voucherLabel: string
   isUpdate: boolean
   loading: boolean
+  readOnly?: boolean
+  lockAccountingReference?: boolean
   onClose: () => void
+  onOpenLinkedAccountingVoucher?: (chitType: ChitType, chitId: number) => boolean
   onSave: (record: InventoryVoucher) => Promise<void>
   onSaveAndNew?: (record: InventoryVoucher) => Promise<void>
   printReportCode?: string | null
+  initialIssueTab?: "output" | "cogs"
 }
 
 function hasForeignCurrencyRows(rows: readonly InventoryLine[]): boolean {
@@ -100,16 +100,21 @@ export default function InventoryEditorPopup({
   voucherLabel,
   isUpdate,
   loading,
+  readOnly = false,
+  lockAccountingReference = false,
   onClose,
+  onOpenLinkedAccountingVoucher,
   onSave,
   onSaveAndNew,
   printReportCode,
+  initialIssueTab = "output",
 }: InventoryEditorPopupProps) {
-  const [draft, setDraft, draftRef] = useStateRef<InventoryVoucher>(() => ensureInventoryDefaultLine(value))
+  const [draft, setDraft, draftRef] = useStateRef<InventoryVoucher>(() => ensureInventoryDefaultLine({
+    ...value,
+    IS_COGS: Boolean(value.IS_COGS || value.COGS),
+  }))
   const inputGridRef = useRef<ChitInventoryInputGridPopupHandle | null>(null)
   const outputGridRef = useRef<ChitInventoryOutputGridPopupHandle | null>(null)
-  const cogsGridRef = useRef<dxDataGrid | null>(null)
-  const cogsAccountEditsRef = useRef(new Map<string, Partial<Pick<InventoryOutputLine, "COGS_DEBIT" | "COGS_CREDIT">>>())
   const inputColumnSettingStateRef = useRef<GridColumnSettingState | null>(null)
   const outputColumnSettingStateRef = useRef<GridColumnSettingState | null>(null)
   const autoChitNoRef = useRef<string | null>(null)
@@ -123,13 +128,8 @@ export default function InventoryEditorPopup({
   const activeLines = chitType === "IR" ? draft.INPUTS : draft.OUTPUTS
   const foreignCurrencyColumnsVisible = useMemo(() => hasForeignCurrencyRows(activeLines), [activeLines])
   const [columnSettingsVisible, setColumnSettingsVisible] = useState(false)
-  const [detailTab, setDetailTab] = useState<"inventory" | "cogs">("inventory")
-  useEffect(() => { setDetailTab("inventory"); cogsAccountEditsRef.current.clear() }, [visible, value])
-  const cogsRows = useMemo(() => draft.OUTPUTS.filter(hasInventoryLineContent).map(row => ({
-    ...row,
-    COGS_AMOUNT: row.AMOUNT_CC === null ? null : Math.round((row.AMOUNT_CC + Number.EPSILON * Math.max(1, Math.abs(row.AMOUNT_CC))) * 100) / 100,
-  })), [draft.OUTPUTS])
   const [columnSettingsTabs, setColumnSettingsTabs] = useState<GridColumnSettingsPopupTab[]>([])
+  const [activeInventoryIssueTab, setActiveInventoryIssueTab] = useState<"output" | "cogs">("output")
   const isInputVoucher = chitType === "IR"
   const isAdjustmentVoucher = chitType === "IA"
   const activeGridId = isInputVoucher
@@ -460,12 +460,21 @@ export default function InventoryEditorPopup({
     }
 
     prevSyncValueRef.current = value
-    setDraft(ensureInventoryDefaultLine(value))
+    setDraft(ensureInventoryDefaultLine({
+      ...value,
+      IS_COGS: Boolean(value.IS_COGS || value.COGS),
+    }))
     setSelectedAccountingSourceId(null)
     setLinkedAccountingChitNo("")
     setLinkedAccountingChitType("")
     resetPreviewChitNo()
   }, [resetPreviewChitNo, setDraft, value])
+
+  useEffect(() => {
+    if (visible) {
+      setActiveInventoryIssueTab(initialIssueTab === "cogs" && draft.IS_COGS ? "cogs" : "output")
+    }
+  }, [draft.IS_COGS, initialIssueTab, value.CHIT_ID, visible])
 
   const linkedAccountingDetailId = useMemo(
     () => getLinkedChitDetailIdFromInventoryDraft(draft, chitType),
@@ -576,11 +585,33 @@ export default function InventoryEditorPopup({
       return
     }
 
+    if (event.dataField === "IS_COGS" && chitType === "IO") {
+      const enabled = event.value === true || event.value === "1"
+      if (!enabled && draftRef.current.COGS) {
+        setDraft((current) => ({ ...current, IS_COGS: true }))
+        return
+      }
+      setDraft((current) => ({
+        ...current,
+        IS_COGS: enabled,
+        OUTPUTS: enabled
+          ? current.OUTPUTS.map((line) => ({
+            ...line,
+            REVENUE_UNIT_PRICE_CC: line.REVENUE_UNIT_PRICE_CC || line.UNIT_PRICE_CC,
+            REVENUE_UNIT_PRICE_FC: line.REVENUE_UNIT_PRICE_FC || line.UNIT_PRICE_FC,
+            REVENUE_AMOUNT_CC: line.REVENUE_AMOUNT_CC || line.AMOUNT_CC,
+            REVENUE_AMOUNT_FC: line.REVENUE_AMOUNT_FC || line.AMOUNT_FC,
+          }))
+          : current.OUTPUTS,
+      }))
+      return
+    }
+
     setDraft((current) => ({
       ...current,
       [event.dataField as keyof InventoryVoucher]: event.value,
     }))
-  }, [])
+  }, [chitType, draftRef, setDraft])
 
   const handleInputsChange = useCallback((rows: InventoryInputLine[]) => {
     setDraft((current) => ({
@@ -592,27 +623,15 @@ export default function InventoryEditorPopup({
   }, [])
 
   const handleOutputsChange = useCallback((rows: InventoryOutputLine[]) => {
-    setDraft((current) => {
-      for (const row of rows) {
-        const previous = current.OUTPUTS.find(item => item.ROW_KEY === row.ROW_KEY)
-        if (previous && previous.PRODUCT_ID !== row.PRODUCT_ID) {
-          cogsAccountEditsRef.current.delete(row.ROW_KEY)
-        }
-      }
-      return {
+    setDraft((current) => ({
       ...current,
       INPUTS: chitType === "IA" ? current.INPUTS : [],
-      OUTPUTS: rows.map(row => ({ ...row, ...cogsAccountEditsRef.current.get(row.ROW_KEY) })),
+      OUTPUTS: rows,
       AMOUNT: calculateInventoryAmount(rows),
-      }
-    })
+    }))
   }, [chitType])
 
   const syncGridRows = useCallback(async () => {
-    if (chitType === "IO" && cogsGridRef.current) {
-      await cogsGridRef.current.saveEditData()
-      if (cogsGridRef.current.hasEditData()) throw new Error("Tài khoản Nợ/Có giá vốn chưa hợp lệ.")
-    }
     if (chitType === "IR") {
       const rows = await inputGridRef.current?.savePendingChanges()
       if (rows) {
@@ -630,12 +649,11 @@ export default function InventoryEditorPopup({
     if (chitType === "IO") {
       const rows = await outputGridRef.current?.savePendingChanges()
       if (rows) {
-        const syncedRows = rows.map(row => ({ ...row, ...cogsAccountEditsRef.current.get(row.ROW_KEY) }))
         const nextDraft = {
           ...draftRef.current,
           INPUTS: [],
-          OUTPUTS: syncedRows,
-          AMOUNT: calculateInventoryAmount(syncedRows),
+          OUTPUTS: rows,
+          AMOUNT: calculateInventoryAmount(rows),
         }
         setDraft(nextDraft)
         return nextDraft
@@ -665,16 +683,17 @@ export default function InventoryEditorPopup({
   }), [])
 
   const handleSave = useCallback(async () => {
+    if (readOnly || loading) return
     try {
       const record = await syncGridRows()
       await onSave(prepareRecordForSave(record))
     } catch (error) {
       notify(getApiErrorMessage(error, t("SAVE_FAILED", "Lưu thất bại")), "error", 3000)
     }
-  }, [onSave, prepareRecordForSave, syncGridRows, t])
+  }, [draftRef, onSave, prepareRecordForSave, syncGridRows, t, readOnly, loading])
 
   const handleSaveAndNew = useCallback(async () => {
-    if (!onSaveAndNew) {
+    if (!onSaveAndNew || readOnly || loading) {
       return
     }
 
@@ -684,7 +703,7 @@ export default function InventoryEditorPopup({
     } catch (error) {
       notify(getApiErrorMessage(error, t("SAVE_FAILED", "Lưu thất bại")), "error", 3000)
     }
-  }, [onSaveAndNew, prepareRecordForSave, syncGridRows, t])
+  }, [onSaveAndNew, prepareRecordForSave, syncGridRows, t, readOnly, loading])
 
   const handlePrint = useCallback(() => {
     const reportCode = String(printReportCode ?? "").trim()
@@ -753,18 +772,28 @@ export default function InventoryEditorPopup({
       return
     }
 
+    if (onOpenLinkedAccountingVoucher?.(linkedAccountingChitType, selectedAccountingSourceId)) {
+      return
+    }
+
     const route = getVoucherRouteByChitType(linkedAccountingChitType)
     if (!route) {
       return
     }
 
-    navigate(route, {
+    const search = new URLSearchParams({ openChitId: String(selectedAccountingSourceId) })
+    if (chitType === "IR" && Number(draft.CHIT_ID ?? 0) > 0) {
+      search.set("returnPath", location.pathname)
+      search.set("returnChitType", "IR")
+      search.set("returnChitId", String(draft.CHIT_ID))
+    }
+    navigate({ pathname: route, search: `?${search.toString()}` }, {
       state: {
         openChitId: selectedAccountingSourceId,
         openMode: "edit",
       },
     })
-  }, [linkedAccountingChitType, navigate, selectedAccountingSourceId])
+  }, [chitType, draft.CHIT_ID, linkedAccountingChitType, location.pathname, navigate, onOpenLinkedAccountingVoucher, selectedAccountingSourceId])
 
   const accountingLinkSlot = useMemo(() => {
     if (!selectedAccountingReferenceOption || isAdjustmentVoucher) {
@@ -788,15 +817,21 @@ export default function InventoryEditorPopup({
             hint={t("OPEN_SOURCE_VOUCHER", "Mở chứng từ nguồn")}
             onClick={handleOpenLinkedAccountingVoucher}
           />
-          <Button
-            icon="clear"
-            stylingMode="outlined"
-            disabled={loading || linkingAccountingReference}
-            hint={t("CLEAR_REFERENCE", "Bỏ liên kết")}
-            onClick={handleClearAccountingReference}
-          />
+          {!lockAccountingReference && !readOnly ? (
+            <Button
+              icon="clear"
+              stylingMode="outlined"
+              disabled={loading || linkingAccountingReference}
+              hint={t("CLEAR_REFERENCE", "Bỏ liên kết")}
+              onClick={handleClearAccountingReference}
+            />
+          ) : null}
         </>
       )
+    }
+
+    if (lockAccountingReference || readOnly) {
+      return null
     }
 
     return (
@@ -856,6 +891,8 @@ export default function InventoryEditorPopup({
     linkedAccountingChitType,
     linkingAccountingReference,
     loading,
+    lockAccountingReference,
+    readOnly,
     selectedAccountingReferenceOption,
     selectedAccountingSourceId,
     t,
@@ -866,81 +903,30 @@ export default function InventoryEditorPopup({
     : t("ADD_VOUCHER", `Add ${voucherLabel}`)
 
   const inventoryTabs = chitType === "IO" && (
-                <div role="tablist" className="flex shrink-0 gap-2 border-b border-slate-200 px-3 py-2">
-                  <Button text={t("INVENTORY_OUTPUT", "Xuất kho")} type={detailTab === "inventory" ? "default" : "normal"}
-                    onClick={async () => {
-                      try {
-                        if (cogsGridRef.current) {
-                          await cogsGridRef.current.saveEditData()
-                          if (cogsGridRef.current.hasEditData()) throw new Error("Tài khoản Nợ/Có giá vốn chưa hợp lệ.")
-                        }
-                        setDetailTab("inventory")
-                      } catch (error) {
-                        notify(getApiErrorMessage(error, t("SAVE_FAILED", "Lưu thất bại")), "error", 3000)
-                      }
-                    }} />
-                  <Button text={t("INVENTORY_COGS", "Giá vốn")} type={detailTab === "cogs" ? "default" : "normal"}
-                    onClick={async () => {
-                      try {
-                        await syncGridRows()
-                        setDetailTab("cogs")
-                      } catch (error) {
-                        notify(getApiErrorMessage(error, t("SAVE_FAILED", "Lưu thất bại")), "error", 3000)
-                      }
-                    }} />
-                </div>
-              )
-  const cogsContent = chitType === "IO" && detailTab === "cogs" && (
-                <div className="flex min-h-0 flex-1 flex-col">
-                  {draft.COGS && <div className="mb-2 text-sm text-slate-600">{draft.COGS.CHIT_NO}</div>}
-                  <DataGrid dataSource={cogsRows} keyExpr="ROW_KEY" height="100%" showBorders columnAutoWidth
-                    onInitialized={event => { cogsGridRef.current = event.component ?? null }}
-                    onDisposing={() => { cogsGridRef.current = null }}
-                    onRowUpdating={event => {
-                      const updates: Partial<Pick<InventoryOutputLine, "COGS_DEBIT" | "COGS_CREDIT">> = {}
-                      if ("COGS_DEBIT" in event.newData) updates.COGS_DEBIT = event.newData.COGS_DEBIT
-                      if ("COGS_CREDIT" in event.newData) updates.COGS_CREDIT = event.newData.COGS_CREDIT
-                      cogsAccountEditsRef.current.set(event.key, { ...cogsAccountEditsRef.current.get(event.key), ...updates })
-                      setDraft(current => ({ ...current, OUTPUTS: current.OUTPUTS.map(row => row.ROW_KEY === event.key
-                        ? { ...row, ...updates }
-                        : row) }))
-                    }}>
-                    <Editing mode="cell" allowUpdating />
-                    <Column dataField="PRODUCT_CD" allowEditing={false} caption={t("PRODUCT_CODE", "Mã hàng")} />
-                    <Column dataField="STORE_CD" allowEditing={false} caption={t("WAREHOUSE_CODE", "Mã kho")} />
-                    <Column dataField="UNIT_CD" allowEditing={false} caption={t("UNIT", "Đơn vị")} />
-                    <Column dataField="QUANTITY" allowEditing={false} caption={t("QUANTITY", "Số lượng")} dataType="number" format={getFormat("QUANTITY", "#,##0.###")} />
-                    <Column dataField="UNIT_PRICE_CC" allowEditing={false} caption={t("INVENTORY_COGS_UNIT_PRICE", "Đơn giá vốn")} dataType="number" format={getFormat("UNIT_PRICE_CC", "#,##0.00")} />
-                    <Column dataField="COGS_AMOUNT" allowEditing={false} caption={t("INVENTORY_COGS_AMOUNT", "Giá vốn")} dataType="number" format={getFormat("AMOUNT_CC", "#,##0.00")} />
-                    {(["COGS_DEBIT", "COGS_CREDIT"] as const).map(field => (
-                      <Column key={field} dataField={field} caption={field === "COGS_DEBIT" ? t("DEBIT", "TK Nợ") : t("CREDIT", "TK Có")}
-                        editCellRender={cellInfo => (
-                          <AccountLookupCellEditor
-                            dataSource={getAcclistLookupStore()}
-                            value={cellInfo.data[field]}
-                            rowIndex={cellInfo.row.rowIndex}
-                            grid={cellInfo.component}
-                            setValue={cellInfo.setValue}
-                            ValueField={field}
-                            NameField={`${field}_NM`}
-                            IdField=""
-                            LookupCodeField="CD"
-                            LookupNameField={`NM_${getCurrentDataLanguageSuffix()}`}
-                            placeholder={t("ACC_SELECT", "Chọn tài khoản")}
-                            popupTitle={t("ACC_SELECT", "Chọn tài khoản")}
-                            buttonHint={t("lblACC", "Danh sách tài khoản")}
-                          />
-                        )}>
-                        <RequiredRule />
-                      </Column>
-                    ))}
-                    <Column dataField="COGS_DEBIT_NM" visible={false} allowEditing={false} />
-                    <Column dataField="COGS_CREDIT_NM" visible={false} allowEditing={false} />
-                    <Column dataField="SUMMARY" allowEditing={false} caption={t("DESCRIPTION", "Diễn giải")} />
-                    <Summary><TotalItem column="COGS_AMOUNT" summaryType="sum" displayFormat={`${t("TOTAL_AMOUNT", "Total amount")}: {0}`} valueFormat={getFormat("AMOUNT_CC", "#,##0.00")} /></Summary>
-                  </DataGrid>
-                </div>
-              )
+    <div role="tablist" className="flex shrink-0 gap-2 border-b border-slate-200 px-3 py-2">
+      {!(visible && initialIssueTab === "cogs" && draft.IS_COGS) ? (
+        <Button
+          text={t("INVENTORY_OUTPUT", "Xuất kho")}
+          type={activeInventoryIssueTab === "output" ? "default" : undefined}
+          stylingMode={activeInventoryIssueTab === "output" ? "contained" : "outlined"}
+          onClick={() => setActiveInventoryIssueTab("output")}
+          elementAttr={{ role: "tab", "aria-selected": activeInventoryIssueTab === "output" }}
+        />
+      ) : null}
+      {draft.IS_COGS ? (
+        <Button
+          text={t("INVENTORY_COGS", "Giá vốn")}
+          type={activeInventoryIssueTab === "cogs" ? "default" : undefined}
+          stylingMode={activeInventoryIssueTab === "cogs" ? "contained" : "outlined"}
+          onClick={() => setActiveInventoryIssueTab("cogs")}
+          elementAttr={{ role: "tab", "aria-selected": activeInventoryIssueTab === "cogs" }}
+        />
+      ) : null}
+      {draft.IS_COGS && draft.COGS && activeInventoryIssueTab === "cogs" ? (
+        <span className="self-center text-sm text-slate-600">OT: {draft.COGS.CHIT_NO}</span>
+      ) : null}
+    </div>
+  )
 
   return (
     <Popup
@@ -1001,7 +987,7 @@ export default function InventoryEditorPopup({
       <LookupPopupProvider>
         <div className="relative flex h-full flex-col overflow-hidden bg-[#f3f4f6]">
           <div className="inventory-voucher-fields-panel flex-shrink-0 px-4 pt-3 pb-3">
-            <Form formData={draft} labelLocation="top" colCount={3} onFieldDataChanged={handleFieldDataChanged}>
+            <Form formData={draft} readOnly={readOnly} labelLocation="top" colCount={3} onFieldDataChanged={handleFieldDataChanged}>
               <Item
                 dataField="AMOUNT"
                 editorType="dxNumberBox"
@@ -1065,6 +1051,14 @@ export default function InventoryEditorPopup({
                 label={{ text: t("CHIT_YMD", "Voucher Date") }}
                 editorOptions={createVoucherDateBoxEditorOptions({ validationMessageMode: "always" })}
               />
+              {chitType === "IO" ? (
+                <Item
+                  dataField="IS_COGS"
+                  editorType="dxCheckBox"
+                  label={{ text: t("INVENTORY_IS_COGS", "Tính giá vốn") }}
+                  editorOptions={createVoucherEditorOptions({ readOnly: Boolean(draft.COGS) })}
+                />
+              ) : null}
             </Form>
           </div>
 
@@ -1073,6 +1067,7 @@ export default function InventoryEditorPopup({
               <div className="flex h-full min-h-0 flex-col">
                 {chitType === "IR" ? (
                   <ChitInventoryInputGridPopup
+                    disabled={readOnly || loading}
                     ref={inputGridRef}
                     companyCd={draft.COMPANY_CD}
                     chitDetailId={null}
@@ -1095,6 +1090,7 @@ export default function InventoryEditorPopup({
                   />
                 ) : (
                   <ChitInventoryOutputGridPopup
+                    disabled={readOnly || loading}
                     ref={outputGridRef}
                     companyCd={draft.COMPANY_CD}
                     chitDetailId={null}
@@ -1115,7 +1111,7 @@ export default function InventoryEditorPopup({
                     columnSettingStateRef={outputColumnSettingStateRef}
                     linkSlot={isAdjustmentVoucher ? undefined : accountingLinkSlot}
                     beforeGridSlot={inventoryTabs}
-                    alternateContent={cogsContent}
+                    costMode={chitType === "IO" && draft.IS_COGS && activeInventoryIssueTab === "cogs"}
                     adjustmentMode={isAdjustmentVoucher}
                   />
                 )}
@@ -1124,8 +1120,8 @@ export default function InventoryEditorPopup({
           </div>
 
           <div className="inventory-editor-footer flex flex-shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-white px-4 py-3">
-            <Button text={t("SAVE", "Save")} icon="save" type="default" stylingMode="contained" elementAttr={{ class: "inventory-editor-save-btn" }} onClick={handleSave} disabled={loading} />
-            {onSaveAndNew ? (
+            {!readOnly ? <Button text={t("SAVE", "Save")} icon="save" type="default" stylingMode="contained" elementAttr={{ class: "inventory-editor-save-btn" }} onClick={handleSave} disabled={loading} /> : null}
+            {!readOnly && onSaveAndNew ? (
               <Button
                 text={t("SAVE_AND_NEW", "Save and create new")}
                 icon="plus"

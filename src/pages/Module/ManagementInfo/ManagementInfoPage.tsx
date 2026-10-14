@@ -311,6 +311,8 @@ export default function ManagementInfoPage({
       }
     >
       <BaseDataGrid<ManagementInfo>
+      enableModifierSelection
+      enableDragSelection
         dataSource={gridData}
         keyExpr="MG_ID"
         menuCode={menuCode}

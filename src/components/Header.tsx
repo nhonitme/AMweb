@@ -36,10 +36,10 @@ import {
 } from "@/api/notificationApi";
 import { useFontScale } from "@/components/font-scale-provider";
 import { useMenuLayout } from "@/components/menu-layout-provider";
+import { getSidebarTopLevelIcon } from "@/lib/sidebarTopMenuIcons";
+import { AMNOTE_LOGO_SRC } from "@/lib/branding";
 import { getCompanyLangState, isUiLanguageEnabled, toUiLanguageCode, useCompanyLangRevision } from "@/lib/companyLang";
 import { LanguageContext } from "@/lib/i18nLoader";
-import { useFinanceTierState } from "@/hooks/useFinanceTierState";
-import "./FinanceModuleTabs.css";
 import {
   formatNotificationTime,
   isNotificationUnread,
@@ -68,8 +68,9 @@ import { languages, type Language } from "@/utils/language";
 import { resolveMenuCaption } from "@/utils/resolveConfigCaption";
 
 interface HeaderProps {
-  currentMenuItem?: MenuTreeNode | null;
   systemMenuNode?: MenuTreeNode | null;
+  systemMenus: MenuTreeNode[];
+  onSystemMenuSelect: (menu: MenuTreeNode) => void;
   onLogout: () => void;
 }
 
@@ -142,7 +143,12 @@ function buildTooltipText(...parts: Array<string | null | undefined>): string {
     .join("\n");
 }
 
-export default function Header({ onLogout, currentMenuItem, systemMenuNode }: HeaderProps) {
+export default function Header({
+  onLogout,
+  systemMenuNode,
+  systemMenus,
+  onSystemMenuSelect,
+}: HeaderProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const currentCompanyCd = getCurrentCompanyCd();
@@ -215,18 +221,6 @@ export default function Header({ onLogout, currentMenuItem, systemMenuNode }: He
       void refreshLabels(fallback.code);
     }
   }, [lang, refreshLabels, setLang, visibleLanguages]);
-  const translatedSystemTitle = useMemo(
-    () => (systemMenuNode ? resolveMenuCaption(systemMenuNode, t) : t("brand", "AMnote")),
-    [systemMenuNode, t],
-  );
-  const translatedCurrentMenuTitle = useMemo(
-    () => (
-      currentMenuItem
-        ? resolveMenuCaption(currentMenuItem, t)
-        : (SHOW_DASHBOARD ? t("DASHBOARD", "Tổng quan") : t("brand", "AMnote"))
-    ),
-    [currentMenuItem, t],
-  );
   const companyOptions = useMemo(
     () => (session?.companies ?? []).map(buildCompanyOption),
     [session?.companies],
@@ -301,13 +295,6 @@ export default function Header({ onLogout, currentMenuItem, systemMenuNode }: He
     () => `${t("switchCompany", "Switch company")}: ${displayMst}`,
     [displayMst, t],
   );
-  const shouldShowPageBadge = useMemo(() => {
-    const normalizedSystemTitle = normalizeDisplayText(translatedSystemTitle).toLocaleLowerCase();
-    const normalizedCurrentMenuTitle = normalizeDisplayText(translatedCurrentMenuTitle).toLocaleLowerCase();
-
-    return Boolean(normalizedCurrentMenuTitle) && normalizedCurrentMenuTitle !== normalizedSystemTitle;
-  }, [translatedCurrentMenuTitle, translatedSystemTitle]);
-
   const headerSurfaceClass = "bg-white border-gray-200";
   const dropdownSurfaceClass = "bg-white border-gray-200 shadow-lg";
   const hoverSurfaceClass = "hover:bg-gray-100";
@@ -319,12 +306,6 @@ export default function Header({ onLogout, currentMenuItem, systemMenuNode }: He
   const headerActionButtonClass = `group rounded-lg p-2 transition-colors ${hoverSurfaceClass}`;
   const dividerClass = "border-gray-100";
   const selectedItemClass = "bg-blue-50 text-blue-700";
-  const pageBadgeClass = "bg-red-50 text-red-700 border border-red-200";
-
-  const financeTier = useFinanceTierState();
-  const headerGroupTabs =
-    menuLayout === "header" && financeTier.shouldMergeGroupTabs ? financeTier.topMenu?.children ?? [] : [];
-  const showHeaderGroupTabs = headerGroupTabs.length > 0;
 
   useEffect(() => {
     const handleSessionChange = (event: Event) => {
@@ -598,10 +579,9 @@ export default function Header({ onLogout, currentMenuItem, systemMenuNode }: He
   const renderCompanySwitcherField = useCallback(() => (
     <div className="am-company-switcher-field">
       <span className="am-company-switcher-field__icon">
-        <Landmark size={16} />
+        <Landmark size={16} aria-hidden="true" />
       </span>
       <span className="am-company-switcher-field__text">
-        <span className="am-company-switcher-field__label">{t("TAX_CD", "MST")}</span>
         <span className="am-company-switcher-field__code">{displayMst}</span>
       </span>
       <ChevronDown size={14} className="am-company-switcher-field__chevron" />
@@ -614,7 +594,7 @@ export default function Header({ onLogout, currentMenuItem, systemMenuNode }: He
         onChange={() => {}}
       />
     </div>
-  ), [displayMst, t]);
+  ), [displayMst]);
 
   const toggleLanguageDropdown = () => {
     setIsLanguageDropdownOpen((value) => !value);
@@ -723,7 +703,7 @@ export default function Header({ onLogout, currentMenuItem, systemMenuNode }: He
   };
 
   return (
-    <header className={`relative z-[11] flex h-14 items-center border-b px-3 py-2 ${headerSurfaceClass}`}>
+    <header className={`relative z-[30] flex shrink-0 flex-col border-b px-2 py-1 ${headerSurfaceClass}`}>
       {menuLayout === "header" ? (
         <button
           type="button"
@@ -733,7 +713,11 @@ export default function Header({ onLogout, currentMenuItem, systemMenuNode }: He
               : t("HEADER_MENU_BAR_EXPAND", "Mở rộng menu")
           }
           aria-pressed={showHeaderMenuBar}
-          className="absolute bottom-0 left-1/2 z-[12] flex h-5 w-7 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+          className={`absolute bottom-0 left-1/2 z-[12] flex h-5 w-7 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-full border transition-colors ${
+            showHeaderMenuBar
+              ? "border-slate-200 bg-white text-slate-500 shadow-sm hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+              : "border-amber-400 bg-amber-100 text-amber-800 shadow-md hover:border-amber-500 hover:bg-amber-200 hover:text-amber-900"
+          }`}
           onClick={() => setShowHeaderMenuBar(!showHeaderMenuBar)}
           title={
             showHeaderMenuBar
@@ -744,46 +728,51 @@ export default function Header({ onLogout, currentMenuItem, systemMenuNode }: He
           {showHeaderMenuBar ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
       ) : null}
-      <div className="flex w-full items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <div className="flex min-w-0 items-center gap-2">
-              <span className={`whitespace-nowrap text-xs font-bold uppercase tracking-[0.18em] ${titleTextClass}`}>
-                {translatedSystemTitle}
-              </span>
-              {shouldShowPageBadge && (
-                <>
-                  <span className={`hidden text-sm sm:inline-block ${mutedTextClass}`}>/</span>
-                  <span className={`truncate rounded-full px-3 py-1 text-sm font-semibold ${pageBadgeClass}`}>
-                    {translatedCurrentMenuTitle}
-                  </span>
-                </>
-              )}
-            </div>
-            {showHeaderGroupTabs && (
-              <div className="finance-header-group-tabs">
-                {headerGroupTabs.map((group) => {
-                  const isActive = financeTier.activeGroup?.id === group.id;
+      <div className="flex min-h-9 w-full items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2">
+            {menuLayout === "header" ? (
+              <div className="flex min-w-0 items-center gap-2">
+                <img
+                  src={AMNOTE_LOGO_SRC}
+                  alt="AMnote"
+                  className="h-9 w-[68px] flex-shrink-0 object-contain"
+                  draggable={false}
+                />
+              </div>
+            ) : null}
+            {menuLayout === "header" && systemMenus.length > 0 ? (
+              <nav
+                aria-label={t("SYSTEM_MENU", "Menu hệ thống")}
+                className="flex min-w-0 flex-1 items-center justify-start gap-x-0.5 overflow-x-auto"
+              >
+                {systemMenus.map((menu) => {
+                  const isSelected = menu.id === systemMenuNode?.id;
+                  const SystemMenuIcon = getSidebarTopLevelIcon(menu);
                   return (
                     <button
-                      key={group.id}
+                      key={menu.id}
                       type="button"
-                      role="tab"
-                      aria-selected={isActive}
-                      disabled={group.isDisabled}
-                      className={`finance-header-group-tabs__tab${isActive ? " finance-header-group-tabs__tab--active" : ""}`}
-                      onClick={() => financeTier.handleGroupClick(group)}
+                      aria-current={isSelected ? "page" : undefined}
+                      disabled={menu.isDisabled}
+                      className={`inline-flex flex-shrink-0 items-center gap-1 whitespace-nowrap border-b-2 px-1.5 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                        isSelected
+                          ? "border-blue-700 text-blue-800"
+                          : "border-transparent text-gray-800 hover:border-gray-400 hover:text-gray-950"
+                      }`}
+                      onClick={() => onSystemMenuSelect(menu)}
                     >
-                      {financeTier.label(group)}
+                      <SystemMenuIcon size={16} aria-hidden="true" />
+                      {resolveMenuCaption(menu, t)}
                     </button>
                   );
                 })}
-              </div>
-            )}
+              </nav>
+            ) : null}
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center space-x-2 sm:space-x-4">
+        <div className="flex shrink-0 items-center space-x-2 sm:space-x-3">
           {companyOptions.length > 0 && (
             <div className="hidden sm:block" title={companySwitchTooltip}>
               <SelectBox

@@ -92,6 +92,16 @@ export async function getInventoryVouchers(
   )
 }
 
+export async function getInventoryIssueIdByCogsVoucherId(cogsVoucherId: number): Promise<number | null> {
+  const response = await axios.get<ApiEnvelope<{ INVENTORY_CHIT_ID?: number | null }>>(
+    `${getInventoryBaseUrl()}/GetIssueByCogsVoucher`,
+    { params: { CHIT_ID: cogsVoucherId } },
+  )
+  const { data } = normalizeResponse<{ INVENTORY_CHIT_ID?: number | null }>(response)
+  const inventoryChitId = Number(data?.INVENTORY_CHIT_ID ?? 0)
+  return Number.isFinite(inventoryChitId) && inventoryChitId > 0 ? inventoryChitId : null
+}
+
 export async function createInventoryVoucher(
   ledger: InventoryInputType,
   chitType: InventoryVoucherType,

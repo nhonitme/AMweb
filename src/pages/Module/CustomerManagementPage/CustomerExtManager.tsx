@@ -393,6 +393,8 @@ export default function CustomerExtManager({
       }
     >
       <BaseDataGrid<CustomerExt>
+      enableModifierSelection
+      enableDragSelection
         dataSource={gridData}
         keyExpr="CUSTOMER_ID"
         menuCode={menuCode}

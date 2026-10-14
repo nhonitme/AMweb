@@ -557,7 +557,7 @@ export function WorkspaceTabBar({
             <div
               key={tab.id}
               title={tab.title}
-              className={`group relative flex h-7 min-w-0 max-w-60 flex-1 basis-0 items-center overflow-hidden rounded-t border border-b-0 text-xs ${
+              className={`group relative flex h-7 min-w-0 max-w-60 flex-none items-center overflow-hidden rounded-t border border-b-0 text-[11px] ${
                 iconOnly ? "justify-center px-1" : "px-1.5"
               } ${
                 active
@@ -578,8 +578,8 @@ export function WorkspaceTabBar({
                 role="tab"
                 aria-selected={active}
                 aria-label={tab.title}
-                className={`flex min-w-0 items-center gap-1 overflow-hidden text-left ${
-                  iconOnly ? "" : `flex-1 ${active ? "" : "group-hover:pr-4"}`
+                className={`flex min-w-0 flex-none items-center gap-1 overflow-hidden text-left ${
+                  iconOnly ? "" : active ? "" : "pr-4"
                 }`}
                 onClick={() => onSelect(tab.id)}
               >
@@ -589,7 +589,7 @@ export function WorkspaceTabBar({
                   } ${active ? "am-icon-workspace-tab-active" : "am-icon-workspace-tab-inactive"}`}
                   aria-hidden="true"
                 />
-                {iconOnly ? null : <span className="min-w-0 flex-1 truncate">{tab.title}</span>}
+                {iconOnly ? null : <span className="min-w-0 max-w-48 truncate">{tab.title}</span>}
               </button>
               <button
                 type="button"

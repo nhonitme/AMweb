@@ -258,6 +258,8 @@ export default function ProductList({
       }
     >
         <BaseDataGrid<Product>
+          enableModifierSelection
+          enableDragSelection
           dataSource={gridData}
           keyExpr="PRODUCT_ID"
           menuCode={menuCode}

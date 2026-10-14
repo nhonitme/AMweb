@@ -1,5 +1,6 @@
 ﻿import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 
+import type { ReactNode } from "react"
 import "./ChitEditorPopup.css"
 import Button from "devextreme-react/button"
 import Form, { Item } from "devextreme-react/form"
@@ -21,6 +22,9 @@ import useShortcutBindings from "@/hooks/useShortcutBindings"
 import useShortcutHelp from "@/hooks/useShortcutHelp"
 import useStateRef from "@/hooks/useStateRef"
 import { getCurrentCompanyCd } from "@/lib/login"
+
+import { getInventoryIssueIdByCogsVoucherId } from "@/api/inventoryVoucherApi"
+import { getApiErrorMessage } from "@/api/apiTypes"
 import { LanguageContext } from "@/lib/i18nLoader"
 import {
     createPopupShortcutWrapperAttr,
@@ -30,7 +34,7 @@ import {
 import { createShortcutBindings } from "@/lib/shortcuts/shortcutBindings"
 import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/shortcutDefinitions"
 import type { GridColumnSettingEditorItem } from "@/types/sysGridColumnSetting"
-import type { ChitInfo, ChitLedger, ChitType } from "@/types/voucher"
+import type { ChitInfo, ChitLedger, ChitType, VoucherOpenLocationState } from "@/types/voucher"
 import {
     createDateRequiredRule,
     createRequiredRule,
@@ -43,6 +47,7 @@ import {
     getChitTypeLabel,
     getVoucherEditorDetailGridId,
     isInventoryLinkedAccountingVoucherType,
+    getVoucherRouteByChitType,
 } from "../chitUtils"
 import { openVoucherReportViewer } from "../voucherReportViewer"
 import { VoucherInfoDescriptionFields } from "./VoucherInfoDescriptionFields"
@@ -61,6 +66,8 @@ import {
     useChitEditorDraft,
 } from "./useChitEditorDraft"
 import { useChitEditorReference } from "./useChitEditorReference"
+import InventoryEditorPopup from "@/pages/Inventory/components/InventoryEditorPopup"
+import { useRowInventoryEditor, type SaveAccountingWithInventory } from "./useRowInventoryEditor"
 
 interface ChitEditorPopupProps {
     visible: boolean
@@ -72,10 +79,13 @@ interface ChitEditorPopupProps {
     readOnly?: boolean
     loading: boolean
     onClose: () => void
-    onSave: (record: ChitInfo) => Promise<void>
-    onSaveAndNew?: (record: ChitInfo) => Promise<void>
+    onSave: SaveAccountingWithInventory
+    onSaveAndNew?: SaveAccountingWithInventory
     printReportCode?: string | null
     screenCd?: string
+    showInventoryLinkActions?: boolean
+    quickCreateCustomer?: boolean
+    headerContent?: ReactNode | ((hasEdits: boolean) => ReactNode)
 }
 
 type DetailRow = ChitEditorDetailRow
@@ -83,7 +93,7 @@ type DetailRow = ChitEditorDetailRow
 export function ChitEditorPopup({
     visible,
     value,
-    ledger: _ledger,
+    ledger,
     chitType,
     voucherLabel,
     isUpdate,
@@ -94,13 +104,23 @@ export function ChitEditorPopup({
     onSaveAndNew,
     printReportCode,
     screenCd: screenCdProp,
+    showInventoryLinkActions,
+    quickCreateCustomer = false,
+    headerContent,
 }: ChitEditorPopupProps) {
+
+
     const location = useLocation()
     const navigate = useNavigate()
     const [draft, setDraft, draftRef] = useStateRef<ChitInfo>(() => normalizeDraftForEditor(cloneChit(value), chitType))
+    const [hasManualChanges, setHasManualChanges] = useState(false)
     const [detailLayoutVersion, setDetailLayoutVersion] = useState(0)
     const [columnSettingsVisible, setColumnSettingsVisible] = useState(false)
     const [columnSettingsTabs, setColumnSettingsTabs] = useState<GridColumnSettingsPopupTab[]>([])
+    const [linkedCogsIssueId, setLinkedCogsIssueId] = useState<number | null>(null)
+    const [cogsSourceLookupLoading, setCogsSourceLookupLoading] = useState(false)
+    const [cogsSourceLookupError, setCogsSourceLookupError] = useState(false)
+    const cogsSourceLookupSeqRef = useRef(0)
 
     const detailGridRef = useRef<ChitDetailGridHandle | null>(null)
     const formRef = useRef<dxForm | null>(null)
@@ -177,6 +197,7 @@ export function ChitEditorPopup({
 
     const handleFieldDataChanged = useCallback((event: { dataField?: string; value?: unknown }) => {
         if (typeof event.dataField !== "string") return
+        setHasManualChanges(true)
         setDraft((current) => ({
             ...current,
             [event.dataField as keyof ChitInfo]: event.value as never,
@@ -184,6 +205,7 @@ export function ChitEditorPopup({
     }, [setDraft])
 
     const handleDetailsChange = useCallback((rows: ChitInfo["DETAILS"], amount: number) => {
+        setHasManualChanges(true)
         const activeRows = getActiveDetailRows(rows as DetailRow[])
         setDraft((current) => ({
             ...current,
@@ -192,6 +214,79 @@ export function ChitEditorPopup({
             AMOUNT: amount,
         }))
     }, [setDraft])
+
+    const loadLinkedCogsIssue = useCallback(async () => {
+        const cogsVoucherId = Number(draftRef.current.CHIT_ID ?? 0)
+        if (chitType !== "OT" || !visible || !isUpdate || cogsVoucherId <= 0) {
+            setLinkedCogsIssueId(null)
+            setCogsSourceLookupError(false)
+            return
+        }
+
+        const requestSeq = cogsSourceLookupSeqRef.current + 1
+        cogsSourceLookupSeqRef.current = requestSeq
+        setCogsSourceLookupLoading(true)
+        setCogsSourceLookupError(false)
+        setLinkedCogsIssueId(null)
+
+        try {
+            const issueId = await getInventoryIssueIdByCogsVoucherId(cogsVoucherId)
+            if (cogsSourceLookupSeqRef.current === requestSeq) {
+                setLinkedCogsIssueId(issueId)
+            }
+        } catch (error) {
+            if (cogsSourceLookupSeqRef.current === requestSeq) {
+                setCogsSourceLookupError(true)
+                notify(getApiErrorMessage(error, t("LOAD_FAILED", "Tải thất bại")), "error", 3500)
+            }
+        } finally {
+            if (cogsSourceLookupSeqRef.current === requestSeq) {
+                setCogsSourceLookupLoading(false)
+            }
+        }
+    }, [chitType, draftRef, isUpdate, t, visible])
+
+    useEffect(() => {
+        cogsSourceLookupSeqRef.current += 1
+        setLinkedCogsIssueId(null)
+        setCogsSourceLookupError(false)
+        setCogsSourceLookupLoading(false)
+        if (chitType === "OT" && visible && isUpdate && Number(draft.CHIT_ID ?? 0) > 0) {
+            void loadLinkedCogsIssue()
+        }
+    }, [chitType, draft.CHIT_ID, isUpdate, loadLinkedCogsIssue, visible])
+
+    const handleOpenLinkedCogsIssue = useCallback(() => {
+        if (!linkedCogsIssueId) {
+            if (cogsSourceLookupError) {
+                void loadLinkedCogsIssue()
+            }
+            return
+        }
+
+        const route = getVoucherRouteByChitType("IO")
+        if (!route) {
+            return
+        }
+
+        const search = new URLSearchParams({
+            openChitId: String(linkedCogsIssueId),
+            openTab: "cogs",
+        })
+        navigate(
+            { pathname: route, search: `?${search.toString()}` },
+            {
+                replace: true,
+                state: {
+                    openChitId: linkedCogsIssueId,
+                    openMode: "edit",
+                    openTab: "cogs",
+                } satisfies VoucherOpenLocationState,
+            },
+        )
+    }, [cogsSourceLookupError, linkedCogsIssueId, loadLinkedCogsIssue, navigate])
+
+    const rowInventory = useRowInventoryEditor({ visible, chitType, readOnly, draftRef, setDraft, gridRef: detailGridRef, onSave, onSaveAndNew, t })
 
     const editorDraft = useChitEditorDraft({
         visible,
@@ -203,8 +298,8 @@ export function ChitEditorPopup({
         detailGridRef,
         formRef,
         ensureAccountingInventoryLinksForSaveRef,
-        onSave,
-        onSaveAndNew,
+        onSave: rowInventory.saveSource,
+        onSaveAndNew: rowInventory.saveSourceAndNew,
         t,
     })
 
@@ -250,6 +345,7 @@ export function ChitEditorPopup({
         }
         prevSyncValueRef.current = value
         prevSyncChitTypeRef.current = chitType
+        setHasManualChanges(false)
         setDraft(normalizeDraftForEditor(cloneChit(value), chitType))
         setDetailLayoutVersion((current) => current + 1)
         resetReferenceState()
@@ -345,10 +441,10 @@ export function ChitEditorPopup({
     }, [draft.CHIT_ID, draft.COMPANY_CD, printReportCode, t])
 
     const handleClosePopup = useCallback(() => {
-        if (!loading) {
+        if (!loading && !rowInventory.loading && !rowInventory.editor) {
             onClose()
         }
-    }, [loading, onClose])
+    }, [loading, onClose, rowInventory.loading, rowInventory.editor])
 
     const handleAddDetailRow = useCallback(() => {
         detailGridRef.current?.addRow()
@@ -384,6 +480,7 @@ export function ChitEditorPopup({
                     [SHORTCUT_ACTIONS.DELETE_ROW]: () => handleDeleteDetailRow(),
                     [SHORTCUT_ACTIONS.QUICK_ITEM_SEARCH]: () => handleQuickItemSearch(),
                     [SHORTCUT_ACTIONS.DUPLICATE]: () => {
+                        rowInventory.clearPending()
                         void handleDuplicateDraft()
                     },
                     [SHORTCUT_ACTIONS.HELP]: () => openShortcutHelp(),
@@ -405,6 +502,7 @@ export function ChitEditorPopup({
             handleClosePopup,
             handleDeleteDetailRow,
             handleDuplicateDraft,
+            rowInventory.clearPending,
             handleQuickItemSearch,
             handleSave,
             handlePrint,
@@ -521,6 +619,7 @@ export function ChitEditorPopup({
                     />
 
                     <div className="chit-voucher-fields-panel flex-shrink-0 px-4 pt-3 pb-3">
+                        {headerContent ? <div className="mb-3">{typeof headerContent === "function" ? headerContent(hasManualChanges) : headerContent}</div> : null}
                         <Form ref={formRef} formData={formData} labelLocation="top" colCount={3} readOnly={readOnly} onFieldDataChanged={handleFieldDataChanged}>
                                     <Item
                                         dataField="AMOUNT"
@@ -595,9 +694,24 @@ export function ChitEditorPopup({
                                 readOnly={readOnly}
                                 layoutVersion={detailLayoutVersion}
                                 DetailColumns={DetailColumns}
+                                quickCreateCustomer={quickCreateCustomer}
                                 screenCd={screenCd}
                                 gridId={detailGridId}
                                 columnSettingStateRef={detailColumnSettingStateRef}
+                                onOpenInventory={rowInventory.open}
+                                inventoryBusy={rowInventory.loading || loading || Boolean(rowInventory.editor)}
+                                pendingInventoryRowKeys={rowInventory.pendingKeys}
+                                inventoryRefreshVersion={rowInventory.refreshVersion}
+                                showInventoryLinkActions={showInventoryLinkActions}
+                                linkSlot={chitType === "OT" && (linkedCogsIssueId || cogsSourceLookupError) ? (
+                                    <Button
+                                        text={cogsSourceLookupError ? t("RETRY", "Thử lại") : t("LINK_VOUCHER", "Link phiếu")}
+                                        icon={cogsSourceLookupError ? "refresh" : "link"}
+                                        stylingMode="outlined"
+                                        disabled={loading || cogsSourceLookupLoading}
+                                        onClick={handleOpenLinkedCogsIssue}
+                                    />
+                                ) : null}
                             />
                         </div>
                     </div>
@@ -652,6 +766,28 @@ export function ChitEditorPopup({
                     onReset={handleColumnSettingsReset}
                     onSaveTabs={handleColumnSettingsSave}
                 />
+                {rowInventory.editor ? (
+                    <InventoryEditorPopup
+                        visible={true}
+                        value={rowInventory.editor.value}
+                        chitType={rowInventory.editor.value.CHIT_TYPE}
+                        voucherLabel={rowInventory.editor.value.CHIT_TYPE === "IR" ? t("INVENTORY_RECEIPT", "Phiếu nhập kho") : t("INVENTORY_ISSUE", "Phiếu xuất kho")}
+                        isUpdate={rowInventory.editor.isUpdate}
+                        readOnly={readOnly}
+                        lockAccountingReference={true}
+                        loading={rowInventory.loading}
+                        onClose={rowInventory.close}
+                        onOpenLinkedAccountingVoucher={(linkedType, linkedId) => {
+                            const parentChitId = Number(draftRef.current.CHIT_ID ?? 0)
+                            if (chitType === "PO" && linkedType === "PO" && parentChitId > 0 && linkedId === parentChitId) {
+                                rowInventory.close()
+                                return true
+                            }
+                            return false
+                        }}
+                        onSave={rowInventory.saveInventory}
+                    />
+                ) : null}
             </LookupPopupProvider>
         </Popup>
     )

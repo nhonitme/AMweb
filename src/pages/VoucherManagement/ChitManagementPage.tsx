@@ -97,6 +97,7 @@ import { getVoucherPdfReportCode } from "./voucherPdfReportCodes"
 import { useVoucherOpenChitIdRoute } from "./hooks/useVoucherOpenChitIdRoute"
 import { loadVoucherForDirectOpen } from "./voucherDirectOpen"
 import { LoadPanel } from "devextreme-react/cjs/load-panel"
+
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
 import { buildReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
 import { useChitListInvalidate, useChitListQuery } from "@/hooks/queries/useChitListQuery"
@@ -323,6 +324,8 @@ export function ChitManagementPage({
   titleFallback,
   titleKey,
 }: ChitManagementPageProps) {
+
+
   const gridRef = useRef<dxDataGrid<ChitInfo, string | number> | null>(null)
   const detailGridRef = useRef<dxDataGrid<DetailGridRow, string | number> | null>(null)
   const detailLoadSeqRef = useRef(0)
@@ -338,6 +341,7 @@ export function ChitManagementPage({
   const [loading, setLoading] = useState(true)
   const [popupLoading, setPopupLoading] = useState(false)
   const [popupVisible, setPopupVisible] = useState(false)
+
   const [editorReadOnly, setEditorReadOnly] = useState(false)
   const [isUpdate, setIsUpdate] = useState(false)
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false)
@@ -648,6 +652,7 @@ export function ChitManagementPage({
         // Show popup only after row is ready and loading is off — avoids LoadPanel flash inside editor.
         setPopupLoading(false)
         setPopupVisible(true)
+
         return true
       } catch (error) {
         console.error("[VoucherOpenRoute] Open accounting voucher failed", error)
@@ -956,6 +961,7 @@ export function ChitManagementPage({
   }, [hasPendingRouteIntent, location.search, location.state, processRouteIntent])
 
   const openCreatePopup = useCallback(() => {
+
     setIsUpdate(false)
     setEditorReadOnly(false)
     const companyCd = getCurrentCompanyCd()
@@ -966,15 +972,17 @@ export function ChitManagementPage({
       DETAILS: [createDefaultChitDetail(1, companyCd)],
     })
     setPopupVisible(true)
-  }, [chitType])
+  }, [chitType, ledger])
 
 const openEditPopup = useCallback(
-  async (target?: ChitInfo | null) => {
+  async (target?: ChitInfo | null, source = "edit-command") => {
     const row = target ?? selectedRow
     if (!row?.CHIT_ID) {
       notify(t("MSG_SELECT_ROW_FIRST", "Hãy chọn một dòng trước"), "warning", 2500)
       return
     }
+
+
 
     setPopupLoading(true)
 
@@ -997,7 +1005,9 @@ const openEditPopup = useCallback(
       setEditorReadOnly(isPeriodLockVoucher(targetRow))
       setEditingRow(cloneChit(targetRow))
       setPopupVisible(true)
+
     } catch (error) {
+
       console.error("Open edit popup failed", error)
       notify(getApiErrorMessage(error, t("LOAD_FAILED", "Tải thất bại")), "error", 4000)
     } finally {
@@ -1081,7 +1091,7 @@ const openEditPopup = useCallback(
   }, [])
 
   const persistChit = useCallback(
-    async (record: ChitInfo, reopenNew = false) => {
+    async (record: ChitInfo, reopenNew = false, afterSave?: import("./components/useRowInventoryEditor").AfterAccountingSave) => {
       if (isPeriodLockVoucher(record)) {
         notify(
           t("PERIOD_LOCK_VOUCHER_READONLY", "Chứng từ khóa sổ tự động chỉ được xem, không thể sửa."),
@@ -1092,6 +1102,8 @@ const openEditPopup = useCallback(
       }
 
       setPopupLoading(true)
+      let persistedChit: ChitInfo | null = null
+      let keepEditorOpen = false
 
       try {
         const payload = mapChitToApiPayload(record)
@@ -1106,20 +1118,41 @@ const openEditPopup = useCallback(
         }
 
         const savedChit = normalizeChitRows(result.data ? [result.data] : [], chitType)[0] ?? null
+        persistedChit = savedChit
         if (savedChit) {
+          // Preserve row keys for pending inventory drafts, including retries after a partial save.
+          savedChit.DETAILS = savedChit.DETAILS.map((detail) => ({
+            ...detail,
+            ROW_KEY: record.DETAILS.find((row) => Number(row.SORT) === Number(detail.SORT))?.ROW_KEY ?? detail.ROW_KEY,
+          }))
           selectedChitIdRef.current = savedChit.CHIT_ID ?? null
+          if (afterSave) {
+            keepEditorOpen = (await afterSave(savedChit, record)) === true
+          }
           notifySourceVoucherLinked(savedChit)
+        } else if (afterSave) {
+          throw new Error("Không nhận được phiếu nguồn sau khi lưu để liên kết kho")
         }
 
-        setPopupVisible(false)
+        if (keepEditorOpen && savedChit) {
+          setEditingRow(savedChit)
+          setIsUpdate(true)
+        } else {
+          setPopupVisible(false)
+        }
         openChitRoute.markListLoaded()
         initialLoadTriggeredRef.current = true
         await invalidateChits()
 
-        if (reopenNew) {
+        if (reopenNew && !keepEditorOpen) {
           openCreatePopup()
         }
       } catch (error) {
+        if (persistedChit) {
+          // The source is already saved; a retry must update it instead of creating a duplicate.
+          setEditingRow(persistedChit)
+          setIsUpdate(true)
+        }
         console.error("Save chit note error", error)
         notify(getApiErrorMessage(error, t("SAVE_FAILED", "Lưu thất bại")), "error", 4000)
       } finally {
@@ -1130,15 +1163,15 @@ const openEditPopup = useCallback(
   )
 
   const handleSave = useCallback(
-    async (record: ChitInfo) => {
-      await persistChit(record, false)
+    async (record: ChitInfo, afterSave?: import("./components/useRowInventoryEditor").AfterAccountingSave) => {
+      await persistChit(record, false, afterSave)
     },
     [persistChit],
   )
 
   const handleSaveAndNew = useCallback(
-    async (record: ChitInfo) => {
-      await persistChit(record, true)
+    async (record: ChitInfo, afterSave?: import("./components/useRowInventoryEditor").AfterAccountingSave) => {
+      await persistChit(record, true, afterSave)
     },
     [persistChit],
   )
@@ -1211,7 +1244,7 @@ const openEditPopup = useCallback(
 
   const handleRowDblClick = useCallback(
     (event: RowDblClickEvent<ChitInfo, string | number>) => {
-      void openEditPopup(event.data ?? null)
+      void openEditPopup(event.data ?? null, "row-double-click")
     },
     [openEditPopup],
   )
@@ -1749,6 +1782,21 @@ const openEditPopup = useCallback(
           loading={popupLoading}
           onClose={() => {
             if (popupLoading) {
+              return
+            }
+
+            const routeParams = new URLSearchParams(location.search)
+            const returnPath = routeParams.get("returnPath")
+            const returnChitId = Number(routeParams.get("returnChitId") ?? 0)
+            const expectedReceiptPath = `/app/${getCurrentCompanyCd()}/inventory/receipt`
+            if (
+              routeParams.get("returnChitType") === "IR"
+              && returnPath === expectedReceiptPath
+              && Number.isSafeInteger(returnChitId)
+              && returnChitId > 0
+            ) {
+              const returnSearch = new URLSearchParams({ openChitId: String(returnChitId) })
+              navigate({ pathname: returnPath, search: `?${returnSearch.toString()}` }, { replace: true })
               return
             }
 

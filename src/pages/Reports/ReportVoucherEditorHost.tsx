@@ -13,6 +13,7 @@ import {
   getVoucherRouteByChitType,
   isPeriodLockVoucher,
   mapChitToApiPayload,
+  normalizeChitRows,
 } from "@/pages/VoucherManagement/chitUtils"
 import { loadVoucherForDirectOpen } from "@/pages/VoucherManagement/voucherDirectOpen"
 import { getVoucherPdfReportCode } from "@/pages/VoucherManagement/voucherPdfReportCodes"
@@ -135,7 +136,7 @@ export const ReportVoucherEditorHost = forwardRef<ReportVoucherEditorHostHandle,
     }, [loading])
 
     const handleSave = useCallback(
-      async (record: ChitInfo) => {
+      async (record: ChitInfo, afterSave?: import("@/pages/VoucherManagement/components/useRowInventoryEditor").AfterAccountingSave) => {
         if (isPeriodLockVoucher(record)) {
           notify(
             t("PERIOD_LOCK_VOUCHER_READONLY", "Chứng từ khóa sổ tự động chỉ được xem, không thể sửa."),
@@ -146,12 +147,21 @@ export const ReportVoucherEditorHost = forwardRef<ReportVoucherEditorHostHandle,
         }
 
         setLoading(true)
+        let persisted: ChitInfo | null = null
         try {
-          await updateChit(ledger, mapChitToApiPayload(record), chitType)
+          const result = await updateChit(ledger, mapChitToApiPayload(record), chitType)
+          persisted = normalizeChitRows(result.data ? [result.data] : [], chitType)[0] ?? null
+          if (persisted) {
+            persisted.DETAILS = persisted.DETAILS.map((detail) => ({ ...detail, ROW_KEY: record.DETAILS.find((row) => Number(row.SORT) === Number(detail.SORT))?.ROW_KEY ?? detail.ROW_KEY }))
+            if (afterSave) await afterSave(persisted, record)
+          } else if (afterSave) {
+            throw new Error("Không nhận được phiếu nguồn sau khi lưu để liên kết kho")
+          }
           notify(t("MSG_EDIT_SUCCESS", "Updated successfully"), "success", 3000)
           setVisible(false)
           await onSaved?.()
         } catch (error) {
+          if (persisted) setEditingRow(persisted)
           console.error("[ReportVoucherEditorHost] Save voucher failed", error)
           notify(getApiErrorMessage(error, t("SAVE_FAILED", "Lưu thất bại")), "error", 4000)
         } finally {

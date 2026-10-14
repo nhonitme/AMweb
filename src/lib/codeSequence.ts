@@ -1,4 +1,4 @@
-import { previewSysCodeSequenceContext, previewSysCodeSequences } from "@/api/sysCodeSequenceApi"
+import { previewSysCodeSequenceContext, previewSysCodeSequences, type SysCodeSequencePreview } from "@/api/sysCodeSequenceApi"
 import type { ChitType } from "@/types/voucher"
 
 const voucherSequenceObjectTypeMap: Record<ChitType, string> = {
@@ -68,6 +68,43 @@ export async function getSequencePreviewCode(
 ): Promise<string> {
   const preview = await previewSysCodeSequenceContext(menuCode, codeField, baseDate)
   return preview?.NEXT_CD?.trim() ?? ""
+}
+
+function formatSequencePreviewCode(preview: SysCodeSequencePreview, number: number, baseDate: Date): string {
+  const numberLength = Number(preview.NUMBER_LENGTH) > 0 ? Number(preview.NUMBER_LENGTH) : 6
+  const replacements: Record<string, string> = {
+    PREFIX: String(preview.PREFIX ?? ""),
+    SUFFIX: String(preview.SUFFIX ?? ""),
+    YYYY: String(baseDate.getFullYear()),
+    YY: String(baseDate.getFullYear()).slice(-2),
+    MM: String(baseDate.getMonth() + 1).padStart(2, "0"),
+    DD: String(baseDate.getDate()).padStart(2, "0"),
+    NO: String(number).padStart(numberLength, "0"),
+  }
+  const configuredPattern = String(preview.CODE_PATTERN ?? "").trim()
+  const pattern = configuredPattern && /\{NO\}/i.test(configuredPattern)
+    ? configuredPattern
+    : "{PREFIX}{NO}{SUFFIX}"
+
+  return pattern.replace(/\{(PREFIX|SUFFIX|YYYY|YY|MM|DD|NO)\}/gi, (_token, name: string) => replacements[name.toUpperCase()] ?? "")
+}
+
+export async function getSequencePreviewCodes(
+  menuCode: string,
+  codeField: string,
+  count: number,
+  baseDate: Date = new Date(),
+): Promise<string[]> {
+  const safeCount = Math.max(0, Math.floor(count))
+  if (safeCount === 0) return []
+
+  const preview = await previewSysCodeSequenceContext(menuCode, codeField, baseDate)
+  if (!preview) return Array.from({ length: safeCount }, () => "")
+
+  const firstNumber = Number(preview.NEXT_NO) > 0 ? Number(preview.NEXT_NO) : Number(preview.CURRENT_NO ?? 0) + 1
+  return Array.from({ length: safeCount }, (_, index) => index === 0 && preview.NEXT_CD?.trim()
+    ? preview.NEXT_CD.trim()
+    : formatSequencePreviewCode(preview, firstNumber + index, baseDate))
 }
 
 export function getVoucherSequenceObjectType(chitType: ChitType | string | null | undefined): string {

@@ -573,6 +573,8 @@ export default function FixedAssetPage() {
       >
         <div className="fixed-asset-page__grid">
           <BaseDataGrid<FixedAssetGridRow>
+          enableModifierSelection
+          enableDragSelection
             dataSource={rows}
             keyExpr="ASSET_ID"
             screenCd={screenCd}

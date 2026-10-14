@@ -15,6 +15,7 @@ import type { ReportOption } from "@/api/reportOptionApi"
 import ReportDataGrid, {
   type ReportDataGridGroupConfig,
   type ReportDataGridHandle,
+  type ReportGridExportColumn,
   type ReportDataGridRow,
   toLocalizedReportDataGridRows,
 } from "@/components/datagrid/ReportDataGrid"
@@ -51,7 +52,6 @@ import {
 } from "@/pages/Reports/ReportVoucherEditorHost"
 import type { ColumnConfig } from "@/types/table"
 import type { etcData } from "@/types/etcData"
-import { translateReportColumnCaption, type ReportColumnTranslator } from "@/utils/reportColumnCaption"
 import { resolveReportOptionCaption } from "@/utils/resolveConfigCaption"
 import { EInvoiceTableShell } from "@/pages/EInvoice/components/EInvoiceTableShell"
 import { useWorkspaceTabRoute, useWorkspaceTabs } from "@/components/workspaceTabs/WorkspaceTabs"
@@ -563,16 +563,30 @@ function resolveDefaultReportOptionCode(options: ReportOption[]): string {
   return defaultOption?.OPTION_CODE ?? ""
 }
 
-function buildExportColumns(preview: ConfiguredReportPreview, translate: ReportColumnTranslator): ColumnConfig[] {
-  return preview.COLUMNS.map((column, index) => ({
-    id: column.COLUMN_KEY || column.FIELD_NAME,
-    dataField: column.FIELD_NAME,
-    displayName: translateReportColumnCaption(column, translate),
-    width: Math.max(90, Math.round(column.WIDTH || 120)),
-    visible: true,
-    pinned: false,
-    originalOrder: index,
-  }))
+function buildExportColumns(
+  preview: ConfiguredReportPreview,
+  visibleGridColumns: ReportGridExportColumn[],
+): ColumnConfig[] {
+  const previewColumnsByField = new Map(
+    preview.COLUMNS.map((column) => [column.FIELD_NAME.trim().toUpperCase(), column] as const),
+  )
+
+  return visibleGridColumns.flatMap((gridColumn, index) => {
+    const previewColumn = previewColumnsByField.get(gridColumn.dataField.trim().toUpperCase())
+    if (!previewColumn) {
+      return []
+    }
+
+    return [{
+      id: previewColumn.COLUMN_KEY || previewColumn.FIELD_NAME,
+      dataField: previewColumn.FIELD_NAME,
+      displayName: gridColumn.caption,
+      width: gridColumn.width,
+      visible: true,
+      pinned: false,
+      originalOrder: index,
+    }]
+  })
 }
 
 function buildExportFileName(prefix: string): string {
@@ -1451,9 +1465,19 @@ export default function JournalReportPage({
       return
     }
 
+    const visibleGridColumns =
+      reportGridRef.current?.getVisibleExportColumns()
+      ?? reportTreeRef.current?.getVisibleExportColumns()
+      ?? []
+    const exportColumns = buildExportColumns(preview, visibleGridColumns)
+    if (exportColumns.length === 0) {
+      notify(t("NO_COLUMNS_TO_EXPORT", "No visible columns to export"), "warning", 2500)
+      return
+    }
+
     exportToExcel(
       toLocalizedReportDataGridRows(preview, t, reportCode),
-      buildExportColumns(preview, t),
+      exportColumns,
       buildExportFileName(exportFilePrefix || reportCode.toLowerCase()),
       exportSheetName,
     )

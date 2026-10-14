@@ -236,6 +236,8 @@ export default function ProductKindList({
       }
     >
         <BaseDataGrid<ProductKind>
+          enableModifierSelection
+          enableDragSelection
           dataSource={gridData}
           keyExpr="PRODUCT_KIND_ID"
           menuCode={menuCode}

@@ -9,10 +9,8 @@ import {
 } from '@/hooks/useSidebarWidth';
 import { BrowserRouter as Router, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import Header from './components/Header';
+import HeaderSubMenu from './components/HeaderSubMenu';
 import { useMenuLayout } from './components/menu-layout-provider';
-import TieredModuleTabs from './components/TieredModuleTabs';
-import FlatModuleTabs from './components/FlatModuleTabs';
-import ModuleSubTabs from './components/ModuleSubTabs';
 import LoginPage from './components/LoginPage';
 import ModuleContent from './components/ModuleContent';
 import Sidebar from './components/Sidebar';
@@ -84,6 +82,7 @@ const ManagementInfoPage = lazy(() => import('./pages/Module/ManagementInfo/Mana
 const AcclistPage = lazy(() => import('./pages/Module/AcclistManagement/AcclistPage'));
 const ConfiguredReportViewer = lazy(() => import('./pages/Reports/ConfiguredReportViewer'));
 const JournalReportPage = lazy(() => import('./pages/Reports/JournalReportPage'));
+const VatInOutListPage = lazy(() => import('./pages/Tax/VatInOutListPage'));
 const ServiceAllocationCheckPage = lazy(() => import('./pages/Reports/ServiceAllocationCheckPage'));
 const ReportFormulaOptionsPage = lazy(() => import('./pages/Reports/ReportFormulaOptionsPage'));
 const ProductUnitList = lazy(() => import('./pages/Module/ProductUnitManagement/ProductUnitPage'));
@@ -92,6 +91,7 @@ const InventoryReceiptVoucherPage = lazy(() => import('./pages/Inventory/Invento
 const InventoryAdjustVoucherPage = lazy(() => import('./pages/Inventory/InventoryAdjustVoucherPage'));
 const InventoryOpeningPage = lazy(() => import('./pages/Inventory/Opening/InventoryOpeningPage'));
 const InventoryValuationPage = lazy(() => import('./pages/Inventory/InventoryValuationPage'));
+const InventoryPriceUpdatePage = lazy(() => import('./pages/Inventory/InventoryPriceUpdatePage'));
 const OffsetVoucherPage = lazy(() => import('./pages/VoucherManagement/OffsetVoucherPage'));
 const PurchaseVoucherPage = lazy(() => import('./pages/VoucherManagement/PurchaseVoucherPage'));
 const PurchaseServiceVoucherPage = lazy(() => import('./pages/VoucherManagement/PurchaseServiceVoucherPage'));
@@ -306,7 +306,6 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
     }, [isMobile, menuLayout]);
 
     const activeMenu = getActiveMenuFromPath(scopedPathname, menuTree);
-    const currentMenuItem = findMenuById(menuTree, activeMenu);
     const currentMenuPath = activeMenu ? getMenuPath(menuTree, activeMenu) : null;
     const systemMenuNode =
         currentMenuPath && currentMenuPath.length > 0
@@ -316,6 +315,9 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
         () => filterVisibleMenuTree(menuTree),
         [menuTree],
     );
+    const visibleSystemMenuNode = systemMenuNode
+        ? findMenuById(visibleMenuTree, systemMenuNode.id)
+        : null;
     const sidebarMenuTree = useMemo(
         () =>
             filterVisibleMenuTree(
@@ -429,6 +431,12 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
     }, [isMobile]);
 
     useEffect(() => {
+        if (menuLayout === "header") {
+            setSidebarOpen(false);
+        }
+    }, [menuLayout]);
+
+    useEffect(() => {
         if (isMobile) {
             setSidebarOpen(false);
         }
@@ -455,6 +463,20 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
         }
         if (isMobile) {
             setSidebarOpen(false);
+        }
+    };
+
+    const handleSystemMenuSelect = (menuItem: MenuTreeNode) => {
+        const routePath = findFirstMenuRoutePath([menuItem]);
+        if (!routePath) {
+            return;
+        }
+
+        const href = buildAppPath(currentCompanyCd || getCurrentCompanyCd() || resolveDefaultCompanyCd(), routePath);
+        if (workspaceTabsEnabled) {
+            workspaceTabs.openWorkspaceScreen(href);
+        } else {
+            navigate(href);
         }
     };
 
@@ -535,88 +557,93 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
     return (
         <WorkspaceTabsProvider controller={workspaceTabs}>
         <div className="flex h-screen bg-gray-50 relative">
-            {isMobile && sidebarOpen && (
-                <div
-                    className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
-                    onClick={closeSidebar}
-                />
-            )}
+            {menuLayout === "sidebar" ? (
+                <>
+                    {isMobile && sidebarOpen && (
+                        <div
+                            className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+                            onClick={closeSidebar}
+                        />
+                    )}
 
-            <div
-                ref={sidebarRef}
-                className={
-                    isMobile
-                        ? `fixed left-0 top-0 h-full z-50 transform transition-transform duration-300 ease-[cubic-bezier(.22,.68,.18,1)] ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`
-                        : `relative flex-shrink-0 ${isResizing ? '' : 'transition-[width] duration-400 ease-[cubic-bezier(.22,.68,.18,1)]'}`
-                }
-                style={{
-                    width: isMobile
-                        ? SIDEBAR_DEFAULT_WIDTH
-                        : (sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth),
-                }}
-            >
-                <Sidebar
-                    menuTree={sidebarMenuTree}
-                    flyoutMenuTree={visibleMenuTree}
-                    activeMenu={sidebarActiveMenu}
-                    onMenuSelect={handleMenuSelect}
-                    isCollapsed={!isMobile && sidebarCollapsed}
-                    isMobile={isMobile}
-                    loading={loading}
-                    onRequestExpand={expandSidebar}
-                />
-                {!isMobile && !sidebarCollapsed ? (
                     <div
-                        role="separator"
-                        aria-orientation="vertical"
-                        aria-label="Resize sidebar"
-                        aria-valuenow={sidebarWidth}
-                        aria-valuemin={SIDEBAR_MIN_WIDTH}
-                        aria-valuemax={SIDEBAR_MAX_WIDTH}
-                        className={`absolute inset-y-0 right-0 z-20 w-1.5 cursor-col-resize touch-none ${
-                            isResizing ? 'bg-blue-400' : 'bg-transparent hover:bg-blue-300'
-                        }`}
-                        onPointerDown={(event) => {
-                            event.preventDefault();
-                            beginResize();
+                        ref={sidebarRef}
+                        className={
+                            isMobile
+                                ? `fixed left-0 top-0 h-full z-50 transform transition-transform duration-300 ease-[cubic-bezier(.22,.68,.18,1)] ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`
+                                : `relative flex-shrink-0 ${isResizing ? '' : 'transition-[width] duration-400 ease-[cubic-bezier(.22,.68,.18,1)]'}`
+                        }
+                        style={{
+                            width: isMobile
+                                ? SIDEBAR_DEFAULT_WIDTH
+                                : (sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth),
                         }}
-                        onDoubleClick={resetSidebarWidth}
-                    />
-                ) : null}
-                {!isMobile ? (
-                    <button
-                        type="button"
-                        aria-label={
-                            sidebarCollapsed
-                                ? t('SIDEBAR_EXPAND', 'Mở rộng menu')
-                                : t('SIDEBAR_COLLAPSE', 'Thu gọn menu')
-                        }
-                        title={
-                            sidebarCollapsed
-                                ? t('SIDEBAR_EXPAND', 'Mở rộng menu')
-                                : t('SIDEBAR_COLLAPSE', 'Thu gọn menu')
-                        }
-                        onClick={toggleSidebar}
-                        className="absolute top-1/2 right-0 z-30 flex h-7 w-7 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-md transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
                     >
-                        {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-                    </button>
-                ) : null}
-            </div>
+                        <Sidebar
+                            menuTree={sidebarMenuTree}
+                            flyoutMenuTree={visibleMenuTree}
+                            activeMenu={sidebarActiveMenu}
+                            onMenuSelect={handleMenuSelect}
+                            isCollapsed={!isMobile && sidebarCollapsed}
+                            isMobile={isMobile}
+                            loading={loading}
+                            onRequestExpand={expandSidebar}
+                        />
+                        {!isMobile && !sidebarCollapsed ? (
+                            <div
+                                role="separator"
+                                aria-orientation="vertical"
+                                aria-label="Resize sidebar"
+                                aria-valuenow={sidebarWidth}
+                                aria-valuemin={SIDEBAR_MIN_WIDTH}
+                                aria-valuemax={SIDEBAR_MAX_WIDTH}
+                                className={`absolute inset-y-0 right-0 z-20 w-1.5 cursor-col-resize touch-none ${
+                                    isResizing ? 'bg-blue-400' : 'bg-transparent hover:bg-blue-300'
+                                }`}
+                                onPointerDown={(event) => {
+                                    event.preventDefault();
+                                    beginResize();
+                                }}
+                                onDoubleClick={resetSidebarWidth}
+                            />
+                        ) : null}
+                        {!isMobile ? (
+                            <button
+                                type="button"
+                                aria-label={
+                                    sidebarCollapsed
+                                        ? t('SIDEBAR_EXPAND', 'Mở rộng menu')
+                                        : t('SIDEBAR_COLLAPSE', 'Thu gọn menu')
+                                }
+                                title={
+                                    sidebarCollapsed
+                                        ? t('SIDEBAR_EXPAND', 'Mở rộng menu')
+                                        : t('SIDEBAR_COLLAPSE', 'Thu gọn menu')
+                                }
+                                onClick={toggleSidebar}
+                                className="absolute top-1/2 right-0 z-30 flex h-7 w-7 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-md transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+                            >
+                                {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+                            </button>
+                        ) : null}
+                    </div>
+                </>
+            ) : null}
 
             <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                 <Header
                     onLogout={handleLogout}
-                    currentMenuItem={currentMenuItem}
                     systemMenuNode={systemMenuNode}
+                    systemMenus={visibleMenuTree}
+                    onSystemMenuSelect={handleSystemMenuSelect}
                 />
 
                 {willRenderHeaderTabs ? (
-                    <>
-                        <ModuleSubTabs />
-                        <TieredModuleTabs />
-                        <FlatModuleTabs />
-                    </>
+                    <HeaderSubMenu
+                        rootMenu={visibleSystemMenuNode}
+                        activeMenuId={activeMenu}
+                        onMenuSelect={handleMenuSelect}
+                    />
                 ) : willRenderWorkspaceBar ? (
                     <WorkspaceTabBar
                         activeTabId={workspaceTabs.activeTabId}
@@ -729,6 +756,8 @@ function AppWorkspaceRoutes({
                         <Route path="/inventory/adjust" element={<InventoryAdjustVoucherPage />} />
                         <Route path="/inventory/opening" element={<InventoryOpeningPage />} />
                         <Route path="/inventory/calc-out-price" element={<InventoryValuationPage />} />
+                        <Route path="/inventory/update-in-price" element={<InventoryPriceUpdatePage flow="IN" />} />
+                        <Route path="/inventory/update-out-price" element={<InventoryPriceUpdatePage flow="OUT" />} />
                         <Route path="/gl/voucher/purchase" element={<PurchaseVoucherPage />} />
                         <Route path="/ap/purchase/goods" element={<PurchaseVoucherPage />} />
                         <Route path="/ap/utility/check-service-allocation" element={<ServiceAllocationCheckPage />} />
@@ -876,21 +905,7 @@ function AppWorkspaceRoutes({
                         <Route path="/vat" element={<ModuleContent moduleId="vat" />} />
                         <Route
                             path="/tax/vat/inout-list"
-                            element={
-                                <JournalReportPage
-                                    reportCode="TAX_VAT_INOUT_LIST"
-                                    menuCode="TAX_VAT_INOUT_LIST"
-                                    titleKey="TAX_VAT_INOUT_LIST"
-                                    titleFallback="Danh sách hóa đơn đầu vào/đầu ra"
-                                    showInvoiceTypeFilter={true}
-                                    showInvoiceStatusFilter={true}
-                                    showExportExcel={true}
-                                    showFetchFromGdt={true}
-                                    includeEmptyFilterParams={true}
-                                    exportFilePrefix="vat_inout_list"
-                                    exportSheetName="VatInOutList"
-                                />
-                            }
+                            element={<VatInOutListPage />}
                         />
                         <Route
                             path="/tax/vat/invoice-list"
@@ -937,23 +952,6 @@ function AppWorkspaceRoutes({
                                     showExportExcel={true}
                                     exportFilePrefix="vat_declaration"
                                     exportSheetName="VatDeclaration"
-                                />
-                            }
-                        />
-                        <Route
-                            path="/tax/vat/inout-list"
-                            element={
-                                <JournalReportPage
-                                    reportCode="TAX_VAT_INOUT_LIST"
-                                    menuCode="VAT_INOUT_LIST"
-                                    titleKey="VAT_INOUT_LIST"
-                                    titleFallback="Danh sách hóa đơn mua vào/ bán ra"
-                                    showInvoiceTypeFilter={true}
-                                    showInvoiceStatusFilter={true}
-                                    showExportExcel={true}
-                                    includeEmptyFilterParams={true}
-                                    exportFilePrefix="vat_inout_list"
-                                    exportSheetName="VatInOut"
                                 />
                             }
                         />

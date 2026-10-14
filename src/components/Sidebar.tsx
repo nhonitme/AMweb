@@ -11,6 +11,7 @@ import useShortcutBindings from '@/hooks/useShortcutBindings';
 import useShortcutHelp from '@/hooks/useShortcutHelp';
 import { getDevExtremeIconClass } from '@/lib/devexpressIcons';
 import { getSidebarTopLevelIcon } from '@/lib/sidebarTopMenuIcons';
+import { AMNOTE_LOGO_SRC } from '@/lib/branding';
 import { LanguageContext } from '@/lib/i18nLoader';
 import { createShortcutBindings } from '@/lib/shortcuts/shortcutBindings';
 import { SHORTCUT_ACTIONS } from '@/lib/shortcuts/shortcutDefinitions';
@@ -61,8 +62,6 @@ type SidebarTreeCollapsedEvent = ItemCollapsedEvent<SidebarTreeItem, string>;
 type SidebarTreeViewRef = {
   instance: () => dxTreeView<SidebarTreeItem, string>;
 };
-
-const AMNOTE_LOGO_SRC = '/img/amnote_logo.svg';
 
 function normalizeDisplayText(value: unknown): string {
   if (value === null || value === undefined) {

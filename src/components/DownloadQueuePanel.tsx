@@ -1,23 +1,42 @@
-import { useContext, useState, useSyncExternalStore } from "react"
+import { useContext, useEffect, useState, useSyncExternalStore } from "react"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { downloadQueue } from "@/lib/fileUtils"
 
 export default function DownloadQueuePanel() {
   const jobs = useSyncExternalStore(downloadQueue.subscribe, downloadQueue.getSnapshot)
   const { translate: t } = useContext(LanguageContext)
-  const [expanded, setExpanded] = useState(true)
-  if (!jobs.length) return null
+  const [hiddenJobs, setHiddenJobs] = useState<typeof jobs | null>(null)
+  const [expanded, setExpanded] = useState(false)
+  const active = jobs.filter(job => ["queued", "downloading", "ready", "saving"].includes(job.status))
+  const hasFailedJobs = jobs.some(job => job.status === "failed")
+
+  useEffect(() => {
+    if (!jobs.length || active.length || hasFailedJobs) return
+
+    const timeout = window.setTimeout(() => {
+      setHiddenJobs(jobs)
+      setExpanded(false)
+    }, 2000)
+    return () => window.clearTimeout(timeout)
+  }, [jobs, active.length, hasFailedJobs])
+
+  if (!jobs.length || jobs === hiddenJobs) return null
   const labels = {
     queued: t("DOWNLOAD_QUEUED", "Chờ tải"), downloading: t("DOWNLOAD_RUNNING", "Đang tải"),
     ready: t("DOWNLOAD_READY", "Chờ lưu"), saving: t("DOWNLOAD_SAVING", "Đang lưu"),
     completed: t("DOWNLOAD_COMPLETED", "Đã lưu"), cancelled: t("DOWNLOAD_CANCELLED", "Đã hủy"), failed: t("DOWNLOAD_FAILED", "Lỗi"),
   }
-  const active = jobs.filter(job => ["queued", "downloading", "ready", "saving"].includes(job.status))
   const batches = [...new Set(active.map(job => job.batchId).filter((id): id is string => Boolean(id)))]
-  return <section className="fixed bottom-3 right-3 z-[1500] w-96 max-w-[95vw] rounded-lg border bg-white p-3 shadow-xl" aria-label={t("DOWNLOAD_QUEUE", "Tải tệp")}>
-    <div className="flex items-center justify-between gap-2">
-      <button onClick={() => setExpanded(!expanded)} className="font-semibold">{t("DOWNLOAD_QUEUE", "Tải tệp")} ({active.length}) {expanded ? "▾" : "▸"}</button>
-      <button onClick={() => downloadQueue.clearFinished()}>{t("DOWNLOAD_CLEAR_FINISHED", "Dọn mục đã xong")}</button>
+  return <section className={`fixed bottom-3 right-3 z-[1500] ${expanded ? "w-96 max-w-[95vw] rounded-lg border bg-white p-3 shadow-xl" : ""}`} aria-label={t("DOWNLOAD_QUEUE", "Tải tệp")}>
+    <div className={`flex items-center gap-2 ${expanded ? "justify-between" : ""}`}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className={expanded ? "font-semibold" : "rounded-full border bg-white px-3 py-2 text-sm font-medium shadow-lg hover:bg-slate-50"}
+        aria-expanded={expanded}
+      >
+        {expanded ? <>{t("DOWNLOAD_QUEUE", "Tải tệp")} ({active.length}) ▾</> : <>{t("DOWNLOAD_QUEUE", "Tải xuống")} ({active.length})</>}
+      </button>
+      {expanded && <button onClick={() => downloadQueue.clearFinished()}>{t("DOWNLOAD_CLEAR_FINISHED", "Dọn mục đã xong")}</button>}
     </div>
     {expanded && <>
       <div className="my-2 text-xs text-slate-600">{Object.entries(labels).map(([status, label]) => `${label}: ${jobs.filter(job => job.status === status).length}`).join(" · ")}</div>

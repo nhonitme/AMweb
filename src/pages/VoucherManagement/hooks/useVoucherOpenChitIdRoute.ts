@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import type { Location, NavigateFunction } from "react-router-dom"
 
+
 import {
   hasVoucherNavigationOpenState,
   hasVoucherOpenChitIdInQuery,
@@ -115,6 +116,7 @@ export function useVoucherOpenChitIdRoute({
     }
 
     handledOpenRef.current = intentKey
+
     activeIntentKeyRef.current = intentKey
     const runId = openRunSeqRef.current + 1
     openRunSeqRef.current = runId
@@ -138,6 +140,8 @@ export function useVoucherOpenChitIdRoute({
       }
 
       openInFlightRef.current = false
+
+
 
       if (!opened) {
         clearOpenRoute(openRouteFromNavigation)

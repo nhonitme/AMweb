@@ -75,6 +75,7 @@ export type GridToolbarProps = {
   onImport?: () => void;
   onDelete?: () => void;
   onRangeSearch?: (searchText?: string) => void;
+  rangeSearchDisabled?: boolean;
   onOpenColumnSettings?: () => void;
   fromDate?: Date | null;
   toDate?: Date | null;
@@ -87,6 +88,7 @@ export type GridToolbarProps = {
   onToggleAdvancedSearch?: () => void;
   customItems?: ToolbarCustomItem[];
   afterAddItems?: ToolbarCustomItem[];
+  filtersLeadingContent?: React.ReactNode;
   searchLeadingContent?: React.ReactNode;
   onSearchSubmit?: () => void;
 
@@ -95,7 +97,9 @@ export type GridToolbarProps = {
   showColumnChooser?: boolean;
   showExportPdf?: boolean;
   showExportXlsx?: boolean;
+  exportXlsxDisabled?: boolean;
   showImport?: boolean;
+  importDisabled?: boolean;
   showDelete?: boolean;
   deleteDisabled?: boolean;
   /** Client-only search panel over the rows currently loaded in the grid. */
@@ -118,6 +122,7 @@ export function GridToolbar({
   onImport,
   onDelete,
   onRangeSearch,
+  rangeSearchDisabled = false,
   onOpenColumnSettings,
   fromDate = null,
   toDate = null,
@@ -129,6 +134,7 @@ export function GridToolbar({
   onToggleAdvancedSearch,
   customItems,
   afterAddItems,
+  filtersLeadingContent,
   searchLeadingContent,
   onSearchSubmit,
   showAdd = true,
@@ -136,7 +142,9 @@ export function GridToolbar({
   showColumnChooser = true,
   showExportPdf = true,
   showExportXlsx = true,
+  exportXlsxDisabled = false,
   showImport = true,
+  importDisabled = false,
   showDelete = true,
   deleteDisabled = false,
   showSearch = true,
@@ -551,8 +559,6 @@ export function GridToolbar({
       <div className="page-toolbar grid-toolbar">
         <div className="page-toolbar__row">
           <div className="page-toolbar__filters">
-            {label ? <div className="page-toolbar__title">{label}</div> : null}
-
             {showDateRange ? (
               <div ref={dateRangeContainerRef} className="page-toolbar__run-group">
                 <DateRangeBox
@@ -564,7 +570,6 @@ export function GridToolbar({
                   variant="grouped"
                   onFromDateChange={onFromDateChange}
                   onToDateChange={onToDateChange}
-                  onEnter={handleRangeSearchClick}
                   width={150}
                   editorClassName={TOOLBAR_FIELD}
                   className="page-toolbar__date-range flex flex-nowrap gap-2"
@@ -576,10 +581,14 @@ export function GridToolbar({
                   icon="search"
                   text={t("MSG_BTNSER", "Tìm kiếm")}
                   hint={t("MSG_BTNSER", "Tìm kiếm")}
+                  disabled={rangeSearchDisabled}
                   onClick={handleRangeSearchClick}
                 />
               </div>
             ) : null}
+
+            {label ? <div className="page-toolbar__title">{label}</div> : null}
+            {filtersLeadingContent}
           </div>
 
           <div className="page-toolbar__actions">
@@ -644,10 +653,6 @@ export function GridToolbar({
                   showClearButton
                   placeholder={t("Search...", "Tìm...")}
                   onValueChanged={(event) => handlePanelSearchTextChange(String(event.value ?? ""))}
-                  onEnterKey={() => {
-                    updatePanelSearch(panelSearchText)
-                    onSearchSubmit?.()
-                  }}
                 />
                 <Button
                   className="page-toolbar__search-btn page-toolbar__search-btn--inline"
@@ -736,6 +741,7 @@ export function GridToolbar({
                   stylingMode="text"
                   icon="upload"
                   hint={t("MSG_BTNIMPORTEXCEL", "Import from Excel")}
+                  disabled={importDisabled}
                   onClick={onImport}
                 />
               ) : null}
@@ -756,6 +762,7 @@ export function GridToolbar({
                   stylingMode="text"
                   icon="xlsxfile"
                   hint={t("MSG_BTNEXPORT", "Export Excel")}
+                  disabled={exportXlsxDisabled}
                   onClick={onExportXlsx}
                 />
               ) : null}

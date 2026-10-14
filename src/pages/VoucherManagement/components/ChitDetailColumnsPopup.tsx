@@ -21,6 +21,7 @@ import { createNumberEditorOptions } from "@/lib/numberEditorOptions"
 export interface VoucherDetailColumnsProps {
   onCurrencyValueChanged?: (value: unknown) => void
   foreignCurrencyColumnsVisible?: boolean
+  quickCreateCustomer?: boolean
 }
 
 type VoucherDetailColumnsComponent = ComponentType<VoucherDetailColumnsProps>
@@ -110,7 +111,7 @@ interface VoucherDetailEditors {
   }) => (cellInfo: ChitDetailEditCellInfo, autoOpen?: LookupOpenMode | null) => JSX.Element
 }
 
-function useVoucherDetailEditors(): VoucherDetailEditors {
+function useVoucherDetailEditors(quickCreateCustomer = false): VoucherDetailEditors {
   const { translate } = useContext(LanguageContext)
 
   const t = (key: string, fallback: string) => translate(key, fallback)
@@ -136,6 +137,7 @@ function useVoucherDetailEditors(): VoucherDetailEditors {
       popupTitle={t("CustomerSelect", "Select customer")}
       buttonHint={t("LIST_CUSTOMER", "Open customer list")}
       autoOpen={autoOpen}
+      quickCreateEnabled={quickCreateCustomer}
     />
   )
 
@@ -499,8 +501,9 @@ function ForeignCurrencyAmountColumns({
 export function CashVoucherDetailColumns({
   onCurrencyValueChanged,
   foreignCurrencyColumnsVisible = false,
+  quickCreateCustomer = false,
 }: VoucherDetailColumnsProps) {
-  const { t, createAccEditor, createCurrencyEditor, renderCustomerEditor } = useVoucherDetailEditors()
+  const { t, createAccEditor, createCurrencyEditor, renderCustomerEditor } = useVoucherDetailEditors(quickCreateCustomer)
   const { getFormat, formatVersion } = useDecimalColumnFormats()
   const amountFormat = getFormat("AMOUNT", "#,##0.00")
 
@@ -526,8 +529,9 @@ export function CashVoucherDetailColumns({
 export function BankVoucherDetailColumns({
   onCurrencyValueChanged,
   foreignCurrencyColumnsVisible = false,
+  quickCreateCustomer = false,
 }: VoucherDetailColumnsProps) {
-  const { t, createAccEditor, createBankEditor, createCurrencyEditor, renderCustomerEditor } = useVoucherDetailEditors()
+  const { t, createAccEditor, createBankEditor, createCurrencyEditor, renderCustomerEditor } = useVoucherDetailEditors(quickCreateCustomer)
   const { getFormat, formatVersion } = useDecimalColumnFormats()
   const bankField = "BANK_CD"
   const bankEditor = createBankEditor({
@@ -568,8 +572,8 @@ export function BankVoucherDetailColumns({
   )
 }
 
-export function PurchaseVoucherDetailColumns() {
-  const { t, createAccEditor, renderCustomerEditor } = useVoucherDetailEditors()
+export function PurchaseVoucherDetailColumns({ quickCreateCustomer = false }: VoucherDetailColumnsProps) {
+  const { t, createAccEditor, renderCustomerEditor } = useVoucherDetailEditors(quickCreateCustomer)
   const { getFormat, formatVersion } = useDecimalColumnFormats()
 
   return (
@@ -597,8 +601,8 @@ export function PurchaseVoucherDetailColumns() {
   )
 }
 
-export function PurchaseServiceVoucherDetailColumns() {
-  const { t, createAccEditor, renderCustomerEditor } = useVoucherDetailEditors()
+export function PurchaseServiceVoucherDetailColumns({ quickCreateCustomer = false }: VoucherDetailColumnsProps) {
+  const { t, createAccEditor, renderCustomerEditor } = useVoucherDetailEditors(quickCreateCustomer)
   const { getFormat, formatVersion } = useDecimalColumnFormats()
 
   return (
@@ -626,8 +630,8 @@ export function PurchaseServiceVoucherDetailColumns() {
   )
 }
 
-export function SalesVoucherDetailColumns() {
-  const { t, createAccEditor, renderCustomerEditor } = useVoucherDetailEditors()
+export function SalesVoucherDetailColumns({ quickCreateCustomer = false }: VoucherDetailColumnsProps) {
+  const { t, createAccEditor, renderCustomerEditor } = useVoucherDetailEditors(quickCreateCustomer)
   const { getFormat, formatVersion } = useDecimalColumnFormats()
 
   return (
@@ -658,8 +662,9 @@ export function SalesVoucherDetailColumns() {
 export function OffsetVoucherDetailColumns({
   onCurrencyValueChanged,
   foreignCurrencyColumnsVisible = false,
+  quickCreateCustomer = false,
 }: VoucherDetailColumnsProps) {
-  const { t, createAccEditor, createCurrencyEditor, renderCustomerEditor } = useVoucherDetailEditors()
+  const { t, createAccEditor, createCurrencyEditor, renderCustomerEditor } = useVoucherDetailEditors(quickCreateCustomer)
   const { getFormat, formatVersion } = useDecimalColumnFormats()
 
   return (
@@ -686,8 +691,9 @@ export function OffsetVoucherDetailColumns({
 export function OtherVoucherDetailColumns({
   onCurrencyValueChanged,
   foreignCurrencyColumnsVisible = false,
+  quickCreateCustomer = false,
 }: VoucherDetailColumnsProps) {
-  const { t, createAccEditor, createCurrencyEditor, createDepartmentEditor, renderCustomerEditor } = useVoucherDetailEditors()
+  const { t, createAccEditor, createCurrencyEditor, createDepartmentEditor, renderCustomerEditor } = useVoucherDetailEditors(quickCreateCustomer)
   const { getFormat, formatVersion } = useDecimalColumnFormats()
   const departmentField = "DEPARTMENT_CD"
   const departmentEditor = createDepartmentEditor({

@@ -3,8 +3,6 @@ import { filterActiveLangFields, pickLocalizedText } from "@/lib/companyLang"
 import type { Product } from "@/types/product"
 import BaseLookupCellEditor, { type LookupDataSource, type LookupValue } from "./BaseLookupCellEditor"
 import { inventoryLookupStore } from "./inventoryLookupStore"
-import { getAcclistLookupStore } from "./AcclistLookupStore"
-import type { etcData } from "@/types/etcData"
 import notify from "devextreme/ui/notify"
 import { renderSharedProductLookupPage } from "./sharedMasterLookupPages"
 import type { LookupOpenMode } from "./LookupGridCellDisplay"
@@ -41,7 +39,6 @@ type Props = {
   popupTitle?: string
   buttonHint?: string
   autoOpen?: LookupOpenMode | null
-  useCogsAccounts?: boolean
 }
 
 export default function InventoryLookupCellEditor({
@@ -68,7 +65,6 @@ export default function InventoryLookupCellEditor({
   popupTitle = "Chọn vật tư",
   buttonHint = "Mở danh sách vật tư",
   autoOpen,
-  useCogsAccounts = false,
 }: Props) {
   const getProductName = useCallback(
     (item?: Partial<Product> | null) => pickLocalizedText(item, "PRODUCT_NM"),
@@ -92,16 +88,6 @@ export default function InventoryLookupCellEditor({
   const applyProduct = useCallback(
     async (product: Product) => {
       try {
-      let debitAccount = ""
-      const creditAccount = trimLookupText(product.DIVISION)
-      if (useCogsAccounts) {
-        const accounts = await getAcclistLookupStore().load() as etcData[]
-        const children = accounts.filter(account => account.CD.startsWith("632") && account.CD !== "632")
-          .sort((left, right) => left.CD.localeCompare(right.CD))
-        if (!creditAccount.startsWith("156")) throw new Error(`Hàng ${product.PRODUCT_CD}: tài khoản DIVISION phải thuộc 156.`)
-        if (!accounts.some(account => account.CD === creditAccount)) throw new Error(`Tài khoản ${creditAccount} của hàng ${product.PRODUCT_CD} không có trong lookup.`)
-        debitAccount = children.length ? children[0].CD : "632"
-      }
       const productId = toLookupNumber(product.PRODUCT_ID)
       const productCd = trimLookupText(product.PRODUCT_CD)
 
@@ -109,10 +95,6 @@ export default function InventoryLookupCellEditor({
       setLookupGridCellValue(grid, rowIndex, productIdField, productId)
       setLookupGridCellValue(grid, rowIndex, productCdField, productCd)
       setLookupGridCellValue(grid, rowIndex, productNmField, trimLookupText(product.PRODUCT_NM_VIET))
-      if (useCogsAccounts) {
-        setLookupGridCellValue(grid, rowIndex, "COGS_DEBIT", debitAccount)
-        setLookupGridCellValue(grid, rowIndex, "COGS_CREDIT", creditAccount)
-      }
 
       if (hasLookupRowField(rowData, productGroupIdField)) {
         setLookupGridCellValue(grid, rowIndex, productGroupIdField, toLookupNumber(product.PRODUCT_KIND_ID))
@@ -172,7 +154,6 @@ export default function InventoryLookupCellEditor({
       warehouseIdField,
       warehouseCdField,
       warehouseNmField,
-      useCogsAccounts,
     ],
   )
 

@@ -1,4 +1,4 @@
-﻿export type ChitType =
+export type ChitType =
   | "RC"
   | "PM"
   | "DN"
@@ -15,6 +15,8 @@
   | "IO"
   | "CO"
   | "OT"
+
+export type VatVoucherType = Extract<ChitType, "PO" | "PS" | "SO">
 
 export type ChitLedger = "AP" | "AR"
 export type InventoryInputType = ChitLedger | "INV"
@@ -68,8 +70,6 @@ export interface InventoryInputApi {
 }
 
 export interface InventoryOutputApi {
-  COGS_DEBIT?: string | null
-  COGS_CREDIT?: string | null
   OUTPUT_ID?: number | null
   OUTPUT_CD?: InventoryText
   INVENTORY_ID?: number | null
@@ -102,17 +102,22 @@ export interface InventoryOutputApi {
   UNIT_NM_CHINA?: InventoryText
   QUANTITY?: number | null
   UNIT_PRICE_CC?: number | null
+  REVENUE_UNIT_PRICE_CC?: number | null
   FC_TYPE?: InventoryText
   UNIT_PRICE_FC?: number | null
+  REVENUE_UNIT_PRICE_FC?: number | null
   EXCHANGE_RATES?: number | null
   AMOUNT_CC?: number | null
+  REVENUE_AMOUNT_CC?: number | null
   AMOUNT_FC?: number | null
+  REVENUE_AMOUNT_FC?: number | null
   SUMMARY?: InventoryText
   INVENTORY_YMD?: InventoryDateValue
   INPUT_INVENTORY_YMD?: InventoryDateValue
   OUTPUT_INVENTORY_YMD?: InventoryDateValue
   STATE?: InventoryText
   CHITDETAIL_ID?: number | null
+  CHITDETAIL_ID_COGS?: number | null
   CHITDETAIL_CD?: InventoryText
   SORT?: number | null
   ISDEL?: InventoryFlag
@@ -161,8 +166,6 @@ export interface InventoryInputLine {
 }
 
 export interface InventoryOutputLine {
-  COGS_DEBIT?: string | null
-  COGS_CREDIT?: string | null
   ROW_KEY: string
   OUTPUT_ID: number | null
   OUTPUT_CD: string
@@ -196,17 +199,22 @@ export interface InventoryOutputLine {
   UNIT_NM_CHINA: string
   QUANTITY: number | null
   UNIT_PRICE_CC: number | null
+  REVENUE_UNIT_PRICE_CC: number | null
   FC_TYPE: string
   UNIT_PRICE_FC: number | null
+  REVENUE_UNIT_PRICE_FC: number | null
   EXCHANGE_RATES: number | null
   AMOUNT_CC: number | null
+  REVENUE_AMOUNT_CC: number | null
   AMOUNT_FC: number | null
+  REVENUE_AMOUNT_FC: number | null
   SUMMARY: string
   INVENTORY_YMD: InventoryDateValue
   INPUT_INVENTORY_YMD?: InventoryDateValue
   OUTPUT_INVENTORY_YMD?: InventoryDateValue
   STATE: string
   CHITDETAIL_ID: number | null
+  CHITDETAIL_ID_COGS: number | null
   CHITDETAIL_CD: string
   SORT: number | null
   ISDEL: boolean
@@ -351,6 +359,7 @@ export interface InventoryVoucherApi {
   CHIT_NO?: ChitText
   CHIT_YMD?: ChitDateValue
   CHIT_TYPE?: ChitType | ChitText
+  IS_COGS?: ChitFlag
   AMOUNT?: number | null
   TOTAL_QTY?: number | null
   REMARK?: ChitText
@@ -498,6 +507,7 @@ export interface InventoryVoucher {
   CHIT_NO: string
   CHIT_YMD: ChitDateValue
   CHIT_TYPE: Extract<ChitType, "IR" | "IO" | "IA">
+  IS_COGS: boolean
   AMOUNT: number | null
   TOTAL_QTY: number | null
   REMARK: string
@@ -572,5 +582,6 @@ export interface VoucherCreateFromSourceState {
 export interface VoucherOpenLocationState {
   openChitId?: number
   openMode?: "edit"
+  openTab?: "output" | "cogs"
   createFromSource?: VoucherCreateFromSourceState | null
 }

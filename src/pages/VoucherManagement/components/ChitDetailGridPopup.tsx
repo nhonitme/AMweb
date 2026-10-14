@@ -1,5 +1,6 @@
 ﻿import { forwardRef, useCallback, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, type ComponentType, type MutableRefObject, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react"
 import { Button } from "devextreme-react"
+import type { ReactNode } from "react"
 import DataGrid, { Column, Editing, ColumnFixing, Scrolling } from "devextreme-react/data-grid"
 import TextBox from "devextreme-react/text-box"
 import notify from "devextreme/ui/notify"
@@ -80,15 +81,22 @@ interface ChitDetailGridProps {
     readOnly?: boolean
     layoutVersion?: number
     ChitDetailColumns?: ComponentType<VoucherDetailColumnsProps> | undefined
+    quickCreateCustomer?: boolean
     screenCd?: string
     gridId?: string
     persistColumnSettings?: boolean
     columnSettingStateRef?: MutableRefObject<GridColumnSettingState | null>
+    onOpenInventory?: (row: ChitDetail, target?: LinkedInventoryTarget) => Promise<void>
+    inventoryBusy?: boolean
+    pendingInventoryRowKeys?: string[]
+    inventoryRefreshVersion?: number
+    showInventoryLinkActions?: boolean
+    linkSlot?: ReactNode
 }
 
 const RUNTIME_COLUMN_SETTING_EXCLUDED_NAMES = ["FC_AMOUNT", "FC_RATE"] as const
 const MAX_DETAIL_GRID_HEIGHT = 420
-const LINK_ACTION_SLOT_CLASS = "inline-flex h-7 w-7 shrink-0 items-center justify-center"
+const LINK_ACTION_SLOT_CLASS = "inline-flex h-7 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded border px-2 text-xs font-medium"
 
 function normalizeChitDetailGridRows(rows: ChitDetail[]): ChitDetail[] {
     return rows.map((item) => cloneChitDetail(item))
@@ -123,49 +131,55 @@ function OpenLinkedInventoryButton({
     targets,
     hint,
     onOpen,
+    label,
+    pending,
+    disabled,
 }: {
     targets: LinkedInventoryTarget[]
     hint: string
-    onOpen: (target: LinkedInventoryTarget) => void
+    onOpen: (target?: LinkedInventoryTarget) => void
+    label: string
+    pending: boolean
+    disabled: boolean
 }) {
-    if (targets.length === 0) {
-        return <span className={LINK_ACTION_SLOT_CLASS} aria-hidden />
-    }
+    const [choosing, setChoosing] = useState(false)
+    const colors = targets.length > 0
+        ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200"
+        : pending
+          ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
+          : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
 
-    if (targets.length === 1) {
-        return (
+    return (
+        <div className="flex min-w-0 flex-col gap-1">
             <button
                 type="button"
                 title={hint}
+                aria-label={hint}
+                disabled={disabled}
                 onPointerDownCapture={stopActionEvent}
                 onMouseDownCapture={stopActionEvent}
                 onClick={(event) => {
                     stopActionEvent(event)
-                    onOpen(targets[0])
+                    if (targets.length > 1) setChoosing((value) => !value)
+                    else onOpen(targets[0])
                 }}
-                className={`${LINK_ACTION_SLOT_CLASS} rounded text-gray-500 transition-colors hover:bg-sky-50 hover:text-sky-600`}
+                className={`${LINK_ACTION_SLOT_CLASS} transition-colors disabled:cursor-wait disabled:opacity-50 ${colors}`}
             >
-                <span className="dx-icon dx-icon-link" />
+                <span className="dx-icon dx-icon-link" aria-hidden />
+                <span>{label}</span>
             </button>
-        )
-    }
-
-    return (
-        <label className={`relative ${LINK_ACTION_SLOT_CLASS}`} title={hint}>
-            <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-gray-500">
-                <span className="dx-icon dx-icon-link" />
-            </span>
+            {choosing && targets.length > 1 ? (
             <select
-                className="h-7 w-7 cursor-pointer appearance-none opacity-0"
+                className="w-full rounded border border-emerald-300 text-xs"
                 value=""
+                disabled={disabled}
                 aria-label={hint}
                 onPointerDownCapture={stopActionEvent}
                 onMouseDownCapture={stopActionEvent}
                 onClick={stopActionEvent}
                 onChange={(event) => {
-                    const chitId = Number(event.target.value)
-                    const target = targets.find((item) => item.chitId === chitId)
-                    event.target.value = ""
+                    const target = targets.find((item) => `${item.chitType}:${item.chitId}` === event.target.value)
+                    setChoosing(false)
                     if (target) {
                         onOpen(target)
                     }
@@ -175,14 +189,15 @@ function OpenLinkedInventoryButton({
                     {hint}
                 </option>
                 {targets.map((target) => (
-                    <option key={target.chitId} value={target.chitId}>
+                    <option key={`${target.chitType}:${target.chitId}`} value={`${target.chitType}:${target.chitId}`}>
                         {target.chitNo
                             ? `${target.chitType} · ${target.chitNo}`
                             : `${target.chitType} · ${target.chitId}`}
                     </option>
                 ))}
             </select>
-        </label>
+            ) : null}
+        </div>
     )
 }
 
@@ -198,10 +213,17 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
             readOnly = false,
             layoutVersion = 0,
             ChitDetailColumns,
+            quickCreateCustomer = false,
             screenCd,
             gridId,
             persistColumnSettings = false,
             columnSettingStateRef,
+            onOpenInventory,
+            inventoryBusy = false,
+            pendingInventoryRowKeys = [],
+            inventoryRefreshVersion = 0,
+            showInventoryLinkActions: showInventoryLinkActionsProp,
+            linkSlot,
         },
         ref,
     ) {
@@ -215,6 +237,9 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
         const linkedInventoryInFlightKeyRef = useRef("")
         const contentReadyHandledRef = useRef(false)
         const [linkedInventoryVersion, setLinkedInventoryVersion] = useState(0)
+        const [linkLoading, setLinkLoading] = useState(false)
+        const [linkLoadFailed, setLinkLoadFailed] = useState(false)
+        const [linkRetryVersion, setLinkRetryVersion] = useState(0)
         const [forceForeignCurrencyColumnsVisible, setForceForeignCurrencyColumnsVisible] = useState(false)
         const [rowValidationWarnings, setRowValidationWarnings] = useState<ChitDetailRowValidationWarnings>({})
         const { translate } = useContext(LanguageContext) as {
@@ -235,8 +260,8 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
             [translate],
         )
         const visibleDetails = useMemo(() => getActiveChitDetails(details), [details])
-        const showInventoryLinkActions = isInventoryLinkedAccountingVoucherType(chitType)
-        const detailActionsColumnWidth = showInventoryLinkActions ? 96 : 60
+        const showInventoryLinkActions = showInventoryLinkActionsProp ?? isInventoryLinkedAccountingVoucherType(chitType)
+        const detailActionsColumnWidth = showInventoryLinkActions ? 190 : 60
         const usePercentHeight = height === "100%"
         const activeDetailIdsKey = useMemo(
             () =>
@@ -302,10 +327,13 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
             }
 
             if (!activeDetailIdsKey) {
+                linkedInventoryByDetailIdRef.current = {}
+                setLinkLoading(false)
+                setLinkLoadFailed(false)
                 return
             }
 
-            const loadKey = `${chitType}:${headerChitId}:${activeDetailIdsKey}`
+            const loadKey = `${chitType}:${headerChitId}:${activeDetailIdsKey}:${inventoryRefreshVersion}:${linkRetryVersion}`
             if (linkedInventoryLoadKeyRef.current === loadKey) {
                 return
             }
@@ -315,6 +343,8 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
             }
 
             linkedInventoryInFlightKeyRef.current = loadKey
+            setLinkLoading(true)
+            setLinkLoadFailed(false)
             const detailIds = activeDetailIdsKey
                 .split(",")
                 .map((value) => Number(value))
@@ -341,13 +371,16 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                     }
 
                     linkedInventoryByDetailIdRef.current = nextMap
-                    // Spacer keeps layout stable; one light re-render only paints link icons.
+                    // Fixed action width keeps the grid stable when link status changes.
                     setLinkedInventoryVersion((current) => current + 1)
                 } catch (error) {
                     console.error("Load linked inventory vouchers failed", error)
                     if (!cancelled) {
                         linkedInventoryInFlightKeyRef.current = ""
+                        setLinkLoadFailed(true)
                     }
+                } finally {
+                    if (!cancelled) setLinkLoading(false)
                 }
             })()
 
@@ -357,7 +390,7 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                     linkedInventoryInFlightKeyRef.current = ""
                 }
             }
-        }, [activeDetailIdsKey, chitType, headerChitId, isVisible, showInventoryLinkActions])
+        }, [activeDetailIdsKey, chitType, headerChitId, isVisible, showInventoryLinkActions, inventoryRefreshVersion, linkRetryVersion])
 
         const handleOpenLinkedInventory = useCallback(
             (target: LinkedInventoryTarget) => {
@@ -441,10 +474,12 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                 <ChitDetailColumns
                     onCurrencyValueChanged={handleCurrencyValueChanged}
                     foreignCurrencyColumnsVisible={foreignCurrencyColumnsVisible}
+                    quickCreateCustomer={quickCreateCustomer}
                 />
             )
         }, [
             ChitDetailColumns,
+            quickCreateCustomer,
             foreignCurrencyColumnsVisible,
             handleCurrencyValueChanged,
         ])
@@ -786,6 +821,12 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                             void undeleteLastRow()
                         }}
                     />
+                    {linkSlot ? (
+                        <>
+                            <div role="separator" aria-orientation="vertical" className="mx-1 h-6 border-l border-slate-300" />
+                            {linkSlot}
+                        </>
+                    ) : null}
                     <div className="ml-auto flex items-center gap-2">
                         {searchVisible ? (
                             <div ref={searchContainerRef}>
@@ -883,13 +924,6 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
 
                                 return (
                                     <div className="flex h-full w-full items-center justify-center gap-0.5">
-                                        {showInventoryLinkActions ? (
-                                            <OpenLinkedInventoryButton
-                                                targets={linkedTargets}
-                                                hint={t("OPEN_INVENTORY_VOUCHER", "Mở phiếu kho")}
-                                                onOpen={handleOpenLinkedInventory}
-                                            />
-                                        ) : null}
                                         <div className="shrink-0 [&_>div]:!w-auto">
                                             <DeleteRowButton
                                                 hint={t("DELETE", "Delete")}
@@ -900,6 +934,23 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                                                 }}
                                             />
                                         </div>
+                                        {showInventoryLinkActions ? (
+                                            <OpenLinkedInventoryButton
+                                                targets={linkedTargets}
+                                                label={t("INVENTORY_ROW_BUTTON", "Hàng tồn kho")}
+                                                pending={pendingInventoryRowKeys.includes(rowKey ?? "")}
+                                                disabled={inventoryBusy || (detailId > 0 && (linkLoading || (!linkLoadFailed && linkedInventoryLoadKeyRef.current !== `${chitType}:${headerChitId}:${activeDetailIdsKey}:${inventoryRefreshVersion}:${linkRetryVersion}`))) || (readOnly && linkedTargets.length === 0 && !linkLoadFailed)}
+                                                hint={linkLoadFailed ? t("RETRY_INVENTORY_LINK", "Không tải được liên kết kho. Bấm để thử lại") : linkedTargets.length > 0 ? t("OPEN_INVENTORY_VOUCHER", "Mở phiếu hàng tồn kho đã liên kết") : pendingInventoryRowKeys.includes(rowKey ?? "") ? t("INVENTORY_PENDING_SOURCE_SAVE", "Bản nháp phiếu kho — lưu phiếu nguồn để hoàn tất liên kết") : t("ENTER_INVENTORY_VOUCHER", "Nhập phiếu hàng tồn kho")}
+                                                onOpen={(target) => {
+                                                    if (detailId > 0 && linkLoadFailed) {
+                                                        setLinkRetryVersion((version) => version + 1)
+                                                        return
+                                                    }
+                                                    if (cellInfo.data && onOpenInventory) void onOpenInventory(cellInfo.data, target)
+                                                    else if (target) handleOpenLinkedInventory(target)
+                                                }}
+                                            />
+                                        ) : null}
                                     </div>
                                 )
                             }}
