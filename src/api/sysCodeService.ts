@@ -7,6 +7,7 @@ export interface SysCode {
   CODE_TYPE: string;
   CODE_CD: string;
   CODE_NAME: string;
+  NOTE?: string | null;
   SORT_ORDER: number;
   IS_ACTIVE: number;
   ISDEL: string;
