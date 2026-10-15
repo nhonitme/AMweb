@@ -653,69 +653,6 @@ export function ReportToolbar({
     <div className="page-toolbar report-toolbar">
       <div className={`page-toolbar__row${variant === "flat" ? " page-toolbar__row--flat" : ""}`}>
         <div className="page-toolbar__filters">
-          <div className="page-toolbar__run-group">
-            {dateFilterMode === "useStartYmd" ? (
-              <DateBox
-                key={`use-start-date-${lang}`}
-                className={`${TOOLBAR_FIELD} page-toolbar__date-range`}
-                value={effectiveUseStartYmd}
-                label={t("USE_START_YMD", "Ngày sử dụng")}
-                labelMode="floating"
-                {...useStartYmdDateBoxOptions}
-                onValueChanged={(event) => handleUseStartYmdChange((event.value as Date | null) ?? null)}
-                onEnterKey={deferredSearchHandler}
-              />
-            ) : optionalFromDateEnabled !== undefined && onOptionalFromDateEnabledChange ? (
-              <OptionalFromDateRangeBox
-                fromDateEnabled={optionalFromDateEnabled}
-                onFromDateEnabledChange={onOptionalFromDateEnabledChange}
-                checkboxText={optionalFromDateLabel ?? t("USE_FROM_DATE", "Lọc từ ngày")}
-                fromDate={effectiveFromDate}
-                toDate={effectiveToDate}
-                fromPlaceholder={t("MSG_FROMDATE", "From Date")}
-                toPlaceholder={t("MSG_TODATE", "To Date")}
-                labelMode="floating"
-                variant="grouped"
-                onFromDateChange={handleFromDateChange}
-                onToDateChange={handleToDateChange}
-                onFromDateFormattedChange={onFromDateFormattedChange}
-                onToDateFormattedChange={onToDateFormattedChange}
-                onEnter={searchHandler}
-                width={150}
-                editorClassName={TOOLBAR_FIELD}
-                className="page-toolbar__date-range flex flex-nowrap gap-2"
-              />
-            ) : (
-              <DateRangeBox
-                fromDate={effectiveFromDate}
-                toDate={effectiveToDate}
-                fromPlaceholder={t("MSG_FROMDATE", "From Date")}
-                toPlaceholder={t("MSG_TODATE", "To Date")}
-                labelMode="floating"
-                variant="grouped"
-                onFromDateChange={handleFromDateChange}
-                onToDateChange={handleToDateChange}
-                onFromDateFormattedChange={onFromDateFormattedChange}
-                onToDateFormattedChange={onToDateFormattedChange}
-                onEnter={searchHandler}
-                width={150}
-                editorClassName={TOOLBAR_FIELD}
-                className="page-toolbar__date-range flex flex-nowrap gap-2"
-              />
-            )}
-
-            {showSearch && typeof searchHandler === "function" ? (
-              <Button
-                className="page-toolbar__search-btn"
-                type="default"
-                stylingMode="contained"
-                icon="search"
-                text={t("MSG_BTNSER", "Tìm kiếm")}
-                hint={t("MSG_BTNSER", "Tìm kiếm")}
-                onClick={searchHandler}
-              />
-            ) : null}
-          </div>
           {initialFilters}
           {periodOptions ? (
             <SelectBox
@@ -1007,6 +944,69 @@ export function ReportToolbar({
           ) : null}
 
           {leadingFilters}
+          <div className="page-toolbar__run-group">
+            {dateFilterMode === "useStartYmd" ? (
+              <DateBox
+                key={`use-start-date-${lang}`}
+                className={`${TOOLBAR_FIELD} page-toolbar__date-range`}
+                value={effectiveUseStartYmd}
+                label={t("USE_START_YMD", "Ngày sử dụng")}
+                labelMode="floating"
+                {...useStartYmdDateBoxOptions}
+                onValueChanged={(event) => handleUseStartYmdChange((event.value as Date | null) ?? null)}
+                onEnterKey={deferredSearchHandler}
+              />
+            ) : optionalFromDateEnabled !== undefined && onOptionalFromDateEnabledChange ? (
+              <OptionalFromDateRangeBox
+                fromDateEnabled={optionalFromDateEnabled}
+                onFromDateEnabledChange={onOptionalFromDateEnabledChange}
+                checkboxText={optionalFromDateLabel ?? t("USE_FROM_DATE", "Lọc từ ngày")}
+                fromDate={effectiveFromDate}
+                toDate={effectiveToDate}
+                fromPlaceholder={t("MSG_FROMDATE", "From Date")}
+                toPlaceholder={t("MSG_TODATE", "To Date")}
+                labelMode="floating"
+                variant="grouped"
+                onFromDateChange={handleFromDateChange}
+                onToDateChange={handleToDateChange}
+                onFromDateFormattedChange={onFromDateFormattedChange}
+                onToDateFormattedChange={onToDateFormattedChange}
+                onEnter={searchHandler}
+                width={150}
+                editorClassName={TOOLBAR_FIELD}
+                className="page-toolbar__date-range flex flex-nowrap gap-2"
+              />
+            ) : (
+              <DateRangeBox
+                fromDate={effectiveFromDate}
+                toDate={effectiveToDate}
+                fromPlaceholder={t("MSG_FROMDATE", "From Date")}
+                toPlaceholder={t("MSG_TODATE", "To Date")}
+                labelMode="floating"
+                variant="grouped"
+                onFromDateChange={handleFromDateChange}
+                onToDateChange={handleToDateChange}
+                onFromDateFormattedChange={onFromDateFormattedChange}
+                onToDateFormattedChange={onToDateFormattedChange}
+                onEnter={searchHandler}
+                width={150}
+                editorClassName={TOOLBAR_FIELD}
+                className="page-toolbar__date-range flex flex-nowrap gap-2"
+              />
+            )}
+
+            {showSearch && typeof searchHandler === "function" ? (
+              <Button
+                className="page-toolbar__search-btn"
+                type="default"
+                stylingMode="contained"
+                icon="search"
+                text={t("MSG_BTNSER", "Tìm kiếm")}
+                hint={t("MSG_BTNSER", "Tìm kiếm")}
+                onClick={searchHandler}
+              />
+            ) : null}
+          </div>
 
         </div>
 
