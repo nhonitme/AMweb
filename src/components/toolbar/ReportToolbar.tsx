@@ -7,6 +7,7 @@ import { LanguageContext } from "@/lib/i18nLoader"
 import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults"
 import MultiLookupCellEditor from "@/components/lookup/MultiLookupCellEditor"
 import DateRangeBox from "@/components/toolbar/DateRangeBox"
+import OptionalFromDateRangeBox from "@/components/toolbar/OptionalFromDateRangeBox"
 import DateBox from "devextreme-react/date-box"
 import { createDateBoxEditorOptions } from "@/components/forms/dateBoxEditorOptions"
 import ReportOptionLookup, { type ReportOptionLookupItem } from "@/components/toolbar/ReportOptionLookup"
@@ -77,6 +78,10 @@ type ReportToolbarProps = {
   onReportOptionChange?: (value: string | null) => void
   onFromDateChange?: (value: Date | null) => void
   onToDateChange?: (value: Date | null) => void
+  /** Opt-in lower date bound, supported by the AP offset screen. Existing reports are unchanged. */
+  optionalFromDateEnabled?: boolean
+  onOptionalFromDateEnabledChange?: (enabled: boolean) => void
+  optionalFromDateLabel?: string
   onFromDateFormattedChange?: (value: string | null) => void
   onToDateFormattedChange?: (value: string | null) => void
   onCustomerCodesChange?: (value: string[]) => void
@@ -100,6 +105,8 @@ type ReportToolbarProps = {
   onFetchFromGdt?: () => void
   onFormulaSettings?: () => void
   showSearch?: boolean
+  /** Hide the separate quick-search text input; keep the main report Search button. */
+  showQuickSearch?: boolean
   showRefresh?: boolean
   showPrint?: boolean
   showExportPdf?: boolean
@@ -173,6 +180,9 @@ export function ReportToolbar({
   onReportOptionChange,
   onFromDateChange,
   onToDateChange,
+  optionalFromDateEnabled,
+  onOptionalFromDateEnabledChange,
+  optionalFromDateLabel,
   onFromDateFormattedChange,
   onToDateFormattedChange,
   onCustomerCodesChange,
@@ -196,6 +206,7 @@ export function ReportToolbar({
   onFetchFromGdt,
   onFormulaSettings,
   showSearch = true,
+  showQuickSearch = true,
   showRefresh = true,
   showPrint = true,
   showExportPdf = true,
@@ -630,6 +641,26 @@ export function ReportToolbar({
                 onValueChanged={(event) => handleUseStartYmdChange((event.value as Date | null) ?? null)}
                 onEnterKey={deferredSearchHandler}
               />
+            ) : optionalFromDateEnabled !== undefined && onOptionalFromDateEnabledChange ? (
+              <OptionalFromDateRangeBox
+                fromDateEnabled={optionalFromDateEnabled}
+                onFromDateEnabledChange={onOptionalFromDateEnabledChange}
+                checkboxText={optionalFromDateLabel ?? t("USE_FROM_DATE", "Lọc từ ngày")}
+                fromDate={effectiveFromDate}
+                toDate={effectiveToDate}
+                fromPlaceholder={t("MSG_FROMDATE", "From Date")}
+                toPlaceholder={t("MSG_TODATE", "To Date")}
+                labelMode="floating"
+                variant="grouped"
+                onFromDateChange={handleFromDateChange}
+                onToDateChange={handleToDateChange}
+                onFromDateFormattedChange={onFromDateFormattedChange}
+                onToDateFormattedChange={onToDateFormattedChange}
+                onEnter={searchHandler}
+                width={150}
+                editorClassName={TOOLBAR_FIELD}
+                className="page-toolbar__date-range flex flex-nowrap gap-2"
+              />
             ) : (
               <DateRangeBox
                 fromDate={effectiveFromDate}
@@ -926,7 +957,7 @@ export function ReportToolbar({
         </div>
 
         <div className="page-toolbar__actions">
-          {showSearch ? (
+          {showSearch && showQuickSearch ? (
             <div className="page-toolbar__quick-search-group flex items-end gap-1">
               <TextBox
                 className={`${TOOLBAR_FIELD} page-toolbar__field--search page-toolbar__quick-search`}
