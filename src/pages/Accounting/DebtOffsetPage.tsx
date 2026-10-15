@@ -419,6 +419,7 @@ export default function DebtOffsetPage() {
             onCurrencyCodesChange={values => { setCurrencyCodes(normalizeCurrencyCodes(values)); reset() }}
             accountCodes={mainTab === "MATCH" ? matchAccountCodes
               : subTab === "EXECUTE" ? clearingAccount1Codes : undefined}
+            accountPlaceholder={mainTab === "CLEARING" ? t("ACCOUNT_CODE", "Mã tài khoản") + " 131" : undefined}
             accountLookupSingleSelect
             accountFilterEtcType={mainTab === "MATCH"
               ? EtcType.cbxDebtOffsetAccount

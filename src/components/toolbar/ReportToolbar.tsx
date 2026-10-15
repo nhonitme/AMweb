@@ -65,6 +65,7 @@ type ReportToolbarProps = {
   toDate?: Date | null
   customerCodes?: string[]
   accountCodes?: string[]
+  accountPlaceholder?: string
   /** Optional second account lookup, rendered adjacent to the primary account. */
   secondaryAccountCodes?: string[]
   secondaryAccountFilterEtcType?: EtcType
@@ -175,6 +176,7 @@ export function ReportToolbar({
   toDate,
   customerCodes,
   accountCodes,
+  accountPlaceholder,
   secondaryAccountCodes,
   secondaryAccountFilterEtcType,
   onSecondaryAccountCodesChange,
@@ -836,7 +838,7 @@ export function ReportToolbar({
                 valueExpr="CD"
                 maxSelection={accountLookupSingleSelect ? 1 : undefined}
                 searchExpr={["CD", "ACC_CD", "NM_VIET", "NM_ENG", "NM_KOR", "NM_CHINA", "ACCTITLE_NM_VIET", "ACCTITLE_NM_ENG", "ACCTITLE_NM_KOR", "ACCTITLE_NM_CHINA"]}
-                placeholder={t("ACCOUNT_CODE", "Account Code")}
+                placeholder={accountPlaceholder ?? t("ACCOUNT_CODE", "Account Code")}
                 labelMode="floating"
                 buttonHint={t("OPEN_ACCOUNT_LOOKUP", "Open account lookup")}
                 toolbarSingleTagDisplayExpr={displayAccountOption}
