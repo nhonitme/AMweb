@@ -140,6 +140,12 @@ export enum EtcType {
   cbxCashBookAccount = 12,
   /** Sổ công nợ phải thu — TK ISCUSTOMER */
   cbxArBookAccount = 13,
+  /** Đối trừ công nợ: cho phép chọn 131* hoặc 331*. */
+  cbxDebtOffsetAccount = 14,
+  /** Bù trừ công nợ: nguồn phải thu 131*. */
+  cbxDebtClearingReceivableAccount = 15,
+  /** Bù trừ công nợ: công nợ phải trả 331*. */
+  cbxDebtClearingPayableAccount = 16,
 }
 
 export async function getEtcData(

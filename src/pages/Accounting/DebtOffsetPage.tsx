@@ -1,7 +1,7 @@
 import { useCallback, useContext, useMemo, useState } from "react"
 import DataGrid, { Column, Scrolling, Selection, Summary, TotalItem } from "devextreme-react/data-grid"
-import SelectBox from "devextreme-react/select-box"
 import { ReportToolbar } from "@/components/toolbar/ReportToolbar"
+import { EtcType } from "@/api/systemApi"
 import NumberBox from "devextreme-react/number-box"
 import Button from "devextreme-react/button"
 import notify from "devextreme/ui/notify"
@@ -95,7 +95,9 @@ export default function DebtOffsetPage() {
   const t = useCallback((key: string, fallback: string) => translate?.(key, fallback) ?? fallback, [translate])
   const [mainTab, setMainTab] = useState<MainTab>("MATCH")
   const [subTab, setSubTab] = useState<Panel>("EXECUTE")
-  const [matchKind, setMatchKind] = useState<"PAYMENT" | "COLLECT">("PAYMENT")
+  const [matchAccountCodes, setMatchAccountCodes] = useState<string[]>([])
+  const [clearingAccount1Codes, setClearingAccount1Codes] = useState<string[]>([])
+  const [clearingAccount2Codes, setClearingAccount2Codes] = useState<string[]>([])
   const [fromDate, setFromDate] = useState<Date | null>(() => new Date(new Date().getFullYear(), 0, 1))
   const [fromDateEnabled, setFromDateEnabled] = useState(false)
   const [toDate, setToDate] = useState<Date | null>(() => new Date())
@@ -110,7 +112,13 @@ export default function DebtOffsetPage() {
   const [debts, setDebts] = useState<SelectedVoucher[]>([])
   const [historySelected, setHistorySelected] = useState<OffsetHistory | null>(null)
 
-  const kind: OffsetKind = mainTab === "CLEARING" ? "CLEARING" : matchKind
+  // The selected account replaces the old "Loại đối trừ" dropdown:
+  // 131* => receivables collection, 331* => payables payment.
+  const selectedMatchAccount = matchAccountCodes[0]?.trim() ?? ""
+  const selectedAccount1 = clearingAccount1Codes[0]?.trim() ?? ""
+  const selectedAccount2 = clearingAccount2Codes[0]?.trim() ?? ""
+  const kind: OffsetKind = mainTab === "CLEARING" ? "CLEARING"
+    : selectedMatchAccount.startsWith("131") ? "COLLECT" : "PAYMENT"
   // Saving an allocation needs one currency because the relation tables do not persist FC_TYPE.
   const activeCurrency = currencyCodes.length === 1 && supportedCurrency(currencyCodes[0])
     ? currencyCodes[0]
@@ -140,8 +148,12 @@ export default function DebtOffsetPage() {
     return {
       kind, fromYmd: fromDateEnabled ? ymd(fromDate) : "", toYmd: ymd(toDate),
       customerIds, currencyFilter: activeCurrency ? toCurrencyFilter(activeCurrency) : "",
+      accCd: mainTab === "MATCH" ? selectedMatchAccount : "",
+      accCd1: mainTab === "CLEARING" ? selectedAccount1 : "",
+      accCd2: mainTab === "CLEARING" ? selectedAccount2 : "",
     }
-  }, [kind, fromDateEnabled, fromDate, toDate, customerCodes, activeCurrency])
+  }, [kind, mainTab, selectedMatchAccount, selectedAccount1, selectedAccount2,
+      fromDateEnabled, fromDate, toDate, customerCodes, activeCurrency])
 
   const reset = () => {
     setLoaded(false)
@@ -174,6 +186,17 @@ export default function DebtOffsetPage() {
   }, [currencyCodes, kind])
 
   const refresh = async () => {
+    if (mainTab === "MATCH" && selectedMatchAccount &&
+        !selectedMatchAccount.startsWith("131") && !selectedMatchAccount.startsWith("331")) {
+      notify("Đối trừ chỉ hỗ trợ tài khoản 131* hoặc 331*", "warning", 4000)
+      return
+    }
+    if (mainTab === "CLEARING" && subTab === "EXECUTE" &&
+        ((selectedAccount1 && !selectedAccount1.startsWith("131")) ||
+         (selectedAccount2 && !selectedAccount2.startsWith("331")))) {
+      notify("Bù trừ yêu cầu tài khoản phải thu 131* và phải trả 331*", "warning", 4000)
+      return
+    }
     const fromYmd = fromDateEnabled ? ymd(fromDate) : ""
     const toYmd = ymd(toDate)
     if ((fromDateEnabled && (fromYmd.length !== 8 || fromYmd > toYmd)) || toYmd.length !== 8) {
@@ -394,24 +417,24 @@ export default function DebtOffsetPage() {
             onCustomerCodesChange={values => { setCustomerCodes(values); reset() }}
             currencyCodes={currencyCodes}
             onCurrencyCodesChange={values => { setCurrencyCodes(normalizeCurrencyCodes(values)); reset() }}
-            initialFilters={mainTab === "MATCH" ? (
-              <SelectBox
-                className="page-toolbar__field"
-                dataSource={[
-                  { value: "PAYMENT", text: "Thanh toán phải trả 331" },
-                  { value: "COLLECT", text: "Thu tiền phải thu 131" },
-                ]}
-                displayExpr="text"
-                valueExpr="value"
-                value={matchKind}
-                label={t("DEBT_TYPE", "Loại đối trừ")}
-                labelMode="floating"
-                stylingMode="outlined"
-                width={205}
-                showClearButton={false}
-                onValueChanged={event => { setMatchKind(event.value); reset() }}
-              />
-            ) : undefined}
+            accountCodes={mainTab === "MATCH" ? matchAccountCodes
+              : subTab === "EXECUTE" ? clearingAccount1Codes : undefined}
+            accountLookupSingleSelect
+            accountFilterEtcType={mainTab === "MATCH"
+              ? EtcType.cbxDebtOffsetAccount
+              : EtcType.cbxDebtClearingReceivableAccount}
+            onAccountCodesChange={mainTab === "MATCH"
+              ? values => { setMatchAccountCodes(values.slice(0, 1)); reset() }
+              : subTab === "EXECUTE"
+                ? values => { setClearingAccount1Codes(values.slice(0, 1)); reset() }
+                : undefined}
+            secondaryAccountCodes={mainTab === "CLEARING" && subTab === "EXECUTE"
+              ? clearingAccount2Codes : undefined}
+            secondaryAccountFilterEtcType={EtcType.cbxDebtClearingPayableAccount}
+            secondaryAccountPlaceholder={t("ACCOUNT_CODE", "Mã tài khoản") + " 331"}
+            onSecondaryAccountCodesChange={mainTab === "CLEARING" && subTab === "EXECUTE"
+              ? values => { setClearingAccount2Codes(values.slice(0, 1)); reset() }
+              : undefined}
             onSearch={() => { if (!busy) void refresh() }}
             showSearch
             showQuickSearch={false}

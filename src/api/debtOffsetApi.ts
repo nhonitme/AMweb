@@ -12,6 +12,9 @@ export type OffsetFilters = {
   toYmd: string
   customerIds: string
   currencyFilter: string
+  accCd: string
+  accCd1: string
+  accCd2: string
 }
 export type OffsetVoucher = {
   CUSTOMER_ID: number
