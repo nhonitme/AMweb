@@ -232,7 +232,12 @@ export async function resolveFreeAccountingDetail(
   option: InventoryAccountingReferenceOption,
   source: Pick<ChitInfo, "CHIT_ID">,
   currentLinkedDetailId = 0,
-): Promise<{ CHITDETAIL_ID: number; CHITDETAIL_CD: string } | null> {
+): Promise<{
+  CHITDETAIL_ID: number
+  CHITDETAIL_CD: string
+  CUSTOMER_ID: number | null
+  CUSTOMER_CD: string
+} | null> {
   const sourceChitId = Number(source.CHIT_ID ?? 0)
   if (!Number.isFinite(sourceChitId) || sourceChitId <= 0) {
     return null
@@ -281,7 +286,12 @@ export async function resolveFreeAccountingDetail(
     return null
   }
 
-  return { CHITDETAIL_ID: detailId, CHITDETAIL_CD: detailCd }
+  return {
+    CHITDETAIL_ID: detailId,
+    CHITDETAIL_CD: detailCd,
+    CUSTOMER_ID: Number(preferred.CUSTOMER_ID ?? 0) > 0 ? Number(preferred.CUSTOMER_ID) : null,
+    CUSTOMER_CD: String(preferred.CUSTOMER_CD ?? "").trim(),
+  }
 }
 
 const linkListPageSize = 100

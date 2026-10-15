@@ -22,6 +22,7 @@ import { AcclistInfo } from "@/types/acclist";
 import { SysCode } from "@/api/sysCodeService";
 import { useSysCodes } from "@/lib/sysCodeContext";
 import { downloadFile } from "@/lib/fileUtils";
+import { useMenuExportName } from "@/hooks/useMenuExportName";
 import { getCurrentCompanyCd } from "@/lib/login";
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage";
 import { buildMasterGridReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig";
@@ -53,6 +54,7 @@ export default function AcclistPage({
   const screenCd = "/module/acclist-management";
   const gridId = "acclist-grid";
   const menuCode = "MD_ACCOUNT";
+  const exportName = useMenuExportName(menuCode)
   const treeListRef = useRef<dxTreeList | null>(null);
   const { lang, translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string; lang: string };
   const [isUpdate, setIsUpdate] = useState(false);
@@ -170,7 +172,7 @@ export default function AcclistPage({
     try {
       const accId = getSelectedAccId();
       const loadDownloadBlob = (signal: AbortSignal) => exportToExcel(accId, lang, signal);
-      await downloadFile({ fileName: `${translate('TSAccitemAdd','Acc list')}_${new Date().toISOString().replace(/[:.-]/g, '')}.xlsx`, load: loadDownloadBlob });
+      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob });
     } catch (error: unknown) {
       console.error('Export error', error);
       notify(

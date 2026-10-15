@@ -8,6 +8,7 @@ import type { SelectionChangedEvent } from "devextreme/ui/data_grid"
 
 import { getConfiguredReportPreview } from "@/api/configuredReportPreviewApi"
 import type { ConfiguredReportPreview, ReportPreviewColumn, ReportPreviewCellValue } from "@/api/configuredReportPreviewApi"
+import { getChits } from "@/api/voucherApi"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { getUserSettingsBatch, saveUserSettingsBulk } from "@/api/userSettingApi"
 import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid"
@@ -16,6 +17,7 @@ import ReportPdfExportPopup, { type ReportPrintTemplateCode } from "@/components
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import DxPage from "@/dx/DxPage"
 import { exportToExcel } from "@/lib/excelUtils"
+import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { getCurrentCompanyCd } from "@/lib/login"
 import { getStoredGridTemplateId } from "@/lib/sysGridColumnTemplateStorage"
@@ -24,7 +26,10 @@ import FetchGdtVatPopup from "@/pages/Reports/components/FetchGdtVatPopup"
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
 import { buildReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
 import { normalizeReportLanguage, type ReportLanguageCode } from "@/pages/Reports/reportLanguage"
+import ChitEditorPopup from "@/pages/VoucherManagement/components/ChitEditorPopup"
+import { normalizeChitRows } from "@/pages/VoucherManagement/chitUtils"
 import type { ColumnConfig } from "@/types/table"
+import type { ChitInfo, ChitLedger, ChitType } from "@/types/voucher"
 import { getCurrentLang } from "@/utils/language"
 
 import VatInOutBatchVoucherPopup from "./VatInOutBatchVoucherPopup"
@@ -59,7 +64,11 @@ function getInvoiceId(values: Record<string, ReportPreviewCellValue>, fallback: 
 }
 
 function isAlreadyLinked(row: VatInvoiceRow): boolean {
-  return Boolean(String(readField(row, "AUTO_CHIT_CD") ?? "").trim() || String(readField(row, "CHIT_NO") ?? "").trim())
+  const chitId = Number(readField(row, "__CHIT_ID"))
+  return Boolean(
+    String(readField(row, "AUTO_CHIT_CD") ?? "").trim()
+    || (Number.isSafeInteger(chitId) && chitId > 0),
+  )
 }
 
 function resolveColumnType(column: ReportPreviewColumn): "string" | "number" | "date" | "boolean" {
@@ -74,6 +83,7 @@ function resolveDateDisplay(value: unknown): string {
 }
 
 export default function VatInOutListPage() {
+  const exportName = useMenuExportName("VAT_INOUT_LIST")
   const { lang, translate } = useContext(LanguageContext) as {
     lang?: string
     translate?: (key: string, fallback?: string) => string
@@ -109,6 +119,9 @@ export default function VatInOutListPage() {
   const [mergedVoucherPopupVisible, setMergedVoucherPopupVisible] = useState(false)
   const [batchPopupVisible, setBatchPopupVisible] = useState(false)
   const [quickBatchKind, setQuickBatchKind] = useState<"customer" | "product" | null>(null)
+  const [linkedVoucher, setLinkedVoucher] = useState<{ record: ChitInfo; ledger: ChitLedger; chitType: ChitType } | null>(null)
+  const [linkedVoucherLoading, setLinkedVoucherLoading] = useState(false)
+  const linkedVoucherRequestRef = useRef(0)
 
   const statusOptions = useMemo(
     () => VAT_INVOICE_STATUS_OPTIONS.map((option) => ({
@@ -258,6 +271,50 @@ export default function VatInOutListPage() {
     gridRef.current?.clearSelection()
   }, [])
 
+  const handleOpenLinkedVoucher = useCallback(async (row: VatInvoiceRow) => {
+    const chitId = Number(readField(row, "__CHIT_ID"))
+    const rawChitType = String(readField(row, "__CHIT_TYPE") ?? "").trim().toUpperCase()
+    const allowedTypes = invoiceType === "BUY" ? ["PO", "PS"] : ["SO"]
+    if (!Number.isSafeInteger(chitId) || chitId <= 0 || !allowedTypes.includes(rawChitType)) {
+      notify(t("SOURCE_VOUCHER_NOT_FOUND", "Không tìm thấy chứng từ liên kết để mở."), "warning", 3000)
+      return
+    }
+
+    const sequence = linkedVoucherRequestRef.current + 1
+    linkedVoucherRequestRef.current = sequence
+    setLinkedVoucher(null)
+    setLinkedVoucherLoading(true)
+
+    try {
+      const chitType = rawChitType as ChitType
+      const ledger: ChitLedger = invoiceType === "BUY" ? "AP" : "AR"
+      const result = await getChits(ledger, chitType, {
+        chitId,
+        INCLUDE_DETAILS: true,
+        pageNumber: 1,
+        pageSize: 1,
+      })
+      if (linkedVoucherRequestRef.current !== sequence) return
+      const record = normalizeChitRows(result.data, chitType)[0]
+      if (!record) throw new Error("Không tìm thấy chứng từ liên kết.")
+      setLinkedVoucher({ record, ledger, chitType })
+    } catch (error) {
+      if (linkedVoucherRequestRef.current === sequence) {
+        notify(getApiErrorMessage(error, t("LOAD_FAILED", "Không tải được chứng từ.")), "error", 4000)
+      }
+    } finally {
+      if (linkedVoucherRequestRef.current === sequence) setLinkedVoucherLoading(false)
+    }
+  }, [invoiceType, t])
+
+  const closeLinkedVoucher = useCallback(() => {
+    linkedVoucherRequestRef.current += 1
+    setLinkedVoucher(null)
+    setLinkedVoucherLoading(false)
+  }, [])
+
+  const handleLinkedVoucherSave = useCallback(async (_record: ChitInfo) => {}, [])
+
   const handleExportExcel = useCallback(async () => {
     if (!preview?.ROWS.length || rows.length === 0) {
       notify(t("NO_DATA_TO_EXPORT", "Không có dữ liệu để xuất."), "warning", 2500)
@@ -291,13 +348,12 @@ export default function VatInOutListPage() {
       return
     }
 
-    const timestamp = new Date().toISOString().replace(/[:.-]/g, "")
     try {
-      await exportToExcel(rows, exportColumns, `vat_inout_list_${timestamp}.xlsx`, "VatInvoices")
+      await exportToExcel(rows, exportColumns, exportName.fileName("xlsx"), exportName.sheetName())
     } catch (error) {
       notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Không xuất được Excel.")), "error", 4000)
     }
-  }, [preview, rows, t])
+  }, [exportName, preview, rows, t])
 
   const handleExportPdf = useCallback((language: ReportLanguageCode, printTemplate: ReportPrintTemplateCode) => {
     const fromYmd = formatDateToYmd(fromDate)
@@ -369,11 +425,30 @@ export default function VatInOutListPage() {
           allowSorting
           allowFiltering
           customizeText={dateColumn ? (cell) => resolveDateDisplay(cell.value) : undefined}
+          cellRender={normalized === "CHIT_NO" ? (cell: { data: VatInvoiceRow }) => {
+            const value = String(readField(cell.data, field) ?? "").trim()
+            if (!value) return null
+            const chitId = Number(readField(cell.data, "__CHIT_ID"))
+            if (!Number.isSafeInteger(chitId) || chitId <= 0) return value
+            return (
+              <button
+                type="button"
+                className="cursor-pointer text-blue-700 underline decoration-blue-400 underline-offset-2 hover:text-blue-900 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label={`${t("OPEN_VOUCHER", "Mở chứng từ")} ${value}`}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  void handleOpenLinkedVoucher(cell.data)
+                }}
+              >
+                {value}
+              </button>
+            )
+          } : undefined}
         />
       )
     })
     return dynamicColumns
-  }, [preview])
+  }, [handleOpenLinkedVoucher, preview, t])
 
   const toolbarFilters = (
     <div className="flex flex-wrap items-end gap-2">
@@ -504,6 +579,19 @@ export default function VatInOutListPage() {
             invoices={selectedInvoices}
             onClose={() => setQuickBatchKind(null)}
           />
+          {linkedVoucher ? (
+            <ChitEditorPopup
+              visible
+              value={linkedVoucher.record}
+              ledger={linkedVoucher.ledger}
+              chitType={linkedVoucher.chitType}
+              isUpdate
+              readOnly
+              loading={false}
+              onClose={closeLinkedVoucher}
+              onSave={handleLinkedVoucherSave}
+            />
+          ) : null}
           <ReportPdfExportPopup
             visible={pdfExportPopupVisible}
             defaultLanguage={exportLanguage}
@@ -533,15 +621,14 @@ export default function VatInOutListPage() {
         selectAllMode="page"
         selectByClick={false}
         actionButtons={false}
-        showPager={true}
-        pageSize={50}
-        allowedPageSizes={[20, 50, 100]}
+        pagingEnabled={false}
+        showPager={false}
         onInitialized={(event) => { gridRef.current = event.component ?? null }}
         onSelectionChanged={handleSelectionChanged}
       >
         {columns}
       </BaseDataGrid>
-      <LoadPanel visible={loading} showIndicator={true} showPane={true} shading={true} shadingColor="rgba(0, 0, 0, 0.15)" />
+      <LoadPanel visible={loading || linkedVoucherLoading} showIndicator={true} showPane={true} shading={true} shadingColor="rgba(0, 0, 0, 0.15)" />
     </MasterDataPageLayout>
   )
 

@@ -1,4 +1,5 @@
 import { downloadFile } from "@/lib/fileUtils"
+import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Column, Button as DataGridButton } from 'devextreme-react/data-grid'
 import LoadPanel from 'devextreme-react/load-panel'
@@ -101,6 +102,7 @@ const buildDuplicateRow = (source: FixedAssetGridRow): FixedAssetGridRow =>
   })
 
 export default function FixedAssetPage() {
+  const exportName = useMenuExportName(menuCode)
   const gridRef = useRef<dxDataGrid<FixedAssetGridRow, number> | null>(null)
   const detailPromiseRef = useRef<Map<number, Promise<FixedAssetGridRow>>>(new Map())
 
@@ -483,12 +485,12 @@ export default function FixedAssetPage() {
         accCd,
         lang: langCode,
       }, signal)
-      await downloadFile({ fileName: `fixed_asset_register_${new Date().toISOString().replace(/[:.-]/g, '')}.xlsx`, load: loadDownloadBlob })
+      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
     } catch (error) {
       console.error('Export fixed assets Excel failed', error)
       notify(getApiErrorMessage(error, t('Export failed', 'Không xuất được Excel.')), 'error', 3000)
     }
-  }, [appliedFilters.accCd, appliedFilters.status, langCode, t])
+  }, [appliedFilters.accCd, appliedFilters.status, exportName, langCode, t])
 
   const handleExportPdf = useCallback(() => {
     const keys = (gridRef.current?.getSelectedRowKeys() || []) as number[]

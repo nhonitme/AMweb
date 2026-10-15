@@ -2,11 +2,11 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "r
 import Button from "devextreme-react/button"
 import DateBox from "devextreme-react/date-box"
 import { Column } from "devextreme-react/data-grid"
-import Popup from "devextreme-react/popup"
+import Popup, { ToolbarItem } from "devextreme-react/popup"
 import SelectBox from "devextreme-react/select-box"
 import notify from "devextreme/ui/notify"
-import type dxDataGrid from "devextreme/ui/data_grid"
 
+import { createDateBoxEditorOptions } from "@/components/forms/dateBoxEditorOptions"
 import { createGdtVoucherBatch, getGdtInvoiceDetail, linkGdtInvoicesToVoucher } from "@/api/gdtImportApi"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid"
@@ -249,7 +249,6 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
   const [inventoryLookupsLoaded, setInventoryLookupsLoaded] = useState(false)
   const [sequencePreviewVersion, setSequencePreviewVersion] = useState(0)
   const savingRef = useRef(false)
-  const masterGridRef = useRef<(dxDataGrid & { __openColumnSettings?: () => boolean | Promise<boolean> }) | null>(null)
   const detailGridRef = useRef<ChitDetailGridHandle | null>(null)
   const cogsGridRef = useRef<ChitDetailGridHandle | null>(null)
   const detailColumnSettingStateRef = useRef<GridColumnSettingState | null>(null)
@@ -524,7 +523,6 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
   }, [activeTab, drafts, syncActiveDetails])
 
   const openDetailColumnSettings = useCallback(() => {
-    if (activeTab !== "posting" && activeTab !== "cogs") return
     const isCogs = activeTab === "cogs"
     const gridId = isCogs ? cogsGridId : detailGridId
     const title = isCogs ? t("INVENTORY_COGS", "Giá vốn") : t("lblDetail", "Hạch toán")
@@ -857,9 +855,18 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
     <Popup
       visible={visible}
       title={selectedVoucherTypeLabel}
-      showCloseButton={canClose}
+      showTitle
+      showCloseButton={false}
+      dragEnabled={false}
+      resizeEnabled={false}
+      deferRendering={false}
       hideOnOutsideClick={false}
-      fullScreen
+      width="100vw"
+      height="100vh"
+      maxWidth="100vw"
+      maxHeight="100vh"
+      container="body"
+      position={{ my: "center", at: "center", of: window }}
       onHiding={(event) => {
         if (!canClose) {
           event.cancel = true
@@ -868,17 +875,17 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
         handleClose()
       }}
     >
-      <div className="flex h-full min-h-0 flex-col gap-3 p-3">
-        <div className="flex items-center justify-start gap-3 border-b pb-2">
+      <ToolbarItem
+        toolbar="top"
+        location="before"
+        render={() => (
           <SelectBox
             dataSource={voucherTypeOptions}
             displayExpr="label"
             valueExpr="value"
             value={voucherType}
             stylingMode="outlined"
-            label={t("CHIT_TYPE", "Loại phiếu")}
-            labelMode="floating"
-            width={280}
+            width={240}
             disabled={saving || drafts.some((draft) => draft.edited || Boolean(draft.savedChitCd))}
             hint={drafts.some((draft) => draft.edited)
               ? t("VAT_CHIT_TYPE_LOCKED_AFTER_EDIT", "Chọn loại phiếu trước khi nhập thông tin chứng từ.")
@@ -887,17 +894,33 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
                 : t("VAT_SALES_VOUCHER_TYPE_GUIDE", "Hóa đơn đầu ra sử dụng Phiếu bán hàng.")}
             onValueChanged={(event) => setVoucherType(String(event.value ?? getDefaultVatVoucherType(invoiceType)) as VatVoucherType)}
           />
-          <Button
-            icon="columnchooser"
-            text={t("SYS_GRID_COLUMN_SETTING", "Thiết lập cột")}
-            stylingMode="outlined"
-            disabled={saving}
-            onClick={() => void masterGridRef.current?.__openColumnSettings?.()}
-          />
-        </div>
-
+        )}
+      />
+      <ToolbarItem
+        toolbar="top"
+        location="after"
+        render={() => (
+          <div className="flex items-center gap-1 rounded-xl bg-white p-1 shadow-sm">
+            <Button
+              icon="columnchooser"
+              hint={t("SYS_GRID_COLUMN_SETTING", "Thiết lập cột")}
+              stylingMode="text"
+              disabled={saving}
+              onClick={openDetailColumnSettings}
+            />
+            <Button
+              icon="close"
+              hint={t("CLOSE", "Đóng")}
+              stylingMode="text"
+              disabled={!canClose}
+              onClick={handleClose}
+            />
+          </div>
+        )}
+      />
+      <div className="relative flex h-full min-h-0 flex-col gap-3 overflow-hidden p-3">
         <div className="flex min-h-0 flex-1 flex-col gap-3">
-          <div className="h-[220px] shrink-0 overflow-hidden rounded border border-slate-200">
+          <div className="h-[clamp(100px,24vh,220px)] shrink-0 overflow-hidden rounded border border-slate-200">
             <BaseDataGrid<VatBatchDraft>
               dataSource={drafts}
               keyExpr="key"
@@ -906,10 +929,8 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
               gridId="vat-inout-batch-draft-grid"
               focusRowEnabled
               pagingEnabled={false}
+              showPager={false}
               wordWrapEnabled={false}
-              onInitialized={(event) => {
-                masterGridRef.current = (event.component as typeof event.component & { __openColumnSettings?: () => boolean | Promise<boolean> }) ?? null
-              }}
               onFocusedRowChanged={(event) => {
                 const draft = event.row?.data as VatBatchDraft | undefined
                 if (!saving && draft) void handleSelectDraft(draft.key)
@@ -985,15 +1006,19 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
               <Column
                 dataField="CHIT_YMD"
                 caption={t("CHIT_YMD", "Ngày giao dịch")}
-                width={160}
+                dataType="date"
+                format="dd/MM/yyyy"
+                width={180}
                 allowSorting={false}
                 allowFiltering={false}
                 cellRender={(cell) => (
-                  <div onClick={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()}>
+                  <div className="flex h-full items-center" onClick={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()}>
                     <DateBox
+                      {...createDateBoxEditorOptions({ inputAttr: { tabIndex: 0 } })}
                       value={normalizeYmd(cell.data.record.CHIT_YMD)}
-                      displayFormat="dd/MM/yyyy"
                       stylingMode="outlined"
+                      height={26}
+                      elementAttr={{ style: "border: none; box-shadow: none; background: transparent" }}
                       disabled={saving || Boolean(cell.data.savedChitCd)}
                       onValueChanged={(event) => handleDraftVoucherDateChange(cell.data.key, event.value)}
                     />
@@ -1046,31 +1071,19 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
           {activeDraft ? (
             <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
               <div role="tablist" aria-label={t("VAT_INVOICE_WORK_TABS", "Nghiệp vụ hóa đơn")} className="flex shrink-0 gap-1 border-b border-slate-200">
-                <button type="button" role="tab" aria-selected={activeTab === "posting"} disabled={saving} className={`border-b-2 px-3 py-2 text-sm ${activeTab === "posting" ? "border-sky-600 font-semibold text-sky-700" : "border-transparent text-slate-600 hover:text-slate-900"}`} onClick={() => void handleSelectTab("posting")}>
-                  {t("VAT_POSTING_TAB", "Hạch toán")}
-                </button>
                 {loadInventoryDetail && invoiceType === "SELL" ? <button type="button" role="tab" aria-selected={activeTab === "inventory"} disabled={saving || !inventoryLookupsLoaded} className={`border-b-2 px-3 py-2 text-sm ${activeTab === "inventory" ? "border-sky-600 font-semibold text-sky-700" : "border-transparent text-slate-600 hover:text-slate-900"}`} onClick={() => void handleSelectTab("inventory")}>
                   {t("INVENTORY", "Hàng tồn kho / ghép mã")}
                 </button> : null}
+                <button type="button" role="tab" aria-selected={activeTab === "posting"} disabled={saving} className={`border-b-2 px-3 py-2 text-sm ${activeTab === "posting" ? "border-sky-600 font-semibold text-sky-700" : "border-transparent text-slate-600 hover:text-slate-900"}`} onClick={() => void handleSelectTab("posting")}>
+                  {t("VAT_POSTING_TAB", "Hạch toán")}
+                </button>
                 {invoiceType === "SELL" && (activeDraft.record.COMPANY_CD || getCurrentCompanyCd()) !== "2653" ? (
                   <button type="button" role="tab" aria-selected={activeTab === "cogs"} disabled={saving} className={`border-b-2 px-3 py-2 text-sm ${activeTab === "cogs" ? "border-sky-600 font-semibold text-sky-700" : "border-transparent text-slate-600 hover:text-slate-900"}`} onClick={() => void handleSelectTab("cogs")}>
                     {t("INVENTORY_COGS", "Giá vốn")}
                   </button>
                 ) : null}
               </div>
-              {activeTab === "posting" || activeTab === "cogs" ? (
-                <div className="flex shrink-0 justify-end">
-                  <Button
-                    icon="columnchooser"
-                    text={t("SYS_GRID_COLUMN_SETTING", "Thiết lập cột")}
-                    stylingMode="text"
-                    disabled={saving}
-                    onClick={openDetailColumnSettings}
-                  />
-                </div>
-              ) : null}
-
-              <div role="tabpanel" className="min-h-[280px] flex-1 overflow-hidden rounded border border-slate-200">
+              <div role="tabpanel" className="min-h-0 flex-1 overflow-hidden rounded border border-slate-200">
                 {activeTab === "posting" ? (
                   <ChitDetailGridPopup
                     ref={detailGridRef}
@@ -1128,7 +1141,7 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
                 <div className="text-sm text-slate-600">
                   {activeTab === "inventory"
                     ? `Chi tiết hóa đơn: ${inventoryJsonState.invoiceKey === activeInvoiceKey ? inventoryJsonState.rows.length : 0} dòng`
-                    : `${activeTab === "cogs" ? t("INVENTORY_COGS_AMOUNT", "Tổng giá vốn") : t("TOTAL_AMOUNT", "Tổng tiền")}: ${calculateChitAmount(activeTab === "cogs" ? activeDraft.cogsDetails : activeDraft.record.DETAILS).toLocaleString()}`}
+                    : null}
                   {activeDraft.error ? <div className="text-xs text-red-600">{activeDraft.error}</div> : null}
                 </div>
                 <div className="flex gap-2">

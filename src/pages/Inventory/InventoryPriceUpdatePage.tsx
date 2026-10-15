@@ -19,6 +19,7 @@ import { trimLookupText } from "@/components/lookup/lookupHelpers"
 import { warehouseLookupStore } from "@/components/lookup/warehouseLookupStore"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import DxPage from "@/dx/DxPage"
+import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults"
 import { createNumberEditorOptions } from "@/lib/numberEditorOptions"
@@ -58,6 +59,7 @@ export default function InventoryPriceUpdatePage({ flow }: Props) {
   const { translate } = useContext(LanguageContext) as { translate?: TranslationFn }
   const t = useCallback((key: string, fallback: string) => translate?.(key, fallback) ?? fallback, [translate])
   const isInput = flow === "IN"
+  const exportName = useMenuExportName(isInput ? "INV_UPDATE_IN_PRICE" : "INV_UPDATE_OUT_PRICE")
   const priceCaption = isInput
     ? t("INVENTORY_INPUT_PRICE", "Giá nhập mới")
     : t("INVENTORY_COGS_UNIT_PRICE", "Giá vốn xuất mới")
@@ -121,7 +123,7 @@ export default function InventoryPriceUpdatePage({ flow }: Props) {
       }))
       const message = invalidRows.length
         ? t("INVENTORY_PRICE_IMPORT_PARTIAL", "Đã nạp các dòng hợp lệ; có dòng thiếu mã, giá hoặc bị trùng")
-        : t("INVENTORY_PRICE_IMPORT_SUCCESS", "Đã nạp giá mới vào lưới")
+        : t("INVENTORY_PRICE_IMPORT_SUCCESS", "Đã nạp giá mới vào danh sách")
       return {
         success: true,
         totalRows: input.length,
@@ -155,9 +157,9 @@ export default function InventoryPriceUpdatePage({ flow }: Props) {
     }))
     const sheet = XLSX.utils.json_to_sheet(exportRows)
     const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, sheet, "Price update")
-    XLSX.writeFile(workbook, `${isInput ? "inventory_in_price" : "inventory_out_price"}_${new Date().toISOString().replace(/[:.-]/g, "")}.xlsx`)
-  }, [isInput, rows, t])
+    XLSX.utils.book_append_sheet(workbook, sheet, exportName.sheetName())
+    XLSX.writeFile(workbook, exportName.fileName("xlsx"))
+  }, [exportName, isInput, rows, t])
 
   const handleApply = useCallback(async () => {
     const filter = buildFilter()
@@ -281,10 +283,6 @@ export default function InventoryPriceUpdatePage({ flow }: Props) {
             />
             <Column dataField="PRODUCT_CD" caption={t("PRODUCT_CODE", "Mã sản phẩm")} allowEditing={false} />
             <Column dataField="PRODUCT_NAME" caption={t("PRODUCT_NAME", "Tên sản phẩm")} allowEditing={false} />
-            <Column dataField="TOTAL_QUANTITY" caption={t("TOTAL_QUANTITY", "Tổng số lượng")} dataType="number" format="#,##0.###" allowEditing={false} />
-            <Column dataField="CURRENT_PRICE_MIN" caption={t("CURRENT_PRICE_MIN", "Giá hiện tại thấp nhất")} dataType="number" format="#,##0.00" allowEditing={false} />
-            <Column dataField="CURRENT_PRICE_MAX" caption={t("CURRENT_PRICE_MAX", "Giá hiện tại cao nhất")} dataType="number" format="#,##0.00" allowEditing={false} />
-            <Column dataField="CURRENT_AMOUNT" caption={t("CURRENT_AMOUNT", "Thành tiền hiện tại")} dataType="number" format="#,##0.00" allowEditing={false} />
             <Column
               dataField="NEW_UNIT_PRICE"
               caption={priceCaption}

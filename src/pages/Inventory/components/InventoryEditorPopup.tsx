@@ -1,5 +1,6 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 
+
 import "./InventoryEditorPopup.css"
 import Button from "devextreme-react/button"
 import MasterLookupFormField from "@/components/lookup/MasterLookupFormField"
@@ -12,6 +13,7 @@ import Form, { Item } from "devextreme-react/form"
 import LoadPanel from "devextreme-react/load-panel"
 import Popup, { ToolbarItem } from "devextreme-react/popup"
 import notify from "devextreme/ui/notify"
+import { confirm } from "devextreme/ui/dialog"
 import { useLocation, useNavigate } from "react-router-dom"
 
 
@@ -77,6 +79,7 @@ interface InventoryEditorPopupProps {
   lockAccountingReference?: boolean
   onClose: () => void
   onOpenLinkedAccountingVoucher?: (chitType: ChitType, chitId: number) => boolean
+  onOpenLinkedCogsVoucher: (chitId: number) => boolean
   onSave: (record: InventoryVoucher) => Promise<void>
   onSaveAndNew?: (record: InventoryVoucher) => Promise<void>
   printReportCode?: string | null
@@ -104,6 +107,7 @@ export default function InventoryEditorPopup({
   lockAccountingReference = false,
   onClose,
   onOpenLinkedAccountingVoucher,
+  onOpenLinkedCogsVoucher,
   onSave,
   onSaveAndNew,
   printReportCode,
@@ -140,7 +144,7 @@ export default function InventoryEditorPopup({
   const activeGridRef = isInputVoucher ? inputGridRef : outputGridRef
   const activeColumnSettingStateRef = isInputVoucher ? inputColumnSettingStateRef : outputColumnSettingStateRef
 
-  const { sysCodeMap } = useSysCodes()
+  const { sysCodeMap, getCodeName } = useSysCodes()
   const inventoryLinkSourceOptions = useMemo(
     () => buildInventoryAccountingReferenceOptions(sysCodeMap[INVENTORY_LINK_SOURCE_CODE_TYPE] ?? []),
     [sysCodeMap],
@@ -153,6 +157,8 @@ export default function InventoryEditorPopup({
   const [selectedAccountingSourceId, setSelectedAccountingSourceId] = useState<number | null>(null)
   const [linkedAccountingChitNo, setLinkedAccountingChitNo] = useState("")
   const [linkedAccountingChitType, setLinkedAccountingChitType] = useState("")
+  const [linkedCogsSourceId, setLinkedCogsSourceId] = useState<number | null>(null)
+  const [linkedCogsVoucherNo, setLinkedCogsVoucherNo] = useState("")
   const [linkingAccountingReference, setLinkingAccountingReference] = useState(false)
 
   const selectedAccountingReferenceOption = useMemo(() => {
@@ -337,6 +343,7 @@ export default function InventoryEditorPopup({
         setSelectedAccountingSourceId(Number(source.CHIT_ID ?? 0) || null)
         setLinkedAccountingChitNo(String(source.CHIT_NO ?? source.CHIT_CD ?? "").trim())
         setLinkedAccountingChitType(String(source.CHIT_TYPE ?? option.chitType ?? "").trim().toUpperCase())
+        const hasSourceCustomer = Number(freeDetail.CUSTOMER_ID ?? 0) > 0 || Boolean(freeDetail.CUSTOMER_CD)
         setDraft((current) => {
           if (chitType === "IR") {
             const nextInputs = applyAccountingDetailToInventoryLines(
@@ -346,6 +353,9 @@ export default function InventoryEditorPopup({
             )
             return {
               ...current,
+              ...(hasSourceCustomer
+                ? { CUSTOMER_ID: freeDetail.CUSTOMER_ID, CUSTOMER_CD: freeDetail.CUSTOMER_CD }
+                : {}),
               INPUTS: nextInputs,
               OUTPUTS: [],
               AMOUNT: calculateInventoryAmount(nextInputs),
@@ -359,6 +369,9 @@ export default function InventoryEditorPopup({
           )
           return {
             ...current,
+            ...(hasSourceCustomer
+              ? { CUSTOMER_ID: freeDetail.CUSTOMER_ID, CUSTOMER_CD: freeDetail.CUSTOMER_CD }
+              : {}),
             INPUTS: [],
             OUTPUTS: nextOutputs,
             AMOUNT: calculateInventoryAmount(nextOutputs),
@@ -401,6 +414,25 @@ export default function InventoryEditorPopup({
       return current
     })
   }, [chitType, setDraft])
+
+  const handleClearCogsLink = useCallback(async () => {
+    if (!linkedCogsSourceId || loading || readOnly) {
+      return
+    }
+
+    const confirmed = await confirm(
+      t("CONFIRM_REMOVE_INVENTORY_COGS_LINK", "Bỏ liên kết sẽ xóa phiếu giá vốn OT khi lưu phiếu xuất kho. Bạn có muốn tiếp tục?"),
+      t("CONFIRM", "Xác nhận"),
+    )
+    if (!confirmed) {
+      return
+    }
+
+    setDraft((current) => ({ ...current, IS_COGS: false, COGS: null, COGS_AMOUNT: null, CLEAR_COGS_LINK: true }))
+    setLinkedCogsSourceId(null)
+    setLinkedCogsVoucherNo("")
+    notify(t("INVENTORY_COGS_UNLINK_PENDING", "Đã chọn bỏ liên kết giá vốn. Lưu phiếu xuất kho để hoàn tất."), "info", 3000)
+  }, [linkedCogsSourceId, loading, readOnly, setDraft, t])
 
   const handleAccountingReferenceOptionClick = useCallback(
     (option: InventoryAccountingReferenceOption) => {
@@ -467,6 +499,8 @@ export default function InventoryEditorPopup({
     setSelectedAccountingSourceId(null)
     setLinkedAccountingChitNo("")
     setLinkedAccountingChitType("")
+    setLinkedCogsSourceId(null)
+    setLinkedCogsVoucherNo("")
     resetPreviewChitNo()
   }, [resetPreviewChitNo, setDraft, value])
 
@@ -480,6 +514,14 @@ export default function InventoryEditorPopup({
     () => getLinkedChitDetailIdFromInventoryDraft(draft, chitType),
     [chitType, draft.INPUTS, draft.OUTPUTS],
   )
+  const linkedCogsDetailId = useMemo(() => {
+    if (chitType !== "IO") {
+      return 0
+    }
+
+    return draft.OUTPUTS.find((line) => !line.ISDEL && Number(line.CHITDETAIL_ID_COGS ?? 0) > 0)
+      ?.CHITDETAIL_ID_COGS ?? 0
+  }, [chitType, draft.OUTPUTS])
 
   const isAccountingLinked = linkedAccountingDetailId > 0 && (selectedAccountingSourceId ?? 0) > 0
 
@@ -542,6 +584,71 @@ export default function InventoryEditorPopup({
   }, [accountingReferenceOptions, chitType, linkedAccountingDetailId, visible])
 
   useEffect(() => {
+    if (!visible || chitType !== "IO") {
+      setLinkedCogsSourceId(null)
+      setLinkedCogsVoucherNo("")
+      return
+    }
+
+    const cogsHeaderId = Number(draft.COGS?.CHIT_ID ?? 0)
+    if (cogsHeaderId > 0) {
+      setLinkedCogsSourceId(cogsHeaderId)
+      setLinkedCogsVoucherNo(String(draft.COGS?.CHIT_NO ?? draft.COGS?.CHIT_CD ?? "").trim())
+      return
+    }
+
+    if (!(Number(linkedCogsDetailId) > 0)) {
+      setLinkedCogsSourceId(null)
+      setLinkedCogsVoucherNo("")
+      return
+    }
+
+    let cancelled = false
+    void getInventorySourceVoucher(Number(linkedCogsDetailId))
+      .then(async (sourceVoucher) => {
+        if (cancelled || !sourceVoucher || String(sourceVoucher.CHIT_TYPE ?? "").trim().toUpperCase() !== "OT") {
+          if (!cancelled) {
+            setLinkedCogsSourceId(null)
+            setLinkedCogsVoucherNo("")
+          }
+          return
+        }
+
+        const sourceId = Number(sourceVoucher.CHIT_ID ?? 0) || null
+        setLinkedCogsSourceId(sourceId)
+        setLinkedCogsVoucherNo(String(sourceVoucher.CHIT_CD ?? "").trim())
+        if (!sourceId) {
+          return
+        }
+
+        try {
+          const response = await getChits("AR", "OT", { chitId: sourceId, pageSize: 1 })
+          if (cancelled) {
+            return
+          }
+          const row = normalizeChitRows(response.data ?? [], "OT")[0]
+          const chitNo = String(row?.CHIT_NO ?? "").trim()
+          if (chitNo) {
+            setLinkedCogsVoucherNo(chitNo)
+          }
+        } catch {
+          // Keep CHIT_CD as the display fallback.
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setLinkedCogsSourceId(null)
+          setLinkedCogsVoucherNo("")
+          console.error("Load linked cost voucher failed", error)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [chitType, draft.COGS?.CHIT_CD, draft.COGS?.CHIT_ID, draft.COGS?.CHIT_NO, linkedCogsDetailId, visible])
+
+  useEffect(() => {
     if (!visible || isUpdate) {
       return
     }
@@ -587,6 +694,7 @@ export default function InventoryEditorPopup({
 
     if (event.dataField === "IS_COGS" && chitType === "IO") {
       const enabled = event.value === true || event.value === "1"
+
       if (!enabled && draftRef.current.COGS) {
         setDraft((current) => ({ ...current, IS_COGS: true }))
         return
@@ -795,43 +903,94 @@ export default function InventoryEditorPopup({
     })
   }, [chitType, draft.CHIT_ID, linkedAccountingChitType, location.pathname, navigate, onOpenLinkedAccountingVoucher, selectedAccountingSourceId])
 
-  const accountingLinkSlot = useMemo(() => {
-    if (!selectedAccountingReferenceOption || isAdjustmentVoucher) {
-      return null
+  const handleOpenLinkedCogsVoucher = useCallback(() => {
+    if (!linkedCogsSourceId) {
+      return
     }
+
+    onOpenLinkedCogsVoucher(linkedCogsSourceId)
+  }, [linkedCogsSourceId, onOpenLinkedCogsVoucher])
+
+  const accountingLinkSlot = useMemo(() => {
+    const cogsCodeName = getCodeName("CHIT_TYPE", "OT")
+    const cogsTypeName = cogsCodeName ? t(cogsCodeName, cogsCodeName) : ""
+    const cogsDisplayNo = linkedCogsVoucherNo || String(linkedCogsSourceId ?? "")
+    const cogsLinkButton = linkedCogsSourceId ? (
+      <div className="inline-flex max-w-full items-stretch overflow-hidden rounded-md border border-emerald-200 bg-emerald-50 text-emerald-900">
+        <button
+          type="button"
+          disabled={loading || linkingAccountingReference}
+          aria-label={`${t("OPEN_COGS_VOUCHER", "Mở phiếu giá vốn")}${cogsDisplayNo ? ` · ${cogsDisplayNo}` : ""}`}
+          title={`${t("OPEN_COGS_VOUCHER", "Mở phiếu giá vốn")}${cogsDisplayNo ? ` · ${cogsDisplayNo}` : ""}`}
+          className="inline-flex max-w-full items-center gap-1.5 px-2.5 py-1 text-sm hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={handleOpenLinkedCogsVoucher}
+        >
+          <span className="whitespace-nowrap font-medium">{t("LINKED", "Đã liên kết")}</span>
+          <span className="truncate font-semibold">
+            {cogsTypeName}{cogsTypeName && cogsDisplayNo ? " · " : ""}{cogsDisplayNo}
+          </span>
+        </button>
+        {!readOnly ? (
+          <button
+            type="button"
+            aria-label={`${t("CLEAR_REFERENCE", "Bỏ liên kết")}${cogsTypeName ? ` · ${cogsTypeName}` : ""}`}
+            title={`${t("CLEAR_REFERENCE", "Bỏ liên kết")}${cogsTypeName ? ` · ${cogsTypeName}` : ""}`}
+            disabled={loading || linkingAccountingReference || draft.COGS?.IS_LOCK === "1"}
+            className="inline-flex min-w-10 items-center justify-center border-l border-emerald-200 px-3 text-2xl font-semibold leading-none text-red-600 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={handleClearCogsLink}
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        ) : null}
+      </div>
+    ) : null
 
     if (isAccountingLinked) {
       const displayNo = linkedAccountingChitNo || String(selectedAccountingSourceId ?? "")
+      const accountingCodeName = linkedAccountingChitType
+        ? getCodeName("CHIT_TYPE", linkedAccountingChitType)
+        : ""
+      const accountingTypeName = accountingCodeName ? t(accountingCodeName, accountingCodeName) : ""
       return (
         <>
-          <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-sm text-emerald-900">
-            <span className="whitespace-nowrap font-medium">{t("LINKED", "Đã liên kết")}</span>
-            <span className="truncate font-semibold">
-              {linkedAccountingChitType ? `${linkedAccountingChitType} · ${displayNo}` : displayNo}
-            </span>
-          </span>
-          <Button
-            icon="link"
-            stylingMode="outlined"
-            disabled={loading || linkingAccountingReference}
-            hint={t("OPEN_SOURCE_VOUCHER", "Mở chứng từ nguồn")}
-            onClick={handleOpenLinkedAccountingVoucher}
-          />
-          {!lockAccountingReference && !readOnly ? (
-            <Button
-              icon="clear"
-              stylingMode="outlined"
+          <div className="inline-flex max-w-full items-stretch overflow-hidden rounded-md border border-emerald-200 bg-emerald-50 text-emerald-900">
+            <button
+              type="button"
               disabled={loading || linkingAccountingReference}
-              hint={t("CLEAR_REFERENCE", "Bỏ liên kết")}
-              onClick={handleClearAccountingReference}
-            />
-          ) : null}
+              aria-label={`${t("OPEN_SOURCE_VOUCHER", "Mở chứng từ nguồn")}${displayNo ? ` · ${displayNo}` : ""}`}
+              title={`${t("OPEN_SOURCE_VOUCHER", "Mở chứng từ nguồn")}${displayNo ? ` · ${displayNo}` : ""}`}
+              className="inline-flex max-w-full items-center gap-1.5 px-2.5 py-1 text-sm hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={handleOpenLinkedAccountingVoucher}
+            >
+              <span className="whitespace-nowrap font-medium">{t("LINKED", "Đã liên kết")}</span>
+              <span className="truncate font-semibold">
+                {accountingTypeName}{accountingTypeName && displayNo ? " · " : ""}{displayNo}
+              </span>
+            </button>
+            {!lockAccountingReference && !readOnly ? (
+              <button
+                type="button"
+                aria-label={`${t("CLEAR_REFERENCE", "Bỏ liên kết")} · ${displayNo}`}
+                title={`${t("CLEAR_REFERENCE", "Bỏ liên kết")} · ${displayNo}`}
+                className="inline-flex min-w-10 items-center justify-center border-l border-emerald-200 px-3 text-2xl font-semibold leading-none text-red-600 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={loading || linkingAccountingReference}
+                onClick={handleClearAccountingReference}
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            ) : null}
+          </div>
+          {cogsLinkButton}
         </>
       )
     }
 
+    if (!selectedAccountingReferenceOption || isAdjustmentVoucher) {
+      return cogsLinkButton
+    }
+
     if (lockAccountingReference || readOnly) {
-      return null
+      return cogsLinkButton
     }
 
     return (
@@ -877,16 +1036,22 @@ export default function InventoryEditorPopup({
             disabled={loading || linkingAccountingReference}
           />
         </div>
+        {cogsLinkButton}
       </>
     )
   }, [
     accountingReferenceOptions,
+    draft.COGS?.IS_LOCK,
     handleAccountingReferenceOptionClick,
     handleAccountingReferenceSelected,
     handleClearAccountingReference,
+    handleOpenLinkedCogsVoucher,
+    handleClearCogsLink,
     handleOpenLinkedAccountingVoucher,
     isAccountingLinked,
     isAdjustmentVoucher,
+    linkedCogsSourceId,
+    linkedCogsVoucherNo,
     linkedAccountingChitNo,
     linkedAccountingChitType,
     linkingAccountingReference,
@@ -895,12 +1060,22 @@ export default function InventoryEditorPopup({
     readOnly,
     selectedAccountingReferenceOption,
     selectedAccountingSourceId,
+    getCodeName,
     t,
   ])
 
-  const popupTitle = isUpdate
-    ? t("EDIT_VOUCHER", `Edit ${voucherLabel}`)
-    : t("ADD_VOUCHER", `Add ${voucherLabel}`)
+  useEffect(() => {
+    if (!visible || chitType !== "IO") {
+      return
+    }
+
+
+  }, [chitType, draft.CHIT_ID, draft.COGS?.CHIT_ID, draft.IS_COGS, linkedCogsDetailId, linkedCogsSourceId, visible])
+
+  const popupTitle = useMemo(() => {
+    const actionLabel = isUpdate ? t("lblEdit", "Sửa") : t("lblAddNew", "Thêm mới")
+    return `${actionLabel} ${voucherLabel}`
+  }, [isUpdate, t, voucherLabel])
 
   const inventoryTabs = chitType === "IO" && (
     <div role="tablist" className="flex shrink-0 gap-2 border-b border-slate-200 px-3 py-2">
@@ -922,15 +1097,16 @@ export default function InventoryEditorPopup({
           elementAttr={{ role: "tab", "aria-selected": activeInventoryIssueTab === "cogs" }}
         />
       ) : null}
-      {draft.IS_COGS && draft.COGS && activeInventoryIssueTab === "cogs" ? (
-        <span className="self-center text-sm text-slate-600">OT: {draft.COGS.CHIT_NO}</span>
-      ) : null}
     </div>
   )
 
   return (
     <Popup
       visible={visible}
+      onShown={() => {
+
+
+      }}
       title={popupTitle}
       showTitle
       showCloseButton={false}
@@ -946,7 +1122,10 @@ export default function InventoryEditorPopup({
       position={{ my: "center", at: "center", of: window }}
       wrapperAttr={{ class: "inventory-editor-popup", ...createPopupShortcutWrapperAttr(popupShortcutScopeId) }}
       animation={POPUP_FADE_ANIMATION}
-      onHiding={onClose}
+      onHiding={() => {
+
+        onClose()
+      }}
     >
       <ToolbarItem
         toolbar="top"

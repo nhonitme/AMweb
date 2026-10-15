@@ -19,6 +19,7 @@ import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout"
 import MasterDataEditPopup from "@/components/datagrid/MasterDataEditPopup"
 import { downloadFile } from "@/lib/fileUtils"
+import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { getCurrentCompanyCd } from "@/lib/login"
 import { assignSequencePreviewCode, getSequenceSubmitCode } from "@/lib/codeSequence"
@@ -106,6 +107,7 @@ export default function CustomerExtManager({
   const customerScreenCd = "/module/customer-management"
   const customerGridId = "customer-ext-grid"
   const menuCode = "MD_CUSTOMER"
+  const exportName = useMenuExportName(menuCode)
 
   const t = useCallback(
     (key: string, fallback?: string) => (translate ? translate(key, fallback || key) : fallback || key),
@@ -281,12 +283,12 @@ export default function CustomerExtManager({
           : undefined
 
       const loadDownloadBlob = (signal: AbortSignal) => exportCustomerExtExcel(customerId, lang, signal)
-      await downloadFile({ fileName: `Customer_${new Date().toISOString().replace(/[:.-]/g, "")}.xlsx`, load: loadDownloadBlob })
+      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
     } catch (error) {
       console.error("Export customer error", error)
       notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất thất bại")), "error", 3000)
     }
-  }, [lang, t])
+  }, [exportName, lang, t])
 
   const handleExportPdf = useCallback(() => {
     const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>

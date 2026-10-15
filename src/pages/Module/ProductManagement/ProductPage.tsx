@@ -6,6 +6,7 @@ import {
   seedMasterFormDraft,
 } from "@/components/lookup/masterFormDraft";
 import { downloadFile } from "@/lib/fileUtils"
+import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { LoadPanel } from "devextreme-react";
 import { Editing } from "devextreme-react/data-grid";
@@ -54,6 +55,7 @@ export default function ProductList({
   const screenCd = "/module/product-management";
   const gridId = "product-grid";
   const menuCode = "MD_INVENTORY";
+  const exportName = useMenuExportName(menuCode)
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isUpdate, setIsUpdate] = useState(false);
   const gridRef = useRef<dxDataGrid | null>(null);
@@ -225,7 +227,7 @@ export default function ProductList({
       const keys = (gridRef.current?.getSelectedRowKeys() || []) as number[];
       const productId = keys.length ? keys[0] : undefined;
       const loadDownloadBlob = (signal: AbortSignal) => exportToExcel(productId, undefined, langCode, signal);
-      await downloadFile({ fileName: `product_inventory_${new Date().toISOString().replace(/[:.-]/g, "")}.xlsx`, load: loadDownloadBlob })
+      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
     } catch (error) {
       console.error("Export error", error);
       notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất thất bại")), "error", 3000);

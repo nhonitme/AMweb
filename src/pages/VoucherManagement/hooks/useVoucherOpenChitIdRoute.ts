@@ -36,8 +36,6 @@ export function useVoucherOpenChitIdRoute({
 }: UseVoucherOpenChitIdRouteOptions): VoucherOpenChitIdRouteController {
   const handledOpenRef = useRef("")
   const openRunSeqRef = useRef(0)
-  const openInFlightRef = useRef(false)
-  const activeIntentKeyRef = useRef("")
   const pendingRouteCleanupRef = useRef(false)
   const openRouteFromNavigationRef = useRef(false)
   const directOpenActiveRef = useRef(false)
@@ -108,7 +106,9 @@ export function useVoucherOpenChitIdRoute({
       return
     }
 
-    const intentKey = `${routeScopeKey}:open:${openChitId}:${openRouteSearch}:${openRouteFromNavigation ? "nav" : "query"}`
+    // Navigation state and ?openChitId can describe the same open request. Treat
+    // them as one intent so the source changing during render cannot load twice.
+    const intentKey = `${routeScopeKey}:open:${openChitId}:${openRouteSearch}`
     if (handledOpenRef.current === intentKey) {
       // Keep ?openChitId while popup is open so the list stays deferred and we avoid
       // a mid-open navigate() that flashes the page behind the editor.
@@ -117,10 +117,8 @@ export function useVoucherOpenChitIdRoute({
 
     handledOpenRef.current = intentKey
 
-    activeIntentKeyRef.current = intentKey
     const runId = openRunSeqRef.current + 1
     openRunSeqRef.current = runId
-    openInFlightRef.current = true
 
     const processOpen = async () => {
       beginDirectOpen()
@@ -133,15 +131,8 @@ export function useVoucherOpenChitIdRoute({
         if (opened) {
           pendingRouteCleanupRef.current = true
         }
-        if (activeIntentKeyRef.current === intentKey) {
-          openInFlightRef.current = false
-        }
         return
       }
-
-      openInFlightRef.current = false
-
-
 
       if (!opened) {
         clearOpenRoute(openRouteFromNavigation)

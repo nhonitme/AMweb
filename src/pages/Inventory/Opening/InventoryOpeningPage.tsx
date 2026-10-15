@@ -5,6 +5,7 @@ import {
   seedMasterFormDraft,
 } from "@/components/lookup/masterFormDraft";
 import { downloadFile } from "@/lib/fileUtils"
+import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { useCallback, useContext, useRef, useState } from "react"
 import { LoadPanel } from "devextreme-react"
 import { Editing } from "devextreme-react/data-grid"
@@ -71,6 +72,7 @@ export default function InventoryOpeningPage() {
   const screenCd = "/inventory/opening"
   const gridId = "inventory-opening-grid"
   const menuCode = "INV_OPENING"
+  const exportName = useMenuExportName(menuCode)
   const popupTitle = translate ? translate(isUpdate ? "lblEdit" : "lblAddNew", "Inventory opening") : "Inventory opening"
 
   const t = useCallback(
@@ -267,7 +269,7 @@ export default function InventoryOpeningPage() {
       const keys = gridRef.current?.getSelectedRowKeys() || []
       const inputId = keys.length ? (keys[0] as number) : undefined
       const loadDownloadBlob = (signal: AbortSignal) => exportInventoryOpeningExcel(inputId, langCode, signal)
-      await downloadFile({ fileName: `${t("INVENTORY_OPENING", "Inventory opening")}_${new Date().toISOString().replace(/[:.-]/g, "")}.xlsx`, load: loadDownloadBlob })
+      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
     } catch (err) {
       notify(getApiErrorMessage(err, t("EXPORT_FAILED", "Xuất thất bại")), "error", 3000)
     }

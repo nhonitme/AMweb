@@ -1,5 +1,6 @@
 import { captureMasterPopupError } from "@/components/datagrid/masterPopupValidation";
 import { downloadFile } from "@/lib/fileUtils"
+import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { useCallback, useContext, useRef, useState } from "react";
 import { LoadPanel } from "devextreme-react";
 import { Editing } from 'devextreme-react/data-grid';
@@ -61,6 +62,7 @@ export default function StoreKindList({
   const screenCd = "/module/store-kind-management";
   const gridId = "store-kind-grid";
   const menuCode = "MD_WAREHOUSE_TYPE";
+  const exportName = useMenuExportName(menuCode)
 
   const t = useCallback(
     (key: string, fallback?: string) => (translate ? translate(key, fallback || key) : fallback || key),
@@ -160,7 +162,7 @@ export default function StoreKindList({
       const keys = gridRef.current?.getSelectedRowKeys() || [];
       const storeID = keys.length ? (keys[0] as number) : undefined;
       const loadDownloadBlob = (signal: AbortSignal) => exportToExcel(storeID, langCode, signal);
-      await downloadFile({ fileName: `${translate('Menu_StoreKindInfo', 'Warehouse Classification Management')}_${new Date().toISOString().replace(/[:.-]/g, '')}.xlsx`, load: loadDownloadBlob })
+      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
     } catch (err) {
       console.error('Export error', err);
       notify(

@@ -45,6 +45,7 @@ import {
   type GridColumnSettingEditorItem,
 } from "@/components/datagrid/useGridColumnSettingState"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { useSysCodes } from "@/lib/sysCodeContext"
 import { useCompanyLangRevision } from "@/lib/companyLang"
 import { isReportSystemField } from "@/lib/reportSystemFields"
 import {
@@ -59,6 +60,7 @@ import {
   normalizeColumnKey,
   resolveColumnDataType,
   resolveColumnDisplayFormat,
+  resolveReportSysCodeType,
   resolveReportCellKeyFromTarget,
   syncReportCellSelectionHighlights,
   toggleCellKey,
@@ -214,8 +216,9 @@ function ReportTreeList(
   { preview, loading, searchText, reportCode, menuCode, onRowDblClick }: ReportTreeListProps,
   ref: ForwardedRef<ReportTreeListHandle>,
 ) {
-  const { translate } = useContext(LanguageContext)
+  const { translate, labelsReady } = useContext(LanguageContext)
   const t = useCallback((key: string, fallback: string) => translate(key, fallback), [translate])
+  const { getCodeName, sysCodeMap } = useSysCodes()
   const companyLangRevision = useCompanyLangRevision()
   const treeListRef = useRef<dxTreeList<ReportTreeRow, string> | null>(null)
   const treeListHostRef = useRef<HTMLDivElement | null>(null)
@@ -402,19 +405,30 @@ function ReportTreeList(
 
   const columnChildren = useMemo(
     () => [
-      ...columns.map((column: ReportPreviewColumn) => (
-        <Column
-          key={column.COLUMN_KEY}
-          dataField={column.FIELD_NAME}
-          caption={column.CAPTION}
-          dataType={column.DATA_TYPE === "date" ? "date" : column.DATA_TYPE === "number" ? "number" : undefined}
-          format={resolveColumnDisplayFormat(column, tempDecimalPlacesByField)}
-          customizeText={resolveColumnDataType(column) === "number" ? customizeZeroAsBlankText : undefined}
-          alignment={column.ALIGN}
-          width={column.WIDTH || undefined}
-          allowResizing
-        />
-      )),
+      ...columns.map((column: ReportPreviewColumn) => {
+        const sysCodeType = resolveReportSysCodeType(column.FIELD_NAME, sysCodeMap)
+        return (
+          <Column
+            key={column.COLUMN_KEY}
+            dataField={column.FIELD_NAME}
+            caption={column.CAPTION}
+            dataType={column.DATA_TYPE === "date" ? "date" : column.DATA_TYPE === "number" ? "number" : undefined}
+            format={resolveColumnDisplayFormat(column, tempDecimalPlacesByField)}
+            customizeText={resolveColumnDataType(column) === "number" ? customizeZeroAsBlankText : undefined}
+            cellRender={sysCodeType ? (cellData) => {
+              const raw = String(cellData.value ?? cellData.text ?? "").trim()
+              if (!raw || !labelsReady) {
+                return raw
+              }
+              const codeName = getCodeName(sysCodeType, raw).trim()
+              return codeName ? t(codeName, codeName) : raw
+            } : undefined}
+            alignment={column.ALIGN}
+            width={column.WIDTH || undefined}
+            allowResizing
+          />
+        )
+      }),
       <Column key="__tree_id" dataField="ID" visible={false} allowHiding={false} showInColumnChooser={false} />,
       <Column
         key="__tree_parent_id"
@@ -438,7 +452,7 @@ function ReportTreeList(
         showInColumnChooser={false}
       />,
     ],
-    [columns, tempDecimalPlacesByField],
+    [columns, getCodeName, labelsReady, sysCodeMap, t, tempDecimalPlacesByField],
   )
   const renderedColumnChildren = useMemo(() => {
     const configured = applyGridColumnSettingsToChildren(

@@ -27,6 +27,7 @@ import {
 } from "@/components/lookup/AcclistLookupStore"
 import DxPage from "@/dx/DxPage"
 import { useMasterListLoadError } from "@/hooks/queries/master/masterQueryHelpers"
+import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { useReportOptionsQuery } from "@/hooks/queries/useReportQueries"
 import { exportToExcel } from "@/lib/excelUtils"
 import { LanguageContext } from "@/lib/i18nLoader"
@@ -159,8 +160,6 @@ type JournalReportPageProps = {
   accountFilterParam2?: string
   showExportExcel?: boolean
   includeEmptyFilterParams?: boolean
-  exportFilePrefix?: string
-  exportSheetName?: string
   reportVersion?: string
   unitDivisor?: string
   reportOptionGroupCode?: string
@@ -589,9 +588,36 @@ function buildExportColumns(
   })
 }
 
-function buildExportFileName(prefix: string): string {
-  const timestamp = new Date().toISOString().replace(/[:.-]/g, "")
-  return `${prefix}_${timestamp}.xlsx`
+const CASH_BOOK_MONEY_FIELDS = new Set([
+  "DEBIT_AMOUNT",
+  "CREDIT_AMOUNT",
+  "BALANCE",
+  "DEBIT_FC_AMOUNT",
+  "CREDIT_FC_AMOUNT",
+  "FC_BALANCE",
+])
+
+function blankZeroCashBookMoneyValues(rows: ReportDataGridRow[]): ReportDataGridRow[] {
+  return rows.map((row) => {
+    let changed = false
+    const next = { ...row }
+
+    for (const [field, value] of Object.entries(row)) {
+      if (!CASH_BOOK_MONEY_FIELDS.has(field.trim().toUpperCase())) {
+        continue
+      }
+
+      const isZero = typeof value === "number"
+        ? value === 0
+        : typeof value === "string" && value.trim() !== "" && Number(value) === 0
+      if (isZero) {
+        next[field] = ""
+        changed = true
+      }
+    }
+
+    return changed ? next : row
+  })
 }
 
 function buildReportPrintParams(
@@ -654,8 +680,6 @@ export default function JournalReportPage({
   accountFilterParam2,
   showExportExcel = true,
   includeEmptyFilterParams = false,
-  exportFilePrefix,
-  exportSheetName = "Report",
   reportVersion,
   unitDivisor,
   reportOptionGroupCode,
@@ -843,6 +867,7 @@ export default function JournalReportPage({
     (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
     [translate],
   )
+  const exportName = useMenuExportName(menuCode)
 
   const invoiceTypeOptions = useMemo(
     () => [
@@ -1475,13 +1500,17 @@ export default function JournalReportPage({
       return
     }
 
+    const exportRows = toLocalizedReportDataGridRows(preview, t, reportCode)
     exportToExcel(
-      toLocalizedReportDataGridRows(preview, t, reportCode),
+      reportCode.trim().toUpperCase() === "CASH_BOOK"
+        ? blankZeroCashBookMoneyValues(exportRows)
+        : exportRows,
       exportColumns,
-      buildExportFileName(exportFilePrefix || reportCode.toLowerCase()),
-      exportSheetName,
+      exportName.fileName("xlsx"),
+      exportName.sheetName(),
+      reportCode.trim().toUpperCase() === "CASH_BOOK" ? { withBorders: true } : undefined,
     )
-  }, [exportFilePrefix, exportSheetName, preview, reportCode, t])
+  }, [exportName, preview, reportCode, t])
 
   const openExportPopup = useCallback(() => {
     setExportPopupVisible(true)

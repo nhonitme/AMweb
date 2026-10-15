@@ -1,4 +1,5 @@
 import { downloadFile } from "@/lib/fileUtils"
+
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate, type NavigateFunction } from "react-router-dom"
 import type dxDataGrid from "devextreme/ui/data_grid"
@@ -28,6 +29,7 @@ import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import DxPage from "@/dx/DxPage"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults"
 import { isForeignCurrencyCode } from "@/lib/currency"
 import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/shortcutDefinitions"
@@ -89,6 +91,7 @@ import {
   normalizeChitRows,
 } from "./chitUtils"
 import { normalizeInventoryVoucherApi } from "@/pages/Inventory/inventoryVoucherModel"
+import InventoryEditorPopup from "@/pages/Inventory/components/InventoryEditorPopup"
 import ChitColumns from "./components/ChitColumns"
 import { useChitNoteDetailColumns } from "./components/ChitDetailColumns"
 import ChitEditorPopup from "./components/ChitEditorPopup"
@@ -101,6 +104,8 @@ import { LoadPanel } from "devextreme-react/cjs/load-panel"
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
 import { buildReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
 import { useChitListInvalidate, useChitListQuery } from "@/hooks/queries/useChitListQuery"
+import { useLinkedAccountingVoucherPopup } from "./hooks/useLinkedAccountingVoucherPopup"
+import { useLinkedCogsIssuePopup } from "./hooks/useLinkedCogsIssuePopup"
 
 interface ChitManagementPageProps {
   ledger: ChitLedger
@@ -384,6 +389,8 @@ export function ChitManagementPage({
     (key: string, fallback: string) => translate(key, fallback),
     [translate],
   )
+  const linkedAccountingPopup = useLinkedAccountingVoucherPopup(t)
+  const linkedCogsIssuePopup = useLinkedCogsIssuePopup(t)
 
   const title = useMemo(() => {
     const defaultTitle = getChitTypeLabel(chitType, t)
@@ -398,6 +405,24 @@ export function ChitManagementPage({
 
     return t(titleKey, titleFallback ?? defaultTitle)
   }, [chitType, t, titleFallback, titleKey])
+  const menuCode = useMemo(() => ({
+    PM: "GL_VOUCHER_PAYMENT",
+    DN: "GL_VOUCHER_DEBIT_NOTE",
+    RC: "GL_VOUCHER_RECEIPT",
+    CN: "GL_VOUCHER_CREDIT_NOTE",
+    IR: "INV_RECEIPT",
+    IO: "INV_ISSUE",
+    PO: "AP_PURCHASE_GOODS",
+    PS: "AP_PURCHASE_SERVICE",
+    PD: "AP_PURCHASE_DISCOUNT",
+    PR: "AP_RETURN_GOODS",
+    SO: "GL_VOUCHER_SALE",
+    SD: "AR_SALE_DISCOUNT",
+    SR: "AR_SALE_RETURN",
+    CO: "GL_VOUCHER_OFFSET",
+    OT: "GL_VOUCHER_OTHER",
+  } as const)[chitType] ?? "", [chitType])
+  const exportName = useMenuExportName(menuCode)
   const screenCd = useMemo(() => location.pathname, [location.pathname])
   const masterGridId = useMemo(() => getVoucherMasterGridId(chitType), [chitType])
   const detailGridId = useMemo(() => getVoucherDetailGridId(chitType), [chitType])
@@ -651,6 +676,7 @@ export function ChitManagementPage({
         setEditingRow(cloneChit(targetRow))
         // Show popup only after row is ready and loading is off — avoids LoadPanel flash inside editor.
         setPopupLoading(false)
+
         setPopupVisible(true)
 
         return true
@@ -827,6 +853,7 @@ export function ChitManagementPage({
         setIsUpdate(false)
         setEditingRow(nextDraft)
         openedPopup = true
+
         setPopupVisible(true)
       } catch (error) {
         if (!isStale()) {
@@ -918,6 +945,7 @@ export function ChitManagementPage({
       setIsUpdate(false)
       setEditingRow(nextDraft)
       openedPopup = true
+
       setPopupVisible(true)
     } catch (error) {
       if (!isStale()) {
@@ -971,6 +999,7 @@ export function ChitManagementPage({
       ...newChit,
       DETAILS: [createDefaultChitDetail(1, companyCd)],
     })
+
     setPopupVisible(true)
   }, [chitType, ledger])
 
@@ -1004,6 +1033,7 @@ const openEditPopup = useCallback(
       setIsUpdate(true)
       setEditorReadOnly(isPeriodLockVoucher(targetRow))
       setEditingRow(cloneChit(targetRow))
+
       setPopupVisible(true)
 
     } catch (error) {
@@ -1053,6 +1083,7 @@ const openEditPopup = useCallback(
       DETAIL_COUNT: duplicatedDetails.length,
       AMOUNT: calculateChitAmount(duplicatedDetails),
     })
+
     setPopupVisible(true)
   }, [chitType, selectedRow, t])
 
@@ -1119,6 +1150,7 @@ const openEditPopup = useCallback(
 
         const savedChit = normalizeChitRows(result.data ? [result.data] : [], chitType)[0] ?? null
         persistedChit = savedChit
+
         if (savedChit) {
           // Preserve row keys for pending inventory drafts, including retries after a partial save.
           savedChit.DETAILS = savedChit.DETAILS.map((detail) => ({
@@ -1129,6 +1161,7 @@ const openEditPopup = useCallback(
           if (afterSave) {
             keepEditorOpen = (await afterSave(savedChit, record)) === true
           }
+
           notifySourceVoucherLinked(savedChit)
         } else if (afterSave) {
           throw new Error("Không nhận được phiếu nguồn sau khi lưu để liên kết kho")
@@ -1476,13 +1509,12 @@ const openEditPopup = useCallback(
         fromYmd: formatDateToYmd(fromDate),
         toYmd: formatDateToYmd(toDate),
       }, signal)
-      const fileLabel = title.trim().replace(/\s+/g, "_").toLowerCase()
-      await downloadFile({ fileName: `${fileLabel}_${new Date().toISOString().replace(/[:.-]/g, "")}.xlsx`, load: loadDownloadBlob })
+      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
     } catch (error) {
       console.error("Export chit note error", error)
       notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất thất bại")), "error", 4000)
     }
-  }, [fromDate, ledger, chitType, t, title, toDate])
+  }, [exportName, fromDate, ledger, chitType, t, title, toDate])
 
   const handleExportPdf = useCallback(() => {
     if (!pdfReportCode) {
@@ -1513,13 +1545,14 @@ const openEditPopup = useCallback(
 
     const targetUrl = buildReportViewerPageUrl({
       reportCode: pdfReportCode,
+      menuCode,
       chitId: String(orderedChitIds[0]),
       chitIds: orderedChitIds.join(","),
     })
     if (!openReportViewerPage(targetUrl)) {
       notify(t("UNABLE_TO_OPEN_REPORT_VIEWER", "Không mở được trình xem báo cáo"), "error", 3000)
     }
-  }, [pdfReportCode, t])
+  }, [menuCode, pdfReportCode, t])
 
   const createColumnSettingTabs = useCallback((
     masterItems: GridColumnSettingEditorItem[],
@@ -1780,23 +1813,47 @@ const openEditPopup = useCallback(
           isUpdate={isUpdate}
           readOnly={editorReadOnly}
           loading={popupLoading}
+          onReturnToLinkedInventory={chitType === "OT" ? linkedCogsIssuePopup.open : undefined}
           onClose={() => {
+            if (chitType === "SO" || chitType === "OT") {
+              const closeParams = new URLSearchParams(location.search)
+
+            }
+
             if (popupLoading) {
               return
             }
 
             const routeParams = new URLSearchParams(location.search)
             const returnPath = routeParams.get("returnPath")
+            const returnChitType = routeParams.get("returnChitType")
             const returnChitId = Number(routeParams.get("returnChitId") ?? 0)
-            const expectedReceiptPath = `/app/${getCurrentCompanyCd()}/inventory/receipt`
+            const expectedReturnPath = returnChitType === "IO"
+              ? "/inventory/issue"
+              : returnChitType === "IR"
+                ? "/inventory/receipt"
+                : null
             if (
-              routeParams.get("returnChitType") === "IR"
-              && returnPath === expectedReceiptPath
+              expectedReturnPath !== null
+              && returnPath === expectedReturnPath
               && Number.isSafeInteger(returnChitId)
               && returnChitId > 0
             ) {
               const returnSearch = new URLSearchParams({ openChitId: String(returnChitId) })
-              navigate({ pathname: returnPath, search: `?${returnSearch.toString()}` }, { replace: true })
+              const returnOpenTab = routeParams.get("returnOpenTab")
+              const openTab = returnOpenTab === "cogs" || returnOpenTab === "output" ? returnOpenTab : undefined
+              if (returnChitType === "IO" && openTab) {
+                returnSearch.set("openTab", openTab)
+              }
+
+              navigate({ pathname: returnPath, search: `?${returnSearch.toString()}` }, {
+                replace: true,
+                state: {
+                  openChitId: returnChitId,
+                  openMode: "edit",
+                  ...(returnChitType === "IO" && openTab ? { openTab } : {}),
+                } satisfies VoucherOpenLocationState,
+              })
               return
             }
 
@@ -1808,6 +1865,49 @@ const openEditPopup = useCallback(
           onSave={handleSave}
           onSaveAndNew={handleSaveAndNew}
           printReportCode={pdfReportCode}
+        />
+      ) : null}
+      {chitType === "OT" && linkedCogsIssuePopup.voucher ? (
+        <InventoryEditorPopup
+          visible
+          value={linkedCogsIssuePopup.voucher}
+          chitType="IO"
+          voucherLabel={t("INVENTORY_ISSUE", "Phiếu xuất kho")}
+          isUpdate
+          readOnly={linkedCogsIssuePopup.voucher.IS_LOCK}
+          loading={linkedCogsIssuePopup.loading}
+          initialIssueTab="cogs"
+          onClose={linkedCogsIssuePopup.close}
+          onOpenLinkedAccountingVoucher={(linkedType, linkedId) => {
+            const linkedLedger: ChitLedger = linkedType === "PO" || linkedType === "PD" || linkedType === "PR" ? "AP" : "AR"
+            const handledByPopup = linkedAccountingPopup.open(linkedLedger, linkedType, linkedId)
+
+            return handledByPopup
+          }}
+          onOpenLinkedCogsVoucher={(cogsId) => {
+            const parentCogsId = Number(editingRow.CHIT_ID ?? 0)
+            const returnToParent = parentCogsId > 0 && cogsId === parentCogsId
+            if (returnToParent) {
+              linkedCogsIssuePopup.close()
+            }
+
+            return returnToParent
+          }}
+          onSave={linkedCogsIssuePopup.save}
+        />
+      ) : null}
+      {linkedAccountingPopup.voucher && linkedAccountingPopup.ledger && linkedAccountingPopup.chitType ? (
+        <ChitEditorPopup
+          visible
+          value={linkedAccountingPopup.voucher}
+          ledger={linkedAccountingPopup.ledger}
+          chitType={linkedAccountingPopup.chitType}
+          isUpdate
+          readOnly={isPeriodLockVoucher(linkedAccountingPopup.voucher)}
+          loading={linkedAccountingPopup.loading}
+          onClose={linkedAccountingPopup.close}
+          onReturnToLinkedInventory={linkedAccountingPopup.close}
+          onSave={linkedAccountingPopup.save}
         />
       ) : null}
       {columnSettingsVisible ? (

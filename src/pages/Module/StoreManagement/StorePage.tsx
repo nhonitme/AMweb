@@ -5,6 +5,7 @@ import {
   seedMasterFormDraft,
 } from "@/components/lookup/masterFormDraft";
 import { downloadFile } from "@/lib/fileUtils"
+import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { useCallback, useContext, useRef, useState } from "react";
 import { LoadPanel } from "devextreme-react";
 import { Editing } from "devextreme-react/data-grid";
@@ -64,6 +65,7 @@ export default function StoreList({
   const screenCd = "/module/store-management";
   const gridId = "store-grid";
   const menuCode = "MD_WAREHOUSE";
+  const exportName = useMenuExportName(menuCode)
   const [isUpdate, setIsUpdate] = useState(false);
   const popupTitle = translate ? translate(isUpdate ? "lblEdit" : "lblAddNew", "Store info") : "Store info";
 
@@ -169,7 +171,7 @@ const onRowRemoving = (e: RowRemovingEvent) => {
       const keys = gridRef.current?.getSelectedRowKeys() || [];
       const storeID = keys.length ? (keys[0] as number) : undefined;
       const loadDownloadBlob = (signal: AbortSignal) => exportToExcel(storeID, langCode, signal);
-      await downloadFile({ fileName: `${translate('TSStore','Warehouse management management')}_${new Date().toISOString().replace(/[:.-]/g, '')}.xlsx`, load: loadDownloadBlob })
+      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
     } catch (err) {
       console.error('Export error', err);
       notify(

@@ -23,6 +23,7 @@ import useShortcutHelp from "@/hooks/useShortcutHelp"
 import useStateRef from "@/hooks/useStateRef"
 import { getCurrentCompanyCd } from "@/lib/login"
 
+
 import { getInventoryIssueIdByCogsVoucherId } from "@/api/inventoryVoucherApi"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { LanguageContext } from "@/lib/i18nLoader"
@@ -47,6 +48,7 @@ import {
     getChitTypeLabel,
     getVoucherEditorDetailGridId,
     isInventoryLinkedAccountingVoucherType,
+    isPeriodLockVoucher,
     getVoucherRouteByChitType,
 } from "../chitUtils"
 import { openVoucherReportViewer } from "../voucherReportViewer"
@@ -66,6 +68,7 @@ import {
     useChitEditorDraft,
 } from "./useChitEditorDraft"
 import { useChitEditorReference } from "./useChitEditorReference"
+import { useLinkedCogsVoucherPopup } from "../hooks/useLinkedCogsVoucherPopup"
 import InventoryEditorPopup from "@/pages/Inventory/components/InventoryEditorPopup"
 import { useRowInventoryEditor, type SaveAccountingWithInventory } from "./useRowInventoryEditor"
 
@@ -79,6 +82,7 @@ interface ChitEditorPopupProps {
     readOnly?: boolean
     loading: boolean
     onClose: () => void
+    onReturnToLinkedInventory?: (inventoryId: number) => boolean
     onSave: SaveAccountingWithInventory
     onSaveAndNew?: SaveAccountingWithInventory
     printReportCode?: string | null
@@ -100,6 +104,7 @@ export function ChitEditorPopup({
     readOnly = false,
     loading,
     onClose,
+    onReturnToLinkedInventory,
     onSave,
     onSaveAndNew,
     printReportCode,
@@ -136,6 +141,7 @@ export function ChitEditorPopup({
         (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
         [translate],
     )
+    const linkedCogsPopup = useLinkedCogsVoucherPopup(t)
     const screenCd = useMemo(() => {
         const override = typeof screenCdProp === "string" ? screenCdProp.trim() : ""
         return override || location.pathname
@@ -264,15 +270,19 @@ export function ChitEditorPopup({
             return
         }
 
+        if (onReturnToLinkedInventory?.(linkedCogsIssueId)) {
+            return
+        }
+
         const route = getVoucherRouteByChitType("IO")
         if (!route) {
             return
         }
-
         const search = new URLSearchParams({
             openChitId: String(linkedCogsIssueId),
             openTab: "cogs",
         })
+
         navigate(
             { pathname: route, search: `?${search.toString()}` },
             {
@@ -284,7 +294,7 @@ export function ChitEditorPopup({
                 } satisfies VoucherOpenLocationState,
             },
         )
-    }, [cogsSourceLookupError, linkedCogsIssueId, loadLinkedCogsIssue, navigate])
+    }, [cogsSourceLookupError, linkedCogsIssueId, loadLinkedCogsIssue, navigate, onReturnToLinkedInventory])
 
     const rowInventory = useRowInventoryEditor({ visible, chitType, readOnly, draftRef, setDraft, gridRef: detailGridRef, onSave, onSaveAndNew, t })
 
@@ -531,6 +541,9 @@ export function ChitEditorPopup({
     return (
         <Popup
             visible={visible}
+            onShown={() => {
+
+            }}
             wrapperAttr={{ class: "chit-editor-popup", ...createPopupShortcutWrapperAttr(popupShortcutScopeId) }}
             title={title}
             showTitle={true}
@@ -545,7 +558,9 @@ export function ChitEditorPopup({
             container="body"
             position={{ my: "center", at: "center", of: window }}
             animation={POPUP_FADE_ANIMATION}
-            onHiding={handleClosePopup}
+            onHiding={() => {
+                handleClosePopup()
+            }}
         >
             <ToolbarItem
                 toolbar="top"
@@ -704,13 +719,39 @@ export function ChitEditorPopup({
                                 inventoryRefreshVersion={rowInventory.refreshVersion}
                                 showInventoryLinkActions={showInventoryLinkActions}
                                 linkSlot={chitType === "OT" && (linkedCogsIssueId || cogsSourceLookupError) ? (
-                                    <Button
-                                        text={cogsSourceLookupError ? t("RETRY", "Thử lại") : t("LINK_VOUCHER", "Link phiếu")}
-                                        icon={cogsSourceLookupError ? "refresh" : "link"}
-                                        stylingMode="outlined"
-                                        disabled={loading || cogsSourceLookupLoading}
-                                        onClick={handleOpenLinkedCogsIssue}
-                                    />
+                                    linkedCogsIssueId ? (
+                                        <div className="inline-flex max-w-full items-stretch overflow-hidden rounded-md border border-emerald-200 bg-emerald-50 text-emerald-900">
+                                            <button
+                                                type="button"
+                                                disabled={loading || cogsSourceLookupLoading}
+                                                aria-label={`${t("OPEN_LINKED_INVENTORY_ISSUE", "Mở phiếu xuất kho đã liên kết")} · ${linkedCogsIssueId}`}
+                                                title={`${t("OPEN_LINKED_INVENTORY_ISSUE", "Mở phiếu xuất kho đã liên kết")} · ${linkedCogsIssueId}`}
+                                                className="inline-flex max-w-full items-center gap-1.5 px-2.5 py-1 text-sm hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                                onClick={handleOpenLinkedCogsIssue}
+                                            >
+                                                <span className="whitespace-nowrap font-medium">{t("LINKED", "Đã liên kết")}</span>
+                                                <span className="truncate font-semibold">{t("INVENTORY_ISSUE", "Phiếu xuất kho")} · {linkedCogsIssueId}</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                disabled={loading || cogsSourceLookupLoading}
+                                                aria-label={t("OPEN_INVENTORY_TO_UNLINK", "Mở phiếu xuất kho để bỏ liên kết")}
+                                                title={t("OPEN_INVENTORY_TO_UNLINK", "Mở phiếu xuất kho để bỏ liên kết")}
+                                                className="inline-flex min-w-10 items-center justify-center border-l border-emerald-200 px-3 text-2xl font-semibold leading-none text-red-600 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                                onClick={handleOpenLinkedCogsIssue}
+                                            >
+                                                <span aria-hidden="true">×</span>
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <Button
+                                            text={t("RETRY", "Thử lại")}
+                                            icon="refresh"
+                                            stylingMode="outlined"
+                                            disabled={loading || cogsSourceLookupLoading}
+                                            onClick={handleOpenLinkedCogsIssue}
+                                        />
+                                    )
                                 ) : null}
                             />
                         </div>
@@ -779,13 +820,51 @@ export function ChitEditorPopup({
                         onClose={rowInventory.close}
                         onOpenLinkedAccountingVoucher={(linkedType, linkedId) => {
                             const parentChitId = Number(draftRef.current.CHIT_ID ?? 0)
-                            if (chitType === "PO" && linkedType === "PO" && parentChitId > 0 && linkedId === parentChitId) {
+                            const handledByParentPopup = parentChitId > 0
+                                && linkedType === chitType
+                                && linkedId === parentChitId
+
+                            if (handledByParentPopup) {
                                 rowInventory.close()
                                 return true
                             }
                             return false
                         }}
+                        onOpenLinkedCogsVoucher={linkedCogsPopup.open}
                         onSave={rowInventory.saveInventory}
+                    />
+                ) : null}
+                {linkedCogsPopup.voucher ? (
+                    <ChitEditorPopup
+                        key={`linked-cogs-${linkedCogsPopup.voucher.CHIT_ID}`}
+                        visible
+                        value={linkedCogsPopup.voucher}
+                        ledger="AR"
+                        chitType="OT"
+                        voucherLabel={t("INVENTORY_COGS_VOUCHER", "Phiếu giá vốn")}
+                        isUpdate
+                        readOnly={isPeriodLockVoucher(linkedCogsPopup.voucher)}
+                        loading={linkedCogsPopup.loading}
+                        onClose={linkedCogsPopup.close}
+                        onReturnToLinkedInventory={linkedCogsPopup.close}
+                        onSave={linkedCogsPopup.save}
+                        screenCd={screenCd}
+                    />
+                ) : null}
+                {chitType === "SO" && rowInventory.cogsDraft ? (
+                    <ChitEditorPopup
+                        key={`inventory-cogs-${rowInventory.cogsDraft.rowKey}`}
+                        visible={true}
+                        value={rowInventory.cogsDraft.value}
+                        ledger="AR"
+                        chitType="OT"
+                        voucherLabel={t("INVENTORY_COGS_VOUCHER", "Phiếu giá vốn").replace(/\s*\(OT\)\s*$/i, "")}
+                        isUpdate={false}
+                        readOnly={false}
+                        loading={false}
+                        onClose={rowInventory.cancelCogsDraft}
+                        onSave={async (record) => rowInventory.saveCogsDraft(record)}
+                        screenCd={screenCd}
                     />
                 ) : null}
             </LookupPopupProvider>

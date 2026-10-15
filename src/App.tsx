@@ -1,4 +1,4 @@
-﻿import { lazy, memo, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, memo, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
     SIDEBAR_COLLAPSED_WIDTH,
@@ -774,129 +774,129 @@ function AppWorkspaceRoutes({
                         <Route path="/gl/voucher/other" element={<OtherVoucherPage />} />
                         <Route
                             path="/ar/report/sales-journal"
-                            element={<JournalReportPage reportCode="AR_SALES_JOURNAL" menuCode="AR_REPORT_SALES_JOURNAL" titleKey="AR_SALES_JOURNAL" titleFallback="Sổ nhật ký bán hàng" showExportExcel={true} exportFilePrefix="sales_journal" exportSheetName="SalesJournal" />}
+                            element={<JournalReportPage reportCode="AR_SALES_JOURNAL" menuCode="AR_REPORT_SALES_JOURNAL" titleKey="AR_SALES_JOURNAL" titleFallback="Sổ nhật ký bán hàng" showExportExcel={true} />}
                         />
                         <Route
                             path="/ar/report/sales-detail"
-                            element={<JournalReportPage reportCode="AR_SALES_DETAIL" menuCode="AR_REPORT_SALES_DETAIL" titleKey="AR_SALES_DETAIL" titleFallback="Sổ chi tiết bán hàng" showExportExcel={true} exportFilePrefix="sales_detail" exportSheetName="SalesDetail" />}
+                            element={<JournalReportPage reportCode="AR_SALES_DETAIL" menuCode="AR_REPORT_SALES_DETAIL" titleKey="AR_SALES_DETAIL" titleFallback="Sổ chi tiết bán hàng" showExportExcel={true} />}
                         />
                         <Route
                             path="/gl/book/sales-journal"
-                            element={<JournalReportPage reportCode="AR_SALES_JOURNAL" menuCode="GL_BOOK_SALES_JOURNAL" titleKey="AR_SALES_JOURNAL" titleFallback="Sổ nhật ký bán hàng" showExportExcel={true} exportFilePrefix="sales_journal" exportSheetName="SalesJournal" />}
+                            element={<JournalReportPage reportCode="AR_SALES_JOURNAL" menuCode="GL_BOOK_SALES_JOURNAL" titleKey="AR_SALES_JOURNAL" titleFallback="Sổ nhật ký bán hàng" showExportExcel={true} />}
                         />
                         <Route
                             path="/gl/book/sales-detail"
-                            element={<JournalReportPage reportCode="AR_SALES_DETAIL" menuCode="GL_BOOK_SALES_DETAIL" titleKey="AR_SALES_DETAIL" titleFallback="Sổ nhật ký bán hàng" showExportExcel={true} exportFilePrefix="sales_detail" exportSheetName="SalesDetail" />}
+                            element={<JournalReportPage reportCode="AR_SALES_DETAIL" menuCode="GL_BOOK_SALES_DETAIL" titleKey="AR_SALES_DETAIL" titleFallback="Sổ nhật ký bán hàng" showExportExcel={true} />}
                         />
                         <Route
                             path="/ap/report/purchase-journal"
-                            element={<JournalReportPage reportCode="AP_PURCHASE_JOURNAL" menuCode="AP_REPORT_PURCHASE_JOURNAL" titleKey="AP_PURCHASE_JOURNAL" titleFallback="Sổ nhật ký mua hàng" showExportExcel={true} exportFilePrefix="purchase_journal" exportSheetName="PurchaseJournal" />}
+                            element={<JournalReportPage reportCode="AP_PURCHASE_JOURNAL" menuCode="AP_REPORT_PURCHASE_JOURNAL" titleKey="AP_PURCHASE_JOURNAL" titleFallback="Sổ nhật ký mua hàng" showExportExcel={true} />}
                         />
                         <Route
                             path="/gl/book/purchase-journal"
-                            element={<JournalReportPage reportCode="AP_PURCHASE_JOURNAL" menuCode="AP_REPORT_PURCHASE_JOURNAL" titleKey="AP_PURCHASE_JOURNAL" titleFallback="Sổ nhật ký mua hàng" showExportExcel={true} exportFilePrefix="purchase_journal" exportSheetName="PurchaseJournal" />}
+                            element={<JournalReportPage reportCode="AP_PURCHASE_JOURNAL" menuCode="AP_REPORT_PURCHASE_JOURNAL" titleKey="AP_PURCHASE_JOURNAL" titleFallback="Sổ nhật ký mua hàng" showExportExcel={true} />}
                         />
                         <Route
                             path="/gl/book/general-journal"
-                            element={<JournalReportPage reportCode="GL_GENERAL_JOURNAL" menuCode="GL_BOOK_JOURNAL" titleKey="GL_GENERAL_JOURNAL" titleFallback="Sổ nhật ký chung" showExportExcel={true} exportFilePrefix="general_journal" exportSheetName="GeneralJournal" />}
+                            element={<JournalReportPage reportCode="GL_GENERAL_JOURNAL" menuCode="GL_BOOK_JOURNAL" titleKey="GL_GENERAL_JOURNAL" titleFallback="Sổ nhật ký chung" showExportExcel={true} />}
                         />
                         <Route
                             path="/gl/book/general-ledger"
-                            element={<JournalReportPage reportCode="GL_GENERAL_LEDGER_S02C1DN" menuCode="GL_BOOK_LEDGER" titleKey="GL_GENERAL_LEDGER_S02C1DN" titleFallback="Sổ cái tài khoản" showAccountFilter={true} includeEmptyFilterParams={true} showExportExcel={true} exportFilePrefix="general_ledger" exportSheetName="GeneralLedger" />}
+                            element={<JournalReportPage reportCode="GL_GENERAL_LEDGER_S02C1DN" menuCode="GL_BOOK_LEDGER" titleKey="GL_GENERAL_LEDGER_S02C1DN" titleFallback="Sổ cái tài khoản" showAccountFilter={true} includeEmptyFilterParams={true} showExportExcel={true} />}
                         />
                         <Route
                             path="/gl/book/account-detail"
-                            element={<JournalReportPage reportCode="GL_ACCOUNT_DETAIL_S38DN" menuCode="GL_BOOK_ACC_DETAIL" titleKey="GL_ACCOUNT_DETAIL_S38DN" titleFallback="Sổ chi tiết tài khoản" showAccountFilter={true} showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} exportFilePrefix="account_detail_book" exportSheetName="AccountDetail" moduleCd="" />}
+                            element={<JournalReportPage reportCode="GL_ACCOUNT_DETAIL_S38DN" menuCode="GL_BOOK_ACC_DETAIL" titleKey="GL_ACCOUNT_DETAIL_S38DN" titleFallback="Sổ chi tiết tài khoản" showAccountFilter={true} showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} moduleCd="" />}
                         />
                         <Route
                             path="/gl/book/ar-detail"
-                            element={<JournalReportPage reportCode="GL_AR_DETAIL_S31DN" menuCode="GL_BOOK_AR_DETAIL" titleKey="GL_AR_DETAIL_S31DN" titleFallback="Sổ chi tiết công nợ" showAccountFilter={true} accountFilterEtcType={EtcType.cbxArBookAccount} showCustomerFilter={true} showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} exportFilePrefix="ar_detail_book" exportSheetName="ARDetail" moduleCd="" />}
+                            element={<JournalReportPage reportCode="GL_AR_DETAIL_S31DN" menuCode="GL_BOOK_AR_DETAIL" titleKey="GL_AR_DETAIL_S31DN" titleFallback="Sổ chi tiết công nợ" showAccountFilter={true} accountFilterEtcType={EtcType.cbxArBookAccount} showCustomerFilter={true} showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} moduleCd="" />}
                         />
                         <Route
                             path="/gl/book/ar-summary"
-                            element={<JournalReportPage reportCode="GL_AR_SUMMARY_S31DN" menuCode="GL_BOOK_AR_SUM" titleKey="GL_AR_SUMMARY_S31DN" titleFallback="Sổ tổng hợp công nợ" showAccountFilter={true} accountFilterEtcType={EtcType.cbxArBookAccount} showCustomerFilter={true} showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} exportFilePrefix="ar_summary_book" exportSheetName="ARSummary" moduleCd="" />}
+                            element={<JournalReportPage reportCode="GL_AR_SUMMARY_S31DN" menuCode="GL_BOOK_AR_SUM" titleKey="GL_AR_SUMMARY_S31DN" titleFallback="Sổ tổng hợp công nợ" showAccountFilter={true} accountFilterEtcType={EtcType.cbxArBookAccount} showCustomerFilter={true} showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} moduleCd="" />}
                         />
                         <Route
                             path="/gl/book/ar-aging"
-                            element={<JournalReportPage reportCode="GL_AR_AGING" menuCode="GL_BOOK_AR_AGING" titleKey="GL_AR_AGING" titleFallback="Phân tích công nợ phải thu theo tuổi nợ" showAccountFilter={true} showCustomerFilter={true} showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} exportFilePrefix="ar_aging" exportSheetName="ARAging" moduleCd="" />}
+                            element={<JournalReportPage reportCode="GL_AR_AGING" menuCode="GL_BOOK_AR_AGING" titleKey="GL_AR_AGING" titleFallback="Phân tích công nợ phải thu theo tuổi nợ" showAccountFilter={true} showCustomerFilter={true} showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} moduleCd="" />}
                         />
                         <Route
                             path="/gl/book/ar-aging-detail"
-                            element={<JournalReportPage reportCode="GL_AR_AGING_DETAIL" menuCode="GL_BOOK_AR_AGING_DETAIL" titleKey="GL_AR_AGING_DETAIL" titleFallback="Chi tiết công nợ phải thu theo tuổi nợ" showAccountFilter={true} showCustomerFilter={true} showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} exportFilePrefix="ar_aging_detail" exportSheetName="ARAgingDetail" moduleCd="" />}
+                            element={<JournalReportPage reportCode="GL_AR_AGING_DETAIL" menuCode="GL_BOOK_AR_AGING_DETAIL" titleKey="GL_AR_AGING_DETAIL" titleFallback="Chi tiết công nợ phải thu theo tuổi nợ" showAccountFilter={true} showCustomerFilter={true} showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} moduleCd="" />}
                         />
                         <Route
                             path="/gl/book/management-code"
-                            element={<JournalReportPage reportCode="GL_MANAGEMENT_CODE_BOOK" menuCode="GL_BOOK_MNG_REPORT" titleKey="GL_MANAGEMENT_CODE_BOOK" titleFallback="Sổ chi tiết mã quản lý" showAccountFilter={true} accountFilterEtcType={EtcType.cbxAccountParentChild} showExportExcel={true} includeEmptyFilterParams={true} exportFilePrefix="management_code_book" exportSheetName="ManagementCode" />}
+                            element={<JournalReportPage reportCode="GL_MANAGEMENT_CODE_BOOK" menuCode="GL_BOOK_MNG_REPORT" titleKey="GL_MANAGEMENT_CODE_BOOK" titleFallback="Sổ chi tiết mã quản lý" showAccountFilter={true} accountFilterEtcType={EtcType.cbxAccountParentChild} showExportExcel={true} includeEmptyFilterParams={true} />}
                         />
                         <Route
                             path="/gl/book/pl-by-object"
-                            element={<JournalReportPage reportCode="GL_PL_BY_OBJECT" menuCode="GL_BOOK_PL_OBJ" titleKey="GL_PL_BY_OBJECT" titleFallback="Báo cáo lãi lỗ chi tiết theo đối tượng" showExportExcel={true} exportFilePrefix="pl_by_object" exportSheetName="PLByObject" />}
+                            element={<JournalReportPage reportCode="GL_PL_BY_OBJECT" menuCode="GL_BOOK_PL_OBJ" titleKey="GL_PL_BY_OBJECT" titleFallback="Báo cáo lãi lỗ chi tiết theo đối tượng" showExportExcel={true} />}
                         />
                         <Route
                             path="/gl/book/pl-summary"
-                            element={<JournalReportPage reportCode="GL_PL_SUMMARY" menuCode="GL_BOOK_PL_SUM" titleKey="GL_PL_SUMMARY" titleFallback="Báo cáo lãi lỗ tổng hợp" showExportExcel={true} exportFilePrefix="pl_summary" exportSheetName="PLSummary" />}
+                            element={<JournalReportPage reportCode="GL_PL_SUMMARY" menuCode="GL_BOOK_PL_SUM" titleKey="GL_PL_SUMMARY" titleFallback="Báo cáo lãi lỗ tổng hợp" showExportExcel={true} />}
                         />
                         <Route
                             path="/gl/book/trial-balance"
-                            element={<JournalReportPage reportCode="GL_TRIAL_BALANCE_S06DN" menuCode="GL_BOOK_TRIAL" titleKey="GL_TRIAL_BALANCE_S06DN" titleFallback="Bảng cân đối số phát sinh" showExportExcel={true} exportFilePrefix="trial_balance" exportSheetName="TrialBalance" />}
+                            element={<JournalReportPage reportCode="GL_TRIAL_BALANCE_S06DN" menuCode="GL_BOOK_TRIAL" titleKey="GL_TRIAL_BALANCE_S06DN" titleFallback="Bảng cân đối số phát sinh" showExportExcel={true} />}
                         />
                         <Route
                             path="/gl/fs/balance-sheet"
-                            element={<JournalReportPage reportCode="GL_BALANCE_SHEET_B01DN" menuCode="GL_FS_BALANCE" titleKey="GL_BALANCE_SHEET_B01DN" titleFallback="Bảng cân đối kế toán" reportVersion="2025" unitDivisor="1" showExportExcel={true} exportFilePrefix="balance_sheet" exportSheetName="BalanceSheet" />}
+                            element={<JournalReportPage reportCode="GL_BALANCE_SHEET_B01DN" menuCode="GL_FS_BALANCE" titleKey="GL_BALANCE_SHEET_B01DN" titleFallback="Bảng cân đối kế toán" reportVersion="2025" unitDivisor="1" showExportExcel={true} />}
                         />
                         <Route
                             path="/gl/fs/profit-loss"
-                            element={<JournalReportPage reportCode="GL_PROFIT_LOSS_B02DN" menuCode="GL_FS_PL" titleKey="GL_PROFIT_LOSS_B02DN" titleFallback="Báo cáo kết quả hoạt động kinh doanh" reportVersion="2025" unitDivisor="1" showExportExcel={true} exportFilePrefix="profit_loss" exportSheetName="ProfitLoss" />}
+                            element={<JournalReportPage reportCode="GL_PROFIT_LOSS_B02DN" menuCode="GL_FS_PL" titleKey="GL_PROFIT_LOSS_B02DN" titleFallback="Báo cáo kết quả hoạt động kinh doanh" reportVersion="2025" unitDivisor="1" showExportExcel={true} />}
                         />
                         <Route
                             path="/gl/fs/pl-period"
-                            element={<JournalReportPage reportCode="GL_PROFIT_LOSS_B02DNTT" menuCode="GL_PROFIT_LOSS_B02DNTT" titleKey="GL_PROFIT_LOSS_B02DNTT" titleFallback="Báo cáo kết quả kinh doanh theo kỳ" reportVersion="2025" unitDivisor="1" showExportExcel={true} exportFilePrefix="profit_loss_period" exportSheetName="ProfitLossPeriod" />}
+                            element={<JournalReportPage reportCode="GL_PROFIT_LOSS_B02DNTT" menuCode="GL_PROFIT_LOSS_B02DNTT" titleKey="GL_PROFIT_LOSS_B02DNTT" titleFallback="Báo cáo kết quả kinh doanh theo kỳ" reportVersion="2025" unitDivisor="1" showExportExcel={true} />}
                         />
                         <Route
                             path="/gl/fs/cashflow"
-                            element={<JournalReportPage reportCode="GL_CASHFLOW_B03DN_TT" menuCode="GL_FS_CASHFLOW" titleKey="GL_CASHFLOW_B03DN" titleFallback="Báo cáo lưu chuyển tiền tệ" reportVersion="2025" unitDivisor="1" reportOptionGroupCode="GL_FS_CASHFLOW" showExportExcel={true} exportFilePrefix="cashflow" exportSheetName="Cashflow" />}
+                            element={<JournalReportPage reportCode="GL_CASHFLOW_B03DN_TT" menuCode="GL_FS_CASHFLOW" titleKey="GL_CASHFLOW_B03DN" titleFallback="Báo cáo lưu chuyển tiền tệ" reportVersion="2025" unitDivisor="1" reportOptionGroupCode="GL_FS_CASHFLOW" showExportExcel={true} />}
                         />
                         <Route
                             path="/inventory/report/detail-product"
-                            element={<JournalReportPage reportCode="INVENTORY_DETAIL_BOOK" menuCode="INV_REPORT_DETAIL_PRODUCT" titleKey="INV_REPORT_DETAIL_BOOK" titleFallback="Sổ chi tiết vật liệu, dụng cụ (sản phẩm, hàng hóa)" accountCd="156" showExportExcel={true} exportFilePrefix="inventory_detail_book" exportSheetName="InventoryDetail" />}
+                            element={<JournalReportPage reportCode="INVENTORY_DETAIL_BOOK" menuCode="INV_REPORT_DETAIL_PRODUCT" titleKey="INV_REPORT_DETAIL_BOOK" titleFallback="Sổ chi tiết vật liệu, dụng cụ (sản phẩm, hàng hóa)" accountCd="156" showExportExcel={true} />}
                         />
                         <Route
                             path="/inventory/report/detail-department"
-                            element={<JournalReportPage reportCode="INVENTORY_DETAIL_BOOK" menuCode="INV_REPORT_DETAIL_DEPT" titleKey="INV_REPORT_DETAIL_BOOK" titleFallback="Sổ chi tiết vật liệu, dụng cụ (sản phẩm, hàng hóa)" accountCd="152" showExportExcel={true} exportFilePrefix="inventory_detail_book" exportSheetName="InventoryDetail" />}
+                            element={<JournalReportPage reportCode="INVENTORY_DETAIL_BOOK" menuCode="INV_REPORT_DETAIL_DEPT" titleKey="INV_REPORT_DETAIL_BOOK" titleFallback="Sổ chi tiết vật liệu, dụng cụ (sản phẩm, hàng hóa)" accountCd="152" showExportExcel={true} />}
                         />
                         <Route
                             path="/inventory/report/detail-account"
-                            element={<JournalReportPage reportCode="INVENTORY_DETAIL_BOOK" menuCode="INV_REPORT_DETAIL_ACCOUNT" titleKey="INV_REPORT_DETAIL_BOOK" titleFallback="Sổ chi tiết vật liệu, dụng cụ (sản phẩm, hàng hóa)" accountCd="153" showExportExcel={true} exportFilePrefix="inventory_detail_book" exportSheetName="InventoryDetail" />}
+                            element={<JournalReportPage reportCode="INVENTORY_DETAIL_BOOK" menuCode="INV_REPORT_DETAIL_ACCOUNT" titleKey="INV_REPORT_DETAIL_BOOK" titleFallback="Sổ chi tiết vật liệu, dụng cụ (sản phẩm, hàng hóa)" accountCd="153" showExportExcel={true} />}
                         />
                         <Route
                             path="/inventory/report/detail-store"
-                            element={<JournalReportPage reportCode="INVENTORY_DETAIL_BOOK" menuCode="INV_REPORT_DETAIL_STORE" titleKey="INV_REPORT_DETAIL_BOOK" titleFallback="Sổ chi tiết vật liệu, dụng cụ (sản phẩm, hàng hóa)" accountCd="155" showExportExcel={true} exportFilePrefix="inventory_detail_book" exportSheetName="InventoryDetail" />}
+                            element={<JournalReportPage reportCode="INVENTORY_DETAIL_BOOK" menuCode="INV_REPORT_DETAIL_STORE" titleKey="INV_REPORT_DETAIL_BOOK" titleFallback="Sổ chi tiết vật liệu, dụng cụ (sản phẩm, hàng hóa)" accountCd="155" showExportExcel={true} />}
                         />
                         <Route
                             path="/inventory/report/quantity"
-                            element={<JournalReportPage reportCode="INVENTORY_QUANTITY_REPORT" menuCode="INV_REPORT_QUANTITY" titleKey="INVENTORY_QUANTITY_REPORT" titleFallback="Số lượng tồn kho" showWarehouseFilter={true} showProductFilter={true} showExportExcel={true} includeEmptyFilterParams={true} exportFilePrefix="inventory_quantity" exportSheetName="InventoryQuantity" reportOptionGroupCode="INV_REPORT_QUANTITY" />}
+                            element={<JournalReportPage reportCode="INVENTORY_QUANTITY_REPORT" menuCode="INV_REPORT_QUANTITY" titleKey="INVENTORY_QUANTITY_REPORT" titleFallback="Số lượng tồn kho" showWarehouseFilter={true} showProductFilter={true} showExportExcel={true} includeEmptyFilterParams={true} reportOptionGroupCode="INV_REPORT_QUANTITY" />}
                         />
                         <Route
                             path="/inventory/report/source-doc"
-                            element={<JournalReportPage reportCode="INVENTORY_SOURCE_DOCUMENT_REPORT" menuCode="INV_REPORT_SOURCE_DOC" titleKey="INVENTORY_SOURCE_DOCUMENT_REPORT" titleFallback="Bảng tổng hợp chứng từ gốc của hàng tồn kho" showWarehouseFilter={true} showProductFilter={true} showExportExcel={true} includeEmptyFilterParams={true} exportFilePrefix="inventory_source_document" exportSheetName="InventorySourceDocument" />}
+                            element={<JournalReportPage reportCode="INVENTORY_SOURCE_DOCUMENT_REPORT" menuCode="INV_REPORT_SOURCE_DOC" titleKey="INVENTORY_SOURCE_DOCUMENT_REPORT" titleFallback="Bảng tổng hợp chứng từ gốc của hàng tồn kho" showWarehouseFilter={true} showProductFilter={true} showExportExcel={true} includeEmptyFilterParams={true} />}
                         />
 
                         <Route
                             path="/bank/bank-book"
-                            element={<JournalReportPage reportCode="BANK_DEPOSIT_BOOK" menuCode="BA_BANK_BOOK" titleKey="BANK_DEPOSIT_BOOK" titleFallback="Sổ tiền gửi ngân hàng" showAccountFilter={true} accountLookupMode="parentChild" accountFilterEtcType={EtcType.cbxBankDepositBookAccount} showBankFilter={true} fcType="VND" showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} exportFilePrefix="bank_deposit_book" exportSheetName="BankBook" moduleCd="" />}
+                            element={<JournalReportPage reportCode="BANK_DEPOSIT_BOOK" menuCode="BA_BANK_BOOK" titleKey="BANK_DEPOSIT_BOOK" titleFallback="Sổ tiền gửi ngân hàng" showAccountFilter={true} accountLookupMode="parentChild" accountFilterEtcType={EtcType.cbxBankDepositBookAccount} showBankFilter={true} fcType="VND" showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} moduleCd="" />}
                         />
                         <Route
                             path="/gl/book/bank"
-                            element={<JournalReportPage reportCode="BANK_DEPOSIT_BOOK" menuCode="BA_BANK_BOOK" titleKey="BANK_DEPOSIT_BOOK" titleFallback="Sổ tiền gửi ngân hàng" showAccountFilter={true} accountLookupMode="parentChild" accountFilterEtcType={EtcType.cbxBankDepositBookAccount} showBankFilter={true} fcType="VND" showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} exportFilePrefix="bank_deposit_book" exportSheetName="BankBook" moduleCd="" />}
+                            element={<JournalReportPage reportCode="BANK_DEPOSIT_BOOK" menuCode="BA_BANK_BOOK" titleKey="BANK_DEPOSIT_BOOK" titleFallback="Sổ tiền gửi ngân hàng" showAccountFilter={true} accountLookupMode="parentChild" accountFilterEtcType={EtcType.cbxBankDepositBookAccount} showBankFilter={true} fcType="VND" showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} moduleCd="" />}
                         />
                         <Route path="/bank/revalue" element={<ExchangeRateRecalculationPage />} />
                         <Route
                             path="/gl/book/cash"
-                            element={<JournalReportPage reportCode="CASH_BOOK" menuCode="CA_CASH_BOOK" titleKey="CASH_BOOK" titleFallback="Sổ quỹ tiền mặt" showAccountFilter={true} accountLookupMode="parentChild" accountFilterEtcType={EtcType.cbxCashBookAccount} fcType="VND" showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} exportFilePrefix="cash_book" exportSheetName="CashBook" moduleCd="" />}
+                            element={<JournalReportPage reportCode="CASH_BOOK" menuCode="CA_CASH_BOOK" titleKey="CASH_BOOK" titleFallback="Sổ quỹ tiền mặt" showAccountFilter={true} accountLookupMode="parentChild" accountFilterEtcType={EtcType.cbxCashBookAccount} fcType="VND" showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} moduleCd="" />}
                         />
                         <Route
                             path="/cash/cash-book"
-                            element={<JournalReportPage reportCode="CASH_BOOK" menuCode="CA_CASH_BOOK" titleKey="CASH_BOOK" titleFallback="Sổ quỹ tiền mặt" showAccountFilter={true} accountLookupMode="parentChild" accountFilterEtcType={EtcType.cbxCashBookAccount} fcType="VND" showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} exportFilePrefix="cash_book" exportSheetName="CashBook" moduleCd="" />}
+                            element={<JournalReportPage reportCode="CASH_BOOK" menuCode="CA_CASH_BOOK" titleKey="CASH_BOOK" titleFallback="Sổ quỹ tiền mặt" showAccountFilter={true} accountLookupMode="parentChild" accountFilterEtcType={EtcType.cbxCashBookAccount} fcType="VND" showCurrencyFilter={true} showExportExcel={true} includeEmptyFilterParams={true} moduleCd="" />}
                         />
                         <Route path="/cash/revalue" element={<CashExchangeRateRecalculationPage />} />
                         <Route path="/banking" element={<ModuleContent moduleId="banking" />} />
@@ -911,15 +911,15 @@ function AppWorkspaceRoutes({
                         />
                         <Route
                             path="/tax/vat/invoice-list"
-                            element={<JournalReportPage reportCode="TAX_VAT_INVOICE_LIST" menuCode="VAT_INVOICE_LIST" titleKey="VAT_INVOICE_LIST" titleFallback="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra" showExportExcel={true} exportFilePrefix="vat_invoice_list" exportSheetName="VatInvoiceList" />}
+                            element={<JournalReportPage reportCode="TAX_VAT_INVOICE_LIST" menuCode="VAT_INVOICE_LIST" titleKey="VAT_INVOICE_LIST" titleFallback="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra" showExportExcel={true} />}
                         />
                         <Route
                             path="/tax/vat/allocation"
-                            element={<JournalReportPage reportCode="TAX_VAT_ALLOCATION" menuCode="VAT_ALLOCATION" titleKey="VAT_ALLOCATION" titleFallback="Bảng phân bổ số thuế giá trị gia tăng" showExportExcel={true} exportFilePrefix="vat_allocation" exportSheetName="VatAllocation" />}
+                            element={<JournalReportPage reportCode="TAX_VAT_ALLOCATION" menuCode="VAT_ALLOCATION" titleKey="VAT_ALLOCATION" titleFallback="Bảng phân bổ số thuế giá trị gia tăng" showExportExcel={true} />}
                         />
                         <Route
                             path="/tax/vat/reduction-appendix"
-                            element={<JournalReportPage reportCode="TAX_VAT_REDUCTION_APPENDIX" menuCode="VAT_REDUCTION_APPENDIX" titleKey="VAT_REDUCTION_APPENDIX" titleFallback="Phụ lục giảm thuế giá trị gia tăng" showInvoiceStatusFilter={true} showInvoiceKindFilter={true} showCurrencyFilter={true} includeEmptyFilterParams={true} showExportExcel={true} exportFilePrefix="vat_reduction_appendix" exportSheetName="VatReductionAppendix" />}
+                            element={<JournalReportPage reportCode="TAX_VAT_REDUCTION_APPENDIX" menuCode="VAT_REDUCTION_APPENDIX" titleKey="VAT_REDUCTION_APPENDIX" titleFallback="Phụ lục giảm thuế giá trị gia tăng" showInvoiceStatusFilter={true} showInvoiceKindFilter={true} showCurrencyFilter={true} includeEmptyFilterParams={true} showExportExcel={true} />}
                         />
                         <Route path="/assets" element={<ModuleContent moduleId="assets" />} />
                         <Route path="/invoices" element={<ModuleContent moduleId="invoices" />} />
@@ -939,7 +939,7 @@ function AppWorkspaceRoutes({
                         <Route path="/einvoice/minutes" element={<EInvoiceMinutesPage />} />
                         <Route
                             path="/einvoice/report"
-                            element={<JournalReportPage reportCode="EINV_REPORT" menuCode="EINV_REPORT" titleKey="EINV_REPORT" titleFallback="Báo cáo hóa đơn" showExportExcel={true} exportFilePrefix="einvoice_report" exportSheetName="EInvoiceReport" />}
+                            element={<JournalReportPage reportCode="EINV_REPORT" menuCode="EINV_REPORT" titleKey="EINV_REPORT" titleFallback="Báo cáo hóa đơn" showExportExcel={true} />}
                         />
                         <Route
                             path="/tax/vat/declaration"
@@ -952,8 +952,6 @@ function AppWorkspaceRoutes({
                                     reportVersion="2025"
                                     unitDivisor="1"
                                     showExportExcel={true}
-                                    exportFilePrefix="vat_declaration"
-                                    exportSheetName="VatDeclaration"
                                 />
                             }
                         />
@@ -998,8 +996,6 @@ function AppWorkspaceRoutes({
                                     showAssetStatusFilter={true}
                                     showExportExcel={true}
                                     includeEmptyFilterParams={true}
-                                    exportFilePrefix="fa_depreciation"
-                                    exportSheetName="FADepreciation"
                                 />
                             }
                         />
@@ -1018,8 +1014,6 @@ function AppWorkspaceRoutes({
                                     showAssetStatusFilter={true}
                                     showExportExcel={true}
                                     includeEmptyFilterParams={true}
-                                    exportFilePrefix="fa_asset_book"
-                                    exportSheetName="FAAssetBook"
                                 />
                             }
                         />
@@ -1038,8 +1032,6 @@ function AppWorkspaceRoutes({
                                     showAssetStatusFilter={true}
                                     showExportExcel={true}
                                     includeEmptyFilterParams={true}
-                                    exportFilePrefix="fa_depreciation_period"
-                                    exportSheetName="FADepreciationPeriod"
                                 />
                             }
                         />

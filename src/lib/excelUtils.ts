@@ -65,6 +65,7 @@ export async function exportToExcel<T extends Record<string, unknown>>(
   columns: ColumnConfig[],
   fileName: string,
   sheetName = "Sheet1",
+  options: { withBorders?: boolean } = {},
 ) {
   return downloadFile({ fileName: fileName, load: async () => {
 
@@ -90,6 +91,45 @@ export async function exportToExcel<T extends Record<string, unknown>>(
     widthMatrix.push(widthRow)
     return row
   })
+
+  if (options.withBorders) {
+    const ExcelJS = (await import("exceljs")).default
+    const workbook = new ExcelJS.Workbook()
+    const worksheet = workbook.addWorksheet(sheetName)
+    worksheet.addRow(columns.map((column) => column.displayName))
+    worksheet.getRow(1).font = { bold: true }
+    worksheetData.forEach((row) => {
+      worksheet.addRow(columns.map((column) => row[column.displayName]))
+    })
+
+    buildExcelColumnWidthsFromMatrix(
+      widthMatrix,
+      widthMatrix.map((_, index) => index),
+      {
+        minWidth: EXPORT_COLUMN_MIN_WIDTH,
+        maxWidth: EXPORT_COLUMN_MAX_WIDTH,
+        padding: EXPORT_COLUMN_PADDING,
+      },
+    ).forEach((width, index) => {
+      worksheet.getColumn(index + 1).width = width.wch
+    })
+
+    worksheet.eachRow({ includeEmpty: true }, (row) => {
+      row.eachCell({ includeEmpty: true }, (cell) => {
+        cell.border = {
+          top: { style: "thin", color: { argb: "FFD1D5DB" } },
+          bottom: { style: "thin", color: { argb: "FFD1D5DB" } },
+          left: { style: "thin", color: { argb: "FFD1D5DB" } },
+          right: { style: "thin", color: { argb: "FFD1D5DB" } },
+        }
+      })
+    })
+
+    const buffer = await workbook.xlsx.writeBuffer()
+    return new Blob([buffer as BlobPart], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    })
+  }
 
   const worksheet = XLSX.utils.json_to_sheet(worksheetData)
   applyExcelColumnWidthsFromMatrix(

@@ -1,5 +1,6 @@
 import { captureMasterPopupError } from "@/components/datagrid/masterPopupValidation";
 import { downloadFile } from "@/lib/fileUtils"
+import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { useCallback, useContext, useRef, useState } from "react";
 import { LoadPanel } from "devextreme-react";
 import { Editing } from "devextreme-react/data-grid";
@@ -49,6 +50,7 @@ export default function ProductKindList({
   const screenCd = "/module/product-kind-management";
   const gridId = "product-kind-grid";
   const menuCode = "MD_PRODUCT_GROUP";
+  const exportName = useMenuExportName(menuCode)
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isUpdate, setIsUpdate] = useState(false);
   const gridRef = useRef<dxDataGrid | null>(null);
@@ -203,12 +205,12 @@ export default function ProductKindList({
       const keys = (gridRef.current?.getSelectedRowKeys() || []) as number[];
       const productKindId = keys.length ? keys[0] : undefined;
       const loadDownloadBlob = (signal: AbortSignal) => exportToExcel(productKindId, langCode, undefined, signal);
-      await downloadFile({ fileName: `product_group_${new Date().toISOString().replace(/[:.-]/g, "")}.xlsx`, load: loadDownloadBlob })
+      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
     } catch (error) {
       console.error("Export error", error);
       notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất thất bại")), "error", 3000);
     }
-  }, [langCode, t]);
+  }, [exportName, langCode, t]);
 
   const content = (
     <MasterDataPageLayout

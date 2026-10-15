@@ -1,7 +1,6 @@
 import { fetchSetup } from "@devexpress/analytics-core/analytics-utils";
 import API_BASE_URL from "@/config/apiConfig";
 import { downloadBlobFile } from "@/lib/fileUtils";
-import { buildDownloadFileName } from "@/lib/downloadQueue";
 import { buildAppPath, getCurrentCompanyCd } from "@/lib/login";
 import { getStoredGridTemplateId } from "@/lib/sysGridColumnTemplateStorage";
 import { getCurrentLang } from "@/utils/language";
@@ -19,6 +18,7 @@ type ReportExportFileMetadata = {
 type ReportExportHandler = {
   _handleFile?: (fileMetadata: ReportExportFileMetadata, urlApi?: ReportExportUrlApi) => void;
   __amnoteSaveAsPatched?: boolean;
+  __amnoteResolveFileName?: (fileMetadata: ReportExportFileMetadata) => string;
 };
 
 type ReportExportUrlApi = {
@@ -64,7 +64,10 @@ export function configureReportViewerRequests(): void {
 }
 
 // Override DevExpress export to use the shared Save As flow.
-export function patchReportViewerSaveAs(viewerInstance: unknown): boolean {
+export function patchReportViewerSaveAs(
+  viewerInstance: unknown,
+  resolveFileName?: (fileMetadata: ReportExportFileMetadata) => string,
+): boolean {
   const candidates = collectExportHandlerCandidates(viewerInstance);
   const handler = candidates.find(
     (item) => typeof (item as ReportExportHandler | undefined)?._handleFile === "function",
@@ -74,30 +77,34 @@ export function patchReportViewerSaveAs(viewerInstance: unknown): boolean {
     return false;
   }
 
+  if (resolveFileName) {
+    handler.__amnoteResolveFileName = resolveFileName;
+  }
+
   if (handler.__amnoteSaveAsPatched) {
     return true;
   }
-
-  const previousHandleFile = handler._handleFile;
 
   handler._handleFile = (fileMetadata: ReportExportFileMetadata, urlApi?: ReportExportUrlApi) => {
     const url = fileMetadata?.url;
     if (!url) {
       return;
     }
+    let fileName: string;
+    try {
+      fileName = handler.__amnoteResolveFileName?.(fileMetadata) ?? resolveFileName?.(fileMetadata) ?? "";
+    } catch {
+      return;
+    }
+    if (!fileName.trim()) return;
+
     void fetch(url)
       .then((response) => response.blob())
       .then((blob) => {
         urlApi?.revokeObjectURL(url);
-        return downloadBlobFile(blob, resolveExportFileName(fileMetadata), resolveReportExportLanguage());
+        return downloadBlobFile(blob, fileName, resolveReportExportLanguage());
       })
-      .catch(() => {
-        const fallbackFileMetadata = {
-          ...fileMetadata,
-          contentFilename: buildDownloadFileName(resolveExportFileName(fileMetadata), resolveReportExportLanguage()),
-        };
-        previousHandleFile?.call(handler, fallbackFileMetadata, urlApi);
-      });
+      .catch(() => undefined);
   };
 
   handler.__amnoteSaveAsPatched = true;
@@ -107,11 +114,6 @@ export function patchReportViewerSaveAs(viewerInstance: unknown): boolean {
 function resolveReportExportLanguage(): string | undefined {
   const searchParams = new URLSearchParams(window.location.search);
   return searchParams.get("language") || searchParams.get("lang") || undefined;
-}
-
-function resolveExportFileName(fileMetadata: ReportExportFileMetadata): string {
-  const contentFilename = fileMetadata?.contentFilename?.trim();
-  return contentFilename && contentFilename.length > 0 ? contentFilename : "report";
 }
 
 function collectExportHandlerCandidates(viewerInstance: unknown): Array<unknown> {

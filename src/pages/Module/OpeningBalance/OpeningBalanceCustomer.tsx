@@ -1,4 +1,5 @@
 import { downloadFile } from "@/lib/fileUtils"
+import { useCurrentMenuExportName } from "@/hooks/useCurrentMenuExportName"
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { confirm } from "devextreme/ui/dialog"
 import { useNavigate } from "react-router-dom"
@@ -61,6 +62,7 @@ function getTextValue(value: unknown): string {
 }
 
 function OpeningBalanceCustomer(): React.JSX.Element {
+  const exportName = useCurrentMenuExportName()
   const [openingYmd, setOpeningYmd] = useState<string>("19000101")
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false)
   const navigate = useNavigate()
@@ -385,7 +387,7 @@ function OpeningBalanceCustomer(): React.JSX.Element {
       const keys = gridRef.current?.getSelectedRowKeys() || []
       const ID = keys.length ? Number(keys[0]) : undefined
       const loadDownloadBlob = (signal: AbortSignal) => exportCustomersToExcel(Number.isFinite(ID) && (ID as number) > 0 ? ID : undefined, getCurrentLangCode(), openingYmd, signal)
-      await downloadFile({ fileName: `${translate("CUSTOMER_BALANCE_LIST", "Customer Balance List")}_${new Date().toISOString().replace(/[:.-]/g, "")}.xlsx`, load: loadDownloadBlob })
+      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
     } catch (err) {
       console.error("Export error", err)
       notify(

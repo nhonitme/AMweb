@@ -25,6 +25,7 @@ import {
 } from "@/api/serviceAllocationCheckApi"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { exportToExcel } from "@/lib/excelUtils"
+import { useCurrentMenuExportName } from "@/hooks/useCurrentMenuExportName"
 import type { ColumnConfig } from "@/types/table"
 import { customerLookupStore } from "@/components/lookup/customerLookupStore"
 import { ReportToolbar } from "@/components/toolbar/ReportToolbar"
@@ -209,6 +210,7 @@ function ServiceAllocationDetailGrid({ data }: {
 }
 
 export default function ServiceAllocationCheckPage() {
+  const exportName = useCurrentMenuExportName()
   const location = useLocation()
   const tabRoute = useWorkspaceTabRoute()
   const cacheTabId = tabRoute?.tabId ?? location.key
@@ -416,17 +418,16 @@ export default function ServiceAllocationCheckPage() {
     })
 
     try {
-      const timeStamp = new Date().toISOString().replace(/[:.-]/g, "")
       await exportToExcel(
         excelRows,
         excelColumns,
-        `ap_service_allocation_${timeStamp}.xlsx`,
-        "Service Allocation",
+        exportName.fileName("xlsx"),
+        exportName.sheetName(),
       )
     } catch (error) {
       notify(getApiErrorMessage(error, t("EXPORT_EXCEL_FAILED", "Xuất Excel thất bại")), "error", 4000)
     }
-  }, [t])
+  }, [exportName, t])
 
   const openColumnSettings = useCallback(async () => {
     if (!columnSettingState.enabled || !masterGridRef.current) return

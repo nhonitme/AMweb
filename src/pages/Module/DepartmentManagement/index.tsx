@@ -18,6 +18,7 @@ import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout"
 import DxPage from "@/dx/DxPage"
 import { downloadFile } from "@/lib/fileUtils"
+import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { getCurrentCompanyCd } from "@/lib/login"
 import { assignSequencePreviewCode, getSequenceSubmitCode } from "@/lib/codeSequence"
@@ -67,6 +68,7 @@ export default function DepartmentManagementPage({
   const screenCd = "/master/cost-center"
   const gridId = "cost-center-grid"
   const menuCode = "MD_COST_CENTER"
+  const exportName = useMenuExportName(menuCode)
   const [isUpdate, setIsUpdate] = useState(false)
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false)
   const [selectedParentRow, setSelectedParentRow] = useState<DepartmentInfo | null>(null)
@@ -243,12 +245,12 @@ export default function DepartmentManagementPage({
           : undefined
 
       const loadDownloadBlob = (signal: AbortSignal) => exportDepartmentInfoExcel(departmentId, lang, signal)
-      await downloadFile({ fileName: `Department_${new Date().toISOString().replace(/[:.-]/g, "")}.xlsx`, load: loadDownloadBlob })
+      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
     } catch (error) {
       console.error("Export department error", error)
       notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất thất bại")), "error", 3000)
     }
-  }, [lang, t])
+  }, [exportName, lang, t])
 
   const handleExportPdf = useCallback(() => {
     const selectedKeys = (treeListRef.current?.getSelectedRowKeys() || []) as Array<string | number>

@@ -646,13 +646,6 @@ export function SalesVoucherDetailColumns({ quickCreateCustomer = false }: Vouch
         editorOptions={createNumberEditorOptions(getFormat("AMOUNT", "#,##0.00"))}
         allowHiding={false}
       />
-      <Column
-        dataField="VAT_AMOUNT"
-        caption={t("VAT_AMOUNT", "VAT amount")}
-        dataType="number"
-        format={getFormat("VAT_AMOUNT", "#,##0.00")}
-        editorOptions={createNumberEditorOptions(getFormat("VAT_AMOUNT", "#,##0.00"))}
-      />
       <Column dataField="VAT_CHIT_NO" caption={t("VAT_CHIT_NO", "Sales invoice no")} />
       <DetailDescriptionColumns t={t} caption={t("DESCRIPTION2", "Sales description")} />
     </Fragment>

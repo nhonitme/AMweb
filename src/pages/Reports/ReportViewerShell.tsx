@@ -10,6 +10,7 @@ import { ActionId, ExportFormatID, PreviewElements } from "devexpress-reporting/
 
 import { useCompanyLangRevision } from "@/lib/companyLang"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { getReportLanguageOptions, normalizeReportLanguage, type ReportLanguageCode } from "./reportLanguage"
 import ReportSignatureMappingEditor from "./ReportSignatureMappingEditor"
 import { configureReportViewerRequests, getReportViewerHost, patchReportViewerSaveAs } from "./reportViewerConfig"
@@ -147,6 +148,7 @@ export default function ReportViewerShell({
   const { translate } = useContext(LanguageContext) as {
     translate?: (key: string, fallback?: string) => string
   }
+  const exportName = useMenuExportName(reportKey ?? "")
 
   const t = useCallback(
     (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
@@ -156,6 +158,11 @@ export default function ReportViewerShell({
   const refreshViewer = useCallback(() => {
     setViewerRevision((current) => current + 1)
   }, [])
+
+  const resolveExportFileName = useCallback((metadata: { contentFilename?: string | null }) => {
+    const extension = metadata.contentFilename?.trim().match(/\.([a-z0-9]+)$/i)?.[1] || "pdf"
+    return exportName.fileName(extension)
+  }, [exportName])
 
   const versionedReportUrl = useMemo(() => {
     const [path, query = ""] = reportUrl.split("?", 2)
@@ -178,7 +185,7 @@ export default function ReportViewerShell({
       return
     }
 
-    patchReportViewerSaveAs(viewerInstance)
+    patchReportViewerSaveAs(viewerInstance, resolveExportFileName)
 
     if (typeof viewerInstance.GetReportPreview !== "function") {
       return
@@ -192,7 +199,7 @@ export default function ReportViewerShell({
     reportPreview.zoom = 1
     reportPreview.originalZoom = 1
     reportPreview.showMultipagePreview = true
-  }, [])
+  }, [resolveExportFileName])
 
   const handleDocumentReady = useCallback(() => {
     setPreviewOptions()
@@ -206,11 +213,11 @@ export default function ReportViewerShell({
   // exportHandler được DevExpress tạo lại mỗi khi nạp báo cáo -> phải vá lại sau mỗi lần đổi reportUrl.
   useEffect(() => {
     const intervalId = window.setInterval(() => {
-      patchReportViewerSaveAs(viewerRef.current?.instance())
+      patchReportViewerSaveAs(viewerRef.current?.instance(), resolveExportFileName)
     }, 400)
 
     return () => window.clearInterval(intervalId)
-  }, [versionedReportUrl])
+  }, [resolveExportFileName, versionedReportUrl])
 
   const currentLanguageTemplateName = useMemo(
     () => languageTemplateNames[normalizeReportLanguage(reportLanguage)],

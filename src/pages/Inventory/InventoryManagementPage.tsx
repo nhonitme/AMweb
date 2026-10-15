@@ -19,6 +19,7 @@ import {
   updateInventoryVoucher,
 } from "@/api/inventoryVoucherApi"
 import { clearSysCodeSequencePreviewCache } from "@/api/sysCodeSequenceApi"
+
 import { getApiErrorMessage } from "@/api/apiTypes"
 import DetailGrid from "@/components/datagrid/DetailGrid"
 import GridColumnSettingsPopup, {
@@ -31,10 +32,11 @@ import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import DxPage from "@/dx/DxPage"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults"
 import { getCurrentCompanyCd, getCurrentUserId } from "@/lib/login"
 import type { GridColumnSettingEditorItem } from "@/types/sysGridColumnSetting"
-import type { InventoryInputType, InventoryVoucher, VoucherOpenLocationState } from "@/types/voucher"
+import type { ChitLedger, InventoryInputType, InventoryVoucher, VoucherOpenLocationState } from "@/types/voucher"
 import ChitColumns from "@/pages/VoucherManagement/components/ChitColumns"
 import {
   buildInventoryAccountingReferenceOptions,
@@ -47,6 +49,7 @@ import {
   ChitInventoryOutputDetailColumns,
 } from "./components/ChitInventoryDetailColumns"
 import InventoryEditorPopup from "./components/InventoryEditorPopup"
+import ChitEditorPopup from "@/pages/VoucherManagement/components/ChitEditorPopup"
 import LinkVouchersPreviewPopup from "./components/LinkVouchersPreviewPopup"
 import {
   applyInventoryAccountingLinkPair,
@@ -70,6 +73,9 @@ import {
 import { createVoucherImportConfig } from "@/pages/VoucherManagement/voucherImportConfig"
 import { useVoucherOpenChitIdRoute } from "@/pages/VoucherManagement/hooks/useVoucherOpenChitIdRoute"
 import { loadInventoryVoucherForDirectOpen } from "@/pages/VoucherManagement/voucherDirectOpen"
+import { isPeriodLockVoucher } from "@/pages/VoucherManagement/chitUtils"
+import { useLinkedCogsVoucherPopup } from "@/pages/VoucherManagement/hooks/useLinkedCogsVoucherPopup"
+import { useLinkedAccountingVoucherPopup } from "@/pages/VoucherManagement/hooks/useLinkedAccountingVoucherPopup"
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
 import { buildReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
 import {
@@ -100,6 +106,12 @@ const inventoryPdfReportCodeMap: Record<InventoryVoucherType, string> = {
   IR: "INVENTORY_RECEIPT_VOUCHER",
   IO: "INVENTORY_ISSUE_VOUCHER",
   IA: "INVENTORY_ADJUSTMENT_VOUCHER",
+}
+
+const inventoryMenuCodeMap: Record<InventoryVoucherType, string> = {
+  IR: "INV_RECEIPT",
+  IO: "INV_ISSUE",
+  IA: "INV_ADJUST",
 }
 
 function getInventoryDetailLines(record: InventoryVoucher | null, chitType: InventoryVoucherType): InventoryLine[] {
@@ -205,7 +217,11 @@ export default function InventoryManagementPage({
   const { translate } = useContext(LanguageContext)
   const { sysCodeMap } = useSysCodes()
   const t = useCallback((key: string, fallback: string) => translate(key, fallback), [translate])
+  const linkedCogsPopup = useLinkedCogsVoucherPopup(t)
+  const linkedAccountingPopup = useLinkedAccountingVoucherPopup(t)
   const title = titleKey ? t(titleKey, titleFallback ?? "") : titleFallback ?? (chitType === "IR" ? "Phiếu nhập kho" : "Phiếu xuất kho")
+  const menuCode = inventoryMenuCodeMap[chitType]
+  const exportName = useMenuExportName(menuCode)
   const screenCd = useMemo(() => location.pathname, [location.pathname])
   const masterGridId = useMemo(() => getInventoryMasterGridId(chitType), [chitType])
   const detailGridId = useMemo(() => getInventoryDetailGridId(chitType), [chitType])
@@ -363,6 +379,7 @@ export default function InventoryManagementPage({
 
         setIsUpdate(true)
         setEditingRow(ensureInventoryDefaultLine(targetRow))
+
         setPopupVisible(true)
         return true
       } catch (error) {
@@ -440,8 +457,9 @@ export default function InventoryManagementPage({
     setInitialIssueTab("output")
     setEditingRow(ensureInventoryDefaultLine(record))
     setIsUpdate(update)
+
     setPopupVisible(true)
-  }, [])
+  }, [chitType])
 
   const handleAdd = useCallback(() => {
     openEditor(createDefaultInventoryVoucher(chitType, getCurrentCompanyCd(), getCurrentUserId()), false)
@@ -628,6 +646,7 @@ export default function InventoryManagementPage({
       }
       const saved = normalizeInventoryVoucherApi(result.data, chitType, getCurrentCompanyCd())
 
+
       setRows((current) => {
         const existingIndex = current.findIndex((item) => item.CHIT_ID === saved.CHIT_ID)
         if (existingIndex < 0) {
@@ -649,6 +668,7 @@ export default function InventoryManagementPage({
         setInitialIssueTab("output")
         setEditingRow(createDefaultInventoryVoucher(chitType, getCurrentCompanyCd(), getCurrentUserId()))
         setIsUpdate(false)
+
         setPopupVisible(true)
         return
       }
@@ -711,12 +731,11 @@ export default function InventoryManagementPage({
         fromYmd: formatDateToYmd(fromDate),
         toYmd: formatDateToYmd(toDate),
       }, signal)
-      const fileLabel = title.trim().replace(/\s+/g, "_").toLowerCase() || "inventory_voucher"
-      await downloadFile({ fileName: `${fileLabel}_${new Date().toISOString().replace(/[:.-]/g, "")}.xlsx`, load: loadDownloadBlob })
+      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
     } catch (error) {
       notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất thất bại")), "error", 4000)
     }
-  }, [chitType, fromDate, ledger, t, title, toDate])
+  }, [chitType, exportName, fromDate, ledger, t, title, toDate])
 
   const handleExportPdf = useCallback(() => {
     const selectedKeys: Array<string | number> = gridRef.current?.getSelectedRowKeys() ?? []
@@ -747,13 +766,14 @@ export default function InventoryManagementPage({
 
     const targetUrl = buildReportViewerPageUrl({
       reportCode: pdfReportCode,
+      menuCode,
       chitId: String(orderedChitIds[0]),
       chitIds: orderedChitIds.join(","),
     })
     if (!openReportViewerPage(targetUrl)) {
       notify(t("UNABLE_TO_OPEN_REPORT_VIEWER", "Không mở được trình xem báo cáo"), "error", 3000)
     }
-  }, [pdfReportCode, rows, t])
+  }, [menuCode, pdfReportCode, rows, t])
 
   const createColumnSettingTabs = useCallback((
     masterItems: GridColumnSettingEditorItem[],
@@ -1134,6 +1154,13 @@ export default function InventoryManagementPage({
         voucherLabel={title}
         isUpdate={isUpdate}
         loading={popupLoading}
+        onOpenLinkedAccountingVoucher={(linkedType, linkedId) => {
+          const ledger: ChitLedger = linkedType === "PO" || linkedType === "PD" || linkedType === "PR" ? "AP" : "AR"
+          const handledByPopup = linkedAccountingPopup.open(ledger, linkedType, linkedId)
+
+          return handledByPopup
+        }}
+        onOpenLinkedCogsVoucher={linkedCogsPopup.open}
         onClose={() => {
           if (popupLoading) {
             return
@@ -1148,6 +1175,37 @@ export default function InventoryManagementPage({
         onSaveAndNew={handleSaveAndNew}
         printReportCode={pdfReportCode}
       />
+
+      {linkedAccountingPopup.voucher && linkedAccountingPopup.ledger && linkedAccountingPopup.chitType ? (
+        <ChitEditorPopup
+          visible
+          value={linkedAccountingPopup.voucher}
+          ledger={linkedAccountingPopup.ledger}
+          chitType={linkedAccountingPopup.chitType}
+          isUpdate
+          readOnly={isPeriodLockVoucher(linkedAccountingPopup.voucher)}
+          loading={linkedAccountingPopup.loading}
+          onClose={linkedAccountingPopup.close}
+          onReturnToLinkedInventory={linkedAccountingPopup.close}
+          onSave={linkedAccountingPopup.save}
+        />
+      ) : null}
+
+      {linkedCogsPopup.voucher ? (
+        <ChitEditorPopup
+          visible
+          value={linkedCogsPopup.voucher}
+          ledger="AR"
+          chitType="OT"
+          voucherLabel={t("INVENTORY_COGS_VOUCHER", "Phiếu giá vốn")}
+          isUpdate
+          readOnly={isPeriodLockVoucher(linkedCogsPopup.voucher)}
+          loading={linkedCogsPopup.loading}
+          onClose={linkedCogsPopup.close}
+          onReturnToLinkedInventory={linkedCogsPopup.close}
+          onSave={linkedCogsPopup.save}
+        />
+      ) : null}
 
       <LoadPanel visible={loading} showIndicator shading={false} />
       <GridColumnSettingsPopup

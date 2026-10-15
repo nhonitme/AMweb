@@ -38,14 +38,14 @@ export default function VatInOutCreateModePopup({
 }: Props) {
   const { translate } = useContext(LanguageContext) as { translate?: (key: string, fallback?: string) => string }
   const t = (key: string, fallback: string) => translate ? translate(key, fallback) : fallback
-  const [creationMode, setCreationMode] = useState<VatVoucherCreationMode>("MERGED")
+  const [creationMode, setCreationMode] = useState<VatVoucherCreationMode>("ONE_PER_INVOICE")
   const creationModeOptions = [
     { value: "MERGED" as const, label: t("VAT_BATCH_MERGED", "Gộp nhiều hóa đơn vào một chứng từ") },
     { value: "ONE_PER_INVOICE" as const, label: t("VAT_BATCH_ONE_PER_INVOICE", "Mỗi hóa đơn một chứng từ") },
   ]
   useEffect(() => {
     if (visible) {
-      setCreationMode("MERGED")
+      setCreationMode("ONE_PER_INVOICE")
     }
   }, [invoiceType, visible])
 

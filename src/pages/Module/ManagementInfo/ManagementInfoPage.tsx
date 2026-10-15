@@ -30,6 +30,7 @@ import {
 import MasterDataEditPopup from "@/components/datagrid/MasterDataEditPopup"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { downloadFile } from "@/lib/fileUtils"
+import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { getCurrentCompanyCd } from "@/lib/login"
 import { assignSequencePreviewCode, getSequenceSubmitCode } from "@/lib/codeSequence"
@@ -73,6 +74,7 @@ export default function ManagementInfoPage({
   const screenCd = "/module/management-info"
   const gridId = "management-info-grid"
   const menuCode = "MD_MANAGEMENT"
+  const exportName = useMenuExportName(menuCode)
   const [isUpdate, setIsUpdate] = useState(false)
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false)
   const gridRef = useRef<dxDataGrid | null>(null)
@@ -234,12 +236,12 @@ export default function ManagementInfoPage({
           : undefined
 
       const loadDownloadBlob = (signal: AbortSignal) => exportManagementInfoExcel(managementId, lang, signal)
-      await downloadFile({ fileName: `management_info_${new Date().toISOString().replace(/[:.-]/g, "")}.xlsx`, load: loadDownloadBlob })
+      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
     } catch (error) {
       console.error("Export management info error", error)
       notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất thất bại")), "error", 3000)
     }
-  }, [lang, t])
+  }, [exportName, lang, t])
 
   const handleExportPdf = useCallback(() => {
     const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>

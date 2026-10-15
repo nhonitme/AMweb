@@ -892,7 +892,7 @@ function isReportItemNameField(fieldName: string | null | undefined): boolean {
   return key.length > 0 && REPORT_ITEM_NAME_FIELDS.has(key)
 }
 
-function resolveReportSysCodeType(
+export function resolveReportSysCodeType(
   fieldName: string | null | undefined,
   sysCodeMap: Record<string, unknown[]>,
 ): string {

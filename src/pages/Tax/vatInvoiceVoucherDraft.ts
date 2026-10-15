@@ -74,15 +74,15 @@ export function buildVatVoucherDraft(
   const userId = getCurrentUserId()
   const chitType: ChitType = voucherType
   const firstDate = normalizeYmd(readInvoiceText(invoices[0], ["tdlap", "TDLAP"])) ?? new Date()
-  const details = invoices.map((invoice, index) => {
+  const details = invoices.flatMap((invoice, index) => {
     const date = normalizeYmd(readInvoiceText(invoice, ["tdlap", "TDLAP"])) ?? firstDate
     const taxable = readInvoiceNumber(invoice, ["tgtcthue", "TGTCTHUE"])
     const vat = readInvoiceNumber(invoice, ["tgtthue", "TGTTHUE"])
-    const invoiceCurrencyTotal = readInvoiceNumber(invoice, ["tgtttbso", "TGTTTBSO"]) || taxable + vat
     const currency = readInvoiceText(invoice, ["dvtte", "DVTTE"]) || "VND"
     const exchangeRate = readInvoiceNumber(invoice, ["tgia", "TGIA"]) || 1
     const isForeignCurrency = currency.toUpperCase() !== "VND"
-    const total = isForeignCurrency ? invoiceCurrencyTotal * exchangeRate : invoiceCurrencyTotal
+    const taxableAmount = isForeignCurrency ? taxable * exchangeRate : taxable
+    const vatAmount = isForeignCurrency ? vat * exchangeRate : vat
     const issuerName = readInvoiceText(invoice, ["nbten", "NBTEN"])
     const issuerAddress = readInvoiceText(invoice, ["nbdchi", "NBDCHI"])
     const issuerTaxCode = readInvoiceText(invoice, ["nbmst", "NBMST"])
@@ -90,20 +90,14 @@ export function buildVatVoucherDraft(
     const partyAddress = invoiceType === "BUY" ? issuerAddress : readInvoiceText(invoice, ["nmdchi", "NMDCHI"])
     const partyTaxCode = invoiceType === "BUY" ? issuerTaxCode : readInvoiceText(invoice, ["nmmst", "NMMST"])
 
-    return {
-      ...createDefaultChitDetail(index + 1, companyCd),
+    const sharedDetail = {
       CHIT_YMD: date,
-      AMOUNT: total,
       FC_TYPE: currency,
       FC_RATE: exchangeRate,
-      FC_AMOUNT: isForeignCurrency ? invoiceCurrencyTotal : total,
       CUSTOMER_NM_VIET: partyName,
       VAT_SERIAL_NO: readInvoiceText(invoice, ["khhdon", "KHHDON"]),
       VAT_CHIT_NO: readInvoiceText(invoice, ["shdon", "SHDON"]),
       VAT_CHIT_NO_2: getVatInvoiceKey(invoice),
-      VAT_AMOUNT: isForeignCurrency ? vat * exchangeRate : vat,
-      VAT_TAXABLE_AMOUNT: isForeignCurrency ? taxable * exchangeRate : taxable,
-      FO_VAT_AMOUNT: isForeignCurrency ? vat : 0,
       VAT_INVOICE_CD: readInvoiceText(invoice, ["khmshdon", "KHMSHDON"]),
       VAT_INVOICE_NM: readInvoiceText(invoice, ["khmshdon_ten", "KHMSHDON_TEN"]),
       VAT_COMPANY_ISSUE: issuerName,
@@ -113,9 +107,37 @@ export function buildVatVoucherDraft(
       VAT_PRODUCT_NM: partyName,
       VAT_ETC: readInvoiceText(invoice, ["GChu", "GCHU"]),
       VAT_YMD: date,
-      DETAIL_DESCRIPTION_VIET: partyName ? `${formatVatInvoiceLabel(invoice)} - ${partyName}` : formatVatInvoiceLabel(invoice),
       UNDEFINE: [partyAddress, partyTaxCode].filter(Boolean).join(" | "),
     }
+
+    const invoiceDescription = partyName
+      ? `${formatVatInvoiceLabel(invoice)} - ${partyName}`
+      : formatVatInvoiceLabel(invoice)
+
+    return [
+      {
+        ...createDefaultChitDetail(index * 2 + 1, companyCd),
+        ...sharedDetail,
+        SORT: index * 2 + 1,
+        AMOUNT: taxableAmount,
+        FC_AMOUNT: taxable,
+        VAT_TAXABLE_AMOUNT: taxableAmount,
+        VAT_AMOUNT: 0,
+        FO_VAT_AMOUNT: 0,
+        DETAIL_DESCRIPTION_VIET: `${invoiceDescription} - Tiền hàng`,
+      },
+      {
+        ...createDefaultChitDetail(index * 2 + 2, companyCd),
+        ...sharedDetail,
+        SORT: index * 2 + 2,
+        AMOUNT: vatAmount,
+        FC_AMOUNT: vat,
+        VAT_TAXABLE_AMOUNT: 0,
+        VAT_AMOUNT: vatAmount,
+        FO_VAT_AMOUNT: isForeignCurrency ? vat : 0,
+        DETAIL_DESCRIPTION_VIET: `${invoiceDescription} - Tiền thuế`,
+      },
+    ]
   })
 
   return {

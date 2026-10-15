@@ -360,6 +360,8 @@ export interface InventoryVoucherApi {
   CHIT_YMD?: ChitDateValue
   CHIT_TYPE?: ChitType | ChitText
   IS_COGS?: ChitFlag
+  COGS_AMOUNT?: number | null
+  CLEAR_COGS_LINK?: boolean | null
   AMOUNT?: number | null
   TOTAL_QTY?: number | null
   REMARK?: ChitText
@@ -508,6 +510,8 @@ export interface InventoryVoucher {
   CHIT_YMD: ChitDateValue
   CHIT_TYPE: Extract<ChitType, "IR" | "IO" | "IA">
   IS_COGS: boolean
+  COGS_AMOUNT?: number | null
+  CLEAR_COGS_LINK?: boolean
   AMOUNT: number | null
   TOTAL_QTY: number | null
   REMARK: string
