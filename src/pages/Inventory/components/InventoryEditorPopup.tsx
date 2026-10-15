@@ -28,6 +28,7 @@ import type { GridColumnSettingEditorItem } from "@/types/sysGridColumnSetting"
 import { type GridColumnSettingState } from "@/components/datagrid/useGridColumnSettingState"
 import { ReferenceLookup } from "@/components/lookup"
 import { LookupPopupProvider } from "@/components/lookup/LookupPopupHost"
+import { disableBuiltInPopupEscape, usePopupEscapeLayer } from "@/components/popup/popupEscapeStack"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { useDecimalColumnFormats } from "@/hooks/useDecimalColumnFormats"
 import { isForeignCurrencyCode } from "@/lib/currency"
@@ -836,6 +837,12 @@ export default function InventoryEditorPopup({
 
   const popupShortcutScopeId = usePopupShortcutScopeId("inventory-editor")
 
+  usePopupEscapeLayer(
+    visible,
+    onClose,
+    () => document.querySelector<HTMLElement>(`[data-popup-shortcut-scope="${popupShortcutScopeId}"]`),
+  )
+
   const shortcutBindings = useMemo(() => {
     const builtInHandlers: Partial<Record<ShortcutActionCode, ShortcutHandler>> = {
       [SHORTCUT_ACTIONS.SAVE]: () => {
@@ -1103,9 +1110,8 @@ export default function InventoryEditorPopup({
   return (
     <Popup
       visible={visible}
-      onShown={() => {
-
-
+      onShown={(event) => {
+        disableBuiltInPopupEscape(event.component)
       }}
       title={popupTitle}
       showTitle

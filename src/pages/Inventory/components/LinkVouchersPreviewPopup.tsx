@@ -1,4 +1,4 @@
-import { useCallback, useContext, useMemo, useState } from "react"
+import { useCallback, useContext, useMemo, useRef, useState } from "react"
 import Button from "devextreme-react/button"
 import DataGrid, { Column, Selection, type DataGridTypes } from "devextreme-react/data-grid"
 import DropDownButton from "devextreme-react/drop-down-button"
@@ -8,6 +8,8 @@ import notify from "devextreme/ui/notify"
 import { ArrowDown } from "lucide-react"
 
 import { DateRangeBox } from "@/components/toolbar/DateRangeBox"
+import { disableBuiltInPopupEscape, usePopupEscapeLayer } from "@/components/popup/popupEscapeStack"
+import { overlayWrapperFromPopupContent } from "@/components/popup/raiseOverlayZIndex"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { formatYmdForDisplay } from "@/pages/Accounting/accountingDateUtils"
 import type { InventoryAccountingReferenceOption } from "@/pages/VoucherManagement/components/chitEditorConstants"
@@ -75,6 +77,14 @@ export default function LinkVouchersPreviewPopup({
 
   const [selectedInventoryId, setSelectedInventoryId] = useState<number | null>(null)
   const [selectedDetailId, setSelectedDetailId] = useState<number | null>(null)
+  const popupWrapperRef = useRef<HTMLElement | null>(null)
+  const handleClose = useCallback(() => {
+    if (!applying) {
+      onClose()
+    }
+  }, [applying, onClose])
+
+  usePopupEscapeLayer(visible, handleClose, () => popupWrapperRef.current)
 
   const selectedOption =
     counterpartOptions.find((option) => option.optionKey === selectedOptionKey) ?? counterpartOptions[0] ?? null
@@ -211,10 +221,12 @@ export default function LinkVouchersPreviewPopup({
       maxWidth="96vw"
       maxHeight="94vh"
       animation={POPUP_FADE_ANIMATION}
+      onShown={(event) => {
+        popupWrapperRef.current = overlayWrapperFromPopupContent(event.component.content())
+        disableBuiltInPopupEscape(event.component)
+      }}
       onHiding={() => {
-        if (!applying) {
-          onClose()
-        }
+        handleClose()
       }}
     >
       <div className="relative flex h-full flex-col gap-3 p-3">

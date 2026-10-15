@@ -7,6 +7,8 @@ import Popup from "devextreme-react/popup"
 import notify from "devextreme/ui/notify"
 
 import PageGrid from "@/components/datagrid/PageGrid"
+import { disableBuiltInPopupEscape, usePopupEscapeLayer } from "@/components/popup/popupEscapeStack"
+import { overlayWrapperFromPopupContent } from "@/components/popup/raiseOverlayZIndex"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import { getInventoryLinkStatuses } from "@/api/inventoryLinkApi"
 import { getChits } from "@/api/voucherApi"
@@ -372,6 +374,9 @@ export default function MultiReferencePopup({
     event.rowElement?.classList.add("bg-emerald-50", "text-emerald-900")
   }, [])
 
+  const popupWrapperRef = useRef<HTMLElement | null>(null)
+  usePopupEscapeLayer(visible, onClose, () => popupWrapperRef.current)
+
   const handleConfirm = useCallback(async () => {
     if (!referenceConfig) {
       onClose()
@@ -402,6 +407,10 @@ export default function MultiReferencePopup({
   return (
     <Popup
       visible={visible}
+      onShown={(event) => {
+        popupWrapperRef.current = overlayWrapperFromPopupContent(event.component.content())
+        disableBuiltInPopupEscape(event.component)
+      }}
       title={t("REFERENCE_SELECT_MULTIPLE", "Chọn nhiều phiếu xuất kho")}
       showTitle={true}
       dragEnabled={false}

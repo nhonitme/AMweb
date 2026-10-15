@@ -1,5 +1,4 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
-import { debugMd } from "@amnote/debug-md"
 import Button from "devextreme-react/button"
 import Popup from "devextreme-react/popup"
 import SelectBox from "devextreme-react/select-box"
@@ -451,7 +450,6 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
       onHiding={() => {
         onClose()
       }}
-      onShown={() => debugMd("vat-quick-create-selection", "open", { kind, invoiceCount: invoices.length }, { reset: true })}
     >
       <div className="flex h-full min-h-0 flex-col gap-3 p-3">
         {loading && <div className="text-sm text-slate-500">{t("LOADING", "Đang tải và lọc dữ liệu...")}</div>}
@@ -506,14 +504,6 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
                 onSelectionChanged={(event) => {
                   const selectableKeys = new Set(customerGridRows.filter((row) => !row.isExisting).map((row) => row.key))
                   const selectedKeys = (event.selectedRowKeys as string[]).filter((key) => selectableKeys.has(key))
-                  debugMd("vat-quick-create-selection", "selection-change", {
-                    kind: "customer",
-                    selectedRowKeys: event.selectedRowKeys,
-                    currentSelectedRowKeys: event.currentSelectedRowKeys,
-                    currentDeselectedRowKeys: event.currentDeselectedRowKeys,
-                    selectableSelectedKeys: selectedKeys,
-                    selectedBeforeUpdate: customerDrafts.filter((row) => row.selected).map((row) => row.key),
-                  })
                   const selected = new Set(selectedKeys)
                   setCustomerDrafts((current) => {
                     let changed = false
@@ -659,14 +649,6 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
                 onSelectionChanged={(event) => {
                   const selectableKeys = new Set(productCandidates.filter((row) => !row.EXISTING_PRODUCT_CD).map((row) => row.key))
                   const selectedKeys = (event.selectedRowKeys as string[]).filter((key) => selectableKeys.has(key))
-                  debugMd("vat-quick-create-selection", "selection-change", {
-                    kind: "product",
-                    selectedRowKeys: event.selectedRowKeys,
-                    currentSelectedRowKeys: event.currentSelectedRowKeys,
-                    currentDeselectedRowKeys: event.currentDeselectedRowKeys,
-                    selectableSelectedKeys: selectedKeys,
-                    selectedBeforeUpdate: productCandidates.filter((row) => row.selected).map((row) => row.key),
-                  })
                   const selected = new Set(selectedKeys)
                   setProductCandidates((current) => {
                     let changed = false

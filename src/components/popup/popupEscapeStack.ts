@@ -131,6 +131,8 @@ export function usePopupEscapeLayer(
   close: () => void,
   getWrapper?: () => HTMLElement | null,
 ) {
+  const closeRef = useRef(close)
+  closeRef.current = close
   const getWrapperRef = useRef(getWrapper)
   getWrapperRef.current = getWrapper
 
@@ -139,6 +141,7 @@ export function usePopupEscapeLayer(
       return
     }
 
-    return registerPopupEscapeLayer(close, () => getWrapperRef.current?.() ?? null)
-  }, [active, close])
+    // Callback changes must not move an open parent above its child in the stack.
+    return registerPopupEscapeLayer(() => closeRef.current(), () => getWrapperRef.current?.() ?? null)
+  }, [active])
 }

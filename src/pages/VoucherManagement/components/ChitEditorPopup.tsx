@@ -22,6 +22,7 @@ import useShortcutBindings from "@/hooks/useShortcutBindings"
 import useShortcutHelp from "@/hooks/useShortcutHelp"
 import useStateRef from "@/hooks/useStateRef"
 import { getCurrentCompanyCd } from "@/lib/login"
+import { disableBuiltInPopupEscape, usePopupEscapeLayer } from "@/components/popup/popupEscapeStack"
 
 
 import { getInventoryIssueIdByCogsVoucherId } from "@/api/inventoryVoucherApi"
@@ -454,7 +455,13 @@ export function ChitEditorPopup({
         if (!loading && !rowInventory.loading && !rowInventory.editor) {
             onClose()
         }
-    }, [loading, onClose, rowInventory.loading, rowInventory.editor])
+    }, [loading, onClose, rowInventory.editor, rowInventory.loading])
+
+    usePopupEscapeLayer(
+        visible,
+        handleClosePopup,
+        () => document.querySelector<HTMLElement>(`[data-popup-shortcut-scope="${popupShortcutScopeId}"]`),
+    )
 
     const handleAddDetailRow = useCallback(() => {
         detailGridRef.current?.addRow()
@@ -541,8 +548,8 @@ export function ChitEditorPopup({
     return (
         <Popup
             visible={visible}
-            onShown={() => {
-
+            onShown={(event) => {
+                disableBuiltInPopupEscape(event.component)
             }}
             wrapperAttr={{ class: "chit-editor-popup", ...createPopupShortcutWrapperAttr(popupShortcutScopeId) }}
             title={title}
