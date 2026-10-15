@@ -13,6 +13,7 @@ import MultiLookupCellEditor from "@/components/lookup/MultiLookupCellEditor"
 import type { CustomerExt } from "@/types/customerExt"
 import type { SysCode } from "@/api/sysCodeService"
 import { getSysCodeDisplayText } from "@/lib/sysCodeUtils"
+import { normalizeCurrencyCodes } from "@/lib/currency"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import {
   deleteOffsetPair, loadOffsetAvailable, loadOffsetHistory, saveOffsetPair,
@@ -30,6 +31,11 @@ const kinds: Record<MainTab, { text: string; description: string }> = {
   CLEARING: { text: "Bù trừ 131 ↔ 331", description: "Bù trừ phải thu và phải trả cùng đối tượng" },
 }
 const currencyOptions: OffsetCurrency[] = ["VND", "USD", "EUR", "JPY", "KRW", "CNY"]
+const supportedCurrency = (code: string): code is OffsetCurrency =>
+  currencyOptions.some(currencyCode => currencyCode === code)
+
+const toCurrencyFilter = (code: string) => code === "VND" ? "VND" : `1|${code}`
+
 const formatMoney = "#,##0.##"
 const ymd = (date: Date | null) => {
   if (!date || Number.isNaN(date.getTime())) return ""
@@ -98,8 +104,8 @@ export default function DebtOffsetPage() {
   const [fromDateEnabled, setFromDateEnabled] = useState(false)
   const [toDate, setToDate] = useState<Date | null>(() => new Date())
   const [customerCodes, setCustomerCodes] = useState<string[]>([])
-  const [currency, setCurrency] = useState<OffsetCurrency>("VND")
-  const [currencyLookupVersion, setCurrencyLookupVersion] = useState(0)
+  // Match ReportToolbar: empty selection means all currencies, multiple codes are allowed.
+  const [currencyCodes, setCurrencyCodes] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [available, setAvailable] = useState<OffsetAvailable>({ SOURCES: [], DEBTS: [] })
@@ -109,6 +115,12 @@ export default function DebtOffsetPage() {
   const [historySelected, setHistorySelected] = useState<OffsetHistory | null>(null)
 
   const kind: OffsetKind = mainTab === "CLEARING" ? "CLEARING" : matchKind
+  // Saving an allocation needs one currency because the relation tables do not persist FC_TYPE.
+  const activeCurrency = currencyCodes.length === 1 && supportedCurrency(currencyCodes[0])
+    ? currencyCodes[0]
+    : null
+  const currency: OffsetCurrency = activeCurrency ?? "VND"
+  const showForeignCurrency = currencyCodes.length !== 1 || currencyCodes[0] !== "VND"
 
   // Both lookups use the same stores and code fields as GL / book / ar-summary.
   // The offset stored procedures filter by CUSTOMER_ID, so selected CUSTOMER_CD values
@@ -131,9 +143,9 @@ export default function DebtOffsetPage() {
     }
     return {
       kind, fromYmd: fromDateEnabled ? ymd(fromDate) : "", toYmd: ymd(toDate),
-      customerIds, currencyFilter: currency === "VND" ? "VND" : `1|${currency}`,
+      customerIds, currencyFilter: activeCurrency ? toCurrencyFilter(activeCurrency) : "",
     }
-  }, [kind, fromDateEnabled, fromDate, toDate, customerCodes, currency])
+  }, [kind, fromDateEnabled, fromDate, toDate, customerCodes, activeCurrency])
 
   const reset = () => {
     setLoaded(false)
@@ -146,6 +158,25 @@ export default function DebtOffsetPage() {
   const switchMain = (tab: MainTab) => { if (tab !== mainTab) { setMainTab(tab); reset() } }
   const switchSub = (tab: Panel) => { if (tab !== subTab) { setSubTab(tab); reset() } }
 
+  const fetchHistoryForCurrencies = useCallback(async (params: OffsetFilters): Promise<OffsetHistory[]> => {
+    // No selection = all currencies. Multiple selections = a query for each supported
+    // currency, since the existing stored procedure accepts only one code per CALL.
+    if (currencyCodes.length <= 1) return loadOffsetHistory(params)
+    const groups = await Promise.all(currencyCodes.map(currencyCode =>
+      loadOffsetHistory({ ...params, currencyFilter: toCurrencyFilter(currencyCode) })
+    ))
+    const seen = new Set<string>()
+    return groups.flat().filter(row => {
+      const recordId = kind === "COLLECT" ? row.CHITCOLLECT_ID : row.CHITPAYMENT_ID
+      // Never collapse separate allocations just because voucher/customer/amount match.
+      if (recordId == null || recordId <= 0) return true
+      const key = String(recordId)
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }, [currencyCodes, kind])
+
   const refresh = async () => {
     const fromYmd = fromDateEnabled ? ymd(fromDate) : ""
     const toYmd = ymd(toDate)
@@ -153,11 +184,20 @@ export default function DebtOffsetPage() {
       notify(t("INVALID_DATE_RANGE", "Khoảng thời gian không hợp lệ"), "warning", 3000)
       return
     }
+    const unsupported = currencyCodes.filter(code => !supportedCurrency(code))
+    if (unsupported.length > 0) {
+      notify(`Loại tiền chưa hỗ trợ trong đối trừ/bù trừ: ${unsupported.join(", ")}`, "warning", 4000)
+      return
+    }
+    if (subTab === "EXECUTE" && !activeCurrency) {
+      notify("Chọn đúng một loại tiền để thực hiện đối trừ/bù trừ", "warning", 4000)
+      return
+    }
     setBusy(true)
     reset()
     try {
       const params = await filters()
-      if (subTab === "HISTORY") setHistory(await loadOffsetHistory(params))
+      if (subTab === "HISTORY") setHistory(await fetchHistoryForCurrencies(params))
       else setAvailable(await loadOffsetAvailable(params))
       setLoaded(true)
     } catch (error) {
@@ -201,7 +241,7 @@ export default function DebtOffsetPage() {
   }
 
   const save = async () => {
-    if (!pairs.length) return
+    if (!activeCurrency || !pairs.length) return
     const sourceBalances = new Map(sources.map(row => [toKey(row), row]))
     const debtBalances = new Map(debts.map(row => [toKey(row), row]))
     const sourceSums = new Map<string, { amount: number; fc: number }>()
@@ -263,7 +303,7 @@ export default function DebtOffsetPage() {
       await deleteOffsetPair(kind, recordId)
       notify("Đã hoàn tác thành công", "success", 3000)
       setHistorySelected(null)
-      setHistory(await loadOffsetHistory(await filters()))
+      setHistory(await fetchHistoryForCurrencies(await filters()))
     } catch (error) {
       notify(getApiErrorMessage(error, "Hoàn tác thất bại"), "error", 5000)
     } finally {
@@ -319,11 +359,11 @@ export default function DebtOffsetPage() {
           <Column dataField="OFFSET_AMOUNT" caption={t("OFFSET_AMOUNT", "Số tiền đối trừ")} width={175}
             alignment="right" cellRender={numberCell("OFFSET_AMOUNT")} />
           <Column dataField="FC_AMOUNT" caption={t("AMOUNT_FC", "Số tiền ngoại tệ")} width={145}
-            alignment="right" format={formatMoney} visible={currency !== "VND"} />
+            alignment="right" format={formatMoney} visible={showForeignCurrency} />
           <Column dataField="REMAINAMOUNT_FC" caption={t("REMAINAMOUNT_FC", "Chưa đối trừ NT")} width={155}
-            alignment="right" format={formatMoney} visible={currency !== "VND"} />
+            alignment="right" format={formatMoney} visible={showForeignCurrency} />
           <Column dataField="OFFSET_AMOUNT_FC" caption={t("OFFSET_AMOUNT_FC", "Đối trừ NT")} width={155}
-            alignment="right" visible={currency !== "VND"} cellRender={numberCell("OFFSET_AMOUNT_FC")} />
+            alignment="right" visible={showForeignCurrency} cellRender={numberCell("OFFSET_AMOUNT_FC")} />
           <Summary>
             <TotalItem column="AMOUNT" summaryType="sum" valueFormat={formatMoney} />
             <TotalItem column="REMAINAMOUNT" summaryType="sum" valueFormat={formatMoney} />
@@ -403,34 +443,29 @@ export default function DebtOffsetPage() {
             ]}
           />
           <MultiLookupCellEditor<SysCode>
-            key={currencyLookupVersion}
+            className="page-toolbar__field"
             variant="toolbar"
+            selectedCountLabel={count => t("LOOKUP_SELECTED_COUNT", "{0} selected").replace("{0}", String(count))}
             dataSource={currencyLookupStore}
-            values={[currency]}
+            values={currencyCodes}
             valueExpr="CODE_CD"
-            maxSelection={1}
             searchExpr={["CODE_CD", "CODE_NAME"]}
-            placeholder={t("CURRENCY", "Loại tiền")}
+            placeholder={t("CURRENCY", "Currency")}
             labelMode="floating"
-            buttonHint={t("OPEN_CURRENCY_LOOKUP", "Chọn loại tiền")}
+            buttonHint={t("OPEN_CURRENCY_LOOKUP", "Open currency lookup")}
             onApply={values => {
-              const selected = values[0]?.trim().toUpperCase()
-              if (!currencyOptions.some(code => code === selected)) {
-                notify("Loại tiền này chưa được hỗ trợ trong đối trừ/bù trừ", "warning", 3000)
-                setCurrencyLookupVersion(version => version + 1)
-                return
-              }
-              setCurrency(selected as OffsetCurrency)
+              const next = normalizeCurrencyCodes(values)
+              setCurrencyCodes(next)
               reset()
             }}
-            onClear={() => { setCurrency("VND"); setCurrencyLookupVersion(version => version + 1); reset() }}
-            width={150}
+            onClear={() => { setCurrencyCodes([]); reset() }}
+            width={140}
             height={26}
             columns={[
-              { dataField: "CODE_CD", caption: t("CURRENCY", "Loại tiền"), width: 140 },
+              { dataField: "CODE_CD", caption: t("CURRENCY", "Currency"), width: 140 },
               {
                 dataField: "CODE_NAME",
-                caption: t("CURRENCY_NAME", "Tên loại tiền"),
+                caption: t("CURRENCY_NAME", "Currency Name"),
                 minWidth: 240,
                 calculateCellValue: row => getSysCodeDisplayText(row, t),
               },
@@ -485,7 +520,7 @@ export default function DebtOffsetPage() {
               <Column dataField="CHIT_YMD_DEBT" caption="Ngày công nợ" minWidth={120}
                 customizeText={e => dateLabel(String(e.value ?? ""))} />
               <Column dataField="PAYAMOUNT" caption="Tiền VND" minWidth={150} alignment="right" format={formatMoney} />
-              <Column dataField="PAYAMOUNT_FC" caption="Tiền ngoại tệ" minWidth={150} alignment="right" format={formatMoney} visible={currency !== "VND"} />
+              <Column dataField="PAYAMOUNT_FC" caption="Tiền ngoại tệ" minWidth={150} alignment="right" format={formatMoney} visible={showForeignCurrency} />
               <Summary><TotalItem column="PAYAMOUNT" summaryType="sum" valueFormat={formatMoney} /></Summary>
               </DataGrid>
             </div>
