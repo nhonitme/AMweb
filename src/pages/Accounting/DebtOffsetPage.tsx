@@ -410,13 +410,13 @@ export default function DebtOffsetPage() {
             toDate={toDate}
             optionalFromDateEnabled={fromDateEnabled}
             optionalFromDateLabel={t("USE_FROM_DATE", "Lọc từ ngày")}
-            onOptionalFromDateEnabledChange={enabled => { setFromDateEnabled(enabled); reset() }}
-            onFromDateChange={value => { setFromDate(value); reset() }}
-            onToDateChange={value => { setToDate(value); reset() }}
+            onOptionalFromDateEnabledChange={setFromDateEnabled}
+            onFromDateChange={setFromDate}
+            onToDateChange={setToDate}
             customerCodes={customerCodes}
-            onCustomerCodesChange={values => { setCustomerCodes(values); reset() }}
+            onCustomerCodesChange={setCustomerCodes}
             currencyCodes={currencyCodes}
-            onCurrencyCodesChange={values => { setCurrencyCodes(normalizeCurrencyCodes(values)); reset() }}
+            onCurrencyCodesChange={values => setCurrencyCodes(normalizeCurrencyCodes(values))}
             accountCodes={mainTab === "MATCH" ? matchAccountCodes
               : subTab === "EXECUTE" ? clearingAccount1Codes : undefined}
             accountPlaceholder={mainTab === "CLEARING" ? t("ACCOUNT_CODE", "Mã tài khoản") + " 131" : undefined}
@@ -425,16 +425,16 @@ export default function DebtOffsetPage() {
               ? EtcType.cbxDebtOffsetAccount
               : EtcType.cbxDebtClearingReceivableAccount}
             onAccountCodesChange={mainTab === "MATCH"
-              ? values => { setMatchAccountCodes(values.slice(0, 1)); reset() }
+              ? values => setMatchAccountCodes(values.slice(0, 1))
               : subTab === "EXECUTE"
-                ? values => { setClearingAccount1Codes(values.slice(0, 1)); reset() }
+                ? values => setClearingAccount1Codes(values.slice(0, 1))
                 : undefined}
             secondaryAccountCodes={mainTab === "CLEARING" && subTab === "EXECUTE"
               ? clearingAccount2Codes : undefined}
             secondaryAccountFilterEtcType={EtcType.cbxDebtClearingPayableAccount}
             secondaryAccountPlaceholder={t("ACCOUNT_CODE", "Mã tài khoản") + " 331"}
             onSecondaryAccountCodesChange={mainTab === "CLEARING" && subTab === "EXECUTE"
-              ? values => { setClearingAccount2Codes(values.slice(0, 1)); reset() }
+              ? values => setClearingAccount2Codes(values.slice(0, 1))
               : undefined}
             onSearch={() => { if (!busy) void refresh() }}
             showSearch
