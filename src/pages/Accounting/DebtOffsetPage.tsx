@@ -98,6 +98,7 @@ export default function DebtOffsetPage() {
   const [toDate, setToDate] = useState<Date | null>(() => new Date())
   const [customerCodes, setCustomerCodes] = useState<string[]>([])
   const [currency, setCurrency] = useState<OffsetCurrency>("VND")
+  const [currencyLookupVersion, setCurrencyLookupVersion] = useState(0)
   const [busy, setBusy] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [available, setAvailable] = useState<OffsetAvailable>({ SOURCES: [], DEBTS: [] })
@@ -392,6 +393,7 @@ export default function DebtOffsetPage() {
             ]}
           />
           <MultiLookupCellEditor<SysCode>
+            key={currencyLookupVersion}
             variant="toolbar"
             dataSource={currencyLookupStore}
             values={[currency]}
@@ -405,6 +407,7 @@ export default function DebtOffsetPage() {
               const selected = values[0]?.trim().toUpperCase()
               if (!currencyOptions.some(code => code === selected)) {
                 notify("Loại tiền này chưa được hỗ trợ trong đối trừ/bù trừ", "warning", 3000)
+                setCurrencyLookupVersion(version => version + 1)
                 return
               }
               setCurrency(selected as OffsetCurrency)
