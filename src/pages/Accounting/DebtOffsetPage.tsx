@@ -1,7 +1,7 @@
 import { useCallback, useContext, useMemo, useState } from "react"
 import DataGrid, { Column, Scrolling, Selection, Summary, TotalItem } from "devextreme-react/data-grid"
 import SelectBox from "devextreme-react/select-box"
-import ReportToolbar from "@/components/toolbar/ReportToolbar"
+import { ReportToolbar } from "@/components/toolbar/ReportToolbar"
 import NumberBox from "devextreme-react/number-box"
 import Button from "devextreme-react/button"
 import notify from "devextreme/ui/notify"
