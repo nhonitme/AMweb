@@ -123,6 +123,8 @@ type ReportToolbarProps = {
   onUseStartYmdChange?: (value: Date | null) => void
   initialFilters?: ReactNode
   leadingFilters?: ReactNode
+  /** Optional toolbar actions aligned to the far right, separate from report filters. */
+  trailingActions?: ReactNode
   /** "flat" drops the bordered/shadowed toolbar card in favor of a borderless row (used by Sổ quỹ tiền mặt). */
   variant?: "boxed" | "flat"
 }
@@ -223,6 +225,7 @@ export function ReportToolbar({
   accountLookupSingleSelect = false,
   initialFilters,
   leadingFilters,
+  trailingActions,
   variant = "boxed",
 }: ReportToolbarProps) {
   const { lang, translate } = useContext(LanguageContext) as {
@@ -956,7 +959,7 @@ export function ReportToolbar({
 
         </div>
 
-        {(showSearch && showQuickSearch) || visibleActionButtons.length > 0 ? (
+        {(showSearch && showQuickSearch) || visibleActionButtons.length > 0 || trailingActions ? (
           <div className="page-toolbar__actions">
           {showSearch && showQuickSearch ? (
             <div className="page-toolbar__quick-search-group flex items-end gap-1">
@@ -980,6 +983,12 @@ export function ReportToolbar({
                 hint={t("MSG_BTNSER", "Tìm kiếm")}
                 onClick={handleSearchEnter}
               />
+            </div>
+          ) : null}
+
+          {trailingActions ? (
+            <div className="flex shrink-0 flex-nowrap items-center justify-end gap-2 whitespace-nowrap">
+              {trailingActions}
             </div>
           ) : null}
 
