@@ -367,7 +367,7 @@ export default function DebtOffsetPage() {
           showColumnLines allowColumnResizing columnAutoWidth={false}
           selectedRowKeys={chosen.map(toKey)}
           onSelectionChanged={event => updateSelection(side, event.selectedRowsData as OffsetVoucher[])}
-          noDataText={loaded ? "Không có chứng từ chưa đối trừ" : "Chọn bộ lọc và nhấn Xem"}
+          noDataText={t("NO_DATA", "Không có dữ liệu")}
         >
           <Scrolling mode="standard" showScrollbar="always" />
           <Selection mode="multiple" showCheckBoxesMode="always" selectByClick={false} />
@@ -491,7 +491,8 @@ export default function DebtOffsetPage() {
               keyExpr={kind === "COLLECT" ? "CHITCOLLECT_ID" : "CHITPAYMENT_ID"}
               selectedRowKeys={historySelected ? [kind === "COLLECT" ? historySelected.CHITCOLLECT_ID : historySelected.CHITPAYMENT_ID] : []}
               onSelectionChanged={e => setHistorySelected((e.selectedRowsData?.[0] as OffsetHistory | undefined) ?? null)}
-              noDataText={loaded ? "Không có quan hệ trong khoảng thời gian" : "Chọn bộ lọc và nhấn Xem"}>
+              noDataText={t("NO_DATA", "Không có dữ liệu")}
+              >
               <Scrolling mode="standard" showScrollbar="always" />
               <Selection mode="single" selectByClick showCheckBoxesMode="always" />
               <Column dataField="CUSTOMER_NM_VIET" caption="Đối tượng" minWidth={200} />
