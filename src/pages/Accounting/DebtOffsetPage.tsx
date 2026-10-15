@@ -102,8 +102,8 @@ export default function DebtOffsetPage() {
   const [fromDateEnabled, setFromDateEnabled] = useState(false)
   const [toDate, setToDate] = useState<Date | null>(() => new Date())
   const [customerCodes, setCustomerCodes] = useState<string[]>([])
-  // Match ReportToolbar: empty selection means all currencies, multiple codes are allowed.
-  const [currencyCodes, setCurrencyCodes] = useState<string[]>([])
+  // Default to VND on this screen; users can still clear or select other currencies.
+  const [currencyCodes, setCurrencyCodes] = useState<string[]>(["VND"])
   const [busy, setBusy] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [available, setAvailable] = useState<OffsetAvailable>({ SOURCES: [], DEBTS: [] })
