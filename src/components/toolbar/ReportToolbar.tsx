@@ -65,6 +65,11 @@ type ReportToolbarProps = {
   toDate?: Date | null
   customerCodes?: string[]
   accountCodes?: string[]
+  /** Optional second account lookup, rendered adjacent to the primary account. */
+  secondaryAccountCodes?: string[]
+  secondaryAccountFilterEtcType?: EtcType
+  onSecondaryAccountCodesChange?: (value: string[]) => void
+  secondaryAccountPlaceholder?: string
   bankCodes?: string[]
   currencyCodes?: string[]
   /** Display 'All' when the VAT reduction appendix has no currency restriction. */
@@ -170,6 +175,10 @@ export function ReportToolbar({
   toDate,
   customerCodes,
   accountCodes,
+  secondaryAccountCodes,
+  secondaryAccountFilterEtcType,
+  onSecondaryAccountCodesChange,
+  secondaryAccountPlaceholder,
   bankCodes,
   currencyCodes,
   currencyAllOptionEnabled = false,
@@ -280,11 +289,21 @@ export function ReportToolbar({
     [accountLookupStoreProp, accountFilterEtcType, accountFilterParam1, accountFilterParam2],
   )
 
+  const secondaryAccountLookupStore = useMemo(
+    () => getAcclistLookupStore({
+      etcType: secondaryAccountFilterEtcType ?? EtcType.cbxAccountParent,
+    }),
+    [secondaryAccountFilterEtcType],
+  )
+
   const today = useMemo(() => normalizeDate(new Date()) ?? new Date(), [])
   const currentMonthRange = useMemo(() => createCurrentMonthDateRange(today), [today])
 
   const showCustomerFilter = Boolean(onCustomerCodesChange || (customerCodes && customerCodes.length > 0))
   const showAccountFilter = Boolean(onAccountCodesChange || (accountCodes && accountCodes.length > 0))
+  const showSecondaryAccountFilter = Boolean(
+    onSecondaryAccountCodesChange || (secondaryAccountCodes && secondaryAccountCodes.length > 0),
+  )
   const showBankFilter = Boolean(onBankCodesChange || (bankCodes && bankCodes.length > 0))
   const showCurrencyFilter = Boolean(onCurrencyCodesChange || (currencyCodes && currencyCodes.length > 0))
   const showVatRateFilter = Boolean(onVatRatesChange || (vatRates && vatRates.length > 0))
@@ -834,6 +853,36 @@ export function ReportToolbar({
                   },
                 ]}
               />
+          ) : null}
+
+          {showSecondaryAccountFilter ? (
+            <MultiLookupCellEditor<AccountLookupItem>
+              key={`second-account-${lang}`}
+              className={TOOLBAR_FIELD}
+              {...toolbarLookupProps}
+              dataSource={secondaryAccountLookupStore}
+              values={secondaryAccountCodes ?? []}
+              valueExpr="CD"
+              maxSelection={1}
+              searchExpr={["CD", "ACC_CD", "NM_VIET", "NM_ENG", "NM_KOR", "NM_CHINA",
+                "ACCTITLE_NM_VIET", "ACCTITLE_NM_ENG", "ACCTITLE_NM_KOR", "ACCTITLE_NM_CHINA"]}
+              placeholder={secondaryAccountPlaceholder ?? t("ACCOUNT_CODE", "Mã tài khoản")}
+              labelMode="floating"
+              buttonHint={t("OPEN_ACCOUNT_LOOKUP", "Chọn mã tài khoản")}
+              toolbarSingleTagDisplayExpr={displayAccountOption}
+              onApply={values => onSecondaryAccountCodesChange?.(values.map(value => trimLookupText(value) || ""))}
+              onClear={() => onSecondaryAccountCodesChange?.([])}
+              width={160}
+              columns={[
+                { dataField: "CD", caption: t("ACCOUNT_CODE", "Mã tài khoản"), width: 160 },
+                {
+                  dataField: "ACCTITLE_NM_VIET",
+                  caption: t("ACCOUNT_NAME", "Tên tài khoản"),
+                  minWidth: 260,
+                  calculateCellValue: row => displayAccountName(row),
+                },
+              ]}
+            />
           ) : null}
 
           {showBankFilter ? (
