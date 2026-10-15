@@ -31,6 +31,8 @@ export type DateRangeBoxProps = {
   itemClassName?: string
   editorClassName?: string
   dateBoxOptions?: Partial<DateBoxEditorOptions>
+  /** Allow an optional filter wrapper to disable only the From date editor. */
+  fromDateDisabled?: boolean
   /**
    * "grouped" wraps both fields in a single bordered card with a calendar
    * icon and an arrow between From/To, instead of two separate boxed
@@ -168,6 +170,7 @@ export function DateRangeBox({
   itemClassName = "flex-shrink-0",
   editorClassName,
   dateBoxOptions,
+  fromDateDisabled = false,
   variant = "plain",
 }: DateRangeBoxProps) {
   const { lang } = useContext(LanguageContext)
@@ -389,6 +392,7 @@ export function DateRangeBox({
           // DevExtreme caches calendar captions when the widget is created.
           key={`from-${lang}`}
           {...editorOptions}
+          disabled={fromDateDisabled}
           className={editorClassName}
           value={normalizedFromDate}
           label={labelMode === "floating" ? fromPlaceholder : undefined}

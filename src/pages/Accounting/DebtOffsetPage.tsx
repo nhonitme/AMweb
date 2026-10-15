@@ -1,7 +1,7 @@
 import { useCallback, useContext, useMemo, useState } from "react"
 import DataGrid, { Column, Scrolling, Selection, Summary, TotalItem } from "devextreme-react/data-grid"
 import SelectBox from "devextreme-react/select-box"
-import DateBox from "devextreme-react/date-box"
+import OptionalFromDateRangeBox from "@/components/toolbar/OptionalFromDateRangeBox"
 import NumberBox from "devextreme-react/number-box"
 import Button from "devextreme-react/button"
 import notify from "devextreme/ui/notify"
@@ -95,6 +95,7 @@ export default function DebtOffsetPage() {
   const [subTab, setSubTab] = useState<Panel>("EXECUTE")
   const [matchKind, setMatchKind] = useState<"PAYMENT" | "COLLECT">("PAYMENT")
   const [fromDate, setFromDate] = useState<Date | null>(() => new Date(new Date().getFullYear(), 0, 1))
+  const [fromDateEnabled, setFromDateEnabled] = useState(false)
   const [toDate, setToDate] = useState<Date | null>(() => new Date())
   const [customerCodes, setCustomerCodes] = useState<string[]>([])
   const [currency, setCurrency] = useState<OffsetCurrency>("VND")
@@ -129,10 +130,10 @@ export default function DebtOffsetPage() {
       customerIds = Array.from(ids).join(",")
     }
     return {
-      kind, fromYmd: ymd(fromDate), toYmd: ymd(toDate),
+      kind, fromYmd: fromDateEnabled ? ymd(fromDate) : "", toYmd: ymd(toDate),
       customerIds, currencyFilter: currency === "VND" ? "VND" : `1|${currency}`,
     }
-  }, [kind, fromDate, toDate, customerCodes, currency])
+  }, [kind, fromDateEnabled, fromDate, toDate, customerCodes, currency])
 
   const reset = () => {
     setLoaded(false)
@@ -146,9 +147,9 @@ export default function DebtOffsetPage() {
   const switchSub = (tab: Panel) => { if (tab !== subTab) { setSubTab(tab); reset() } }
 
   const refresh = async () => {
-    const fromYmd = ymd(fromDate)
+    const fromYmd = fromDateEnabled ? ymd(fromDate) : ""
     const toYmd = ymd(toDate)
-    if (fromYmd.length !== 8 || toYmd.length !== 8 || fromYmd > toYmd) {
+    if ((fromDateEnabled && (fromYmd.length !== 8 || fromYmd > toYmd)) || toYmd.length !== 8) {
       notify(t("INVALID_DATE_RANGE", "Khoảng thời gian không hợp lệ"), "warning", 3000)
       return
     }
@@ -365,11 +366,20 @@ export default function DebtOffsetPage() {
             { value: "COLLECT", text: "Thu tiền phải thu 131" },
           ]} valueExpr="value" displayExpr="text" value={matchKind}
             onValueChanged={e => { setMatchKind(e.value); reset() }} width={205} />}
-          <DateBox type="date" displayFormat="dd/MM/yyyy" value={fromDate} width={130}
-            onValueChanged={e => { setFromDate(e.value ? new Date(e.value) : null); reset() }} />
-          <span className="text-xs text-gray-500">—</span>
-          <DateBox type="date" displayFormat="dd/MM/yyyy" value={toDate} width={130}
-            onValueChanged={e => { setToDate(e.value ? new Date(e.value) : null); reset() }} />
+          <OptionalFromDateRangeBox
+            fromDateEnabled={fromDateEnabled}
+            onFromDateEnabledChange={enabled => { setFromDateEnabled(enabled); reset() }}
+            checkboxText={t("USE_FROM_DATE", "Lọc từ ngày")}
+            fromDate={fromDate}
+            toDate={toDate}
+            fromPlaceholder={t("MSG_FROMDATE", "Từ ngày")}
+            toPlaceholder={t("MSG_TODATE", "Đến ngày")}
+            labelMode="floating"
+            variant="grouped"
+            width={135}
+            onFromDateChange={value => { setFromDate(value); reset() }}
+            onToDateChange={value => { setToDate(value); reset() }}
+          />
           <MultiLookupCellEditor<CustomerExt>
             variant="toolbar"
             dataSource={customerLookupStore}
