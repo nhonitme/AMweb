@@ -168,9 +168,9 @@ export default function DebtOffsetPage() {
     const seen = new Set<string>()
     return groups.flat().filter(row => {
       const recordId = kind === "COLLECT" ? row.CHITCOLLECT_ID : row.CHITPAYMENT_ID
-      const key = recordId != null && recordId > 0
-        ? String(recordId)
-        : `${row.CUSTOMER_ID}:${row.CHIT_ID_PAY}:${row.CHIT_ID_DEBT}:${row.PAYAMOUNT}:${row.PAYAMOUNT_FC}`
+      // Never collapse separate allocations just because voucher/customer/amount match.
+      if (recordId == null || recordId <= 0) return true
+      const key = String(recordId)
       if (seen.has(key)) return false
       seen.add(key)
       return true
