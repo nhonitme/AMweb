@@ -84,6 +84,7 @@ const ConfiguredReportViewer = lazy(() => import('./pages/Reports/ConfiguredRepo
 const JournalReportPage = lazy(() => import('./pages/Reports/JournalReportPage'));
 const VatInOutListPage = lazy(() => import('./pages/Tax/VatInOutListPage'));
 const ServiceAllocationCheckPage = lazy(() => import('./pages/Reports/ServiceAllocationCheckPage'));
+const DebtOffsetPage = lazy(() => import('./pages/Accounting/DebtOffsetPage'));
 const ReportFormulaOptionsPage = lazy(() => import('./pages/Reports/ReportFormulaOptionsPage'));
 const ProductUnitList = lazy(() => import('./pages/Module/ProductUnitManagement/ProductUnitPage'));
 const InventoryIssueVoucherPage = lazy(() => import('./pages/Inventory/InventoryIssueVoucherPage'));
@@ -761,6 +762,7 @@ function AppWorkspaceRoutes({
                         <Route path="/gl/voucher/purchase" element={<PurchaseVoucherPage />} />
                         <Route path="/ap/purchase/goods" element={<PurchaseVoucherPage />} />
                         <Route path="/ap/utility/check-service-allocation" element={<ServiceAllocationCheckPage />} />
+                        <Route path="/ap/utility/offset" element={<DebtOffsetPage />} />
                         <Route path="/gl/voucher/purchase-service" element={<PurchaseServiceVoucherPage />} />
                         <Route path="/ap/purchase/purchase-service" element={<PurchaseServiceVoucherPage />} />
                         <Route path="/ap/purchase/discount" element={<APPurchaseDiscountPage />} />
