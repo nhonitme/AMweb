@@ -308,7 +308,7 @@ export default function DebtOffsetPage() {
 
   return (
     <DxPage>
-      <div className="flex h-full min-h-0 flex-col gap-2 overflow-auto bg-gray-50 p-3">
+      <div className={`flex h-full min-h-0 min-w-0 w-full flex-col gap-2 bg-gray-50 p-3 ${subTab === "HISTORY" ? "overflow-hidden" : "overflow-auto"}`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-base font-semibold text-gray-900">{t("DEBT_OFFSET", "Đối trừ & Bù trừ chứng từ")}</h2>
@@ -368,32 +368,38 @@ export default function DebtOffsetPage() {
             {grid(debtRows, "debt", mainTab === "CLEARING" ? "Công nợ: Phải trả 331" : "Công nợ cần đối trừ")}
           </>
         ) : (
-          <div className="min-h-0 flex-1 rounded border border-gray-200 bg-white">
-            <div className="flex items-center justify-between border-b bg-gray-50 px-3 py-2">
-              <span className="text-sm font-semibold">{mainTab === "CLEARING" ? "Lịch sử bù trừ" : "Lịch sử đối trừ"}</span>
+          <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded border border-gray-200 bg-white">
+            <div className="flex shrink-0 items-center justify-between border-b bg-gray-50 px-3 py-2">
+              <span className="text-sm font-semibold">
+                {mainTab === "CLEARING" ? "Lịch sử bù trừ" : "Lịch sử đối trừ"}
+                <span className="ml-2 font-normal text-gray-500">({history.length} quan hệ)</span>
+              </span>
               <Button text={t("UNDO", "Bỏ đối trừ")} type="danger" icon="revert"
                 disabled={busy || !historySelected} onClick={() => void undo()} />
             </div>
-            <DataGrid dataSource={history} height={500} showBorders rowAlternationEnabled
-              columnAutoWidth={false} keyExpr={kind === "COLLECT" ? "CHITCOLLECT_ID" : "CHITPAYMENT_ID"}
+            <div className="min-h-0 min-w-0 w-full flex-1 overflow-hidden">
+              <DataGrid dataSource={history} height="100%" width="100%" showBorders rowAlternationEnabled
+              allowColumnResizing columnResizingMode="widget" columnAutoWidth={false} columnMinWidth={110}
+              keyExpr={kind === "COLLECT" ? "CHITCOLLECT_ID" : "CHITPAYMENT_ID"}
               selectedRowKeys={historySelected ? [kind === "COLLECT" ? historySelected.CHITCOLLECT_ID : historySelected.CHITPAYMENT_ID] : []}
               onSelectionChanged={e => setHistorySelected((e.selectedRowsData?.[0] as OffsetHistory | undefined) ?? null)}
               noDataText={loaded ? "Không có quan hệ trong khoảng thời gian" : "Chọn bộ lọc và nhấn Xem"}>
               <Scrolling mode="standard" showScrollbar="always" />
               <Selection mode="single" selectByClick showCheckBoxesMode="always" />
-              <Column dataField="CUSTOMER_NM_VIET" caption="Đối tượng" width={190} />
-              <Column dataField="CHIT_NO_PAY" caption="Chứng từ nguồn" width={145}
+              <Column dataField="CUSTOMER_NM_VIET" caption="Đối tượng" minWidth={200} />
+              <Column dataField="CHIT_NO_PAY" caption="Chứng từ nguồn" minWidth={150}
                 calculateDisplayValue={(row: OffsetHistory) => row.CHIT_ID_PAY < 0 ? "Số dư đầu kỳ" : row.CHIT_NO_PAY ?? ""} />
-              <Column dataField="CHIT_YMD_PAY" caption="Ngày nguồn" width={110}
+              <Column dataField="CHIT_YMD_PAY" caption="Ngày nguồn" minWidth={120}
                 customizeText={e => dateLabel(String(e.value ?? ""))} />
-              <Column dataField="CHIT_NO_DEBT" caption="Chứng từ công nợ" width={145}
+              <Column dataField="CHIT_NO_DEBT" caption="Chứng từ công nợ" minWidth={170}
                 calculateDisplayValue={(row: OffsetHistory) => row.CHIT_ID_DEBT < 0 ? "Số dư đầu kỳ" : row.CHIT_NO_DEBT ?? ""} />
-              <Column dataField="CHIT_YMD_DEBT" caption="Ngày công nợ" width={110}
+              <Column dataField="CHIT_YMD_DEBT" caption="Ngày công nợ" minWidth={120}
                 customizeText={e => dateLabel(String(e.value ?? ""))} />
-              <Column dataField="PAYAMOUNT" caption="Tiền VND" width={155} alignment="right" format={formatMoney} />
-              <Column dataField="PAYAMOUNT_FC" caption="Tiền ngoại tệ" width={145} alignment="right" format={formatMoney} visible={currency !== "VND"} />
+              <Column dataField="PAYAMOUNT" caption="Tiền VND" minWidth={150} alignment="right" format={formatMoney} />
+              <Column dataField="PAYAMOUNT_FC" caption="Tiền ngoại tệ" minWidth={150} alignment="right" format={formatMoney} visible={currency !== "VND"} />
               <Summary><TotalItem column="PAYAMOUNT" summaryType="sum" valueFormat={formatMoney} /></Summary>
-            </DataGrid>
+              </DataGrid>
+            </div>
           </div>
         )}
       </div>
