@@ -276,7 +276,7 @@ export default function DebtOffsetPage() {
           noDataText={loaded ? "Không có chứng từ chưa đối trừ" : "Chọn bộ lọc và nhấn Xem"}
         >
           <Scrolling mode="standard" showScrollbar="always" />
-          <Selection mode="multiple" showCheckBoxesMode="always" selectByClick />
+          <Selection mode="multiple" showCheckBoxesMode="always" selectByClick={false} />
           <Column dataField="CUSTOMER_NM_VIET" caption={t("CUSTOMER", "Đối tượng")} width={180} />
           <Column dataField="CHIT_NO" caption={t("CHIT_NO", "Số chứng từ")} width={125}
             calculateDisplayValue={(row: OffsetVoucher) => row.CHIT_ID < 0 ? "Số dư đầu kỳ" : row.CHIT_NO ?? ""} />
