@@ -536,6 +536,24 @@
   color: #64748b;
 }
 
+/* Optional from-date checkbox occupies the calendar-icon slot directly
+   before the From date, without an external label or extra toolbar gap. */
+.date-range-box--grouped .date-range-box__from-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 34px;
+  width: 34px;
+  min-width: 34px;
+  background: #f8fafc;
+  border-right: 1px solid #eef0f3;
+}
+
+.date-range-box--grouped .date-range-box__from-toggle .dx-checkbox {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
 .date-range-box--grouped .date-range-box__icon svg {
   width: 16px;
   height: 16px;
