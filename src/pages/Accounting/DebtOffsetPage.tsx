@@ -440,7 +440,7 @@ export default function DebtOffsetPage() {
           <>
             <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-gray-200 bg-white px-3 py-2">
               <div className="text-xs text-gray-600">
-                Tick chứng từ để tự điền số tiền chưa đối trừ; có thể sửa trực tiếp ở cột <strong>Số tiền đối trừ</strong>.
+                {/* Tick chứng từ để tự điền số tiền chưa đối trừ; có thể sửa trực tiếp ở cột <strong>Số tiền đối trừ</strong>. */}
                 <span className="ml-3 font-semibold text-gray-800">
                   Sẽ ghi nhận: {plannedAmount.toLocaleString("vi-VN", { maximumFractionDigits: 2 })} VND
                   {currency !== "VND" ? ` / ${plannedFc.toLocaleString("vi-VN", { maximumFractionDigits: 2 })} ${currency}` : ""}
