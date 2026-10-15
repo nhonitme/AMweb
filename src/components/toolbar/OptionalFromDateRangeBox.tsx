@@ -21,8 +21,8 @@ export default function OptionalFromDateRangeBox({
   ...rangeProps
 }: OptionalFromDateRangeBoxProps) {
   return (
-    <div className="flex min-w-0 flex-nowrap items-center gap-2">
-      <CheckBox
+    <div className="flex min-w-0 flex-nowrap items-end gap-2">
+      <CheckBox style={{ paddingBottom: "0.3rem" }}
         value={fromDateEnabled}
         text={checkboxText}
         onValueChanged={event => onFromDateEnabledChange(Boolean(event.value))}
