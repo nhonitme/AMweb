@@ -374,29 +374,9 @@ export default function DebtOffsetPage() {
   return (
     <DxPage>
       <div className={`flex h-full min-h-0 min-w-0 w-full flex-col gap-2 bg-gray-50 p-3 ${subTab === "HISTORY" ? "overflow-hidden" : "overflow-auto"}`}>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-base font-semibold text-gray-900">{t("DEBT_OFFSET", "Đối trừ & Bù trừ chứng từ")}</h2>
-            <div className="text-xs text-gray-500">{kinds[mainTab].description}</div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex gap-1 rounded border bg-white p-1 text-xs">
-              {(["EXECUTE", "HISTORY"] as Panel[]).map(tab => (
-                <button type="button" key={tab} onClick={() => switchSub(tab)}
-                  className={`rounded px-3 py-1.5 ${subTab === tab ? "bg-slate-700 text-white" : "bg-gray-100 text-gray-700"}`}>
-                  {tab === "EXECUTE" ? t("EXECUTE", "Thực hiện") : t("HISTORY_UNDO", "Lịch sử & Bỏ")}
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-1 rounded border bg-white p-1 text-sm">
-              {(["MATCH", "CLEARING"] as MainTab[]).map(tab => (
-                <button key={tab} type="button" onClick={() => switchMain(tab)}
-                  className={`rounded px-4 py-1.5 ${mainTab === tab ? "bg-blue-600 text-white" : "text-gray-700 hover:bg-gray-100"}`}>
-                  {kinds[tab].text}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="flex-shrink-0">
+          <h2 className="text-base font-semibold text-gray-900">{t("DEBT_OFFSET", "Đối trừ & Bù trừ chứng từ")}</h2>
+          <div className="text-xs text-gray-500">{kinds[mainTab].description}</div>
         </div>
         <div className="flex-shrink-0">
           <ReportToolbar
@@ -438,6 +418,26 @@ export default function DebtOffsetPage() {
             showExportPdf={false}
             showExportExcel={false}
             shortcutsEnabled={false}
+            trailingActions={
+              <>
+                <div className="flex shrink-0 flex-nowrap gap-1 rounded border bg-white p-1 text-xs">
+                  {(["EXECUTE", "HISTORY"] as Panel[]).map(tab => (
+                    <button type="button" key={tab} onClick={() => switchSub(tab)}
+                      className={`whitespace-nowrap rounded px-3 py-1.5 ${subTab === tab ? "bg-slate-700 text-white" : "bg-gray-100 text-gray-700"}`}>
+                      {tab === "EXECUTE" ? t("EXECUTE", "Thực hiện") : t("HISTORY_UNDO", "Lịch sử & Bỏ")}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex shrink-0 flex-nowrap gap-1 rounded border bg-white p-1 text-sm">
+                  {(["MATCH", "CLEARING"] as MainTab[]).map(tab => (
+                    <button key={tab} type="button" onClick={() => switchMain(tab)}
+                      className={`whitespace-nowrap rounded px-4 py-1.5 ${mainTab === tab ? "bg-blue-600 text-white" : "text-gray-700 hover:bg-gray-100"}`}>
+                      {kinds[tab].text}
+                    </button>
+                  ))}
+                </div>
+              </>
+            }
           />
         </div>
         {subTab === "EXECUTE" ? (
