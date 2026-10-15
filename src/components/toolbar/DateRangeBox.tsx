@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import type { KeyboardEvent as ReactKeyboardEvent } from "react"
 import DateBox, { CalendarOptions } from "devextreme-react/date-box"
+import CheckBox from "devextreme-react/check-box"
 
 import { createDateBoxEditorOptions, type DateBoxEditorOptions } from "@/components/forms/dateBoxEditorOptions"
 import { formatDateToYmd, normalizeYmd } from "@/pages/Accounting/accountingDateUtils"
@@ -33,6 +34,12 @@ export type DateRangeBoxProps = {
   dateBoxOptions?: Partial<DateBoxEditorOptions>
   /** Allow an optional filter wrapper to disable only the From date editor. */
   fromDateDisabled?: boolean
+  /** Optional checkbox shown inside the grouped date range, directly before From date. */
+  fromDateToggle?: {
+    checked: boolean
+    onChange: (checked: boolean) => void
+    ariaLabel?: string
+  }
   /**
    * "grouped" wraps both fields in a single bordered card with a calendar
    * icon and an arrow between From/To, instead of two separate boxed
@@ -171,6 +178,7 @@ export function DateRangeBox({
   editorClassName,
   dateBoxOptions,
   fromDateDisabled = false,
+  fromDateToggle,
   variant = "plain",
 }: DateRangeBoxProps) {
   const { lang } = useContext(LanguageContext)
@@ -379,12 +387,21 @@ export function DateRangeBox({
 
   return (
     <div className={isGrouped ? `date-range-box date-range-box--grouped ${className}` : className}>
-      {isGrouped ? (
+      {isGrouped && !fromDateToggle ? (
         <span className="date-range-box__icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" focusable="false">
             <rect x="3" y="5" width="18" height="16" rx="2" />
             <path d="M3 9h18M8 3v4M16 3v4" />
           </svg>
+        </span>
+      ) : null}
+      {fromDateToggle ? (
+        <span className={isGrouped ? "date-range-box__from-toggle" : "flex shrink-0 items-center"}>
+          <CheckBox
+            value={fromDateToggle.checked}
+            onValueChanged={event => fromDateToggle.onChange(Boolean(event.value))}
+            elementAttr={{ "aria-label": fromDateToggle.ariaLabel ?? fromPlaceholder }}
+          />
         </span>
       ) : null}
       <div className={isGrouped ? `${itemClassName} date-range-box__field` : itemClassName}>
