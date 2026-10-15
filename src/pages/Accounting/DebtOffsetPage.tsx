@@ -163,10 +163,12 @@ export default function DebtOffsetPage() {
     const setter = side === "source" ? setSources : setDebts
     const maximum = decimals(Number(field === "OFFSET_AMOUNT" ? row.REMAINAMOUNT : row.REMAINAMOUNT_FC) || 0)
     const nextAmount = Number.isFinite(value) ? decimals(Math.min(Math.max(value, 0), maximum)) : 0
-    setter(previous => previous.some(item => toKey(item) === toKey(row))
-      ? previous.map(item => toKey(item) === toKey(row) && item[field] !== nextAmount
+    setter(previous => {
+      const current = previous.find(item => toKey(item) === toKey(row))
+      if (!current || current[field] === nextAmount) return previous
+      return previous.map(item => toKey(item) === toKey(row)
         ? { ...item, [field]: nextAmount } : item)
-      : previous)
+    })
   }
 
   const save = async () => {
