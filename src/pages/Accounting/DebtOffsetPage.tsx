@@ -327,11 +327,17 @@ export default function DebtOffsetPage() {
     }
     return (
       <div className="min-h-0 flex-1 overflow-hidden rounded border border-gray-200 bg-white">
-        <div className="flex items-center justify-between border-b bg-gray-50 px-3 py-1.5 text-sm font-semibold">
+        <div className="flex min-h-[40px] items-center justify-between gap-3 border-b bg-gray-50 px-3 py-1.5 text-sm font-semibold">
           <span>{title}</span>
-          <span className="font-normal text-gray-500">
-            Đã chọn {chosen.length} / {rows.length} chứng từ
-          </span>
+          <div className="flex shrink-0 items-center justify-end gap-3">
+            <span className="font-normal text-gray-500">
+              Đã chọn {chosen.length} / {rows.length} chứng từ
+            </span>
+            {side === "source" && (
+              <Button text={t("SAVE", mainTab === "CLEARING" ? "Lưu bù trừ" : "Lưu đối trừ")}
+                type="success" icon="save" disabled={busy || !pairs.length} onClick={() => void save()} />
+            )}
+          </div>
         </div>
         <DataGrid
           dataSource={rows} keyExpr="ROW_KEY" height={310} showBorders rowAlternationEnabled
@@ -438,16 +444,9 @@ export default function DebtOffsetPage() {
         </div>
         {subTab === "EXECUTE" ? (
           <>
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-gray-200 bg-white px-3 py-2">
-              <div className="text-xs text-gray-600">
-                {/* Tick chứng từ để tự điền số tiền chưa đối trừ; có thể sửa trực tiếp ở cột <strong>Số tiền đối trừ</strong>. */}
-                <span className="ml-3 font-semibold text-gray-800">
-                  Sẽ ghi nhận: {plannedAmount.toLocaleString("vi-VN", { maximumFractionDigits: 2 })} VND
-                  {currency !== "VND" ? ` / ${plannedFc.toLocaleString("vi-VN", { maximumFractionDigits: 2 })} ${currency}` : ""}
-                </span>
-              </div>
-              <Button text={t("SAVE", mainTab === "CLEARING" ? "Lưu bù trừ" : "Lưu đối trừ")}
-                type="success" icon="save" disabled={busy || !pairs.length} onClick={() => void save()} />
+            <div className="rounded border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-800">
+              Sẽ ghi nhận: {plannedAmount.toLocaleString("vi-VN", { maximumFractionDigits: 2 })} VND
+              {currency !== "VND" ? ` / ${plannedFc.toLocaleString("vi-VN", { maximumFractionDigits: 2 })} ${currency}` : ""}
             </div>
             {grid(sourceRows, "source", mainTab === "CLEARING" ? "Nguồn: Phải thu 131" : "Nguồn: Chứng từ thanh toán / thu")}
             {grid(debtRows, "debt", mainTab === "CLEARING" ? "Công nợ: Phải trả 331" : "Công nợ cần đối trừ")}
