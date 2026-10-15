@@ -956,7 +956,8 @@ export function ReportToolbar({
 
         </div>
 
-        <div className="page-toolbar__actions">
+        {(showSearch && showQuickSearch) || visibleActionButtons.length > 0 ? (
+          <div className="page-toolbar__actions">
           {showSearch && showQuickSearch ? (
             <div className="page-toolbar__quick-search-group flex items-end gap-1">
               <TextBox
@@ -998,7 +999,8 @@ export function ReportToolbar({
               ))}
             </div>
           ) : null}
-        </div>
+          </div>
+        ) : null}
       </div>
     </div>
       <ShortcutHelpPopup
