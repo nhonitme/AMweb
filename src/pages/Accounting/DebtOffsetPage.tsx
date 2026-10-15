@@ -8,6 +8,11 @@ import notify from "devextreme/ui/notify"
 import DxPage from "@/dx/DxPage"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { customerLookupStore } from "@/components/lookup/customerLookupStore"
+import { currencyLookupStore } from "@/components/lookup/currencyLookupStore"
+import MultiLookupCellEditor from "@/components/lookup/MultiLookupCellEditor"
+import type { CustomerExt } from "@/types/customerExt"
+import type { SysCode } from "@/api/sysCodeService"
+import { getSysCodeDisplayText } from "@/lib/sysCodeUtils"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import {
   deleteOffsetPair, loadOffsetAvailable, loadOffsetHistory, saveOffsetPair,
@@ -91,7 +96,7 @@ export default function DebtOffsetPage() {
   const [matchKind, setMatchKind] = useState<"PAYMENT" | "COLLECT">("PAYMENT")
   const [fromDate, setFromDate] = useState<Date | null>(() => new Date(new Date().getFullYear(), 0, 1))
   const [toDate, setToDate] = useState<Date | null>(() => new Date())
-  const [customerId, setCustomerId] = useState<number | null>(null)
+  const [customerCodes, setCustomerCodes] = useState<string[]>([])
   const [currency, setCurrency] = useState<OffsetCurrency>("VND")
   const [busy, setBusy] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -102,11 +107,31 @@ export default function DebtOffsetPage() {
   const [historySelected, setHistorySelected] = useState<OffsetHistory | null>(null)
 
   const kind: OffsetKind = mainTab === "CLEARING" ? "CLEARING" : matchKind
-  const filters = useCallback((): OffsetFilters => ({
-    kind, fromYmd: ymd(fromDate), toYmd: ymd(toDate),
-    customerIds: customerId ? String(customerId) : "ALL",
-    currencyFilter: currency === "VND" ? "VND" : `1|${currency}`,
-  }), [kind, fromDate, toDate, customerId, currency])
+
+  // Both lookups use the same stores and code fields as GL / book / ar-summary.
+  // The offset stored procedures filter by CUSTOMER_ID, so selected CUSTOMER_CD values
+  // must be resolved before requesting data, never passed as IDs by mistake.
+  const filters = useCallback(async (): Promise<OffsetFilters> => {
+    let customerIds = "ALL"
+    if (customerCodes.length > 0) {
+      const loaded: unknown = await customerLookupStore.load()
+      if (!Array.isArray(loaded)) throw new Error("Không thể tải danh sách mã khách hàng")
+      const customers = loaded as CustomerExt[]
+      const ids = new Set<number>()
+      for (const customerCd of customerCodes) {
+        const customer = customers.find(item => item.CUSTOMER_CD.trim() === customerCd.trim())
+        if (!customer?.CUSTOMER_ID || customer.CUSTOMER_ID <= 0) {
+          throw new Error(`Không tìm thấy CUSTOMER_ID cho mã khách hàng ${customerCd}`)
+        }
+        ids.add(customer.CUSTOMER_ID)
+      }
+      customerIds = Array.from(ids).join(",")
+    }
+    return {
+      kind, fromYmd: ymd(fromDate), toYmd: ymd(toDate),
+      customerIds, currencyFilter: currency === "VND" ? "VND" : `1|${currency}`,
+    }
+  }, [kind, fromDate, toDate, customerCodes, currency])
 
   const reset = () => {
     setLoaded(false)
@@ -120,14 +145,16 @@ export default function DebtOffsetPage() {
   const switchSub = (tab: Panel) => { if (tab !== subTab) { setSubTab(tab); reset() } }
 
   const refresh = async () => {
-    const params = filters()
-    if (params.fromYmd.length !== 8 || params.toYmd.length !== 8 || params.fromYmd > params.toYmd) {
+    const fromYmd = ymd(fromDate)
+    const toYmd = ymd(toDate)
+    if (fromYmd.length !== 8 || toYmd.length !== 8 || fromYmd > toYmd) {
       notify(t("INVALID_DATE_RANGE", "Khoảng thời gian không hợp lệ"), "warning", 3000)
       return
     }
     setBusy(true)
     reset()
     try {
+      const params = await filters()
       if (subTab === "HISTORY") setHistory(await loadOffsetHistory(params))
       else setAvailable(await loadOffsetAvailable(params))
       setLoaded(true)
@@ -234,7 +261,7 @@ export default function DebtOffsetPage() {
       await deleteOffsetPair(kind, recordId)
       notify("Đã hoàn tác thành công", "success", 3000)
       setHistorySelected(null)
-      setHistory(await loadOffsetHistory(filters()))
+      setHistory(await loadOffsetHistory(await filters()))
     } catch (error) {
       notify(getApiErrorMessage(error, "Hoàn tác thất bại"), "error", 5000)
     } finally {
@@ -342,11 +369,60 @@ export default function DebtOffsetPage() {
           <span className="text-xs text-gray-500">—</span>
           <DateBox type="date" displayFormat="dd/MM/yyyy" value={toDate} width={130}
             onValueChanged={e => { setToDate(e.value ? new Date(e.value) : null); reset() }} />
-          <SelectBox dataSource={customerLookupStore} valueExpr="CUSTOMER_ID" displayExpr="CUSTOMER_NM_VIET"
-            value={customerId} showClearButton searchEnabled placeholder="Tất cả đối tượng" width={205}
-            onValueChanged={e => { setCustomerId(e.value ?? null); reset() }} />
-          <SelectBox items={currencyOptions} value={currency} width={95}
-            onValueChanged={e => { setCurrency(e.value); reset() }} />
+          <MultiLookupCellEditor<CustomerExt>
+            variant="toolbar"
+            dataSource={customerLookupStore}
+            values={customerCodes}
+            valueExpr="CUSTOMER_CD"
+            searchExpr={["CUSTOMER_CD", "CUSTOMER_NM_VIET", "CUSTOMER_NM_ENG", "CUSTOMER_NM_KOR", "CUSTOMER_NM_CHINA"]}
+            placeholder={t("CUSTOMER_CODE", "Mã khách hàng")}
+            labelMode="floating"
+            buttonHint={t("OPEN_CUSTOMER_LOOKUP", "Chọn mã khách hàng")}
+            onApply={values => { setCustomerCodes(values); reset() }}
+            onClear={() => { setCustomerCodes([]); reset() }}
+            width={180}
+            columns={[
+              { dataField: "CUSTOMER_CD", caption: t("CUSTOMER_CODE", "Mã khách hàng"), width: 160 },
+              {
+                dataField: "CUSTOMER_NM_VIET",
+                caption: t("CUSTOMER_NAME", "Tên khách hàng"),
+                minWidth: 260,
+                calculateCellValue: row => row.CUSTOMER_NM_VIET || row.CUSTOMER_NM_ENG || row.CUSTOMER_NM_KOR || row.CUSTOMER_NM_CHINA,
+              },
+            ]}
+          />
+          <MultiLookupCellEditor<SysCode>
+            variant="toolbar"
+            dataSource={currencyLookupStore}
+            values={[currency]}
+            valueExpr="CODE_CD"
+            maxSelection={1}
+            searchExpr={["CODE_CD", "CODE_NAME"]}
+            placeholder={t("CURRENCY", "Loại tiền")}
+            labelMode="floating"
+            buttonHint={t("OPEN_CURRENCY_LOOKUP", "Chọn loại tiền")}
+            onApply={values => {
+              const selected = values[0]?.trim().toUpperCase()
+              if (!currencyOptions.some(code => code === selected)) {
+                notify("Loại tiền này chưa được hỗ trợ trong đối trừ/bù trừ", "warning", 3000)
+                return
+              }
+              setCurrency(selected as OffsetCurrency)
+              reset()
+            }}
+            onClear={() => { setCurrency("VND"); reset() }}
+            width={150}
+            height={26}
+            columns={[
+              { dataField: "CODE_CD", caption: t("CURRENCY", "Loại tiền"), width: 140 },
+              {
+                dataField: "CODE_NAME",
+                caption: t("CURRENCY_NAME", "Tên loại tiền"),
+                minWidth: 240,
+                calculateCellValue: row => getSysCodeDisplayText(row, t),
+              },
+            ]}
+          />
           <Button text={t("VIEW", "Xem")} icon="search" type="default" stylingMode="contained"
             disabled={busy} onClick={() => void refresh()} />
           {busy && <span className="text-xs text-blue-600">Đang xử lý...</span>}
