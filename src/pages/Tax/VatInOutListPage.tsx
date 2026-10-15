@@ -12,13 +12,19 @@ import { getApiErrorMessage } from "@/api/apiTypes"
 import { getUserSettingsBatch, saveUserSettingsBulk } from "@/api/userSettingApi"
 import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid"
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout"
+import ReportPdfExportPopup, { type ReportPrintTemplateCode } from "@/components/reports/ReportPdfExportPopup"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import DxPage from "@/dx/DxPage"
+import { exportToExcel } from "@/lib/excelUtils"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { getCurrentCompanyCd } from "@/lib/login"
+import { getStoredGridTemplateId } from "@/lib/sysGridColumnTemplateStorage"
 import { formatDateToYmd, formatYmdForDisplay, normalizeYmd } from "@/pages/Accounting/accountingDateUtils"
 import FetchGdtVatPopup from "@/pages/Reports/components/FetchGdtVatPopup"
-import { normalizeReportLanguage } from "@/pages/Reports/reportLanguage"
+import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
+import { buildReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
+import { normalizeReportLanguage, type ReportLanguageCode } from "@/pages/Reports/reportLanguage"
+import type { ColumnConfig } from "@/types/table"
 import { getCurrentLang } from "@/utils/language"
 
 import VatInOutBatchVoucherPopup from "./VatInOutBatchVoucherPopup"
@@ -90,6 +96,11 @@ export default function VatInOutListPage() {
   const [preview, setPreview] = useState<ConfiguredReportPreview | null>(null)
   const [rows, setRows] = useState<VatInvoiceRow[]>([])
   const [loading, setLoading] = useState(false)
+  const [pdfExportPopupVisible, setPdfExportPopupVisible] = useState(false)
+  const [exportLanguage, setExportLanguage] = useState<ReportLanguageCode>(
+    () => normalizeReportLanguage(lang ?? getCurrentLang()),
+  )
+  const [exportPrintTemplate, setExportPrintTemplate] = useState<ReportPrintTemplateCode>("BOOK")
   const [selectedInvoices, setSelectedInvoices] = useState<VatInvoiceRow[]>([])
   const [gdtPopupVisible, setGdtPopupVisible] = useState(false)
   const [createModePopupVisible, setCreateModePopupVisible] = useState(false)
@@ -110,6 +121,13 @@ export default function VatInOutListPage() {
     { value: "BUY", label: t("VAT_INOUT_TYPE_BUY", "Hóa đơn đầu vào") },
     { value: "SELL", label: t("VAT_INOUT_TYPE_SELL", "Hóa đơn đầu ra") },
   ], [t])
+  const printTemplateOptions = useMemo(
+    () => [
+      { code: "BOOK", label: t("REPORT_PRINT_TEMPLATE_BOOK", "Mẫu in sổ") },
+      { code: "DEFAULT_GRID", label: t("REPORT_PRINT_TEMPLATE_DEFAULT_GRID", "In mặc định") },
+    ] satisfies { code: ReportPrintTemplateCode; label: string }[],
+    [t],
+  )
 
   const loadInvoices = useCallback(async (preserveSelection = false) => {
     const fromYmd = formatDateToYmd(fromDate)
@@ -240,6 +258,87 @@ export default function VatInOutListPage() {
     gridRef.current?.clearSelection()
   }, [])
 
+  const handleExportExcel = useCallback(async () => {
+    if (!preview?.ROWS.length || rows.length === 0) {
+      notify(t("NO_DATA_TO_EXPORT", "Không có dữ liệu để xuất."), "warning", 2500)
+      return
+    }
+
+    const hiddenFields = new Set(["MHDON", "AUTO_CHIT_CD", "ROW_KEY"])
+    const previewColumnsByField = new Map(
+      preview.COLUMNS.map((column) => [column.FIELD_NAME.trim().toUpperCase(), column] as const),
+    )
+    const visibleGridColumns = gridRef.current?.getVisibleColumns?.() ?? []
+    const exportColumns: ColumnConfig[] = visibleGridColumns.flatMap((gridColumn, index) => {
+      const fieldName = String(gridColumn.dataField ?? "").trim()
+      const normalizedFieldName = fieldName.toUpperCase()
+      const previewColumn = previewColumnsByField.get(normalizedFieldName)
+      if (!fieldName || hiddenFields.has(normalizedFieldName) || !previewColumn) return []
+
+      return [{
+        id: previewColumn.COLUMN_KEY || previewColumn.FIELD_NAME,
+        dataField: previewColumn.FIELD_NAME,
+        displayName: String(gridColumn.caption || previewColumn.CAPTION || previewColumn.LABEL_TEXT || fieldName),
+        width: Number(gridColumn.width ?? previewColumn.WIDTH) || previewColumn.WIDTH || 8,
+        visible: true,
+        pinned: false,
+        originalOrder: index,
+      }]
+    })
+
+    if (exportColumns.length === 0) {
+      notify(t("NO_COLUMNS_TO_EXPORT", "Không có cột hiển thị để xuất."), "warning", 2500)
+      return
+    }
+
+    const timestamp = new Date().toISOString().replace(/[:.-]/g, "")
+    try {
+      await exportToExcel(rows, exportColumns, `vat_inout_list_${timestamp}.xlsx`, "VatInvoices")
+    } catch (error) {
+      notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Không xuất được Excel.")), "error", 4000)
+    }
+  }, [preview, rows, t])
+
+  const handleExportPdf = useCallback((language: ReportLanguageCode, printTemplate: ReportPrintTemplateCode) => {
+    const fromYmd = formatDateToYmd(fromDate)
+    const toYmd = formatDateToYmd(toDate)
+    if (!fromYmd || !toYmd) {
+      notify(t("MSG_FROMDATE", "Vui lòng chọn khoảng ngày hợp lệ."), "warning", 2500)
+      return
+    }
+    if (fromYmd > toYmd) {
+      notify(t("INVALID_DATE_RANGE", "Ngày bắt đầu phải trước hoặc bằng ngày kết thúc."), "warning", 3000)
+      return
+    }
+
+    const reportParams = {
+      companyCd: getCurrentCompanyCd() || undefined,
+      reportCode: "TAX_VAT_INOUT_LIST",
+      menuCode: "VAT_INOUT_LIST",
+      fromYmd,
+      toYmd,
+      type: invoiceType,
+      status: invoiceStatus,
+      keyword: searchTextRef.current,
+      searchText: searchTextRef.current,
+      language: normalizeReportLanguage(language),
+      ...(printTemplate === "DEFAULT_GRID"
+        ? {
+            printLayout: "DEFAULT_GRID",
+            printGridId: "TAX_VAT_INOUT_LIST",
+            printTemplateId: getStoredGridTemplateId("TAX_VAT_INOUT_LIST") || undefined,
+          }
+        : { printLayout: printTemplate }),
+    }
+    const targetUrl = buildReportViewerPageUrl(reportParams)
+    setPdfExportPopupVisible(false)
+    setExportLanguage(normalizeReportLanguage(language))
+    setExportPrintTemplate(printTemplate)
+    if (!openReportViewerPage(targetUrl, t("VAT_INOUT_LIST", "Danh sách hóa đơn mua vào/bán ra"))) {
+      notify(t("UNABLE_TO_OPEN_REPORT_VIEWER", "Không mở được trình xem báo cáo"), "error", 3000)
+    }
+  }, [fromDate, invoiceStatus, invoiceType, t, toDate])
+
   const chooseVoucherCreationMode = useCallback((mode: VatVoucherCreationMode) => {
     if (mode === "MERGED") {
       const currencies = new Set(selectedInvoices.map((invoice) => String(readField(invoice, "DVTTE") ?? "VND").trim().toUpperCase() || "VND"))
@@ -320,8 +419,11 @@ export default function VatInOutListPage() {
           showRefresh={true}
           onRefresh={() => void loadInvoices()}
           showColumnChooser={true}
-          showExportPdf={false}
-          showExportXlsx={false}
+          showExportPdf={true}
+          onExportPdf={() => setPdfExportPopupVisible(true)}
+          showExportXlsx={true}
+          exportXlsxDisabled={loading || rows.length === 0}
+          onExportXlsx={() => void handleExportExcel()}
           showImport={false}
           showDelete={false}
           showSearch={true}
@@ -401,6 +503,20 @@ export default function VatInOutListPage() {
             invoiceType={invoiceType}
             invoices={selectedInvoices}
             onClose={() => setQuickBatchKind(null)}
+          />
+          <ReportPdfExportPopup
+            visible={pdfExportPopupVisible}
+            defaultLanguage={exportLanguage}
+            defaultPrintTemplate={exportPrintTemplate}
+            onHide={() => setPdfExportPopupVisible(false)}
+            onConfirm={handleExportPdf}
+            description={t("VAT_INOUT_LIST", "Danh sách hóa đơn mua vào/bán ra")}
+            printTemplateOptions={printTemplateOptions}
+            printTemplateLookupVisible={true}
+            fromDate={fromDate}
+            toDate={toDate}
+            onFromDateChange={setFromDate}
+            onToDateChange={setToDate}
           />
         </>
       }

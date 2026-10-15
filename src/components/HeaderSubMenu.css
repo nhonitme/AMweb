@@ -92,7 +92,7 @@
   left: 0;
 }
 
-.header-submenu__root-item:nth-last-child(-n + 3) > .header-submenu__dropdown {
+.header-submenu__root-item:last-child:not(:first-child) > .header-submenu__dropdown {
   right: 0;
   left: auto;
 }

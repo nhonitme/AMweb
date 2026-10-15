@@ -21,6 +21,7 @@ import {
 import { getApiErrorMessage } from '@/api/apiTypes'
 import { BaseDataGrid } from '@/components/datagrid/BaseDataGrid'
 import MasterDataPageLayout from '@/components/datagrid/MasterDataPageLayout'
+import { GridToolbar } from '@/components/toolbar/GridToolbar'
 import BaseExcelImportPopup from '@/components/forms/BaseExcelImportPopup'
 import DxPage from '@/dx/DxPage'
 import {
@@ -42,7 +43,7 @@ import {
   FIXED_ASSET_SCREEN_CD,
 } from './Columns/fixedAssetGridIds'
 import FixedAssetEditorPopup from './components/FixedAssetEditorPopup'
-import FixedAssetPageToolbar from './components/FixedAssetPageToolbar'
+import FixedAssetPageFilters from './components/FixedAssetPageFilters'
 import { openReportViewerPage } from '@/pages/Reports/openReportViewerPage'
 import { buildMasterGridReportViewerPageUrl } from '@/pages/Reports/reportViewerConfig'
 import {
@@ -541,21 +542,25 @@ export default function FixedAssetPage() {
       <MasterDataPageLayout
         className="fixed-asset-page"
         toolbar={
-          <FixedAssetPageToolbar
+          <GridToolbar
             gridRef={gridRef}
-            statusCodes={statusCodes}
-            statusFilterDraft={statusFilterDraft}
-            accFilterDraft={accFilterDraft}
-            onStatusFilterChange={setStatusFilterDraft}
-            onAccFilterChange={handleAccFilterChange}
-            onSearchSubmit={handleSearchSubmit}
             onAdd={handleOpenAdd}
             onRefresh={loadData}
             onDelete={handleDelete}
-            // onImport={() => setIsExcelModalOpen(true)}
             onExportXlsx={() => void handleExportExcel()}
             onExportPdf={handleExportPdf}
-            translate={t}
+            showImport={false}
+            filtersLeadingContent={
+              <FixedAssetPageFilters
+                statusCodes={statusCodes}
+                statusFilterDraft={statusFilterDraft}
+                accFilterDraft={accFilterDraft}
+                onStatusFilterChange={setStatusFilterDraft}
+                onAccFilterChange={handleAccFilterChange}
+                onSearchSubmit={handleSearchSubmit}
+                translate={t}
+              />
+            }
           />
         }
         overlays={

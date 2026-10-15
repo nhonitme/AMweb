@@ -1018,6 +1018,56 @@ tbody {
   transition: fill 0.15s ease;
 }
 
+.am-report-viewer .dxrd-toolbar-wrapper {
+  display: flex !important;
+  justify-content: center;
+  height: 50px !important;
+  background: #f8fafc;
+  z-index: 2;
+}
+
+.am-report-viewer .dxrd-toolbar-wrapper .dxrd-toolbar {
+  width: fit-content !important;
+  max-width: 100%;
+  height: 46px !important;
+  flex: 0 1 auto;
+  margin-inline: auto !important;
+  padding: 0 2px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 8%);
+}
+
+.am-report-viewer .dxrd-toolbar-wrapper .dxrd-toolbar .dxrd-toolbar-item-0 {
+  margin-left: 0 !important;
+}
+
+.am-report-viewer .dxrd-toolbar-wrapper .dxrd-toolbar .dxrd-toolbar-item {
+  padding-right: 1px !important;
+  padding-left: 1px !important;
+}
+
+.am-report-viewer .dxrd-toolbar-wrapper .dxrd-preview-pager-selectbox {
+  width: 84px !important;
+}
+
+.am-report-viewer .dxrd-toolbar-wrapper .dxrd-toolbar-item-zoom-editor {
+  width: 84px !important;
+}
+
+.am-report-viewer .dxrd-toolbar-wrapper .dxrd-toolbar .dxrd-toolbar-item-with-separator {
+  margin-left: 12px !important;
+}
+
+.am-report-viewer .dxrd-toolbar-wrapper .dxrd-toolbar .dxrd-toolbar-item-with-separator::before {
+  margin-left: -7px !important;
+}
+
+.am-report-viewer .dxrd-preview-wrapper {
+  top: 50px !important;
+}
+
 .am-report-viewer .dxrd-toolbar .dxrd-toolbar-item:hover .dxd-icon-fill,
 .am-report-viewer .dxrd-toolbar .dxd-state-hover .dxd-icon-fill {
   fill: #2563eb;

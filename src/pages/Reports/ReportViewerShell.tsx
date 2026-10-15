@@ -6,7 +6,7 @@ import Popup from "devextreme-react/popup"
 import { DxReportViewer, DxReportViewerRef, RequestOptions, TemplateEngine } from "devexpress-reporting-react/dx-report-viewer"
 import Callbacks from "devexpress-reporting-react/dx-report-viewer/options/Callbacks"
 import { CustomAction } from "devexpress-reporting/common/customAction"
-import { ActionId } from "devexpress-reporting/viewer/constants"
+import { ActionId, ExportFormatID, PreviewElements } from "devexpress-reporting/viewer/constants"
 
 import { useCompanyLangRevision } from "@/lib/companyLang"
 import { LanguageContext } from "@/lib/i18nLoader"
@@ -47,10 +47,21 @@ type ReportViewerCustomizeMenuActionsPayload = {
   }
 }
 
+type ReportViewerCustomizeExportOptionsPayload = {
+  args?: {
+    HideFormat?: (format: unknown) => void
+  }
+}
+
+type ReportViewerCustomizeElementsPayload = {
+  args?: {
+    Elements?: Array<{ id?: string; templateName?: string }>
+  }
+}
+
 const REFRESH_REPORT_ACTION_ID = "amnote-report-refresh"
 const EDIT_SIGNATURES_ACTION_ID = "amnote-report-edit-signatures"
 const REPORT_LANGUAGE_ACTION_ID = "amnote-report-language"
-const REFRESH_TEMPLATE_NAME = "amnote-report-refresh-icon"
 const EDIT_SIGNATURES_TEMPLATE_NAME = "amnote-report-edit-signatures-icon"
 const LANGUAGE_TEMPLATE_NAME_VI = "amnote-report-language-icon-vi"
 const LANGUAGE_TEMPLATE_NAME_EN = "amnote-report-language-icon-en"
@@ -88,17 +99,6 @@ function createReportLanguageToolbarIcon(label: string) {
     )
   }
 }
-
-reportViewerTemplateEngine.setTemplate(REFRESH_TEMPLATE_NAME, function RefreshToolbarIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="am-report-viewer-icon am-report-viewer-icon-refresh">
-      <path
-        className="dxd-icon-fill"
-        d="M12 4a8 8 0 0 1 7.2 4.5V6h2v6h-6v-2h2.8A6 6 0 1 0 18 15h2a8 8 0 1 1-8-11Z"
-      />
-    </svg>
-  )
-})
 
 reportViewerTemplateEngine.setTemplate(EDIT_SIGNATURES_TEMPLATE_NAME, function EditSignaturesToolbarIcon() {
   return (
@@ -230,7 +230,11 @@ export default function ReportViewerShell({
       if (
         itemId === REFRESH_REPORT_ACTION_ID ||
         itemId === EDIT_SIGNATURES_ACTION_ID ||
-        itemId === REPORT_LANGUAGE_ACTION_ID
+        itemId === REPORT_LANGUAGE_ACTION_ID ||
+        itemId === ActionId.Design ||
+        itemId === ActionId.HighlightEditingFields ||
+        itemId === ActionId.PrintPage ||
+        itemId === ActionId.FullScreen
       ) {
         actions.splice(index, 1)
       }
@@ -239,20 +243,6 @@ export default function ReportViewerShell({
     const exportAction = args?.GetById?.(ActionId.ExportTo)
     const exportActionIndex = exportAction ? actions.indexOf(exportAction) : -1
     let insertAt = exportActionIndex >= 0 ? exportActionIndex + 1 : actions.length
-
-    const refreshAction = new CustomAction({
-      id: REFRESH_REPORT_ACTION_ID,
-      text: t("btnRefresh", "Làm mới"),
-      container: "toolbar",
-      imageTemplateName: REFRESH_TEMPLATE_NAME,
-      visible: true,
-      disabled: false,
-      selected: false,
-      clickAction: () => refreshViewer(),
-    })
-
-    actions.splice(insertAt, 0, refreshAction)
-    insertAt += 1
 
     if (companyCd && normalizedReportKey) {
       const editAction = new CustomAction({
@@ -283,7 +273,31 @@ export default function ReportViewerShell({
     })
 
     actions.splice(insertAt, 0, languageAction)
-  }, [companyCd, currentLanguageTemplateName, refreshViewer, reportKey, reportLanguage, t])
+  }, [companyCd, currentLanguageTemplateName, reportKey, reportLanguage, t])
+
+  const handleCustomizeExportOptions = useCallback(({ args }: ReportViewerCustomizeExportOptionsPayload) => {
+    if (typeof args?.HideFormat !== "function") {
+      return
+    }
+
+    Object.values(ExportFormatID)
+      .filter(({ format }) => format !== ExportFormatID.PDF.format && format !== ExportFormatID.XLSX.format)
+      .forEach(format => args.HideFormat?.(format))
+  }, [])
+
+  const handleCustomizeElements = useCallback(({ args }: ReportViewerCustomizeElementsPayload) => {
+    const elements = args?.Elements
+    if (!Array.isArray(elements)) {
+      return
+    }
+
+    const rightPanelIndex = elements.findIndex(element =>
+      element.id === PreviewElements.RightPanel || element.templateName === PreviewElements.RightPanel,
+    )
+    if (rightPanelIndex >= 0) {
+      elements.splice(rightPanelIndex, 1)
+    }
+  }, [])
 
   const viewerKey = versionedReportUrl
 
@@ -301,7 +315,12 @@ export default function ReportViewerShell({
           templateEngine={reportViewerTemplateEngine}
         >
           <RequestOptions host={getReportViewerHost()} invokeAction="DXXRDV" />
-          <Callbacks CustomizeMenuActions={handleCustomizeMenuActions} DocumentReady={handleDocumentReady} />
+          <Callbacks
+            CustomizeElements={handleCustomizeElements}
+            CustomizeMenuActions={handleCustomizeMenuActions}
+            CustomizeExportOptions={handleCustomizeExportOptions}
+            DocumentReady={handleDocumentReady}
+          />
         </DxReportViewer>
       </div>
 

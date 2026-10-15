@@ -11,14 +11,14 @@ export default function DownloadQueuePanel() {
   const hasFailedJobs = jobs.some(job => job.status === "failed")
 
   useEffect(() => {
-    if (!jobs.length || active.length || hasFailedJobs) return
+    if (!jobs.length || active.length || hasFailedJobs || expanded) return
 
     const timeout = window.setTimeout(() => {
       setHiddenJobs(jobs)
       setExpanded(false)
     }, 2000)
     return () => window.clearTimeout(timeout)
-  }, [jobs, active.length, hasFailedJobs])
+  }, [jobs, active.length, hasFailedJobs, expanded])
 
   if (!jobs.length || jobs === hiddenJobs) return null
   const labels = {
@@ -27,7 +27,7 @@ export default function DownloadQueuePanel() {
     completed: t("DOWNLOAD_COMPLETED", "Đã lưu"), cancelled: t("DOWNLOAD_CANCELLED", "Đã hủy"), failed: t("DOWNLOAD_FAILED", "Lỗi"),
   }
   const batches = [...new Set(active.map(job => job.batchId).filter((id): id is string => Boolean(id)))]
-  return <section className={`fixed bottom-3 right-3 z-[1500] ${expanded ? "w-96 max-w-[95vw] rounded-lg border bg-white p-3 shadow-xl" : ""}`} aria-label={t("DOWNLOAD_QUEUE", "Tải tệp")}>
+  return <section className={`fixed right-3 top-3 z-[1500] ${expanded ? "w-96 max-w-[95vw] rounded-lg border bg-white p-3 shadow-xl" : ""}`} aria-label={t("DOWNLOAD_QUEUE", "Tải tệp")}>
     <div className={`flex items-center gap-2 ${expanded ? "justify-between" : ""}`}>
       <button
         onClick={() => setExpanded(!expanded)}

@@ -298,7 +298,7 @@ export default function InventoryPriceUpdatePage({ flow }: Props) {
           visible={importVisible}
           onClose={() => setImportVisible(false)}
           title={t("INVENTORY_PRICE_IMPORT_TITLE", "Nhập giá từ Excel")}
-          description={t("INVENTORY_PRICE_IMPORT_DESC", "Chọn file đã xuất, giữ cột PRODUCT_CD và nhập NEW_UNIT_PRICE.")}
+          description={t("INVENTORY_PRICE_IMPORT_FIELDS_DESC", "Giữ cột PRODUCT_CD và nhập NEW_UNIT_PRICE.")}
           onImportFile={handleImportFile}
           onImported={() => setImportVisible(false)}
           importMode="client"

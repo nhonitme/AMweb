@@ -1,9 +1,10 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { debugMd } from "@amnote/debug-md"
 import Button from "devextreme-react/button"
 import Popup from "devextreme-react/popup"
 import SelectBox from "devextreme-react/select-box"
 import notify from "devextreme/ui/notify"
-import DataGrid, { Column, Editing, Lookup, Scrolling } from "devextreme-react/data-grid"
+import DataGrid, { Column, Editing, Lookup, Scrolling, Selection } from "devextreme-react/data-grid"
 
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { getCustomerExts } from "@/api/customerExtApi"
@@ -398,6 +399,7 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
       const usedCodes = new Set<string>()
       const savedKeys = new Set<string>()
       for (const candidate of selectedProductCandidates) {
+        if (candidate.EXISTING_PRODUCT_CD) continue
         const identity = `${normalizeKey(candidate.PRODUCT_NM_VIET)}|${candidate.UNIT_ID}`
         if (known.has(identity)) continue
         try {
@@ -449,6 +451,7 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
       onHiding={() => {
         onClose()
       }}
+      onShown={() => debugMd("vat-quick-create-selection", "open", { kind, invoiceCount: invoices.length }, { reset: true })}
     >
       <div className="flex h-full min-h-0 flex-col gap-3 p-3">
         {loading && <div className="text-sm text-slate-500">{t("LOADING", "Đang tải và lọc dữ liệu...")}</div>}
@@ -500,6 +503,29 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
                 columnAutoWidth={false}
                 allowColumnResizing
                 className="min-h-0 flex-1"
+                onSelectionChanged={(event) => {
+                  const selectableKeys = new Set(customerGridRows.filter((row) => !row.isExisting).map((row) => row.key))
+                  const selectedKeys = (event.selectedRowKeys as string[]).filter((key) => selectableKeys.has(key))
+                  debugMd("vat-quick-create-selection", "selection-change", {
+                    kind: "customer",
+                    selectedRowKeys: event.selectedRowKeys,
+                    currentSelectedRowKeys: event.currentSelectedRowKeys,
+                    currentDeselectedRowKeys: event.currentDeselectedRowKeys,
+                    selectableSelectedKeys: selectedKeys,
+                    selectedBeforeUpdate: customerDrafts.filter((row) => row.selected).map((row) => row.key),
+                  })
+                  const selected = new Set(selectedKeys)
+                  setCustomerDrafts((current) => {
+                    let changed = false
+                    const next = current.map((row) => {
+                      const isSelected = selected.has(row.key)
+                      if (row.selected === isSelected) return row
+                      changed = true
+                      return { ...row, selected: isSelected }
+                    })
+                    return changed ? next : current
+                  })
+                }}
                 onEditingStart={(event) => { if (event.data.isExisting) event.cancel = true }}
                 onRowPrepared={(event) => {
                   if (event.rowType === "data" && event.data?.isExisting) {
@@ -516,6 +542,7 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
                   event.cancel = true
                 }}
               >
+                <Selection mode={saving ? "none" : "multiple"} showCheckBoxesMode="always" selectAllMode="page" />
                 <Scrolling mode="standard" useNative />
                 <Editing mode="cell" allowUpdating={!saving} allowAdding={false} allowDeleting={false} />
                 <Column
@@ -530,30 +557,6 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
                       if (key) setCustomerDrafts((current) => current.filter((row) => row.key !== key))
                     },
                   }]}
-                />
-                <Column
-                  dataField="selected"
-                  caption={t("SELECT", "Chọn")}
-                  width={72}
-                  allowEditing={false}
-                  cellRender={({ data }) => (
-                    <div
-                      className="flex justify-center"
-                    >
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 cursor-pointer accent-blue-600 disabled:cursor-not-allowed"
-                        checked={data.selected}
-                        disabled={saving || data.isExisting}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={(event) => {
-                          const checked = event.currentTarget.checked
-                          const rowIndex = customerDrafts.findIndex((row) => row.key === data.key)
-                          setCustomerDrafts((current) => current.map((row) => row.key === data.key ? { ...row, selected: checked } : row))
-                        }}
-                      />
-                    </div>
-                  )}
                 />
                 <Column dataField="CUSTOMER_CD" caption={t("CUSTOMER_CD", "Mã khách hàng")} minWidth={150} />
                 <Column dataField="CATEGORY_CD" caption={t("CATEGORY_CD", "Nhóm khách hàng")} minWidth={170}>
@@ -588,7 +591,7 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
                   onValueChanged={(event) => {
                     const value = event.value == null ? null : Number(event.value)
                     setBulkProductKind(value)
-                    setProductCandidates((current) => current.map((row) => ({ ...row, PRODUCT_KIND_ID: value })))
+                    setProductCandidates((current) => current.map((row) => row.EXISTING_PRODUCT_CD ? row : ({ ...row, PRODUCT_KIND_ID: value })))
                   }}
                 />
                 <SelectBox
@@ -605,7 +608,7 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
                   onValueChanged={(event) => {
                     const value = event.value == null ? null : Number(event.value)
                     setBulkUnit(value)
-                    setProductCandidates((current) => current.map((row) => ({ ...row, UNIT_ID: value })))
+                    setProductCandidates((current) => current.map((row) => row.EXISTING_PRODUCT_CD ? row : ({ ...row, UNIT_ID: value })))
                   }}
                 />
                 <SelectBox
@@ -622,7 +625,7 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
                   onValueChanged={(event) => {
                     const value = event.value == null ? null : Number(event.value)
                     setBulkStore(value)
-                    setProductCandidates((current) => current.map((row) => ({ ...row, STORE_ID: value })))
+                    setProductCandidates((current) => current.map((row) => row.EXISTING_PRODUCT_CD ? row : ({ ...row, STORE_ID: value })))
                   }}
                 />
                 <SelectBox
@@ -639,10 +642,9 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
                   onValueChanged={(event) => {
                     const value = event.value == null ? null : String(event.value)
                     setBulkDivision(value)
-                    setProductCandidates((current) => current.map((row) => ({ ...row, DIVISION: value })))
+                    setProductCandidates((current) => current.map((row) => row.EXISTING_PRODUCT_CD ? row : ({ ...row, DIVISION: value })))
                   }}
                 />
-                <span className="pb-2 text-xs text-slate-500">Chọn một giá trị để áp dụng cho tất cả sản phẩm.</span>
               </div>}
               <DataGrid<ProductCandidate, string>
                 dataSource={productCandidates}
@@ -654,6 +656,29 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
                 columnAutoWidth={false}
                 allowColumnResizing
                 className="min-h-0 flex-1"
+                onSelectionChanged={(event) => {
+                  const selectableKeys = new Set(productCandidates.filter((row) => !row.EXISTING_PRODUCT_CD).map((row) => row.key))
+                  const selectedKeys = (event.selectedRowKeys as string[]).filter((key) => selectableKeys.has(key))
+                  debugMd("vat-quick-create-selection", "selection-change", {
+                    kind: "product",
+                    selectedRowKeys: event.selectedRowKeys,
+                    currentSelectedRowKeys: event.currentSelectedRowKeys,
+                    currentDeselectedRowKeys: event.currentDeselectedRowKeys,
+                    selectableSelectedKeys: selectedKeys,
+                    selectedBeforeUpdate: productCandidates.filter((row) => row.selected).map((row) => row.key),
+                  })
+                  const selected = new Set(selectedKeys)
+                  setProductCandidates((current) => {
+                    let changed = false
+                    const next = current.map((row) => {
+                      const isSelected = selected.has(row.key)
+                      if (row.selected === isSelected) return row
+                      changed = true
+                      return { ...row, selected: isSelected }
+                    })
+                    return changed ? next : current
+                  })
+                }}
                 onEditingStart={(event) => { if (event.data.EXISTING_PRODUCT_CD) event.cancel = true }}
                 onRowPrepared={(event) => {
                   if (event.rowType === "data" && event.data?.EXISTING_PRODUCT_CD) {
@@ -670,6 +695,7 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
                   event.cancel = true
                 }}
               >
+                <Selection mode={saving ? "none" : "multiple"} showCheckBoxesMode="always" selectAllMode="page" />
                 <Scrolling mode="standard" useNative />
                 <Editing mode="cell" allowUpdating={!saving} allowAdding={false} allowDeleting={false} />
                 <Column
@@ -684,25 +710,6 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
                       if (key) setProductCandidates((current) => current.filter((candidate) => candidate.key !== key))
                     },
                   }]}
-                />
-                <Column
-                  dataField="selected"
-                  caption={t("SELECT", "Chọn")}
-                  width={72}
-                  allowEditing={false}
-                  cellRender={({ data }) => (
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 cursor-pointer accent-blue-600 disabled:cursor-not-allowed"
-                      checked={data.selected}
-                      disabled={saving || Boolean(data.EXISTING_PRODUCT_CD)}
-                      onClick={(event) => event.stopPropagation()}
-                      onChange={(event) => {
-                        const checked = event.currentTarget.checked
-                        setProductCandidates((current) => current.map((row) => row.key === data.key ? { ...row, selected: checked } : row))
-                      }}
-                    />
-                  )}
                 />
                 <Column dataField="PRODUCT_CD" caption={t("PRODUCT_CD", "Mã sản phẩm *")} minWidth={150} />
                 <Column dataField="PRODUCT_NM_VIET" caption={t("PRODUCT_NM_VIET", "Tên sản phẩm/dịch vụ *")} minWidth={300} />
