@@ -444,11 +444,11 @@ export default function DebtOffsetPage() {
         </div>
         {subTab === "EXECUTE" ? (
           <>
-            <div className="rounded border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-800">
+            {/* <div className="rounded border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-800">
               Sẽ ghi nhận: {plannedAmount.toLocaleString("vi-VN", { maximumFractionDigits: 2 })} VND
               {currency !== "VND" ? ` / ${plannedFc.toLocaleString("vi-VN", { maximumFractionDigits: 2 })} ${currency}` : ""}
-            </div>
-            {grid(sourceRows, "source", mainTab === "CLEARING" ? "Nguồn: Phải thu 131" : "Nguồn: Chứng từ thanh toán / thu")}
+            </div> */}
+            {grid(sourceRows, "source", mainTab === "CLEARING" ? "Phải thu 131" : "Chứng từ thanh toán / thu")}
             {grid(debtRows, "debt", mainTab === "CLEARING" ? "Công nợ: Phải trả 331" : "Công nợ cần đối trừ")}
           </>
         ) : (
