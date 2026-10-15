@@ -17,7 +17,8 @@ import {
 
 type MainTab = "MATCH" | "CLEARING"
 type Panel = "EXECUTE" | "HISTORY"
-type Pair = OffsetPairRequest & { key: string; sourceNo: string; debtNo: string; customerName: string }
+type SelectedVoucher = OffsetVoucher & { OFFSET_AMOUNT: number; OFFSET_AMOUNT_FC: number }
+type Pair = OffsetPairRequest
 
 const kinds: Record<MainTab, { text: string; description: string }> = {
   MATCH: { text: "Đối trừ chứng từ", description: "Đối trừ thanh toán/thu tiền với công nợ" },
@@ -35,40 +36,43 @@ const dateLabel = (text?: string | null) => {
   return `${value.slice(6, 8)}/${value.slice(4, 6)}/${value.slice(0, 4)}`
 }
 const toKey = (row: OffsetVoucher) => `${row.CUSTOMER_ID}:${row.CHIT_ID}`
-const normalize = (rows: OffsetVoucher[]) => rows.map(row => ({ ...row, ROW_KEY: toKey(row) }))
+const normalize = (rows: OffsetVoucher[], selected: SelectedVoucher[]) => {
+  const byKey = new Map(selected.map(row => [toKey(row), row]))
+  return rows.map(row => ({
+    ...row,
+    ROW_KEY: toKey(row),
+    OFFSET_AMOUNT: byKey.get(toKey(row))?.OFFSET_AMOUNT ?? 0,
+    OFFSET_AMOUNT_FC: byKey.get(toKey(row))?.OFFSET_AMOUNT_FC ?? 0,
+  }))
+}
 const decimals = (num: number) => Math.round(Math.max(0, num) * 100) / 100
 
-// Allocate by selected row order. A source may be matched against several debts and
-// vice versa, but customer IDs are never mixed. Every pair is previewed before writing.
-function createPairs(sources: OffsetVoucher[], debts: OffsetVoucher[], kind: OffsetKind, currency: OffsetCurrency): Pair[] {
+// Pair allocation remains internal. The editable amount now lives in the two voucher grids.
+// Never combine different customers, and never allocate more than either selected amount.
+function createPairs(sources: SelectedVoucher[], debts: SelectedVoucher[], kind: OffsetKind, currency: OffsetCurrency): Pair[] {
   const pairs: Pair[] = []
   const remaining = new Map(debts.map(row => [toKey(row), {
-    local: decimals(Number(row.REMAINAMOUNT) || 0),
-    fc: decimals(Number(row.REMAINAMOUNT_FC) || 0),
+    local: decimals(row.OFFSET_AMOUNT),
+    fc: decimals(row.OFFSET_AMOUNT_FC),
   }]))
   for (const source of sources) {
-    let local = decimals(Number(source.REMAINAMOUNT) || 0)
-    let fc = decimals(Number(source.REMAINAMOUNT_FC) || 0)
+    let local = decimals(source.OFFSET_AMOUNT)
+    let fc = decimals(source.OFFSET_AMOUNT_FC)
     for (const debt of debts) {
       if (debt.CUSTOMER_ID !== source.CUSTOMER_ID) continue
       const available = remaining.get(toKey(debt))
       if (!available) continue
       if (currency === "VND" ? local <= 0 || available.local <= 0 : fc <= 0 || available.fc <= 0) continue
+
       const takeFc = currency === "VND" ? 0 : decimals(Math.min(fc, available.fc))
-      // Local value follows source exchange rate, capped by both vouchers' balances.
       const takeLocal = currency === "VND"
         ? decimals(Math.min(local, available.local))
-        : decimals(Math.min(local, available.local,
-            fc > 0 ? local * takeFc / fc : 0))
+        : decimals(Math.min(local, available.local, fc > 0 ? local * takeFc / fc : 0))
       if (takeLocal <= 0 && takeFc <= 0) continue
-      const key = `${source.CUSTOMER_ID}:${source.CHIT_ID}:${debt.CHIT_ID}`
       pairs.push({
-        key, kind, customerId: source.CUSTOMER_ID,
+        kind, customerId: source.CUSTOMER_ID,
         sourceChitId: source.CHIT_ID, debtChitId: debt.CHIT_ID,
         amount: takeLocal, amountFc: takeFc, currency,
-        sourceNo: source.CHIT_ID < 0 ? "Số dư đầu kỳ" : (source.CHIT_NO ?? String(source.CHIT_ID)),
-        debtNo: debt.CHIT_ID < 0 ? "Số dư đầu kỳ" : (debt.CHIT_NO ?? String(debt.CHIT_ID)),
-        customerName: source.CUSTOMER_NM_VIET || source.CUSTOMER_NM_ENG || String(source.CUSTOMER_ID),
       })
       local = decimals(local - takeLocal)
       fc = decimals(fc - takeFc)
@@ -93,9 +97,8 @@ export default function DebtOffsetPage() {
   const [loaded, setLoaded] = useState(false)
   const [available, setAvailable] = useState<OffsetAvailable>({ SOURCES: [], DEBTS: [] })
   const [history, setHistory] = useState<OffsetHistory[]>([])
-  const [sources, setSources] = useState<OffsetVoucher[]>([])
-  const [debts, setDebts] = useState<OffsetVoucher[]>([])
-  const [edits, setEdits] = useState<Record<string, { amount: number; amountFc: number }>>({})
+  const [sources, setSources] = useState<SelectedVoucher[]>([])
+  const [debts, setDebts] = useState<SelectedVoucher[]>([])
   const [historySelected, setHistorySelected] = useState<OffsetHistory | null>(null)
 
   const kind: OffsetKind = mainTab === "CLEARING" ? "CLEARING" : matchKind
@@ -109,7 +112,6 @@ export default function DebtOffsetPage() {
     setLoaded(false)
     setSources([])
     setDebts([])
-    setEdits({})
     setHistorySelected(null)
     setAvailable({ SOURCES: [], DEBTS: [] })
     setHistory([])
@@ -136,17 +138,35 @@ export default function DebtOffsetPage() {
     }
   }
 
-  const preview = useMemo(() => createPairs(sources, debts, kind, currency), [sources, debts, kind, currency])
-  const pairs = useMemo(() => preview.map(pair => ({
-    ...pair, ...edits[pair.key],
-  })), [preview, edits])
-  const updatePair = (key: string, field: "amount" | "amountFc", value: number) => {
-    const current = pairs.find(pair => pair.key === key)
-    if (!current) return
-    setEdits(prev => ({ ...prev, [key]: {
-      amount: field === "amount" ? decimals(value) : current.amount,
-      amountFc: field === "amountFc" ? decimals(value) : current.amountFc,
-    } }))
+  const pairs = useMemo(() => createPairs(sources, debts, kind, currency), [sources, debts, kind, currency])
+  const plannedAmount = useMemo(() => pairs.reduce((sum, pair) => sum + pair.amount, 0), [pairs])
+  const plannedFc = useMemo(() => pairs.reduce((sum, pair) => sum + pair.amountFc, 0), [pairs])
+
+  // A newly checked row defaults to its entire outstanding balance. Existing manual
+  // edits survive checking/unchecking other rows. Unchecking clears that row's amount.
+  const updateSelection = (side: "source" | "debt", selectedRows: OffsetVoucher[]) => {
+    const setter = side === "source" ? setSources : setDebts
+    setter(previous => {
+      const existing = new Map(previous.map(row => [toKey(row), row]))
+      if (previous.length === selectedRows.length &&
+          selectedRows.every(row => existing.has(toKey(row)))) return previous
+      return selectedRows.map(row => existing.get(toKey(row)) ?? ({
+        ...row,
+        OFFSET_AMOUNT: decimals(Number(row.REMAINAMOUNT) || 0),
+        OFFSET_AMOUNT_FC: currency === "VND" ? 0 : decimals(Number(row.REMAINAMOUNT_FC) || 0),
+      }))
+    })
+  }
+
+  const updateAmount = (side: "source" | "debt", row: OffsetVoucher,
+                        field: "OFFSET_AMOUNT" | "OFFSET_AMOUNT_FC", value: number) => {
+    const setter = side === "source" ? setSources : setDebts
+    const maximum = decimals(Number(field === "OFFSET_AMOUNT" ? row.REMAINAMOUNT : row.REMAINAMOUNT_FC) || 0)
+    const nextAmount = Number.isFinite(value) ? decimals(Math.min(Math.max(value, 0), maximum)) : 0
+    setter(previous => previous.some(item => toKey(item) === toKey(row))
+      ? previous.map(item => toKey(item) === toKey(row) && item[field] !== nextAmount
+        ? { ...item, [field]: nextAmount } : item)
+      : previous)
   }
 
   const save = async () => {
@@ -171,7 +191,9 @@ export default function DebtOffsetPage() {
       for (const [key, sum] of map) {
         const row = balances.get(key)
         if (!row || sum.amount > Number(row.REMAINAMOUNT) + 0.005 ||
-            sum.fc > Number(row.REMAINAMOUNT_FC) + 0.005) {
+            sum.fc > Number(row.REMAINAMOUNT_FC) + 0.005 ||
+            sum.amount > row.OFFSET_AMOUNT + 0.005 ||
+            sum.fc > row.OFFSET_AMOUNT_FC + 0.005) {
           notify("Tổng tiền phân bổ vượt quá số dư chứng từ", "warning", 4000)
           return
         }
@@ -218,34 +240,69 @@ export default function DebtOffsetPage() {
     }
   }
 
-  const sourceRows = useMemo(() => normalize(available.SOURCES), [available.SOURCES])
-  const debtRows = useMemo(() => normalize(available.DEBTS), [available.DEBTS])
-  const grid = (rows: OffsetVoucher[], onChange: (rows: OffsetVoucher[]) => void, title: string) => (
-    <div className="min-h-0 flex-1 overflow-hidden rounded border border-gray-200 bg-white">
-      <div className="flex items-center justify-between border-b bg-gray-50 px-3 py-1.5 text-sm font-semibold">
-        <span>{title}</span><span className="font-normal text-gray-500">{rows.length} chứng từ</span>
+  const sourceRows = useMemo(() => normalize(available.SOURCES, sources), [available.SOURCES, sources])
+  const debtRows = useMemo(() => normalize(available.DEBTS, debts), [available.DEBTS, debts])
+
+  const grid = (rows: OffsetVoucher[], side: "source" | "debt", title: string) => {
+    const chosen = side === "source" ? sources : debts
+    const chosenKeys = new Set(chosen.map(toKey))
+    const numberCell = (field: "OFFSET_AMOUNT" | "OFFSET_AMOUNT_FC") => (cell: { data: OffsetVoucher }) => {
+      const row = cell.data as SelectedVoucher
+      return (
+        <NumberBox
+          width="100%" min={0}
+          max={Math.max(0, Number(field === "OFFSET_AMOUNT" ? row.REMAINAMOUNT : row.REMAINAMOUNT_FC) || 0)}
+          value={row[field]} format={formatMoney} showSpinButtons={false}
+          disabled={busy || !chosenKeys.has(toKey(row))}
+          onValueChanged={event => updateAmount(side, row, field, Number(event.value ?? 0))}
+        />
+      )
+    }
+    return (
+      <div className="min-h-0 flex-1 overflow-hidden rounded border border-gray-200 bg-white">
+        <div className="flex items-center justify-between border-b bg-gray-50 px-3 py-1.5 text-sm font-semibold">
+          <span>{title}</span>
+          <span className="font-normal text-gray-500">
+            Đã chọn {chosen.length} / {rows.length} chứng từ
+          </span>
+        </div>
+        <DataGrid
+          dataSource={rows} keyExpr="ROW_KEY" height={310} showBorders rowAlternationEnabled
+          showColumnLines allowColumnResizing columnAutoWidth={false}
+          selectedRowKeys={chosen.map(toKey)}
+          onSelectionChanged={event => updateSelection(side, event.selectedRowsData as OffsetVoucher[])}
+          noDataText={loaded ? "Không có chứng từ chưa đối trừ" : "Chọn bộ lọc và nhấn Xem"}
+        >
+          <Scrolling mode="standard" showScrollbar="always" />
+          <Selection mode="multiple" showCheckBoxesMode="always" selectByClick />
+          <Column dataField="CUSTOMER_NM_VIET" caption={t("CUSTOMER", "Đối tượng")} width={180} />
+          <Column dataField="CHIT_NO" caption={t("CHIT_NO", "Số chứng từ")} width={125}
+            calculateDisplayValue={(row: OffsetVoucher) => row.CHIT_ID < 0 ? "Số dư đầu kỳ" : row.CHIT_NO ?? ""} />
+          <Column dataField="CHIT_YMD" caption={t("DATE", "Ngày")} width={110}
+            customizeText={e => dateLabel(String(e.value ?? ""))} />
+          <Column dataField="DESCRIPTION_VIET" caption={t("DESCRIPTION", "Diễn giải")} minWidth={210} />
+          <Column dataField="AMOUNT" caption={t("AMOUNT", "Số tiền")} width={150}
+            alignment="right" format={formatMoney} />
+          <Column dataField="REMAINAMOUNT" caption={t("REMAINAMOUNT", "Số tiền chưa đối trừ")} width={165}
+            alignment="right" format={formatMoney} />
+          <Column dataField="OFFSET_AMOUNT" caption={t("OFFSET_AMOUNT", "Số tiền đối trừ")} width={175}
+            alignment="right" cellRender={numberCell("OFFSET_AMOUNT")} />
+          <Column dataField="FC_AMOUNT" caption={t("AMOUNT_FC", "Số tiền ngoại tệ")} width={145}
+            alignment="right" format={formatMoney} visible={currency !== "VND"} />
+          <Column dataField="REMAINAMOUNT_FC" caption={t("REMAINAMOUNT_FC", "Chưa đối trừ NT")} width={155}
+            alignment="right" format={formatMoney} visible={currency !== "VND"} />
+          <Column dataField="OFFSET_AMOUNT_FC" caption={t("OFFSET_AMOUNT_FC", "Đối trừ NT")} width={155}
+            alignment="right" visible={currency !== "VND"} cellRender={numberCell("OFFSET_AMOUNT_FC")} />
+          <Summary>
+            <TotalItem column="AMOUNT" summaryType="sum" valueFormat={formatMoney} />
+            <TotalItem column="REMAINAMOUNT" summaryType="sum" valueFormat={formatMoney} />
+            <TotalItem column="OFFSET_AMOUNT" summaryType="sum" valueFormat={formatMoney} />
+            {currency !== "VND" && <TotalItem column="OFFSET_AMOUNT_FC" summaryType="sum" valueFormat={formatMoney} />}
+          </Summary>
+        </DataGrid>
       </div>
-      <DataGrid
-        dataSource={rows} keyExpr="ROW_KEY" height={240} showBorders rowAlternationEnabled
-        showColumnLines allowColumnResizing columnAutoWidth={false}
-        selectedRowKeys={(title.includes("Nguồn") ? sources : debts).map(toKey)}
-        onSelectionChanged={e => onChange(e.selectedRowsData as OffsetVoucher[])}
-        noDataText={loaded ? "Không có chứng từ chưa đối trừ" : "Chọn bộ lọc và nhấn Xem"}
-      >
-        <Scrolling mode="standard" showScrollbar="always" />
-        <Selection mode="multiple" showCheckBoxesMode="always" selectByClick />
-        <Column dataField="CUSTOMER_NM_VIET" caption={t("CUSTOMER", "Đối tượng")} width={180} />
-        <Column dataField="CHIT_NO" caption={t("CHIT_NO", "Số chứng từ")} width={125}
-          calculateDisplayValue={(row: OffsetVoucher) => row.CHIT_ID < 0 ? "Số dư đầu kỳ" : row.CHIT_NO ?? ""} />
-        <Column dataField="CHIT_YMD" caption={t("DATE", "Ngày")} width={100}
-          customizeText={e => dateLabel(String(e.value ?? ""))} />
-        <Column dataField="DESCRIPTION_VIET" caption={t("DESCRIPTION", "Diễn giải")} minWidth={180} />
-        <Column dataField="REMAINAMOUNT" caption={t("REMAINAMOUNT", "Còn lại VND")} width={150} alignment="right" format={formatMoney} />
-        <Column dataField="REMAINAMOUNT_FC" caption={t("REMAINAMOUNT_FC", "Còn lại NT")} width={140} alignment="right" format={formatMoney} visible={currency !== "VND"} />
-        <Summary><TotalItem column="REMAINAMOUNT" summaryType="sum" valueFormat={formatMoney} /></Summary>
-      </DataGrid>
-    </div>
-  )
+    )
+  }
 
   return (
     <DxPage>
@@ -294,34 +351,19 @@ export default function DebtOffsetPage() {
         </div>
         {subTab === "EXECUTE" ? (
           <>
-            {grid(sourceRows, setSources, mainTab === "CLEARING" ? "Nguồn: Phải thu 131" : "Nguồn: Chứng từ thanh toán / thu",)}
-            {grid(debtRows, setDebts, mainTab === "CLEARING" ? "Công nợ: Phải trả 331" : "Công nợ cần đối trừ")}
-            <div className="rounded border border-gray-200 bg-white">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-gray-50 px-3 py-2">
-                <div className="text-sm font-semibold">Xem trước phân bổ <span className="ml-2 font-normal text-gray-500">({pairs.length} cặp, cùng CUSTOMER_ID)</span></div>
-                <Button text={t("SAVE", "Lưu đối trừ")} type="success" icon="save"
-                  disabled={busy || !pairs.length} onClick={() => void save()} />
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-gray-200 bg-white px-3 py-2">
+              <div className="text-xs text-gray-600">
+                Tick chứng từ để tự điền số tiền chưa đối trừ; có thể sửa trực tiếp ở cột <strong>Số tiền đối trừ</strong>.
+                <span className="ml-3 font-semibold text-gray-800">
+                  Sẽ ghi nhận: {plannedAmount.toLocaleString("vi-VN", { maximumFractionDigits: 2 })} VND
+                  {currency !== "VND" ? ` / ${plannedFc.toLocaleString("vi-VN", { maximumFractionDigits: 2 })} ${currency}` : ""}
+                </span>
               </div>
-              <DataGrid dataSource={pairs} keyExpr="key" showBorders height={Math.min(230, Math.max(100, pairs.length * 35 + 52))}
-                columnAutoWidth={false} rowAlternationEnabled>
-                <Scrolling mode="standard" showScrollbar="always" />
-                <Column dataField="customerName" caption="Đối tượng" width={160} />
-                <Column dataField="sourceNo" caption="Chứng từ nguồn" width={140} />
-                <Column dataField="debtNo" caption="Chứng từ công nợ" width={140} />
-                <Column caption="Tiền đối trừ VND" alignment="right" width={175}
-                  cellRender={e => <NumberBox width="100%" min={0} showSpinButtons={false}
-                    format={formatMoney} value={e.data.amount}
-                    onValueChanged={v => updatePair(e.data.key, "amount", Number(v.value ?? 0))} />} />
-                {currency !== "VND" && <Column caption={`Tiền ${currency}`} width={160} alignment="right"
-                  cellRender={e => <NumberBox width="100%" min={0} format={formatMoney}
-                    value={e.data.amountFc}
-                    onValueChanged={v => updatePair(e.data.key, "amountFc", Number(v.value ?? 0))} />} />}
-              </DataGrid>
-              <div className="px-3 py-2 text-xs text-gray-500">
-                Chọn nhiều dòng ở hai bảng; hệ thống ghép tuần tự theo đối tượng. Có thể sửa số tiền trước khi lưu.
-                Mỗi cặp được lưu riêng; nếu có lỗi giữa chừng, các cặp đã lưu vẫn giữ nguyên và sẽ được thông báo.
-              </div>
+              <Button text={t("SAVE", mainTab === "CLEARING" ? "Lưu bù trừ" : "Lưu đối trừ")}
+                type="success" icon="save" disabled={busy || !pairs.length} onClick={() => void save()} />
             </div>
+            {grid(sourceRows, "source", mainTab === "CLEARING" ? "Nguồn: Phải thu 131" : "Nguồn: Chứng từ thanh toán / thu")}
+            {grid(debtRows, "debt", mainTab === "CLEARING" ? "Công nợ: Phải trả 331" : "Công nợ cần đối trừ")}
           </>
         ) : (
           <div className="min-h-0 flex-1 rounded border border-gray-200 bg-white">
