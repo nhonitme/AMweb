@@ -413,7 +413,7 @@ export default function DebtOffsetPage() {
               setCurrency(selected as OffsetCurrency)
               reset()
             }}
-            onClear={() => { setCurrency("VND"); reset() }}
+            onClear={() => { setCurrency("VND"); setCurrencyLookupVersion(version => version + 1); reset() }}
             width={150}
             height={26}
             columns={[
