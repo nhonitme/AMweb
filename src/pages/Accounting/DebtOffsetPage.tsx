@@ -1,18 +1,14 @@
 import { useCallback, useContext, useMemo, useState } from "react"
 import DataGrid, { Column, Scrolling, Selection, Summary, TotalItem } from "devextreme-react/data-grid"
 import SelectBox from "devextreme-react/select-box"
-import OptionalFromDateRangeBox from "@/components/toolbar/OptionalFromDateRangeBox"
+import ReportToolbar from "@/components/toolbar/ReportToolbar"
 import NumberBox from "devextreme-react/number-box"
 import Button from "devextreme-react/button"
 import notify from "devextreme/ui/notify"
 import DxPage from "@/dx/DxPage"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { customerLookupStore } from "@/components/lookup/customerLookupStore"
-import { currencyLookupStore } from "@/components/lookup/currencyLookupStore"
-import MultiLookupCellEditor from "@/components/lookup/MultiLookupCellEditor"
 import type { CustomerExt } from "@/types/customerExt"
-import type { SysCode } from "@/api/sysCodeService"
-import { getSysCodeDisplayText } from "@/lib/sysCodeUtils"
 import { normalizeCurrencyCodes } from "@/lib/currency"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import {
@@ -383,97 +379,66 @@ export default function DebtOffsetPage() {
             <h2 className="text-base font-semibold text-gray-900">{t("DEBT_OFFSET", "Đối trừ & Bù trừ chứng từ")}</h2>
             <div className="text-xs text-gray-500">{kinds[mainTab].description}</div>
           </div>
-          <div className="flex gap-1 rounded border bg-white p-1 text-sm">
-            {(["MATCH", "CLEARING"] as MainTab[]).map(tab => (
-              <button key={tab} type="button" onClick={() => switchMain(tab)}
-                className={`rounded px-4 py-1.5 ${mainTab === tab ? "bg-blue-600 text-white" : "text-gray-700 hover:bg-gray-100"}`}>
-                {kinds[tab].text}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex gap-1 rounded border bg-white p-1 text-xs">
+              {(["EXECUTE", "HISTORY"] as Panel[]).map(tab => (
+                <button type="button" key={tab} onClick={() => switchSub(tab)}
+                  className={`rounded px-3 py-1.5 ${subTab === tab ? "bg-slate-700 text-white" : "bg-gray-100 text-gray-700"}`}>
+                  {tab === "EXECUTE" ? t("EXECUTE", "Thực hiện") : t("HISTORY_UNDO", "Lịch sử & Bỏ")}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1 rounded border bg-white p-1 text-sm">
+              {(["MATCH", "CLEARING"] as MainTab[]).map(tab => (
+                <button key={tab} type="button" onClick={() => switchMain(tab)}
+                  className={`rounded px-4 py-1.5 ${mainTab === tab ? "bg-blue-600 text-white" : "text-gray-700 hover:bg-gray-100"}`}>
+                  {kinds[tab].text}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 rounded border border-gray-200 bg-white px-3 py-2">
-          <div className="flex gap-1 text-xs">
-            {(["EXECUTE", "HISTORY"] as Panel[]).map(tab => (
-              <button type="button" key={tab} onClick={() => switchSub(tab)}
-                className={`rounded px-3 py-1.5 ${subTab === tab ? "bg-slate-700 text-white" : "bg-gray-100 text-gray-700"}`}>
-                {tab === "EXECUTE" ? t("EXECUTE", "Thực hiện") : t("HISTORY_UNDO", "Lịch sử & Bỏ")}
-              </button>
-            ))}
-          </div>
-          {mainTab === "MATCH" && <SelectBox items={[
-            { value: "PAYMENT", text: "Thanh toán phải trả 331" },
-            { value: "COLLECT", text: "Thu tiền phải thu 131" },
-          ]} valueExpr="value" displayExpr="text" value={matchKind}
-            onValueChanged={e => { setMatchKind(e.value); reset() }} width={205} />}
-          <OptionalFromDateRangeBox
-            fromDateEnabled={fromDateEnabled}
-            onFromDateEnabledChange={enabled => { setFromDateEnabled(enabled); reset() }}
-            checkboxText={t("USE_FROM_DATE", "Lọc từ ngày")}
+        <div className="flex-shrink-0">
+          <ReportToolbar
+            variant="flat"
             fromDate={fromDate}
             toDate={toDate}
-            fromPlaceholder={t("MSG_FROMDATE", "Từ ngày")}
-            toPlaceholder={t("MSG_TODATE", "Đến ngày")}
-            labelMode="floating"
-            variant="grouped"
-            width={135}
+            optionalFromDateEnabled={fromDateEnabled}
+            optionalFromDateLabel={t("USE_FROM_DATE", "Lọc từ ngày")}
+            onOptionalFromDateEnabledChange={enabled => { setFromDateEnabled(enabled); reset() }}
             onFromDateChange={value => { setFromDate(value); reset() }}
             onToDateChange={value => { setToDate(value); reset() }}
+            customerCodes={customerCodes}
+            onCustomerCodesChange={values => { setCustomerCodes(values); reset() }}
+            currencyCodes={currencyCodes}
+            onCurrencyCodesChange={values => { setCurrencyCodes(normalizeCurrencyCodes(values)); reset() }}
+            initialFilters={mainTab === "MATCH" ? (
+              <SelectBox
+                className="page-toolbar__field"
+                dataSource={[
+                  { value: "PAYMENT", text: "Thanh toán phải trả 331" },
+                  { value: "COLLECT", text: "Thu tiền phải thu 131" },
+                ]}
+                displayExpr="text"
+                valueExpr="value"
+                value={matchKind}
+                label={t("DEBT_TYPE", "Loại đối trừ")}
+                labelMode="floating"
+                stylingMode="outlined"
+                width={205}
+                showClearButton={false}
+                onValueChanged={event => { setMatchKind(event.value); reset() }}
+              />
+            ) : undefined}
+            onSearch={() => { if (!busy) void refresh() }}
+            showSearch
+            showQuickSearch={false}
+            showRefresh={false}
+            showPrint={false}
+            showExportPdf={false}
+            showExportExcel={false}
+            shortcutsEnabled={false}
           />
-          <MultiLookupCellEditor<CustomerExt>
-            variant="toolbar"
-            dataSource={customerLookupStore}
-            values={customerCodes}
-            valueExpr="CUSTOMER_CD"
-            searchExpr={["CUSTOMER_CD", "CUSTOMER_NM_VIET", "CUSTOMER_NM_ENG", "CUSTOMER_NM_KOR", "CUSTOMER_NM_CHINA"]}
-            placeholder={t("CUSTOMER_CODE", "Mã khách hàng")}
-            labelMode="floating"
-            buttonHint={t("OPEN_CUSTOMER_LOOKUP", "Chọn mã khách hàng")}
-            onApply={values => { setCustomerCodes(values); reset() }}
-            onClear={() => { setCustomerCodes([]); reset() }}
-            width={180}
-            columns={[
-              { dataField: "CUSTOMER_CD", caption: t("CUSTOMER_CODE", "Mã khách hàng"), width: 160 },
-              {
-                dataField: "CUSTOMER_NM_VIET",
-                caption: t("CUSTOMER_NAME", "Tên khách hàng"),
-                minWidth: 260,
-                calculateCellValue: row => row.CUSTOMER_NM_VIET || row.CUSTOMER_NM_ENG || row.CUSTOMER_NM_KOR || row.CUSTOMER_NM_CHINA,
-              },
-            ]}
-          />
-          <MultiLookupCellEditor<SysCode>
-            className="page-toolbar__field"
-            variant="toolbar"
-            selectedCountLabel={count => t("LOOKUP_SELECTED_COUNT", "{0} selected").replace("{0}", String(count))}
-            dataSource={currencyLookupStore}
-            values={currencyCodes}
-            valueExpr="CODE_CD"
-            searchExpr={["CODE_CD", "CODE_NAME"]}
-            placeholder={t("CURRENCY", "Currency")}
-            labelMode="floating"
-            buttonHint={t("OPEN_CURRENCY_LOOKUP", "Open currency lookup")}
-            onApply={values => {
-              const next = normalizeCurrencyCodes(values)
-              setCurrencyCodes(next)
-              reset()
-            }}
-            onClear={() => { setCurrencyCodes([]); reset() }}
-            width={140}
-            height={26}
-            columns={[
-              { dataField: "CODE_CD", caption: t("CURRENCY", "Currency"), width: 140 },
-              {
-                dataField: "CODE_NAME",
-                caption: t("CURRENCY_NAME", "Currency Name"),
-                minWidth: 240,
-                calculateCellValue: row => getSysCodeDisplayText(row, t),
-              },
-            ]}
-          />
-          <Button text={t("VIEW", "Xem")} icon="search" type="default" stylingMode="contained"
-            disabled={busy} onClick={() => void refresh()} />
-          {busy && <span className="text-xs text-blue-600">Đang xử lý...</span>}
         </div>
         {subTab === "EXECUTE" ? (
           <>
