@@ -373,11 +373,7 @@ export default function DebtOffsetPage() {
 
   return (
     <DxPage>
-      <div className={`flex h-full min-h-0 min-w-0 w-full flex-col gap-2 bg-gray-50 p-3 ${subTab === "HISTORY" ? "overflow-hidden" : "overflow-auto"}`}>
-        {/* <div className="flex-shrink-0">
-          <h2 className="text-base font-semibold text-gray-900">{t("DEBT_OFFSET", "Đối trừ & Bù trừ chứng từ")}</h2>
-          <div className="text-xs text-gray-500">{kinds[mainTab].description}</div>
-        </div> */}
+      <div className={`flex h-full min-h-0 min-w-0 w-full flex-col gap-2 bg-gray-50 px-3 pb-3 pt-0 ${subTab === "HISTORY" ? "overflow-hidden" : "overflow-auto"}`}>
         <div className="flex-shrink-0">
           <ReportToolbar
             variant="flat"
