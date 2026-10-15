@@ -9,7 +9,7 @@ export type OptionalFromDateRangeBoxProps = Omit<DateRangeBoxProps, "fromDateDis
 
 /**
  * Uses the exact report date-range control, adding an opt-in lower date bound.
- * When unchecked, the From editor is disabled and its effective value is null.
+ * When unchecked, the From editor stays populated but is disabled.
  * The caller sends p_FROM_YMD = "" to represent no start-date restriction.
  */
 export default function OptionalFromDateRangeBox({
@@ -29,7 +29,7 @@ export default function OptionalFromDateRangeBox({
       />
       <DateRangeBox
         {...rangeProps}
-        fromDate={fromDateEnabled ? fromDate : null}
+        fromDate={fromDate}
         fromDateDisabled={!fromDateEnabled}
         className={className ?? "page-toolbar__date-range flex flex-nowrap gap-2"}
       />
