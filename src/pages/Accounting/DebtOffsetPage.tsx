@@ -369,7 +369,7 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
   const grid = (rows: OffsetVoucher[], side: "source" | "debt", title: string) => {
     const chosen = side === "source" ? sources : debts
     return (
-      <div className="flex shrink-0 flex-col overflow-hidden rounded border border-gray-200 bg-white">
+      <div className="flex min-h-[200px] min-w-0 flex-1 flex-col overflow-hidden rounded border border-gray-200 bg-white">
         <div className="flex min-h-[40px] items-center justify-between gap-3 border-b bg-gray-50 px-3 py-1.5 text-sm font-semibold">
           <span>{title}</span>
           <div className="flex shrink-0 items-center justify-end gap-3">
@@ -382,10 +382,12 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
             )}
           </div>
         </div>
-        <DebtOffsetVoucherGrid key={`${viewKey}:${side}`} rows={rows} selected={chosen} side={side} busy={busy}
-          showForeignCurrency={showForeignCurrency} onSelectionChange={updateSelection}
-          onAmountChange={updateAmount} paging={side === "source" ? sourcePaging : debtPaging}
-          onPagingChange={updatePaging} t={t} />
+        <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+          <DebtOffsetVoucherGrid key={`${viewKey}:${side}`} rows={rows} selected={chosen} side={side} busy={busy}
+            showForeignCurrency={showForeignCurrency} onSelectionChange={updateSelection}
+            onAmountChange={updateAmount} paging={side === "source" ? sourcePaging : debtPaging}
+            onPagingChange={updatePaging} t={t} />
+        </div>
       </div>
     )
   }
