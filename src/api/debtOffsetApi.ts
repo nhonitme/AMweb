@@ -47,6 +47,7 @@ export type OffsetHistory = {
   CHIT_YMD_PAY?: string
   CHIT_YMD_DEBT?: string
   DESCRIPTION_VIET_PAY?: string
+  DESCRIPTION_VIET_DEBT?: string
   PAYAMOUNT: number
   PAYAMOUNT_FC: number
 }
