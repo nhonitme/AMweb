@@ -1,6 +1,5 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useQueries, useQueryClient } from "@tanstack/react-query"
-import DataGrid, { Column, Pager, Paging, Scrolling, Selection, Summary, TotalItem } from "devextreme-react/data-grid"
 import { ReportToolbar } from "@/components/toolbar/ReportToolbar"
 import { EtcType } from "@/api/systemApi"
 import Button from "devextreme-react/button"
@@ -18,6 +17,7 @@ import { debtOffsetQueryOptions, emptyOffsetAvailable, emptyOffsetHistory, type 
 import { createOffsetSearches, createOffsetViewState, createOffsetViewStates, offsetViewKeys,
   type OffsetMainTab, type OffsetViewKey, type OffsetViewState, type OffsetPaging } from "./debtOffsetViewState"
 import DebtOffsetVoucherGrid from "./DebtOffsetVoucherGrid"
+import DebtOffsetHistoryGrid from "./DebtOffsetHistoryGrid"
 import { decimals, hasOffsetPairs, selectVouchers, toKey, type SelectedVoucher } from "./debtOffsetSelection"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import {
@@ -40,17 +40,10 @@ const supportedCurrency = (code: string): code is OffsetCurrency =>
 
 const toCurrencyFilter = (code: string) => code === "VND" ? "VND" : `1|${code}`
 
-const formatMoney = "#,##0.##"
 const ymd = (date: Date | null) => {
   if (!date || Number.isNaN(date.getTime())) return ""
   return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`
 }
-const dateLabel = (text?: string | null) => {
-  const value = String(text ?? "").replace(/[^0-9]/g, "")
-  if (value.length < 8) return text ?? ""
-  return `${value.slice(6, 8)}/${value.slice(4, 6)}/${value.slice(0, 4)}`
-}
-
 // History relation IDs: COLLECT uses CHITCOLLECT_ID; PAYMENT/CLEARING use CHITPAYMENT_ID.
 // The clearing delete procedure handles its mirror atomically.
 const historyRelationId = (row: OffsetHistory, kind: OffsetKind): number | undefined =>
@@ -121,6 +114,11 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
   const [searches, setSearches] = useState(() => createOffsetSearches(ymd(toDate)))
   const [viewStates, setViewStates] = useState(createOffsetViewStates)
   const [visited, setVisited] = useState<OffsetViewKey[]>(["MATCH:EXECUTE"])
+  // A new Search/Undo resets checkbox state without controlling every click.
+  const historyGridEpoch = useRef<Record<OffsetViewKey, number>>({
+    "MATCH:EXECUTE": 0, "MATCH:HISTORY": 0,
+    "CLEARING:EXECUTE": 0, "CLEARING:HISTORY": 0,
+  })
   const viewKey: OffsetViewKey = `${mainTab}:${subTab}`
   const queries = useQueries({
     queries: offsetViewKeys.map(key => ({
@@ -240,8 +238,11 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
     updateView(previous => previous[field].pageIndex === paging.pageIndex && previous[field].pageSize === paging.pageSize
       ? previous : { ...previous, [field]: paging })
   }, [updateView])
+  const updateHistoryPaging = useCallback((paging: OffsetPaging) =>
+    updatePaging("history", paging), [updatePaging])
 
   const refreshAfterMutation = async () => {
+    for (const key of offsetViewKeys) historyGridEpoch.current[key] += 1
     setViewStates(createOffsetViewStates())
     await queryClient.invalidateQueries({ queryKey: queryKeys.transaction.debtOffsetRoot(companyCd, userId) })
   }
@@ -276,6 +277,7 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
     setPreparing(true)
     try {
       const nextSearch = { panel: subTab, filters: await filters(), currencyCodes: [...currencyCodes] }
+      if (subTab === "HISTORY") historyGridEpoch.current[viewKey] += 1
       setSearches(previous => ({ ...previous, [viewKey]: nextSearch }))
       setViewStates(previous => ({ ...previous, [viewKey]: createOffsetViewState() }))
       // An explicit Search always refreshes, including when these exact filters are cached.
@@ -522,42 +524,17 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
                 disabled={busy || historySelected.length === 0} onClick={() => void undo()} />
             </div>
             <div className="min-h-0 min-w-0 w-full flex-1 overflow-hidden">
-              <DataGrid className="debt-offset-history-grid" key={viewKey} dataSource={history} height="100%" width="100%" showBorders rowAlternationEnabled
-              loadPanel={{ enabled: false }}
-              allowColumnResizing columnResizingMode="widget" columnAutoWidth={false} columnMinWidth={110}
-              keyExpr={kind === "COLLECT" ? "CHITCOLLECT_ID" : "CHITPAYMENT_ID"}
-              selectedRowKeys={historySelectedKeys}
-              onSelectionChanged={e => setHistorySelected((e.selectedRowsData ?? []) as OffsetHistory[])}
-              noDataText={t("NO_DATA", "Không có dữ liệu")}
-              >
-              <Scrolling mode="standard" showScrollbar="always" />
-              <Paging enabled pageIndex={historyPaging.pageIndex} pageSize={historyPaging.pageSize}
-                onPageIndexChange={pageIndex => updatePaging("history", { ...historyPaging, pageIndex })}
-                onPageSizeChange={pageSize => updatePaging("history", { pageIndex: 0, pageSize })} />
-              <Pager visible showPageSizeSelector allowedPageSizes={[20, 50, 100]}
-                showInfo showNavigationButtons infoText={t("PAGE_TEXT", "Page {0} / {1} ({2} rows)")} />
-              <Selection mode="multiple" selectByClick={false} showCheckBoxesMode="always" selectAllMode="page" />
-              <Column dataField="CUSTOMER_CD" caption={t("CUSTOMER_CODE", "Mã khách hàng")} width={125} />
-              <Column dataField="CUSTOMER_NM_VIET" caption={t("CUSTOMER_NM", "Đối tượng")} minWidth={200} />
-              <Column dataField="CHIT_NO_PAY" caption={t("CHIT_NO_PAY", "Chứng từ nguồn")} minWidth={150}
-                calculateDisplayValue={(row: OffsetHistory) => row.CHIT_ID_PAY < 0 ? "Số dư đầu kỳ" : row.CHIT_NO_PAY ?? ""} />
-              <Column dataField="CHIT_YMD_PAY" caption={t("CHIT_YMD_PAY", "Ngày nguồn")} minWidth={120}
-                customizeText={e => dateLabel(String(e.value ?? ""))} />
-              <Column dataField="DESCRIPTION_VIET_PAY" caption={t("DESCRIPTION", "Mô tả 1")} minWidth={220} />
-              <Column dataField="CHIT_NO_DEBT" caption={t("CHIT_NO_DEBT", "Chứng từ công nợ")} minWidth={170}
-                calculateDisplayValue={(row: OffsetHistory) => row.CHIT_ID_DEBT < 0 ? "Số dư đầu kỳ" : row.CHIT_NO_DEBT ?? ""} />
-              <Column dataField="CHIT_YMD_DEBT" caption={t("CHIT_YMD_DEBT", "Ngày công nợ")} minWidth={120}
-                customizeText={e => dateLabel(String(e.value ?? ""))} />
-              <Column dataField="DESCRIPTION_VIET_DEBT" caption={t("DESCRIPTION", "Mô tả")} minWidth={220} />
-              <Column dataField="PAYAMOUNT" caption={t("PAYAMOUNT", "Tiền VND")} minWidth={150} alignment="right" format={formatMoney} />
-              <Column dataField="PAYAMOUNT_FC" caption={t("PAYAMOUNT_FC", "Tiền ngoại tệ")} minWidth={150} alignment="right" format={formatMoney} visible={showForeignCurrency} />
-              <Summary>
-                <TotalItem column="CHIT_ID_PAY" summaryType="count" showInColumn="DESCRIPTION_VIET_DEBT"
-                  alignment="right" customizeText={() => t("lblTOTAL", "Tổng cộng")} />
-                <TotalItem column="PAYAMOUNT" summaryType="sum" valueFormat={formatMoney}
-                  displayFormat="{0}" alignment="right" />
-              </Summary>
-              </DataGrid>
+              <DebtOffsetHistoryGrid
+                key={`${viewKey}:${historyGridEpoch.current[viewKey]}`}
+                history={history}
+                kind={kind}
+                showForeignCurrency={showForeignCurrency}
+                historyPaging={historyPaging}
+                initialSelectedRowKeys={historySelectedKeys}
+                onSelectionChange={setHistorySelected}
+                onPagingChange={updateHistoryPaging}
+                t={t}
+              />
             </div>
           </div>
         )}
