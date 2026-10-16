@@ -10,7 +10,7 @@ export type OffsetPaging = { pageIndex: number; pageSize: number }
 export type OffsetViewState = {
   sources: SelectedVoucher[]
   debts: SelectedVoucher[]
-  historySelected: OffsetHistory | null
+  historySelected: OffsetHistory[]
   sourcePaging: OffsetPaging
   debtPaging: OffsetPaging
   historyPaging: OffsetPaging
@@ -18,7 +18,7 @@ export type OffsetViewState = {
 
 export function createOffsetViewState(): OffsetViewState {
   return {
-    sources: [], debts: [], historySelected: null,
+    sources: [], debts: [], historySelected: [],
     sourcePaging: { pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE },
     debtPaging: { pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE },
     historyPaging: { pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE },
