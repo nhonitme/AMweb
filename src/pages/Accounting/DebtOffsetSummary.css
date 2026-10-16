@@ -1,0 +1,17 @@
+/* Debt offset total footers: preserve the column widths and horizontal
+   scrolling of DevExtreme, while visually merging all descriptive cells
+   preceding the first numeric total into one label area. */
+
+/* Voucher grid: selection + customer code/name + voucher no/date
+   form the left portion. DESCRIPTION_VIET holds "Tổng cộng". */
+.debt-offset-voucher-grid.dx-datagrid .dx-datagrid-total-footer .dx-row > td:nth-child(-n + 5),
+.debt-offset-history-grid.dx-datagrid .dx-datagrid-total-footer .dx-row > td:nth-child(-n + 8) {
+  border-right: 0 !important;
+}
+
+/* History grid: DESCRIPTION_VIET_DEBT is immediately before PAYAMOUNT.
+   The summary label and every numeric total are right aligned. */
+.debt-offset-voucher-grid.dx-datagrid .dx-datagrid-total-footer .dx-row > td,
+.debt-offset-history-grid.dx-datagrid .dx-datagrid-total-footer .dx-row > td {
+  text-align: right;
+}
