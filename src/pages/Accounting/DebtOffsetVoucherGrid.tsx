@@ -5,7 +5,7 @@ import NumberBox from "devextreme-react/number-box"
 import ArrayStore from "devextreme/data/array_store"
 import type { OffsetVoucher } from "@/api/debtOffsetApi"
 import { getSelectionChanges, toKey, type OffsetAmountField, type OffsetSide, type SelectedVoucher } from "./debtOffsetSelection"
-import type { OffsetPaging } from "./debtOffsetViewState"
+import type { OffsetMainTab, OffsetPaging } from "./debtOffsetViewState"
 import "./DebtOffsetSummary.css"
 
 const formatMoney = "#,##0.##"
@@ -19,6 +19,8 @@ const dateText = ({ value }: { value?: unknown }) => {
 }
 
 type Props = {
+  /** MATCH = Đối trừ chứng từ; CLEARING = Bù trừ 131 ↔ 331. */
+  mode: OffsetMainTab
   rows: OffsetVoucher[]
   selected: SelectedVoucher[]
   side: OffsetSide
@@ -65,8 +67,9 @@ const localAmountCell = (cell: { data: OffsetVoucher }) => <AmountCell row={cell
 const foreignAmountCell = (cell: { data: OffsetVoucher }) => <AmountCell row={cell.data} field="OFFSET_AMOUNT_FC" />
 
 export default memo(function DebtOffsetVoucherGrid({
-  rows, selected, side, busy, showForeignCurrency, paging, onPagingChange, onSelectionChange, onAmountChange, t,
+  mode, rows, selected, side, busy, showForeignCurrency, paging, onPagingChange, onSelectionChange, onAmountChange, t,
 }: Props) {
+  const isClearing = mode === "CLEARING"
   const gridData = useMemo(() => ({
     store: new ArrayStore({
       key: "ROW_KEY",
@@ -103,7 +106,7 @@ export default memo(function DebtOffsetVoucherGrid({
 
   return (
     <AmountContext.Provider value={context}>
-      <DataGrid className="debt-offset-voucher-grid" dataSource={dataSource} keyExpr="ROW_KEY" height="100%" width="100%" showBorders rowAlternationEnabled
+      <DataGrid className={`debt-offset-voucher-grid ${isClearing ? "debt-offset-voucher-grid--clearing" : "debt-offset-voucher-grid--match"}`} dataSource={dataSource} keyExpr="ROW_KEY" height="100%" width="100%" showBorders rowAlternationEnabled
         repaintChangesOnly loadPanel={loadPanel} showColumnLines allowColumnResizing columnAutoWidth={false}
         selectedRowKeys={selectedKeys} onSelectionChanged={handleSelection} noDataText={t("NO_DATA", "Không có dữ liệu")}>
         <Scrolling mode="standard" showScrollbar="always" />
