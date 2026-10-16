@@ -51,6 +51,14 @@ const dateLabel = (text?: string | null) => {
   return `${value.slice(6, 8)}/${value.slice(4, 6)}/${value.slice(0, 4)}`
 }
 
+// History relation IDs: COLLECT uses CHITCOLLECT_ID; PAYMENT/CLEARING use CHITPAYMENT_ID.
+// The clearing delete procedure handles its mirror atomically.
+const historyRelationId = (row: OffsetHistory, kind: OffsetKind): number | undefined =>
+  kind === "COLLECT" ? row.CHITCOLLECT_ID : row.CHITPAYMENT_ID
+
+const historyRowIdentity = (row: OffsetHistory) =>
+  `${row.CHITPAYMENT_ID ?? ""}:${row.CHITCOLLECT_ID ?? ""}`
+
 // Pair allocation remains internal. The editable amount now lives in the two voucher grids.
 // Never combine different customers, and never allocate more than either selected amount.
 function createPairs(sources: SelectedVoucher[], debts: SelectedVoucher[], kind: OffsetKind, currency: OffsetCurrency): Pair[] {
@@ -133,8 +141,15 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
       return next === previous[viewKey] ? previous : { ...previous, [viewKey]: next }
     })
   }, [viewKey])
-  const setHistorySelected = useCallback((row: OffsetHistory | null) => {
-    updateView(previous => previous.historySelected === row ? previous : { ...previous, historySelected: row })
+  const setHistorySelected = useCallback((rows: OffsetHistory[]) => {
+    updateView(previous => {
+      const existing = previous.historySelected
+      if (existing.length === rows.length) {
+        const keys = new Set(existing.map(historyRowIdentity))
+        if (rows.every(row => keys.has(historyRowIdentity(row)))) return previous
+      }
+      return { ...previous, historySelected: rows }
+    })
   }, [updateView])
   const lastLoadError = useRef<unknown>(null)
   const notifyLoadError = useCallback((error: unknown) => {
@@ -159,6 +174,11 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
     : null
   // Allocation always uses the filters that produced this view's rows, not draft toolbar values.
   const kind = currentSearch.filters.kind
+  const historySelectedKeys = useMemo(
+    () => historySelected.map(row => historyRelationId(row, kind))
+      .filter((id): id is number => typeof id === "number" && Number.isSafeInteger(id) && id > 0),
+    [historySelected, kind],
+  )
   const appliedCurrencies = currentSearch.currencyCodes
   const activeCurrency = appliedCurrencies.length === 1 && supportedCurrency(appliedCurrencies[0])
     ? appliedCurrencies[0] : null
@@ -350,28 +370,44 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
   }
 
   const undo = async () => {
-    if (!historySelected) return
-    const recordId = kind === "COLLECT"
-      ? historySelected.CHITCOLLECT_ID
-      : historySelected.CHITPAYMENT_ID
-    if (!recordId || recordId <= 0) {
-      notify("Không xác định được ID quan hệ cần hoàn tác", "warning", 4000)
-      return
+    if (!historySelected.length || busy) return
+    const recordIds: number[] = []
+    const seen = new Set<number>()
+    for (const row of historySelected) {
+      const id = historyRelationId(row, kind)
+      if (typeof id !== "number" || !Number.isSafeInteger(id) || id <= 0) {
+        notify("Không xác định được ID quan hệ cần hoàn tác", "warning", 4000)
+        return
+      }
+      if (!seen.has(id)) {
+        seen.add(id)
+        recordIds.push(id)
+      }
     }
+    const label = kind === "CLEARING" ? "bù trừ" : "đối trừ"
     const confirmed = await confirm(
-      "Bỏ đối trừ/bù trừ của quan hệ đã chọn?",
+      `Bỏ ${recordIds.length} quan hệ ${label} đã chọn?`,
       t("CONFIRM", "Xác nhận"),
     )
     if (!confirmed) return
     setMutating(true)
+    let success = 0
     try {
-      await deleteOffsetPair(kind, recordId)
-      notify("Đã hoàn tác thành công", "success", 3000)
-      await refreshAfterMutation()
+      // One API request deletes one relation; clearing also deletes the mirror atomically.
+      for (const recordId of recordIds) {
+        await deleteOffsetPair(kind, recordId)
+        success += 1
+      }
+      notify(`Đã bỏ ${success} quan hệ ${label} thành công`, "success", 3000)
     } catch (error) {
-      notify(getApiErrorMessage(error, "Hoàn tác thất bại"), "error", 5000)
+      notify(`Đã bỏ ${success}/${recordIds.length} quan hệ ${label}. ${getApiErrorMessage(error, "Hoàn tác thất bại")}`, "error", 7000)
     } finally {
-      setMutating(false)
+      try {
+        // Refresh even on partial success to reconcile selected rows.
+        await refreshAfterMutation()
+      } finally {
+        setMutating(false)
+      }
     }
   }
 
@@ -478,18 +514,20 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
             <div className="flex shrink-0 items-center justify-between border-b bg-gray-50 px-3 py-2">
               <span className="text-sm font-semibold">
                 {mainTab === "CLEARING" ? t("OFFSET_HISTORY", "Lịch sử bù trừ") : t("Clearing_HISTORY", "Lịch sử đối trừ")}
-                {/* <span className="ml-2 font-normal text-gray-500">({history.length} quan hệ)</span> */}
+                <span className="ml-2 text-xs font-normal text-gray-500">
+                  Đã chọn {historySelected.length} / {history.length} quan hệ
+                </span>
               </span>
               <Button text={t("UNDO", "Bỏ đối trừ")} type="danger" icon="revert"
-                disabled={busy || !historySelected} onClick={() => void undo()} />
+                disabled={busy || historySelected.length === 0} onClick={() => void undo()} />
             </div>
             <div className="min-h-0 min-w-0 w-full flex-1 overflow-hidden">
               <DataGrid className="debt-offset-history-grid" key={viewKey} dataSource={history} height="100%" width="100%" showBorders rowAlternationEnabled
               loadPanel={{ enabled: false }}
               allowColumnResizing columnResizingMode="widget" columnAutoWidth={false} columnMinWidth={110}
               keyExpr={kind === "COLLECT" ? "CHITCOLLECT_ID" : "CHITPAYMENT_ID"}
-              selectedRowKeys={historySelected ? [kind === "COLLECT" ? historySelected.CHITCOLLECT_ID : historySelected.CHITPAYMENT_ID] : []}
-              onSelectionChanged={e => setHistorySelected((e.selectedRowsData?.[0] as OffsetHistory | undefined) ?? null)}
+              selectedRowKeys={historySelectedKeys}
+              onSelectionChanged={e => setHistorySelected((e.selectedRowsData ?? []) as OffsetHistory[])}
               noDataText={t("NO_DATA", "Không có dữ liệu")}
               >
               <Scrolling mode="standard" showScrollbar="always" />
@@ -498,7 +536,7 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
                 onPageSizeChange={pageSize => updatePaging("history", { pageIndex: 0, pageSize })} />
               <Pager visible showPageSizeSelector allowedPageSizes={[20, 50, 100]}
                 showInfo showNavigationButtons infoText={t("PAGE_TEXT", "Page {0} / {1} ({2} rows)")} />
-              <Selection mode="single" selectByClick showCheckBoxesMode="always" />
+              <Selection mode="multiple" selectByClick={false} showCheckBoxesMode="always" selectAllMode="page" />
               <Column dataField="CUSTOMER_CD" caption={t("CUSTOMER_CODE", "Mã khách hàng")} width={125} />
               <Column dataField="CUSTOMER_NM_VIET" caption={t("CUSTOMER_NM", "Đối tượng")} minWidth={200} />
               <Column dataField="CHIT_NO_PAY" caption={t("CHIT_NO_PAY", "Chứng từ nguồn")} minWidth={150}
