@@ -68,8 +68,17 @@ export async function loadOffsetHistory(filters: OffsetFilters): Promise<OffsetH
   return Array.isArray(data) ? data : []
 }
 export async function saveOffsetPair(payload: OffsetPairRequest): Promise<void> {
-  await axios.post(`${URL}/save`, payload)
+  // The API uses case-sensitive JSON binding to its PascalCase request models.
+  await axios.post(`${URL}/save`, {
+    Kind: payload.kind,
+    SourceChitId: payload.sourceChitId,
+    DebtChitId: payload.debtChitId,
+    CustomerId: payload.customerId,
+    Amount: payload.amount,
+    AmountFc: payload.amountFc,
+    Currency: payload.currency,
+  })
 }
 export async function deleteOffsetPair(kind: OffsetKind, recordId: number): Promise<void> {
-  await axios.post(`${URL}/delete`, { kind, recordId })
+  await axios.post(`${URL}/delete`, { Kind: kind, RecordId: recordId })
 }

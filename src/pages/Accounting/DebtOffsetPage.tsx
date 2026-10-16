@@ -1,25 +1,32 @@
-import { useCallback, useContext, useMemo, useState } from "react"
-import DataGrid, { Column, Scrolling, Selection, Summary, TotalItem } from "devextreme-react/data-grid"
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { useQueries, useQueryClient } from "@tanstack/react-query"
+import DataGrid, { Column, Pager, Paging, Scrolling, Selection, Summary, TotalItem } from "devextreme-react/data-grid"
 import { ReportToolbar } from "@/components/toolbar/ReportToolbar"
 import { EtcType } from "@/api/systemApi"
-import NumberBox from "devextreme-react/number-box"
 import Button from "devextreme-react/button"
+import LoadPanel from "devextreme-react/load-panel"
 import notify from "devextreme/ui/notify"
 import DxPage from "@/dx/DxPage"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { customerLookupStore } from "@/components/lookup/customerLookupStore"
 import type { CustomerExt } from "@/types/customerExt"
 import { normalizeCurrencyCodes } from "@/lib/currency"
+import { getCurrentCompanyCd, getCurrentUserId } from "@/lib/login"
+import { queryKeys } from "@/lib/query/queryKeys"
+import { debtOffsetQueryOptions, emptyOffsetAvailable, emptyOffsetHistory, type OffsetPanel } from "@/hooks/queries/debtOffsetQueries"
+import { createOffsetSearches, createOffsetViewState, createOffsetViewStates, offsetViewKeys,
+  type OffsetMainTab, type OffsetViewKey, type OffsetViewState, type OffsetPaging } from "./debtOffsetViewState"
+import DebtOffsetVoucherGrid from "./DebtOffsetVoucherGrid"
+import { decimals, hasOffsetPairs, selectVouchers, toKey, type SelectedVoucher } from "./debtOffsetSelection"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import {
-  deleteOffsetPair, loadOffsetAvailable, loadOffsetHistory, saveOffsetPair,
-  type OffsetAvailable, type OffsetCurrency, type OffsetFilters, type OffsetHistory,
+  deleteOffsetPair, saveOffsetPair,
+  type OffsetCurrency, type OffsetFilters, type OffsetHistory,
   type OffsetKind, type OffsetPairRequest, type OffsetVoucher,
 } from "@/api/debtOffsetApi"
 
-type MainTab = "MATCH" | "CLEARING"
-type Panel = "EXECUTE" | "HISTORY"
-type SelectedVoucher = OffsetVoucher & { OFFSET_AMOUNT: number; OFFSET_AMOUNT_FC: number }
+type MainTab = OffsetMainTab
+type Panel = OffsetPanel
 type Pair = OffsetPairRequest
 
 const kinds: Record<MainTab, { text: string; description: string }> = {
@@ -42,17 +49,6 @@ const dateLabel = (text?: string | null) => {
   if (value.length < 8) return text ?? ""
   return `${value.slice(6, 8)}/${value.slice(4, 6)}/${value.slice(0, 4)}`
 }
-const toKey = (row: OffsetVoucher) => `${row.CUSTOMER_ID}:${row.CHIT_ID}`
-const normalize = (rows: OffsetVoucher[], selected: SelectedVoucher[]) => {
-  const byKey = new Map(selected.map(row => [toKey(row), row]))
-  return rows.map(row => ({
-    ...row,
-    ROW_KEY: toKey(row),
-    OFFSET_AMOUNT: byKey.get(toKey(row))?.OFFSET_AMOUNT ?? 0,
-    OFFSET_AMOUNT_FC: byKey.get(toKey(row))?.OFFSET_AMOUNT_FC ?? 0,
-  }))
-}
-const decimals = (num: number) => Math.round(Math.max(0, num) * 100) / 100
 
 // Pair allocation remains internal. The editable amount now lives in the two voucher grids.
 // Never combine different customers, and never allocate more than either selected amount.
@@ -91,6 +87,12 @@ function createPairs(sources: SelectedVoucher[], debts: SelectedVoucher[], kind:
 }
 
 export default function DebtOffsetPage() {
+  const companyCd = getCurrentCompanyCd()
+  const userId = getCurrentUserId()
+  return <DebtOffsetContent key={`${companyCd}:${userId}`} companyCd={companyCd} userId={userId} />
+}
+
+function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: string }) {
   const { translate } = useContext(LanguageContext) as { translate?: (key: string, fallback?: string) => string }
   const t = useCallback((key: string, fallback: string) => translate?.(key, fallback) ?? fallback, [translate])
   const [mainTab, setMainTab] = useState<MainTab>("MATCH")
@@ -104,27 +106,63 @@ export default function DebtOffsetPage() {
   const [customerCodes, setCustomerCodes] = useState<string[]>([])
   // Default to VND on this screen; users can still clear or select other currencies.
   const [currencyCodes, setCurrencyCodes] = useState<string[]>(["VND"])
-  const [busy, setBusy] = useState(false)
-  const [loaded, setLoaded] = useState(false)
-  const [available, setAvailable] = useState<OffsetAvailable>({ SOURCES: [], DEBTS: [] })
-  const [history, setHistory] = useState<OffsetHistory[]>([])
-  const [sources, setSources] = useState<SelectedVoucher[]>([])
-  const [debts, setDebts] = useState<SelectedVoucher[]>([])
-  const [historySelected, setHistorySelected] = useState<OffsetHistory | null>(null)
+  const queryClient = useQueryClient()
+  const [mutating, setMutating] = useState(false)
+  const [preparing, setPreparing] = useState(false)
+  const [searches, setSearches] = useState(() => createOffsetSearches(ymd(toDate)))
+  const [viewStates, setViewStates] = useState(createOffsetViewStates)
+  const [visited, setVisited] = useState<OffsetViewKey[]>(["MATCH:EXECUTE"])
+  const viewKey: OffsetViewKey = `${mainTab}:${subTab}`
+  const queries = useQueries({
+    queries: offsetViewKeys.map(key => ({
+      ...debtOffsetQueryOptions(companyCd, userId, searches[key]),
+      enabled: Boolean(companyCd) && visited.includes(key),
+    })),
+  })
+  const activeQuery = queries[offsetViewKeys.indexOf(viewKey)]
+  const busy = mutating || preparing || activeQuery.isFetching
+  const available = activeQuery.data?.available ?? emptyOffsetAvailable
+  const history = activeQuery.data?.history ?? emptyOffsetHistory
+  const currentSearch = searches[viewKey]
+  const { sources, debts, historySelected, sourcePaging, debtPaging, historyPaging } = viewStates[viewKey]
+
+  const updateView = useCallback((update: (previous: OffsetViewState) => OffsetViewState) => {
+    setViewStates(previous => {
+      const next = update(previous[viewKey])
+      return next === previous[viewKey] ? previous : { ...previous, [viewKey]: next }
+    })
+  }, [viewKey])
+  const setHistorySelected = useCallback((row: OffsetHistory | null) => {
+    updateView(previous => previous.historySelected === row ? previous : { ...previous, historySelected: row })
+  }, [updateView])
+  const lastLoadError = useRef<unknown>(null)
+  const notifyLoadError = useCallback((error: unknown) => {
+    if (lastLoadError.current === error) return
+    lastLoadError.current = error
+    notify(getApiErrorMessage(error, "Không thể tải dữ liệu đối trừ"), "error", 5000)
+  }, [])
+  useEffect(() => {
+    if (activeQuery.error) notifyLoadError(activeQuery.error)
+  }, [activeQuery.error, notifyLoadError])
 
   // The selected account replaces the old "Loại đối trừ" dropdown:
   // 131* => receivables collection, 331* => payables payment.
   const selectedMatchAccount = matchAccountCodes[0]?.trim() ?? ""
   const selectedAccount1 = clearingAccount1Codes[0]?.trim() ?? ""
   const selectedAccount2 = clearingAccount2Codes[0]?.trim() ?? ""
-  const kind: OffsetKind = mainTab === "CLEARING" ? "CLEARING"
+  const filterKind: OffsetKind = mainTab === "CLEARING" ? "CLEARING"
     : selectedMatchAccount.startsWith("131") ? "COLLECT" : "PAYMENT"
   // Saving an allocation needs one currency because the relation tables do not persist FC_TYPE.
-  const activeCurrency = currencyCodes.length === 1 && supportedCurrency(currencyCodes[0])
+  const selectedCurrency = currencyCodes.length === 1 && supportedCurrency(currencyCodes[0])
     ? currencyCodes[0]
     : null
+  // Allocation always uses the filters that produced this view's rows, not draft toolbar values.
+  const kind = currentSearch.filters.kind
+  const appliedCurrencies = currentSearch.currencyCodes
+  const activeCurrency = appliedCurrencies.length === 1 && supportedCurrency(appliedCurrencies[0])
+    ? appliedCurrencies[0] : null
   const currency: OffsetCurrency = activeCurrency ?? "VND"
-  const showForeignCurrency = currencyCodes.length !== 1 || currencyCodes[0] !== "VND"
+  const showForeignCurrency = appliedCurrencies.length !== 1 || appliedCurrencies[0] !== "VND"
 
   // Both lookups use the same stores and code fields as GL / book / ar-summary.
   // The offset stored procedures filter by CUSTOMER_ID, so selected CUSTOMER_CD values
@@ -146,44 +184,46 @@ export default function DebtOffsetPage() {
       customerIds = Array.from(ids).join(",")
     }
     return {
-      kind, fromYmd: fromDateEnabled ? ymd(fromDate) : "", toYmd: ymd(toDate),
-      customerIds, currencyFilter: activeCurrency ? toCurrencyFilter(activeCurrency) : "",
+      kind: filterKind, fromYmd: fromDateEnabled ? ymd(fromDate) : "", toYmd: ymd(toDate),
+      customerIds, currencyFilter: selectedCurrency ? toCurrencyFilter(selectedCurrency) : "",
       accCd: mainTab === "MATCH" ? selectedMatchAccount : "",
       accCd1: mainTab === "CLEARING" ? selectedAccount1 : "",
       accCd2: mainTab === "CLEARING" ? selectedAccount2 : "",
     }
-  }, [kind, mainTab, selectedMatchAccount, selectedAccount1, selectedAccount2,
-      fromDateEnabled, fromDate, toDate, customerCodes, activeCurrency])
+  }, [filterKind, mainTab, selectedMatchAccount, selectedAccount1, selectedAccount2,
+      fromDateEnabled, fromDate, toDate, customerCodes, selectedCurrency])
 
-  const reset = () => {
-    setLoaded(false)
-    setSources([])
-    setDebts([])
-    setHistorySelected(null)
-    setAvailable({ SOURCES: [], DEBTS: [] })
-    setHistory([])
+  const visitView = (tab: MainTab, panel: Panel) => {
+    const key: OffsetViewKey = `${tab}:${panel}`
+    if (mutating || preparing || key === viewKey) return
+    if (!visited.includes(key)) {
+      const sibling: OffsetViewKey = `${tab}:${panel === "EXECUTE" ? "HISTORY" : "EXECUTE"}`
+      const hasSibling = visited.includes(sibling)
+      const base = hasSibling ? searches[sibling] : currentSearch
+      const currencies = panel === "EXECUTE" && base.currencyCodes.length !== 1 ? ["VND"] : [...base.currencyCodes]
+      const nextFilters = hasSibling ? { ...base.filters } : {
+        ...base.filters, kind: searches[key].filters.kind, accCd: "", accCd1: "", accCd2: "",
+      }
+      nextFilters.currencyFilter = currencies.length === 1 ? toCurrencyFilter(currencies[0]) : ""
+      setSearches(previous => ({ ...previous, [key]: { panel, filters: nextFilters, currencyCodes: currencies } }))
+    }
+    setVisited(previous => previous.includes(key) ? previous : [...previous, key])
+    setMainTab(tab)
+    setSubTab(panel)
   }
-  const switchMain = (tab: MainTab) => { if (tab !== mainTab) { setMainTab(tab); reset() } }
-  const switchSub = (tab: Panel) => { if (tab !== subTab) { setSubTab(tab); reset() } }
+  const switchMain = (tab: MainTab) => visitView(tab, subTab)
+  const switchSub = (tab: Panel) => visitView(mainTab, tab)
 
-  const fetchHistoryForCurrencies = useCallback(async (params: OffsetFilters): Promise<OffsetHistory[]> => {
-    // No selection = all currencies. Multiple selections = a query for each supported
-    // currency, since the existing stored procedure accepts only one code per CALL.
-    if (currencyCodes.length <= 1) return loadOffsetHistory(params)
-    const groups = await Promise.all(currencyCodes.map(currencyCode =>
-      loadOffsetHistory({ ...params, currencyFilter: toCurrencyFilter(currencyCode) })
-    ))
-    const seen = new Set<string>()
-    return groups.flat().filter(row => {
-      const recordId = kind === "COLLECT" ? row.CHITCOLLECT_ID : row.CHITPAYMENT_ID
-      // Never collapse separate allocations just because voucher/customer/amount match.
-      if (recordId == null || recordId <= 0) return true
-      const key = String(recordId)
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
-  }, [currencyCodes, kind])
+  const updatePaging = useCallback((side: "source" | "debt" | "history", paging: OffsetPaging) => {
+    const field = side === "source" ? "sourcePaging" : side === "debt" ? "debtPaging" : "historyPaging"
+    updateView(previous => previous[field].pageIndex === paging.pageIndex && previous[field].pageSize === paging.pageSize
+      ? previous : { ...previous, [field]: paging })
+  }, [updateView])
+
+  const refreshAfterMutation = async () => {
+    setViewStates(createOffsetViewStates())
+    await queryClient.invalidateQueries({ queryKey: queryKeys.transaction.debtOffsetRoot(companyCd, userId) })
+  }
 
   const refresh = async () => {
     if (mainTab === "MATCH" && selectedMatchAccount &&
@@ -208,59 +248,53 @@ export default function DebtOffsetPage() {
       notify(`Loại tiền chưa hỗ trợ trong đối trừ/bù trừ: ${unsupported.join(", ")}`, "warning", 4000)
       return
     }
-    if (subTab === "EXECUTE" && !activeCurrency) {
+    if (subTab === "EXECUTE" && !selectedCurrency) {
       notify("Chọn đúng một loại tiền để thực hiện đối trừ/bù trừ", "warning", 4000)
       return
     }
-    setBusy(true)
-    reset()
+    setPreparing(true)
     try {
-      const params = await filters()
-      if (subTab === "HISTORY") setHistory(await fetchHistoryForCurrencies(params))
-      else setAvailable(await loadOffsetAvailable(params))
-      setLoaded(true)
+      const nextSearch = { panel: subTab, filters: await filters(), currencyCodes: [...currencyCodes] }
+      setSearches(previous => ({ ...previous, [viewKey]: nextSearch }))
+      setViewStates(previous => ({ ...previous, [viewKey]: createOffsetViewState() }))
+      // An explicit Search always refreshes, including when these exact filters are cached.
+      await queryClient.fetchQuery({ ...debtOffsetQueryOptions(companyCd, userId, nextSearch), staleTime: 0 })
     } catch (error) {
-      notify(getApiErrorMessage(error, "Không thể tải dữ liệu đối trừ"), "error", 5000)
+      notifyLoadError(error)
     } finally {
-      setBusy(false)
+      setPreparing(false)
     }
   }
 
-  const pairs = useMemo(() => createPairs(sources, debts, kind, currency), [sources, debts, kind, currency])
-  const plannedAmount = useMemo(() => pairs.reduce((sum, pair) => sum + pair.amount, 0), [pairs])
-  const plannedFc = useMemo(() => pairs.reduce((sum, pair) => sum + pair.amountFc, 0), [pairs])
+  const canSave = useMemo(() => hasOffsetPairs(sources, debts, currency), [sources, debts, currency])
 
   // A newly checked row defaults to its entire outstanding balance. Existing manual
   // edits survive checking/unchecking other rows. Unchecking clears that row's amount.
-  const updateSelection = (side: "source" | "debt", selectedRows: OffsetVoucher[]) => {
-    const setter = side === "source" ? setSources : setDebts
-    setter(previous => {
-      const existing = new Map(previous.map(row => [toKey(row), row]))
-      if (previous.length === selectedRows.length &&
-          selectedRows.every(row => existing.has(toKey(row)))) return previous
-      return selectedRows.map(row => existing.get(toKey(row)) ?? ({
-        ...row,
-        OFFSET_AMOUNT: decimals(Number(row.REMAINAMOUNT) || 0),
-        OFFSET_AMOUNT_FC: currency === "VND" ? 0 : decimals(Number(row.REMAINAMOUNT_FC) || 0),
-      }))
+  const updateSelection = useCallback((side: "source" | "debt", selectedRows: OffsetVoucher[]) => {
+    const field = side === "source" ? "sources" : "debts"
+    updateView(previous => {
+      const selected = selectVouchers(previous[field], selectedRows, currency)
+      return selected === previous[field] ? previous : { ...previous, [field]: selected }
     })
-  }
+  }, [currency, updateView])
 
-  const updateAmount = (side: "source" | "debt", row: OffsetVoucher,
+  const updateAmount = useCallback((side: "source" | "debt", row: OffsetVoucher,
                         field: "OFFSET_AMOUNT" | "OFFSET_AMOUNT_FC", value: number) => {
-    const setter = side === "source" ? setSources : setDebts
+    const sideField = side === "source" ? "sources" : "debts"
     const maximum = decimals(Number(field === "OFFSET_AMOUNT" ? row.REMAINAMOUNT : row.REMAINAMOUNT_FC) || 0)
     const nextAmount = Number.isFinite(value) ? decimals(Math.min(Math.max(value, 0), maximum)) : 0
-    setter(previous => {
-      const current = previous.find(item => toKey(item) === toKey(row))
+    updateView(previous => {
+      const current = previous[sideField].find(item => toKey(item) === toKey(row))
       if (!current || current[field] === nextAmount) return previous
-      return previous.map(item => toKey(item) === toKey(row)
-        ? { ...item, [field]: nextAmount } : item)
+      return { ...previous, [sideField]: previous[sideField].map(item => toKey(item) === toKey(row)
+        ? { ...item, [field]: nextAmount } : item) }
     })
-  }
+  }, [updateView])
 
   const save = async () => {
-    if (!activeCurrency || !pairs.length) return
+    if (!activeCurrency) return
+    const pairs = createPairs(sources, debts, kind, currency)
+    if (!pairs.length) return
     const sourceBalances = new Map(sources.map(row => [toKey(row), row]))
     const debtBalances = new Map(debts.map(row => [toKey(row), row]))
     const sourceSums = new Map<string, { amount: number; fc: number }>()
@@ -290,7 +324,7 @@ export default function DebtOffsetPage() {
       }
     }
     if (!window.confirm(`Lưu ${pairs.length} cặp ${kind === "CLEARING" ? "bù trừ" : "đối trừ"}?`)) return
-    setBusy(true)
+    setMutating(true)
     let success = 0
     try {
       // Each API request handles ONE pair. Clearing mirrors are atomic in the SQL procedure.
@@ -302,8 +336,11 @@ export default function DebtOffsetPage() {
     } catch (error) {
       notify(`Đã lưu ${success}/${pairs.length} cặp. ${getApiErrorMessage(error, "Lưu thất bại")}`, "error", 7000)
     } finally {
-      setBusy(false)
-      await refresh()
+      try {
+        await refreshAfterMutation()
+      } finally {
+        setMutating(false)
+      }
     }
   }
 
@@ -317,39 +354,22 @@ export default function DebtOffsetPage() {
       return
     }
     if (!window.confirm("Bỏ đối trừ/bù trừ của quan hệ đã chọn?")) return
-    setBusy(true)
+    setMutating(true)
     try {
       await deleteOffsetPair(kind, recordId)
       notify("Đã hoàn tác thành công", "success", 3000)
-      setHistorySelected(null)
-      setHistory(await fetchHistoryForCurrencies(await filters()))
+      await refreshAfterMutation()
     } catch (error) {
       notify(getApiErrorMessage(error, "Hoàn tác thất bại"), "error", 5000)
     } finally {
-      setBusy(false)
+      setMutating(false)
     }
   }
 
-  const sourceRows = useMemo(() => normalize(available.SOURCES, sources), [available.SOURCES, sources])
-  const debtRows = useMemo(() => normalize(available.DEBTS, debts), [available.DEBTS, debts])
-
   const grid = (rows: OffsetVoucher[], side: "source" | "debt", title: string) => {
     const chosen = side === "source" ? sources : debts
-    const chosenKeys = new Set(chosen.map(toKey))
-    const numberCell = (field: "OFFSET_AMOUNT" | "OFFSET_AMOUNT_FC") => (cell: { data: OffsetVoucher }) => {
-      const row = cell.data as SelectedVoucher
-      return (
-        <NumberBox
-          width="100%" min={0}
-          max={Math.max(0, Number(field === "OFFSET_AMOUNT" ? row.REMAINAMOUNT : row.REMAINAMOUNT_FC) || 0)}
-          value={row[field]} format={formatMoney} showSpinButtons={false}
-          disabled={busy || !chosenKeys.has(toKey(row))}
-          onValueChanged={event => updateAmount(side, row, field, Number(event.value ?? 0))}
-        />
-      )
-    }
     return (
-      <div className="min-h-0 flex-1 overflow-hidden rounded border border-gray-200 bg-white">
+      <div className="flex shrink-0 flex-col overflow-hidden rounded border border-gray-200 bg-white">
         <div className="flex min-h-[40px] items-center justify-between gap-3 border-b bg-gray-50 px-3 py-1.5 text-sm font-semibold">
           <span>{title}</span>
           <div className="flex shrink-0 items-center justify-end gap-3">
@@ -358,50 +378,21 @@ export default function DebtOffsetPage() {
             </span>
             {side === "source" && (
               <Button text={t("SAVE", mainTab === "CLEARING" ? "Lưu bù trừ" : "Lưu đối trừ")}
-                type="success" icon="save" disabled={busy || !pairs.length} onClick={() => void save()} />
+                type="success" icon="save" disabled={busy || !activeCurrency || !canSave} onClick={() => void save()} />
             )}
           </div>
         </div>
-        <DataGrid
-          dataSource={rows} keyExpr="ROW_KEY" height={310} showBorders rowAlternationEnabled
-          showColumnLines allowColumnResizing columnAutoWidth={false}
-          selectedRowKeys={chosen.map(toKey)}
-          onSelectionChanged={event => updateSelection(side, event.selectedRowsData as OffsetVoucher[])}
-          noDataText={t("NO_DATA", "Không có dữ liệu")}
-        >
-          <Scrolling mode="standard" showScrollbar="always" />
-          <Selection mode="multiple" showCheckBoxesMode="always" selectByClick={false} />
-          <Column dataField="CUSTOMER_NM_VIET" caption={t("CUSTOMER", "Đối tượng")} width={180} />
-          <Column dataField="CHIT_NO" caption={t("CHIT_NO", "Số chứng từ")} width={125}
-            calculateDisplayValue={(row: OffsetVoucher) => row.CHIT_ID < 0 ? "Số dư đầu kỳ" : row.CHIT_NO ?? ""} />
-          <Column dataField="CHIT_YMD" caption={t("DATE", "Ngày")} width={110}
-            customizeText={e => dateLabel(String(e.value ?? ""))} />
-          <Column dataField="DESCRIPTION_VIET" caption={t("DESCRIPTION", "Diễn giải")} minWidth={210} />
-          <Column dataField="AMOUNT" caption={t("AMOUNT", "Số tiền")} width={150}
-            alignment="right" format={formatMoney} />
-          <Column dataField="REMAINAMOUNT" caption={t("REMAINAMOUNT", "Số tiền chưa đối trừ")} width={165}
-            alignment="right" format={formatMoney} />
-          <Column dataField="OFFSET_AMOUNT" caption={t("OFFSET_AMOUNT", "Số tiền đối trừ")} width={175}
-            alignment="right" cellRender={numberCell("OFFSET_AMOUNT")} />
-          <Column dataField="FC_AMOUNT" caption={t("AMOUNT_FC", "Số tiền ngoại tệ")} width={145}
-            alignment="right" format={formatMoney} visible={showForeignCurrency} />
-          <Column dataField="REMAINAMOUNT_FC" caption={t("REMAINAMOUNT_FC", "Chưa đối trừ NT")} width={155}
-            alignment="right" format={formatMoney} visible={showForeignCurrency} />
-          <Column dataField="OFFSET_AMOUNT_FC" caption={t("OFFSET_AMOUNT_FC", "Đối trừ NT")} width={155}
-            alignment="right" visible={showForeignCurrency} cellRender={numberCell("OFFSET_AMOUNT_FC")} />
-          <Summary>
-            <TotalItem column="AMOUNT" summaryType="sum" valueFormat={formatMoney} />
-            <TotalItem column="REMAINAMOUNT" summaryType="sum" valueFormat={formatMoney} />
-            <TotalItem column="OFFSET_AMOUNT" summaryType="sum" valueFormat={formatMoney} />
-            {currency !== "VND" && <TotalItem column="OFFSET_AMOUNT_FC" summaryType="sum" valueFormat={formatMoney} />}
-          </Summary>
-        </DataGrid>
+        <DebtOffsetVoucherGrid key={`${viewKey}:${side}`} rows={rows} selected={chosen} side={side} busy={busy}
+          showForeignCurrency={showForeignCurrency} onSelectionChange={updateSelection}
+          onAmountChange={updateAmount} paging={side === "source" ? sourcePaging : debtPaging}
+          onPagingChange={updatePaging} t={t} />
       </div>
     )
   }
 
   return (
     <DxPage>
+      <LoadPanel visible={busy} showIndicator showPane shading shadingColor="rgba(0, 0, 0, 0.15)" />
       <div className={`flex h-full min-h-0 min-w-0 w-full flex-col gap-2 bg-gray-50 px-3 pb-3 pt-0 ${subTab === "HISTORY" ? "overflow-hidden" : "overflow-auto"}`}>
         <div className="flex-shrink-0">
           <ReportToolbar
@@ -468,12 +459,8 @@ export default function DebtOffsetPage() {
         </div>
         {subTab === "EXECUTE" ? (
           <>
-            {/* <div className="rounded border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-800">
-              Sẽ ghi nhận: {plannedAmount.toLocaleString("vi-VN", { maximumFractionDigits: 2 })} VND
-              {currency !== "VND" ? ` / ${plannedFc.toLocaleString("vi-VN", { maximumFractionDigits: 2 })} ${currency}` : ""}
-            </div> */}
-            {grid(sourceRows, "source", mainTab === "CLEARING" ? "Phải thu 131" : "Chứng từ thanh toán / thu")}
-            {grid(debtRows, "debt", mainTab === "CLEARING" ? "Công nợ: Phải trả 331" : "Công nợ cần đối trừ")}
+            {grid(available.SOURCES, "source", mainTab === "CLEARING" ? "Phải thu 131" : "Chứng từ thanh toán / thu")}
+            {grid(available.DEBTS, "debt", mainTab === "CLEARING" ? "Công nợ: Phải trả 331" : "Công nợ cần đối trừ")}
           </>
         ) : (
           <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded border border-gray-200 bg-white">
@@ -486,7 +473,8 @@ export default function DebtOffsetPage() {
                 disabled={busy || !historySelected} onClick={() => void undo()} />
             </div>
             <div className="min-h-0 min-w-0 w-full flex-1 overflow-hidden">
-              <DataGrid dataSource={history} height="100%" width="100%" showBorders rowAlternationEnabled
+              <DataGrid key={viewKey} dataSource={history} height="100%" width="100%" showBorders rowAlternationEnabled
+              loadPanel={{ enabled: false }}
               allowColumnResizing columnResizingMode="widget" columnAutoWidth={false} columnMinWidth={110}
               keyExpr={kind === "COLLECT" ? "CHITCOLLECT_ID" : "CHITPAYMENT_ID"}
               selectedRowKeys={historySelected ? [kind === "COLLECT" ? historySelected.CHITCOLLECT_ID : historySelected.CHITPAYMENT_ID] : []}
@@ -494,6 +482,11 @@ export default function DebtOffsetPage() {
               noDataText={t("NO_DATA", "Không có dữ liệu")}
               >
               <Scrolling mode="standard" showScrollbar="always" />
+              <Paging enabled pageIndex={historyPaging.pageIndex} pageSize={historyPaging.pageSize}
+                onPageIndexChange={pageIndex => updatePaging("history", { ...historyPaging, pageIndex })}
+                onPageSizeChange={pageSize => updatePaging("history", { pageIndex: 0, pageSize })} />
+              <Pager visible showPageSizeSelector allowedPageSizes={[20, 50, 100]}
+                showInfo showNavigationButtons infoText={t("PAGE_TEXT", "Page {0} / {1} ({2} rows)")} />
               <Selection mode="single" selectByClick showCheckBoxesMode="always" />
               <Column dataField="CUSTOMER_NM_VIET" caption="Đối tượng" minWidth={200} />
               <Column dataField="CHIT_NO_PAY" caption="Chứng từ nguồn" minWidth={150}

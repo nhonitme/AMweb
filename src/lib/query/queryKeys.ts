@@ -90,6 +90,10 @@ export const queryKeys = {
 
   transaction: {
     all: ["transaction"] as const,
+    debtOffsetRoot: (companyCd: string, userId: string) =>
+      [...queryKeys.transaction.all, "debt-offset", companyCd, userId] as const,
+    debtOffset: (companyCd: string, userId: string, panel: string, filtersKey: string, currenciesKey: string) =>
+      [...queryKeys.transaction.debtOffsetRoot(companyCd, userId), panel, filtersKey, currenciesKey] as const,
     chitsRoot: (companyCd: string) => [...queryKeys.transaction.all, "chits", companyCd] as const,
     chits: (
       companyCd: string,
