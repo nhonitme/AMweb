@@ -6,6 +6,7 @@ import { EtcType } from "@/api/systemApi"
 import Button from "devextreme-react/button"
 import LoadPanel from "devextreme-react/load-panel"
 import notify from "devextreme/ui/notify"
+import { confirm } from "devextreme/ui/dialog"
 import DxPage from "@/dx/DxPage"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { customerLookupStore } from "@/components/lookup/customerLookupStore"
@@ -323,7 +324,11 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
         }
       }
     }
-    if (!window.confirm(`Lưu ${pairs.length} cặp ${kind === "CLEARING" ? "bù trừ" : "đối trừ"}?`)) return
+    const confirmed = await confirm(
+      `Lưu ${pairs.length} cặp ${kind === "CLEARING" ? "bù trừ" : "đối trừ"}?`,
+      t("CONFIRM", "Xác nhận"),
+    )
+    if (!confirmed) return
     setMutating(true)
     let success = 0
     try {
@@ -353,7 +358,11 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
       notify("Không xác định được ID quan hệ cần hoàn tác", "warning", 4000)
       return
     }
-    if (!window.confirm("Bỏ đối trừ/bù trừ của quan hệ đã chọn?")) return
+    const confirmed = await confirm(
+      "Bỏ đối trừ/bù trừ của quan hệ đã chọn?",
+      t("CONFIRM", "Xác nhận"),
+    )
+    if (!confirmed) return
     setMutating(true)
     try {
       await deleteOffsetPair(kind, recordId)
