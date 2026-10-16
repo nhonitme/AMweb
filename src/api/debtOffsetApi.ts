@@ -18,6 +18,7 @@ export type OffsetFilters = {
 }
 export type OffsetVoucher = {
   CUSTOMER_ID: number
+  CUSTOMER_CD?: string
   CUSTOMER_NM_VIET?: string
   CUSTOMER_NM_ENG?: string
   CHIT_ID: number
@@ -35,6 +36,7 @@ export type OffsetVoucher = {
 export type OffsetAvailable = { SOURCES: OffsetVoucher[]; DEBTS: OffsetVoucher[] }
 export type OffsetHistory = {
   CUSTOMER_ID: number
+  CUSTOMER_CD?: string
   CUSTOMER_NM_VIET?: string
   CHITPAYMENT_ID?: number
   CHITCOLLECT_ID?: number
@@ -44,6 +46,7 @@ export type OffsetHistory = {
   CHIT_NO_DEBT?: string
   CHIT_YMD_PAY?: string
   CHIT_YMD_DEBT?: string
+  DESCRIPTION_VIET_PAY?: string
   PAYAMOUNT: number
   PAYAMOUNT_FC: number
 }

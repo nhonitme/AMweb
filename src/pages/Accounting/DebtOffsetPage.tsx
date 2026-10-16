@@ -488,11 +488,13 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
               <Pager visible showPageSizeSelector allowedPageSizes={[20, 50, 100]}
                 showInfo showNavigationButtons infoText={t("PAGE_TEXT", "Page {0} / {1} ({2} rows)")} />
               <Selection mode="single" selectByClick showCheckBoxesMode="always" />
+              <Column dataField="CUSTOMER_CD" caption={t("CUSTOMER_CODE", "Mã khách hàng")} width={125} />
               <Column dataField="CUSTOMER_NM_VIET" caption="Đối tượng" minWidth={200} />
               <Column dataField="CHIT_NO_PAY" caption="Chứng từ nguồn" minWidth={150}
                 calculateDisplayValue={(row: OffsetHistory) => row.CHIT_ID_PAY < 0 ? "Số dư đầu kỳ" : row.CHIT_NO_PAY ?? ""} />
               <Column dataField="CHIT_YMD_PAY" caption="Ngày nguồn" minWidth={120}
                 customizeText={e => dateLabel(String(e.value ?? ""))} />
+              <Column dataField="DESCRIPTION_VIET_PAY" caption={t("DESCRIPTION_1", "Mô tả 1")} minWidth={220} />
               <Column dataField="CHIT_NO_DEBT" caption="Chứng từ công nợ" minWidth={170}
                 calculateDisplayValue={(row: OffsetHistory) => row.CHIT_ID_DEBT < 0 ? "Số dư đầu kỳ" : row.CHIT_NO_DEBT ?? ""} />
               <Column dataField="CHIT_YMD_DEBT" caption="Ngày công nợ" minWidth={120}
