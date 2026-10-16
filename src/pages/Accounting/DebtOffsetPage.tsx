@@ -475,7 +475,7 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
                 disabled={busy || !historySelected} onClick={() => void undo()} />
             </div>
             <div className="min-h-0 min-w-0 w-full flex-1 overflow-hidden">
-              <DataGrid key={viewKey} dataSource={history} height="100%" width="100%" showBorders rowAlternationEnabled
+              <DataGrid className="debt-offset-history-grid" key={viewKey} dataSource={history} height="100%" width="100%" showBorders rowAlternationEnabled
               loadPanel={{ enabled: false }}
               allowColumnResizing columnResizingMode="widget" columnAutoWidth={false} columnMinWidth={110}
               keyExpr={kind === "COLLECT" ? "CHITCOLLECT_ID" : "CHITPAYMENT_ID"}
@@ -504,7 +504,12 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
               <Column dataField="DESCRIPTION_VIET_DEBT" caption={t("DESCRIPTION", "Mô tả")} minWidth={220} />
               <Column dataField="PAYAMOUNT" caption="Tiền VND" minWidth={150} alignment="right" format={formatMoney} />
               <Column dataField="PAYAMOUNT_FC" caption="Tiền ngoại tệ" minWidth={150} alignment="right" format={formatMoney} visible={showForeignCurrency} />
-              <Summary><TotalItem column="PAYAMOUNT" summaryType="sum" valueFormat={formatMoney} /></Summary>
+              <Summary>
+                <TotalItem column="CHIT_ID_PAY" summaryType="count" showInColumn="DESCRIPTION_VIET_DEBT"
+                  alignment="right" customizeText={() => t("ALL_TOTAL", "Tổng cộng")} />
+                <TotalItem column="PAYAMOUNT" summaryType="sum" valueFormat={formatMoney}
+                  displayFormat="{0}" alignment="right" />
+              </Summary>
               </DataGrid>
             </div>
           </div>
