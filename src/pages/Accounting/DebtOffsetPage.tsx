@@ -98,8 +98,13 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
   const { translate } = useContext(LanguageContext) as { translate?: (key: string, fallback?: string) => string }
   const t = useCallback((key: string, fallback: string) => translate?.(key, fallback) ?? fallback, [translate])
   const format = useCallback((key: string, fallback: string, ...args: string[]) => {
-    return args.reduce((value, arg, index) => value.replace(`{${index}}`, arg), t(key, fallback));
-  }, [t]);
+    const translated = t(key, fallback)
+    // Legacy translations may contain only the label, without the {0}/{1} placeholders.
+    // Use the complete fallback template so the selected/total counts never disappear.
+    const template = args.every((_, index) => translated.includes(`{${index}}`))
+      ? translated : fallback
+    return args.reduce((value, arg, index) => value.replace(`{${index}}`, arg), template)
+  }, [t])
   const [mainTab, setMainTab] = useState<MainTab>("MATCH")
   const [subTab, setSubTab] = useState<Panel>("EXECUTE")
   const [matchAccountCodes, setMatchAccountCodes] = useState<string[]>([])
@@ -424,7 +429,7 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
           <span>{title}</span>
           <div className="flex shrink-0 items-center justify-end gap-3">
             <span className="font-normal text-gray-500">              
-              {format(t("SELECTED_VOUCHER_COUNT", "Đã chọn"), String(chosen.length), String(rows.length))}
+              {format("SELECTED_VOUCHER_COUNT", "Đã chọn {0} / {1} chứng từ", String(chosen.length), String(rows.length))}
             </span>
             {side === "source" && (
               <Button text={t("SAVE", mainTab === "CLEARING" ?  t("SAVE_CLEARED", "Lưu bù trừ") : t("SAVE_OFFSET", "Lưu đối trừ"))}
