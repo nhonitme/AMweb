@@ -102,7 +102,7 @@ export default memo(function DebtOffsetVoucherGrid({
 
   return (
     <AmountContext.Provider value={context}>
-      <DataGrid dataSource={dataSource} keyExpr="ROW_KEY" height={310} showBorders rowAlternationEnabled
+      <DataGrid dataSource={dataSource} keyExpr="ROW_KEY" height="100%" width="100%" showBorders rowAlternationEnabled
         repaintChangesOnly loadPanel={loadPanel} showColumnLines allowColumnResizing columnAutoWidth={false}
         selectedRowKeys={selectedKeys} onSelectionChanged={handleSelection} noDataText={t("NO_DATA", "Không có dữ liệu")}>
         <Scrolling mode="standard" showScrollbar="always" />
