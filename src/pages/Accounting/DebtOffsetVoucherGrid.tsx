@@ -111,6 +111,7 @@ export default memo(function DebtOffsetVoucherGrid({
         <Pager visible showPageSizeSelector allowedPageSizes={pageSizes}
           showInfo showNavigationButtons infoText={t("PAGE_TEXT", "Page {0} / {1} ({2} rows)")} />
         <Selection mode="multiple" showCheckBoxesMode="always" selectByClick={false} />
+        <Column dataField="CUSTOMER_CD" caption={t("CUSTOMER_CODE", "Mã khách hàng")} width={125} />
         <Column dataField="CUSTOMER_NM_VIET" caption={t("CUSTOMER", "Đối tượng")} width={180} />
         <Column dataField="CHIT_NO" caption={t("CHIT_NO", "Số chứng từ")} width={125} calculateDisplayValue={voucherLabel} />
         <Column dataField="CHIT_YMD" caption={t("DATE", "Ngày")} width={110} customizeText={dateText} />
