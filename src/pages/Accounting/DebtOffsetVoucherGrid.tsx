@@ -6,6 +6,7 @@ import ArrayStore from "devextreme/data/array_store"
 import type { OffsetVoucher } from "@/api/debtOffsetApi"
 import { getSelectionChanges, toKey, type OffsetAmountField, type OffsetSide, type SelectedVoucher } from "./debtOffsetSelection"
 import type { OffsetPaging } from "./debtOffsetViewState"
+import "./DebtOffsetSummary.css"
 
 const formatMoney = "#,##0.##"
 const pageSizes = [20, 50, 100]
@@ -102,7 +103,7 @@ export default memo(function DebtOffsetVoucherGrid({
 
   return (
     <AmountContext.Provider value={context}>
-      <DataGrid dataSource={dataSource} keyExpr="ROW_KEY" height="100%" width="100%" showBorders rowAlternationEnabled
+      <DataGrid className="debt-offset-voucher-grid" dataSource={dataSource} keyExpr="ROW_KEY" height="100%" width="100%" showBorders rowAlternationEnabled
         repaintChangesOnly loadPanel={loadPanel} showColumnLines allowColumnResizing columnAutoWidth={false}
         selectedRowKeys={selectedKeys} onSelectionChanged={handleSelection} noDataText={t("NO_DATA", "Không có dữ liệu")}>
         <Scrolling mode="standard" showScrollbar="always" />
@@ -123,10 +124,16 @@ export default memo(function DebtOffsetVoucherGrid({
         <Column dataField="REMAINAMOUNT_FC" caption={t("REMAINAMOUNT_FC", "Chưa đối trừ NT")} width={155} alignment="right" format={formatMoney} visible={showForeignCurrency} />
         <Column dataField="OFFSET_AMOUNT_FC" caption={t("OFFSET_AMOUNT_FC", "Đối trừ NT")} width={155} alignment="right" visible={showForeignCurrency} cellRender={foreignAmountCell} />
         <Summary>
-          <TotalItem column="AMOUNT" summaryType="sum" valueFormat={formatMoney} />
-          <TotalItem column="REMAINAMOUNT" summaryType="sum" valueFormat={formatMoney} />
-          <TotalItem column="OFFSET_AMOUNT" summaryType="sum" valueFormat={formatMoney} />
-          {showForeignCurrency && <TotalItem column="OFFSET_AMOUNT_FC" summaryType="sum" valueFormat={formatMoney} />}
+          <TotalItem column="CHIT_ID" summaryType="count" showInColumn="DESCRIPTION_VIET"
+            alignment="right" customizeText={() => t("ALL_TOTAL", "Tổng cộng")} />
+          <TotalItem column="AMOUNT" summaryType="sum" valueFormat={formatMoney}
+            displayFormat="{0}" alignment="right" />
+          <TotalItem column="REMAINAMOUNT" summaryType="sum" valueFormat={formatMoney}
+            displayFormat="{0}" alignment="right" />
+          <TotalItem column="OFFSET_AMOUNT" summaryType="sum" valueFormat={formatMoney}
+            displayFormat="{0}" alignment="right" />
+          {showForeignCurrency && <TotalItem column="OFFSET_AMOUNT_FC" summaryType="sum" valueFormat={formatMoney}
+            displayFormat="{0}" alignment="right" />}
         </Summary>
       </DataGrid>
     </AmountContext.Provider>
