@@ -377,7 +377,7 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
               Đã chọn {chosen.length} / {rows.length} chứng từ
             </span>
             {side === "source" && (
-              <Button text={t("SAVE", mainTab === "CLEARING" ? "Lưu bù trừ" : "Lưu đối trừ")}
+              <Button text={t("SAVE", mainTab === "CLEARING" ?  t("SAVE_CLEARED", "Lưu bù trừ") : t("SAVE_OFFSET", "Lưu đối trừ"))}
                 type="success" icon="save" disabled={busy || !activeCurrency || !canSave} onClick={() => void save()} />
             )}
           </div>
@@ -443,7 +443,7 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
                   {(["EXECUTE", "HISTORY"] as Panel[]).map(tab => (
                     <button type="button" key={tab} onClick={() => switchSub(tab)}
                       className={`whitespace-nowrap rounded px-3 py-1.5 ${subTab === tab ? "bg-slate-700 text-white" : "bg-gray-100 text-gray-700"}`}>
-                      {tab === "EXECUTE" ? t("EXECUTE", "Thực hiện") : (mainTab === "CLEARING" ? t("btnDebtCleaning", "Bỏ đối trừ") : t("btnClearingDebt", "Bỏ bù trừ"))}
+                      {tab === "EXECUTE" ? t("EXECUTE", "Thực hiện") : (mainTab === "CLEARING" ? t("btnClearingDebt", "Bỏ đối trừ") : t("btnDebtCleaning", "Bỏ bù trừ"))}
                     </button>
                   ))}
                 </div>
@@ -468,7 +468,7 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
           <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded border border-gray-200 bg-white">
             <div className="flex shrink-0 items-center justify-between border-b bg-gray-50 px-3 py-2">
               <span className="text-sm font-semibold">
-                {mainTab === "CLEARING" ? "Lịch sử bù trừ" : "Lịch sử đối trừ"}
+                {mainTab === "CLEARING" ? t("OFFSET_HISTORY", "Lịch sử bù trừ") : t("Clearing_HISTORY", "Lịch sử đối trừ")}
                 {/* <span className="ml-2 font-normal text-gray-500">({history.length} quan hệ)</span> */}
               </span>
               <Button text={t("UNDO", "Bỏ đối trừ")} type="danger" icon="revert"
@@ -491,19 +491,19 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
                 showInfo showNavigationButtons infoText={t("PAGE_TEXT", "Page {0} / {1} ({2} rows)")} />
               <Selection mode="single" selectByClick showCheckBoxesMode="always" />
               <Column dataField="CUSTOMER_CD" caption={t("CUSTOMER_CODE", "Mã khách hàng")} width={125} />
-              <Column dataField="CUSTOMER_NM_VIET" caption="Đối tượng" minWidth={200} />
-              <Column dataField="CHIT_NO_PAY" caption="Chứng từ nguồn" minWidth={150}
+              <Column dataField="CUSTOMER_NM_VIET" caption={t("CUSTOMER_NM", "Đối tượng")} minWidth={200} />
+              <Column dataField="CHIT_NO_PAY" caption={t("CHIT_NO_PAY", "Chứng từ nguồn")} minWidth={150}
                 calculateDisplayValue={(row: OffsetHistory) => row.CHIT_ID_PAY < 0 ? "Số dư đầu kỳ" : row.CHIT_NO_PAY ?? ""} />
-              <Column dataField="CHIT_YMD_PAY" caption="Ngày nguồn" minWidth={120}
+              <Column dataField="CHIT_YMD_PAY" caption={t("CHIT_YMD_PAY", "Ngày nguồn")} minWidth={120}
                 customizeText={e => dateLabel(String(e.value ?? ""))} />
-              <Column dataField="DESCRIPTION_VIET_PAY" caption={t("DESCRIPTION_1", "Mô tả 1")} minWidth={220} />
-              <Column dataField="CHIT_NO_DEBT" caption="Chứng từ công nợ" minWidth={170}
+              <Column dataField="DESCRIPTION_VIET_PAY" caption={t("DESCRIPTION", "Mô tả 1")} minWidth={220} />
+              <Column dataField="CHIT_NO_DEBT" caption={t("CHIT_NO_DEBT", "Chứng từ công nợ")} minWidth={170}
                 calculateDisplayValue={(row: OffsetHistory) => row.CHIT_ID_DEBT < 0 ? "Số dư đầu kỳ" : row.CHIT_NO_DEBT ?? ""} />
-              <Column dataField="CHIT_YMD_DEBT" caption="Ngày công nợ" minWidth={120}
+              <Column dataField="CHIT_YMD_DEBT" caption={t("CHIT_YMD_DEBT", "Ngày công nợ")} minWidth={120}
                 customizeText={e => dateLabel(String(e.value ?? ""))} />
               <Column dataField="DESCRIPTION_VIET_DEBT" caption={t("DESCRIPTION", "Mô tả")} minWidth={220} />
-              <Column dataField="PAYAMOUNT" caption="Tiền VND" minWidth={150} alignment="right" format={formatMoney} />
-              <Column dataField="PAYAMOUNT_FC" caption="Tiền ngoại tệ" minWidth={150} alignment="right" format={formatMoney} visible={showForeignCurrency} />
+              <Column dataField="PAYAMOUNT" caption={t("PAYAMOUNT", "Tiền VND")} minWidth={150} alignment="right" format={formatMoney} />
+              <Column dataField="PAYAMOUNT_FC" caption={t("PAYAMOUNT_FC", "Tiền ngoại tệ")} minWidth={150} alignment="right" format={formatMoney} visible={showForeignCurrency} />
               <Summary>
                 <TotalItem column="CHIT_ID_PAY" summaryType="count" showInColumn="DESCRIPTION_VIET_DEBT"
                   alignment="right" customizeText={() => t("lblTOTAL", "Tổng cộng")} />
