@@ -97,6 +97,9 @@ export default function DebtOffsetPage() {
 function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: string }) {
   const { translate } = useContext(LanguageContext) as { translate?: (key: string, fallback?: string) => string }
   const t = useCallback((key: string, fallback: string) => translate?.(key, fallback) ?? fallback, [translate])
+  const format = useCallback((key: string, fallback: string, ...args: string[]) => {
+    return args.reduce((value, arg, index) => value.replace(`{${index}}`, arg), t(key, fallback));
+  }, [t]);
   const [mainTab, setMainTab] = useState<MainTab>("MATCH")
   const [subTab, setSubTab] = useState<Panel>("EXECUTE")
   const [matchAccountCodes, setMatchAccountCodes] = useState<string[]>([])
@@ -420,8 +423,8 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
         <div className="flex min-h-[40px] items-center justify-between gap-3 border-b bg-gray-50 px-3 py-1.5 text-sm font-semibold">
           <span>{title}</span>
           <div className="flex shrink-0 items-center justify-end gap-3">
-            <span className="font-normal text-gray-500">
-              Đã chọn {chosen.length} / {rows.length} chứng từ
+            <span className="font-normal text-gray-500">              
+              {format(t("SELECTED_VOUCHER_COUNT", "Đã chọn"), String(chosen.length), String(rows.length))}
             </span>
             {side === "source" && (
               <Button text={t("SAVE", mainTab === "CLEARING" ?  t("SAVE_CLEARED", "Lưu bù trừ") : t("SAVE_OFFSET", "Lưu đối trừ"))}
