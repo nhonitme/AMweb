@@ -113,19 +113,19 @@ export default memo(function DebtOffsetVoucherGrid({
           showInfo showNavigationButtons infoText={t("PAGE_TEXT", "Page {0} / {1} ({2} rows)")} />
         <Selection mode="multiple" showCheckBoxesMode="always" selectByClick={false} />
         <Column dataField="CUSTOMER_CD" caption={t("CUSTOMER_CODE", "Mã khách hàng")} width={125} />
-        <Column dataField="CUSTOMER_NM_VIET" caption={t("CUSTOMER", "Đối tượng")} width={180} />
+        <Column dataField="CUSTOMER_NM_VIET" caption={t("CUSTOMER_NM", "Đối tượng")} width={180} />
         <Column dataField="CHIT_NO" caption={t("CHIT_NO", "Số chứng từ")} width={125} calculateDisplayValue={voucherLabel} />
-        <Column dataField="CHIT_YMD" caption={t("DATE", "Ngày")} width={110} customizeText={dateText} />
+        <Column dataField="CHIT_YMD" caption={t("CHIT_YMD", "Ngày")} width={110} customizeText={dateText} />
         <Column dataField="DESCRIPTION_VIET" caption={t("DESCRIPTION", "Diễn giải")} minWidth={210} />
         <Column dataField="AMOUNT" caption={t("AMOUNT", "Số tiền")} width={150} alignment="right" format={formatMoney} />
-        <Column dataField="REMAINAMOUNT" caption={t("REMAINAMOUNT", "Số tiền chưa đối trừ")} width={165} alignment="right" format={formatMoney} />
-        <Column dataField="OFFSET_AMOUNT" caption={t("OFFSET_AMOUNT", "Số tiền đối trừ")} width={175} alignment="right" cellRender={localAmountCell} />
+        <Column dataField="REMAINAMOUNT" caption={t("DEBT_AMOUNT_NOT", "Số tiền chưa đối trừ")} width={165} alignment="right" format={formatMoney} />
+        <Column dataField="OFFSET_AMOUNT" caption={t("DEBT_AMOUNT", "Số tiền đối trừ")} width={175} alignment="right" cellRender={localAmountCell} />
         <Column dataField="FC_AMOUNT" caption={t("AMOUNT_FC", "Số tiền ngoại tệ")} width={145} alignment="right" format={formatMoney} visible={showForeignCurrency} />
         <Column dataField="REMAINAMOUNT_FC" caption={t("REMAINAMOUNT_FC", "Chưa đối trừ NT")} width={155} alignment="right" format={formatMoney} visible={showForeignCurrency} />
         <Column dataField="OFFSET_AMOUNT_FC" caption={t("OFFSET_AMOUNT_FC", "Đối trừ NT")} width={155} alignment="right" visible={showForeignCurrency} cellRender={foreignAmountCell} />
         <Summary>
           <TotalItem column="CHIT_ID" summaryType="count" showInColumn="DESCRIPTION_VIET"
-            alignment="right" customizeText={() => t("ALL_TOTAL", "Tổng cộng")} />
+            alignment="right" customizeText={() => t("lblTOTAL", "Tổng cộng")} />
           <TotalItem column="AMOUNT" summaryType="sum" valueFormat={formatMoney}
             displayFormat="{0}" alignment="right" />
           <TotalItem column="REMAINAMOUNT" summaryType="sum" valueFormat={formatMoney}

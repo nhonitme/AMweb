@@ -30,8 +30,8 @@ type Panel = OffsetPanel
 type Pair = OffsetPairRequest
 
 const kinds: Record<MainTab, { text: string; description: string }> = {
-  MATCH: { text: "Đối trừ chứng từ", description: "Đối trừ thanh toán/thu tiền với công nợ" },
-  CLEARING: { text: "Bù trừ 131 ↔ 331", description: "Bù trừ phải thu và phải trả cùng đối tượng" },
+  MATCH: { text: "btnDebt", description: "Đối trừ thanh toán/thu tiền với công nợ" },
+  CLEARING: { text: "btnClearing", description: "Bù trừ phải thu và phải trả cùng đối tượng" },
 }
 const currencyOptions: OffsetCurrency[] = ["VND", "USD", "EUR", "JPY", "KRW", "CNY"]
 const supportedCurrency = (code: string): code is OffsetCurrency =>
@@ -443,7 +443,7 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
                   {(["EXECUTE", "HISTORY"] as Panel[]).map(tab => (
                     <button type="button" key={tab} onClick={() => switchSub(tab)}
                       className={`whitespace-nowrap rounded px-3 py-1.5 ${subTab === tab ? "bg-slate-700 text-white" : "bg-gray-100 text-gray-700"}`}>
-                      {tab === "EXECUTE" ? t("EXECUTE", "Thực hiện") : t("HISTORY_UNDO", "Lịch sử & Bỏ")}
+                      {tab === "EXECUTE" ? t("EXECUTE", "Thực hiện") : (mainTab === "CLEARING" ? t("btnDebtCleaning", "Bỏ đối trừ") : t("btnClearingDebt", "Bỏ bù trừ"))}
                     </button>
                   ))}
                 </div>
@@ -451,7 +451,7 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
                   {(["MATCH", "CLEARING"] as MainTab[]).map(tab => (
                     <button key={tab} type="button" onClick={() => switchMain(tab)}
                       className={`whitespace-nowrap rounded px-4 py-1.5 ${mainTab === tab ? "bg-blue-600 text-white" : "text-gray-700 hover:bg-gray-100"}`}>
-                      {kinds[tab].text}
+                      {t(kinds[tab].text,"")}
                     </button>
                   ))}
                 </div>
@@ -461,15 +461,15 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
         </div>
         {subTab === "EXECUTE" ? (
           <>
-            {grid(available.SOURCES, "source", mainTab === "CLEARING" ? "Phải thu 131" : "Chứng từ thanh toán / thu")}
-            {grid(available.DEBTS, "debt", mainTab === "CLEARING" ? "Công nợ: Phải trả 331" : "Công nợ cần đối trừ")}
+            {grid(available.SOURCES, "source", mainTab === "CLEARING" ? t("131Voucher", "Phải thu 131") : t("PaymentVouchers", "Chứng từ thanh toán / thu"))}
+            {grid(available.DEBTS, "debt", mainTab === "CLEARING" ? t("331Voucher", "Công nợ: Phải trả 331") : t("LiabilitiesVoucher", "Công nợ cần đối trừ"))}
           </>
         ) : (
           <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded border border-gray-200 bg-white">
             <div className="flex shrink-0 items-center justify-between border-b bg-gray-50 px-3 py-2">
               <span className="text-sm font-semibold">
                 {mainTab === "CLEARING" ? "Lịch sử bù trừ" : "Lịch sử đối trừ"}
-                <span className="ml-2 font-normal text-gray-500">({history.length} quan hệ)</span>
+                {/* <span className="ml-2 font-normal text-gray-500">({history.length} quan hệ)</span> */}
               </span>
               <Button text={t("UNDO", "Bỏ đối trừ")} type="danger" icon="revert"
                 disabled={busy || !historySelected} onClick={() => void undo()} />
@@ -506,7 +506,7 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
               <Column dataField="PAYAMOUNT_FC" caption="Tiền ngoại tệ" minWidth={150} alignment="right" format={formatMoney} visible={showForeignCurrency} />
               <Summary>
                 <TotalItem column="CHIT_ID_PAY" summaryType="count" showInColumn="DESCRIPTION_VIET_DEBT"
-                  alignment="right" customizeText={() => t("ALL_TOTAL", "Tổng cộng")} />
+                  alignment="right" customizeText={() => t("lblTOTAL", "Tổng cộng")} />
                 <TotalItem column="PAYAMOUNT" summaryType="sum" valueFormat={formatMoney}
                   displayFormat="{0}" alignment="right" />
               </Summary>
