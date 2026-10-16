@@ -383,7 +383,7 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
           </div>
         </div>
         <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
-          <DebtOffsetVoucherGrid key={`${viewKey}:${side}`} rows={rows} selected={chosen} side={side} busy={busy}
+          <DebtOffsetVoucherGrid key={`${viewKey}:${side}`} mode={mainTab} rows={rows} selected={chosen} side={side} busy={busy}
             showForeignCurrency={showForeignCurrency} onSelectionChange={updateSelection}
             onAmountChange={updateAmount} paging={side === "source" ? sourcePaging : debtPaging}
             onPagingChange={updatePaging} t={t} />
