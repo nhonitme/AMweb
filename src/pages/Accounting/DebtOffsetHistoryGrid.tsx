@@ -13,13 +13,13 @@ const dateLabel = (text?: string | null) => {
   return `${value.slice(6, 8)}/${value.slice(4, 6)}/${value.slice(0, 4)}`
 }
 
-// A band is rendered as a separate header cell by DevExtreme. Apply the border
-// when it prepares each real cell instead of relying on nested CSS selectors.
+// Draw group separators only in the two header rows (band and leaf).
+// Keep the regular borders for data rows and the summary footer.
 const separatorBands = new Set(["historyCustomerBand", "historySourceBand", "historyDebtBand"])
 const separatorFields = new Set(["CUSTOMER_NM_VIET", "DESCRIPTION_VIET_PAY", "DESCRIPTION_VIET_DEBT"])
 
 function prepareHistoryCell(event: CellPreparedEvent<OffsetHistory, number>) {
-  if (event.rowType !== "header" && event.rowType !== "data" && event.rowType !== "totalFooter") return
+  if (event.rowType !== "header") return
   const column = event.column
   if (!column || !(separatorBands.has(column.name ?? "") || separatorFields.has(column.dataField ?? ""))) return
 
