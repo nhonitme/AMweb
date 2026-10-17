@@ -1,6 +1,7 @@
 import { memo, useCallback } from "react"
 import DataGrid, { Column, Pager, Paging, Scrolling, Selection, Summary, TotalItem } from "devextreme-react/data-grid"
 import type { DataGridTypes } from "devextreme-react/data-grid"
+import type { CellPreparedEvent } from "devextreme/ui/data_grid"
 import type { OffsetHistory, OffsetKind } from "@/api/debtOffsetApi"
 import type { OffsetPaging } from "./debtOffsetViewState"
 import "./DebtOffsetSummary.css"
@@ -10,6 +11,22 @@ const dateLabel = (text?: string | null) => {
   const value = String(text ?? "").replace(/[^0-9]/g, "")
   if (value.length < 8) return text ?? ""
   return `${value.slice(6, 8)}/${value.slice(4, 6)}/${value.slice(0, 4)}`
+}
+
+// A band is rendered as a separate header cell by DevExtreme. Apply the border
+// when it prepares each real cell instead of relying on nested CSS selectors.
+const separatorBands = new Set(["historyCustomerBand", "historySourceBand", "historyDebtBand"])
+const separatorFields = new Set(["CUSTOMER_NM_VIET", "DESCRIPTION_VIET_PAY", "DESCRIPTION_VIET_DEBT"])
+
+function prepareHistoryCell(event: CellPreparedEvent<OffsetHistory, number>) {
+  if (event.rowType !== "header" && event.rowType !== "data" && event.rowType !== "totalFooter") return
+  const column = event.column
+  if (!column || !(separatorBands.has(column.name ?? "") || separatorFields.has(column.dataField ?? ""))) return
+
+  // Inline !important wins over global DevExtreme grid border overrides.
+  // The inset stroke remains visible even where borders are collapsed.
+  event.cellElement.style.setProperty("border-right", "2px solid #64748b", "important")
+  event.cellElement.style.setProperty("box-shadow", "inset -2px 0 0 #64748b", "important")
 }
 
 type Props = {
@@ -43,6 +60,7 @@ export default memo(function DebtOffsetHistoryGrid({
               keyExpr={kind === "COLLECT" ? "CHITCOLLECT_ID" : "CHITPAYMENT_ID"}
               defaultSelectedRowKeys={initialSelectedRowKeys}
               onSelectionChanged={handleSelectionChanged}
+              onCellPrepared={prepareHistoryCell}
               noDataText={t("NO_DATA", "Không có dữ liệu")}
               >
               <Scrolling mode="standard" showScrollbar="always" />
@@ -53,29 +71,29 @@ export default memo(function DebtOffsetHistoryGrid({
                 showInfo showNavigationButtons infoText={t("PAGE_TEXT", "Page {0} / {1} ({2} rows)")} />
               <Selection mode="multiple" selectByClick={false} showCheckBoxesMode="always" selectAllMode="page" />
               {/* Grouped headers mirror the two-level layout of the legacy Undo screen. */}
-              <Column caption={t("CUSTOMER_INFO", "Thông tin khách hàng")} alignment="center" cssClass="debt-offset-history-band-end">
+              <Column caption={t("CUSTOMER_INFO", "Thông tin khách hàng")} alignment="center" name="historyCustomerBand">
                 <Column dataField="CUSTOMER_CD" caption={t("CUSTOMER_CODE", "Mã khách hàng")} width={125} />
-                <Column dataField="CUSTOMER_NM_VIET" caption={t("CUSTOMER_NM", "Đối tượng")} minWidth={200} cssClass="debt-offset-history-leaf-end" />
+                <Column dataField="CUSTOMER_NM_VIET" caption={t("CUSTOMER_NM", "Đối tượng")} minWidth={200} />
               </Column>
               <Column caption={kind === "CLEARING"
                 ? t("RECEIVABLE_VOUCHERS", "Chứng từ phải thu")
                 : kind === "COLLECT"
                   ? t("RECEIPT_VOUCHERS", "Chứng từ thu")
-                  : t("PAYMENT_VOUCHERS", "Chứng từ thanh toán")} alignment="center" cssClass="debt-offset-history-band-end">
+                  : t("PAYMENT_VOUCHERS", "Chứng từ thanh toán")} alignment="center" name="historySourceBand">
                 <Column dataField="CHIT_NO_PAY" caption={t("CHIT_NO_PAY", "Chứng từ nguồn")} minWidth={150}
                   calculateDisplayValue={(row: OffsetHistory) => row.CHIT_ID_PAY < 0 ? "Số dư đầu kỳ" : row.CHIT_NO_PAY ?? ""} />
                 <Column dataField="CHIT_YMD_PAY" caption={t("CHIT_YMD_PAY", "Ngày nguồn")} minWidth={120}
                   customizeText={e => dateLabel(String(e.value ?? ""))} />
-                <Column dataField="DESCRIPTION_VIET_PAY" caption={t("DESCRIPTION", "Mô tả 1")} minWidth={220} cssClass="debt-offset-history-leaf-end" />
+                <Column dataField="DESCRIPTION_VIET_PAY" caption={t("DESCRIPTION", "Mô tả 1")} minWidth={220} />
               </Column>
               <Column caption={kind === "CLEARING" || kind === "PAYMENT"
                 ? t("PAYABLE_VOUCHERS", "Chứng từ phải trả")
-                : t("RECEIVABLE_VOUCHERS", "Chứng từ phải thu")} alignment="center" cssClass="debt-offset-history-band-end">
+                : t("RECEIVABLE_VOUCHERS", "Chứng từ phải thu")} alignment="center" name="historyDebtBand">
                 <Column dataField="CHIT_NO_DEBT" caption={t("CHIT_NO_DEBT", "Chứng từ công nợ")} minWidth={170}
                   calculateDisplayValue={(row: OffsetHistory) => row.CHIT_ID_DEBT < 0 ? "Số dư đầu kỳ" : row.CHIT_NO_DEBT ?? ""} />
                 <Column dataField="CHIT_YMD_DEBT" caption={t("CHIT_YMD_DEBT", "Ngày công nợ")} minWidth={120}
                   customizeText={e => dateLabel(String(e.value ?? ""))} />
-                <Column dataField="DESCRIPTION_VIET_DEBT" caption={t("DESCRIPTION", "Mô tả")} minWidth={220} cssClass="debt-offset-history-leaf-end" />
+                <Column dataField="DESCRIPTION_VIET_DEBT" caption={t("DESCRIPTION", "Mô tả")} minWidth={220} />
               </Column>
               <Column caption={t("PAYMENT", "Thanh toán")} alignment="center">
                 <Column dataField="PAYAMOUNT" caption={t("PAYAMOUNT", "Tiền VND")} minWidth={150} alignment="right" format={formatMoney} />

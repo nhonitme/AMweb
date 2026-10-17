@@ -15,13 +15,3 @@
 .debt-offset-history-grid.dx-datagrid .dx-datagrid-total-footer .dx-row > td {
   text-align: right;
 }
-
-/* Delineate the three boundaries between the four History & Undo header
-   bands. Only group boundaries receive a stronger line; internal column
-   borders, backgrounds, row heights and the voucher grids stay unchanged. */
-.debt-offset-history-grid.dx-datagrid .dx-datagrid-headers .dx-header-row > td.debt-offset-history-band-end,
-.debt-offset-history-grid.dx-datagrid .dx-datagrid-headers .dx-header-row > td.debt-offset-history-leaf-end,
-.debt-offset-history-grid.dx-datagrid .dx-datagrid-rowsview .dx-data-row > td.debt-offset-history-leaf-end,
-.debt-offset-history-grid.dx-datagrid .dx-datagrid-total-footer .dx-row > td.debt-offset-history-leaf-end {
-  border-right: 2px solid #94a3b8 !important;
-}
