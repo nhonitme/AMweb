@@ -524,8 +524,8 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
             <div className="flex shrink-0 items-center justify-between border-b bg-gray-50 px-3 py-2">
               <span className="text-sm font-semibold">
                 {mainTab === "CLEARING" ? t("OFFSET_HISTORY", "Lịch sử bù trừ") : t("Clearing_HISTORY", "Lịch sử đối trừ")}
-                <span className="ml-2 text-xs font-normal text-gray-500">
-                  Đã chọn {historySelected.length} / {history.length} quan hệ
+                <span className="ml-2 text-xs font-normal text-gray-500">                  
+                   {format("SELECTED_VOUCHER_COUNT", "Đã chọn {0} / {1} chứng từ", String(historySelected.length), String(history.length))}
                 </span>
               </span>
               <Button text={t("UNDO", "Bỏ đối trừ")} type="danger" icon="revert"
