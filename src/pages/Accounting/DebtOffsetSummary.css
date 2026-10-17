@@ -15,3 +15,7 @@
 .debt-offset-history-grid.dx-datagrid .dx-datagrid-total-footer .dx-row > td {
   text-align: right;
 }
+
+.debt-column-color {
+  background-color: #dfe0e2 !important;
+}

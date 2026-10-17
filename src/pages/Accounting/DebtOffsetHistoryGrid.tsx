@@ -5,6 +5,7 @@ import type { CellPreparedEvent } from "devextreme/ui/data_grid"
 import type { OffsetHistory, OffsetKind } from "@/api/debtOffsetApi"
 import type { OffsetPaging } from "./debtOffsetViewState"
 import "./DebtOffsetSummary.css"
+import { BackgroundColor } from "devextreme-react/cjs/chart"
 
 const formatMoney = "#,##0.##"
 const dateLabel = (text?: string | null) => {
@@ -25,8 +26,9 @@ function prepareHistoryCell(event: CellPreparedEvent<OffsetHistory, number>) {
 
   // Inline !important wins over global DevExtreme grid border overrides.
   // The inset stroke remains visible even where borders are collapsed.
-  event.cellElement.style.setProperty("border-right", "2px solid #64748b", "important")
-  event.cellElement.style.setProperty("box-shadow", "inset -2px 0 0 #64748b", "important")
+  event.cellElement.style.setProperty("border-right", "1px solid #cacbccff", "important")
+  // event.cellElement.style.setProperty("border-bottom", "2px solid #dde2e7ff", "important")
+  // event.cellElement.style.setProperty("box-shadow", "inset -1px 0 0 #dde2e7ff", "important")
 }
 
 type Props = {
@@ -71,7 +73,7 @@ export default memo(function DebtOffsetHistoryGrid({
                 showInfo showNavigationButtons infoText={t("PAGE_TEXT", "Page {0} / {1} ({2} rows)")} />
               <Selection mode="multiple" selectByClick={false} showCheckBoxesMode="always" selectAllMode="page" />
               {/* Grouped headers mirror the two-level layout of the legacy Undo screen. */}
-              <Column caption={t("CUSTOMER_INFO", "Thông tin khách hàng")} alignment="center" name="historyCustomerBand">
+              <Column caption={t("CUSTOMER_INFO", "Thông tin khách hàng")} alignment="center" name="historyCustomerBand" cssClass="debt-column-color">
                 <Column dataField="CUSTOMER_CD" caption={t("CUSTOMER_CODE", "Mã khách hàng")} width={125} />
                 <Column dataField="CUSTOMER_NM_VIET" caption={t("CUSTOMER_NM", "Đối tượng")} minWidth={200} />
               </Column>
@@ -79,7 +81,7 @@ export default memo(function DebtOffsetHistoryGrid({
                 ? t("RECEIVABLE_VOUCHERS", "Chứng từ phải thu")
                 : kind === "COLLECT"
                   ? t("RECEIPT_VOUCHERS", "Chứng từ thu")
-                  : t("PAYMENT_VOUCHERS", "Chứng từ thanh toán")} alignment="center" name="historySourceBand">
+                  : t("PAYMENT_VOUCHERS", "Chứng từ thanh toán")} alignment="center" name="historySourceBand" cssClass="debt-column-color">
                 <Column dataField="CHIT_NO_PAY" caption={t("CHIT_NO_PAY", "Chứng từ nguồn")} minWidth={150}
                   calculateDisplayValue={(row: OffsetHistory) => row.CHIT_ID_PAY < 0 ? "Số dư đầu kỳ" : row.CHIT_NO_PAY ?? ""} />
                 <Column dataField="CHIT_YMD_PAY" caption={t("CHIT_YMD_PAY", "Ngày nguồn")} minWidth={120}
@@ -88,14 +90,14 @@ export default memo(function DebtOffsetHistoryGrid({
               </Column>
               <Column caption={kind === "CLEARING" || kind === "PAYMENT"
                 ? t("PAYABLE_VOUCHERS", "Chứng từ phải trả")
-                : t("RECEIVABLE_VOUCHERS", "Chứng từ phải thu")} alignment="center" name="historyDebtBand">
-                <Column dataField="CHIT_NO_DEBT" caption={t("CHIT_NO_DEBT", "Chứng từ công nợ")} minWidth={170}
+                : t("RECEIVABLE_VOUCHERS", "Chứng từ phải thu")} alignment="center" name="historyDebtBand" cssClass="debt-column-color">
+                <Column dataField="CHIT_NO_DEBT" caption={t("CHIT_NO_DEBT", "Chứng từ công nợ")} minWidth={170} 
                   calculateDisplayValue={(row: OffsetHistory) => row.CHIT_ID_DEBT < 0 ? "Số dư đầu kỳ" : row.CHIT_NO_DEBT ?? ""} />
                 <Column dataField="CHIT_YMD_DEBT" caption={t("CHIT_YMD_DEBT", "Ngày công nợ")} minWidth={120}
                   customizeText={e => dateLabel(String(e.value ?? ""))} />
                 <Column dataField="DESCRIPTION_VIET_DEBT" caption={t("DESCRIPTION", "Mô tả")} minWidth={220} />
               </Column>
-              <Column caption={t("PAYMENT", "Thanh toán")} alignment="center">
+              <Column caption={t("PAYMENT", "Thanh toán")} alignment="center" cssClass="debt-column-color">
                 <Column dataField="PAYAMOUNT" caption={t("PAYAMOUNT", "Tiền VND")} minWidth={150} alignment="right" format={formatMoney} />
                 <Column dataField="PAYAMOUNT_FC" caption={t("PAYAMOUNT_FC", "Tiền ngoại tệ")} minWidth={150} alignment="right" format={formatMoney} visible={showForeignCurrency} />
               </Column>
