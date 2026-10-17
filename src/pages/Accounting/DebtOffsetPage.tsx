@@ -521,15 +521,17 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
           </>
         ) : (
           <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded border border-gray-200 bg-white">
-            <div className="flex shrink-0 items-center justify-between border-b bg-gray-50 px-3 py-2">
+            <div className="flex min-h-[40px] items-center justify-between gap-3 border-b bg-gray-50 px-3 py-1.5 text-sm font-semibold">
               <span className="text-sm font-semibold">
                 {mainTab === "CLEARING" ? t("OFFSET_HISTORY", "Lịch sử bù trừ") : t("Clearing_HISTORY", "Lịch sử đối trừ")}
-                <span className="ml-2 text-xs font-normal text-gray-500">                  
+              </span>
+              <div className="flex shrink-0 items-center justify-end gap-3">
+                <span className="font-normal text-gray-500">                  
                    {format("SELECTED_VOUCHER_COUNT", "Đã chọn {0} / {1} chứng từ", String(historySelected.length), String(history.length))}
                 </span>
-              </span>
               <Button text={t("UNDO", "Bỏ đối trừ")} type="danger" icon="revert"
                 disabled={busy || historySelected.length === 0} onClick={() => void undo()} />
+            </div>
             </div>
             <div className="min-h-0 min-w-0 w-full flex-1 overflow-hidden">
               <DebtOffsetHistoryGrid
