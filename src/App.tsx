@@ -732,7 +732,8 @@ function AppWorkspaceRoutes({
                        <Route path="/warehouse-category" element={<ModuleContent moduleId="warehouse-category" />} />
                         <Route path="/master/account" element={<AcclistPage />} />
                         <Route path="/master/inventory" element={<ProductList />} />
-                        <Route path="/master/product-material" element={<ProductMaterialPage />} />
+                        <Route path="/master/product-material" element={<Navigate to={buildAppPath(currentCompanyCd, "/cost/material-product")} replace />} />
+                        <Route path="/cost/material-product" element={<ProductMaterialPage />} />
                         <Route path="/master/product-group" element={<ProductKindList />} />
                         <Route path="/master/unit" element={<ProductUnitList />} />
                         <Route path="/master/warehouse" element={<StoreList />} />
