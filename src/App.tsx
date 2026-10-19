@@ -74,6 +74,7 @@ const CostObjectPage = lazy(() => import('./pages/Module/DepartmentManagement'))
 const BankManagementPage = lazy(() => import('./pages/Module/BankManagementPage/bankInfo'));
 const CustomerExtPage = lazy(() => import('./pages/Module/CustomerManagementPage/CustomerExtPage'));
 const ProductList = lazy(() => import('./pages/Module/ProductManagement/ProductPage'));
+const ProductMaterialPage = lazy(() => import('./pages/Module/ProductMaterialManagement/ProductMaterialPage'));
 const ProductKindList = lazy(() => import('./pages/Module/ProductKindManagement/ProductKindPage'));
 const StoreList = lazy(() => import('./pages/Module/StoreManagement/StorePage'));
 const StoreKindList = lazy(() => import('./pages/Module/StoreKindManagement/StoreKindPage'));
@@ -731,6 +732,7 @@ function AppWorkspaceRoutes({
                        <Route path="/warehouse-category" element={<ModuleContent moduleId="warehouse-category" />} />
                         <Route path="/master/account" element={<AcclistPage />} />
                         <Route path="/master/inventory" element={<ProductList />} />
+                        <Route path="/master/product-material" element={<ProductMaterialPage />} />
                         <Route path="/master/product-group" element={<ProductKindList />} />
                         <Route path="/master/unit" element={<ProductUnitList />} />
                         <Route path="/master/warehouse" element={<StoreList />} />
