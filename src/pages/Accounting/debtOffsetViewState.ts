@@ -1,5 +1,6 @@
 import type { OffsetHistory } from "@/api/debtOffsetApi"
 import type { OffsetPanel, OffsetSearch } from "@/hooks/queries/debtOffsetQueries"
+import { DEFAULT_CURRENCY_CODE } from "@/lib/currency"
 import { DEFAULT_PAGE_SIZE } from "@/lib/paging"
 import type { SelectedVoucher } from "./debtOffsetSelection"
 
@@ -27,8 +28,11 @@ export function createOffsetViewState(): OffsetViewState {
 
 export function createOffsetSearches(toYmd: string): Record<OffsetViewKey, OffsetSearch> {
   const search = (kind: "PAYMENT" | "CLEARING", panel: OffsetPanel): OffsetSearch => ({
-    panel, currencyCodes: ["VND"],
-    filters: { kind, fromYmd: "", toYmd, customerIds: "ALL", currencyFilter: "VND", accCd: "", accCd1: "", accCd2: "" },
+    panel, currencyCodes: [DEFAULT_CURRENCY_CODE],
+    filters: {
+      kind, fromYmd: "", toYmd, customerIds: "ALL",
+      currencyFilter: DEFAULT_CURRENCY_CODE, accCd: "", accCd1: "", accCd2: "",
+    },
   })
   return {
     "MATCH:EXECUTE": search("PAYMENT", "EXECUTE"),

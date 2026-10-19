@@ -10,7 +10,7 @@ import DxPage from "@/dx/DxPage"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { customerLookupStore } from "@/components/lookup/customerLookupStore"
 import type { CustomerExt } from "@/types/customerExt"
-import { normalizeCurrencyCodes } from "@/lib/currency"
+import { DEFAULT_CURRENCY_CODE, normalizeCurrencyCodes } from "@/lib/currency"
 import { getCurrentCompanyCd, getCurrentUserId } from "@/lib/login"
 import { queryKeys } from "@/lib/query/queryKeys"
 import { debtOffsetQueryOptions, emptyOffsetAvailable, emptyOffsetHistory, type OffsetPanel } from "@/hooks/queries/debtOffsetQueries"
@@ -111,8 +111,8 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
   const [fromDateEnabled, setFromDateEnabled] = useState(false)
   const [toDate, setToDate] = useState<Date | null>(() => new Date())
   const [customerCodes, setCustomerCodes] = useState<string[]>([])
-  // Default to VND on this screen; users can still clear or select other currencies.
-  const [currencyCodes, setCurrencyCodes] = useState<string[]>(["VND"])
+  // Default to VND on this screen; empty selection always falls back to VND.
+  const [currencyCodes, setCurrencyCodes] = useState<string[]>([DEFAULT_CURRENCY_CODE])
   const queryClient = useQueryClient()
   const [mutating, setMutating] = useState(false)
   const [preparing, setPreparing] = useState(false)
@@ -221,7 +221,9 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
       const sibling: OffsetViewKey = `${tab}:${panel === "EXECUTE" ? "HISTORY" : "EXECUTE"}`
       const hasSibling = visited.includes(sibling)
       const base = hasSibling ? searches[sibling] : currentSearch
-      const currencies = panel === "EXECUTE" && base.currencyCodes.length !== 1 ? ["VND"] : [...base.currencyCodes]
+      const currencies = panel === "EXECUTE" && base.currencyCodes.length !== 1
+        ? [DEFAULT_CURRENCY_CODE]
+        : [...base.currencyCodes]
       const nextFilters = hasSibling ? { ...base.filters } : {
         ...base.filters, kind: searches[key].filters.kind, accCd: "", accCd1: "", accCd2: "",
       }
@@ -456,7 +458,10 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
             onCustomerCodesChange={setCustomerCodes}
             currencyCodes={currencyCodes}
             currencyLookupSingleSelect
-            onCurrencyCodesChange={values => setCurrencyCodes(normalizeCurrencyCodes(values).slice(-1))}
+            onCurrencyCodesChange={values => {
+              const next = normalizeCurrencyCodes(values).slice(-1)
+              setCurrencyCodes(next.length > 0 ? next : [DEFAULT_CURRENCY_CODE])
+            }}
             accountCodes={mainTab === "MATCH" ? matchAccountCodes
               : subTab === "EXECUTE" ? clearingAccount1Codes : undefined}
             accountPlaceholder={mainTab === "CLEARING" ? t("ACCOUNT_CODE", "Mã tài khoản") + " 131" : undefined}

@@ -248,6 +248,12 @@ export default function MultiLookupCellEditor<T extends object>({
         return
       }
 
+      // TagBox can emit an empty value while the lookup store is still loading;
+      // keep the controlled selection so defaults like VND are not wiped.
+      if (nextValues.length === 0 && selectedValuesRef.current.length > 0 && items.length === 0) {
+        return
+      }
+
       selectedValuesRef.current = nextValues
       setSelectedValues(nextValues)
 
@@ -267,7 +273,7 @@ export default function MultiLookupCellEditor<T extends object>({
         onApplyRef.current(nextValues)
       })
     },
-    [allOptionValue, maxSelection],
+    [allOptionValue, items.length, maxSelection],
   )
 
   const handleSearchChange = useCallback((event: { value?: unknown }) => {
@@ -298,8 +304,10 @@ export default function MultiLookupCellEditor<T extends object>({
       : 26
 
   const isSingleSelection = maxSelection === 1
-  const maxDisplayedTags = isSingleSelection ? 1 : isToolbarVariant ? 0 : 1
-  const showMultiTagOnly = isSingleSelection ? false : isToolbarVariant ? false : true
+  // Toolbar always collapses selected values through onMultiTagPreparing so the
+  // input shows compact codes (e.g. "VND") instead of full "CODE - NAME" labels.
+  const maxDisplayedTags = isToolbarVariant ? 0 : 1
+  const showMultiTagOnly = isToolbarVariant || isSingleSelection ? false : true
 
   const multiTagPlaceholder = useMemo(() => {
     if (isToolbarVariant || selectedValues.length === 0) {
@@ -317,7 +325,19 @@ export default function MultiLookupCellEditor<T extends object>({
 
       const selectedItems = event.selectedItems ?? []
       const count = selectedItems.length
+      const pendingValues = selectedValuesRef.current
       if (count === 0) {
+        // Controlled values can exist before TagBox resolves matching items.
+        if (pendingValues.length === 1) {
+          event.text = allOptionValue && pendingValues[0] === allOptionValue
+            ? allOptionText
+            : pendingValues[0]
+          return
+        }
+        if (pendingValues.length > 1) {
+          event.text = selectedCountLabel?.(pendingValues.length) ?? `${pendingValues.length} selected`
+          return
+        }
         event.cancel = true
         return
       }
@@ -340,7 +360,7 @@ export default function MultiLookupCellEditor<T extends object>({
         const code =
           codeFromItem != null && String(codeFromItem).trim()
             ? String(codeFromItem).trim()
-            : selectedValuesRef.current[0] ?? ""
+            : pendingValues[0] ?? ""
         event.text = code
         return
       }
