@@ -1,14 +1,18 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
-import type { ChangeEvent } from "react"
 import DataGrid, { Column, Paging } from "devextreme-react/data-grid"
+import type dxDataGrid from "devextreme/ui/data_grid"
+import Button from "devextreme-react/button"
+import TextBox from "devextreme-react/text-box"
 import Popup from "devextreme-react/popup"
 import SelectBox from "devextreme-react/select-box"
 import notify from "devextreme/ui/notify"
 import { confirm } from "devextreme/ui/dialog"
-import { FileDown, FileUp, Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react"
 import * as XLSX from "xlsx"
 
 import DxPage from "@/dx/DxPage"
+import { GridToolbar } from "@/components/toolbar/GridToolbar"
+import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
+import { useProductMaterialImportConfig } from "./ProductMaterialImportConfig"
 import { getProducts } from "@/api/productApi"
 import {
   deleteProductMaterial,
@@ -24,10 +28,6 @@ import type { ProductMaterialRow } from "@/types/productMaterial"
 
 const numberFormat = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 6 })
 const matchText = (input: string) => input.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
-const parseQuantity = (value: unknown): number => {
-  if (typeof value === "number") return value
-  return Number(String(value ?? "").trim().replace(",", "."))
-}
 
 function ProductMaterialContent() {
   const { translate } = useContext(LanguageContext) as {
@@ -50,7 +50,10 @@ function ProductMaterialContent() {
   const [editId, setEditId] = useState(0)
   const [materialProductId, setMaterialProductId] = useState(0)
   const [quantity, setQuantity] = useState(1)
-  const fileRef = useRef<HTMLInputElement>(null)
+  const gridRef = useRef<dxDataGrid | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
+  const [importProductId, setImportProductId] = useState(0)
+  const importConfig = useProductMaterialImportConfig()
 
   const refreshProducts = useCallback(async () => {
     setLoadingProducts(true)
@@ -188,8 +191,6 @@ function ProductMaterialContent() {
     if (!product) return
     const data = materials.map((row) => ({
       "MÃ NVL": row.MATERIAL_PRODUCT_CD,
-      "TÊN NGUYÊN VẬT LIỆU": row.MATERIAL_PRODUCT_NM,
-      "ĐVT": row.UNIT_NM ?? "",
       "SỐ LƯỢNG": row.QUANTITY,
     }))
     const workbook = XLSX.utils.book_new()
@@ -198,57 +199,10 @@ function ProductMaterialContent() {
     XLSX.writeFile(workbook, "NVL_" + product.PRODUCT_CD + ".xlsx")
   }
 
-  async function handleImport(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    event.target.value = ""
-    if (!file || !selectedId) return
-    setSaving(true)
-    let inserted = 0
-    try {
-      const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" })
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]]
-      if (!worksheet) throw new Error("File Excel không có dữ liệu")
-      const source = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: "" })
-      const codes = new Map(products.map((item) => [item.PRODUCT_CD.trim().toLowerCase(), item]))
-      const existing = new Set(materials.map((item) => item.MATERIAL_PRODUCT_ID))
-      const rows: { materialId: number; qty: number }[] = []
-      for (const [index, raw] of source.entries()) {
-        const normalized = Object.fromEntries(
-          Object.entries(raw).map(([key, value]) => [matchText(key.trim()).toUpperCase(), value]),
-        )
-        const rawCode = normalized["MA NVL"] ?? normalized["MATERIAL_PRODUCT_CD"] ?? normalized["PRODUCT_CD"]
-        const code = String(rawCode ?? "").trim().toLowerCase()
-        const qty = parseQuantity(normalized["SO LUONG"] ?? normalized["QUANTITY"])
-        const material = codes.get(code)
-        if (!material) throw new Error("Dòng " + (index + 2) + ": Mã NVL không tồn tại: " + code)
-        if (material.PRODUCT_ID === selectedId)
-          throw new Error("Dòng " + (index + 2) + ": Thành phẩm không thể là NVL của chính nó")
-        if (!Number.isFinite(qty) || qty <= 0 || qty > 999999999999.999999)
-          throw new Error("Dòng " + (index + 2) + ": Số lượng không hợp lệ")
-        if (existing.has(material.PRODUCT_ID))
-          throw new Error("Dòng " + (index + 2) + ": Mã NVL bị trùng: " + code)
-        existing.add(material.PRODUCT_ID)
-        rows.push({ materialId: material.PRODUCT_ID, qty: Number(qty.toFixed(6)) })
-      }
-      if (!rows.length) throw new Error("Không có dòng dữ liệu hợp lệ")
-      if (!window.confirm("Thêm " + rows.length + " nguyên vật liệu vào thành phẩm đang chọn?")) return
-      // Validate all rows first; then import sequentially to avoid flooding the API.
-      for (const item of rows) {
-        await saveProductMaterial(0, {
-          PRODUCT_ID: selectedId,
-          MATERIAL_PRODUCT_ID: item.materialId,
-          QUANTITY: item.qty,
-        })
-        inserted++
-      }
-      notify("Đã nhập " + inserted + " nguyên vật liệu", "success", 3000)
-    } catch (error) {
-      notify(getApiErrorMessage(error, "Lỗi nhập Excel") +
-        (inserted ? " (đã lưu " + inserted + " dòng trước khi xảy ra lỗi)" : ""), "error", 5000)
-    } finally {
-      try { await refreshCurrent() } catch { /* keep existing rows if refresh fails */ }
-      setSaving(false)
-    }
+  function openImport() {
+    if (!selectedId || saving) return
+    setImportProductId(selectedId)
+    setImportOpen(true)
   }
 
   return (
@@ -260,16 +214,18 @@ function ProductMaterialContent() {
               <h2 className="text-sm font-semibold text-slate-800">Danh sách thành phẩm</h2>
               <span className="text-xs text-slate-400">{products.length} sản phẩm</span>
             </div>
-            <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
-              <Search size={16} className="text-slate-400" />
-              <input className="w-full min-w-0 bg-transparent text-sm outline-none"
-                value={search} onChange={(event) => setSearch(event.target.value)}
-                placeholder="Tìm mã / tên thành phẩm..." />
-            </div>
+            <TextBox
+              stylingMode="outlined"
+              mode="search"
+              placeholder="Tìm mã / tên thành phẩm..."
+              value={search}
+              showClearButton
+              onValueChanged={(event) => setSearch(String(event.value ?? ""))}
+            />
           </div>
           <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
             {visibleProducts.map((item) => (
-              <button key={item.PRODUCT_ID} disabled={saving}
+              <button key={item.PRODUCT_ID} disabled={saving || importOpen}
                 onClick={() => setSelectedId(item.PRODUCT_ID)}
                 className={"w-full rounded-lg border p-3 text-left transition " +
                   (item.PRODUCT_ID === selectedId
@@ -302,10 +258,9 @@ function ProductMaterialContent() {
               </h1>
               <p className="mt-1 text-xs text-slate-400">ĐVT: {product?.UNIT_NM ?? "—"} · Số NVL: {materials.length}</p>
             </div>
-            <button onClick={() => void refreshProducts()} disabled={saving || loadingProducts}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium">
-              <RefreshCw size={14} /> Làm mới
-            </button>
+            <span className="text-xs text-slate-400">
+              {loadingProducts ? "Đang tải danh mục..." : "Khai báo định mức NVL"}
+            </span>
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col p-4">
@@ -314,26 +269,25 @@ function ProductMaterialContent() {
                 <h2 className="text-sm font-semibold text-slate-800">Danh sách nguyên vật liệu cấu thành</h2>
                 <p className="text-xs text-slate-400">Số lượng NVL cần dùng cho một đơn vị thành phẩm</p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <button disabled={!selectedId || saving} onClick={() => fileRef.current?.click()}
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-blue-700">
-                  <FileUp size={14} /> Nhập Excel
-                </button>
-                <button disabled={!selectedId || saving} onClick={handleExport}
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-blue-700">
-                  <FileDown size={14} /> Xuất Excel
-                </button>
-                <button disabled={!selectedId || saving} onClick={openAdd}
-                  className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
-                  <Plus size={14} /> Thêm NVL
-                </button>
-                <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden"
-                  onChange={(event) => void handleImport(event)} />
-              </div>
+              <GridToolbar
+                gridRef={gridRef}
+                onAdd={openAdd}
+                onRefresh={() => { void refreshProducts(); void refreshCurrent() }}
+                onImport={openImport}
+                onExportXlsx={handleExport}
+                showDelete={false}
+                showColumnChooser={false}
+                showExportPdf={false}
+                showSearch={false}
+                importDisabled={!selectedId || saving || loadingDetails}
+                exportXlsxDisabled={!selectedId || saving || loadingDetails}
+                shortcutsEnabled={!popupOpen && !importOpen}
+              />
             </div>
 
             <div className="min-h-[360px] flex-1">
               <DataGrid dataSource={materials} keyExpr="MATERIAL_ID"
+                onInitialized={(event) => { gridRef.current = event.component ?? null }}
                 showBorders columnAutoWidth={false} rowAlternationEnabled
                 noDataText={loadingDetails ? "Đang tải nguyên vật liệu..." : "Chưa khai báo nguyên vật liệu"}
                 height="100%" width="100%">
@@ -348,14 +302,12 @@ function ProductMaterialContent() {
                 <Column caption="Thao tác" width={100} alignment="center" allowSorting={false}
                   cellRender={(cell) => (
                     <div className="flex items-center justify-center gap-3">
-                      <button title="Sửa" disabled={saving}
-                        onClick={() => openEdit(cell.data as ProductMaterialRow)} className="text-blue-600">
-                        <Pencil size={15} />
-                      </button>
-                      <button title="Xóa" disabled={saving}
-                        onClick={() => void handleDelete(cell.data as ProductMaterialRow)} className="text-red-500">
-                        <Trash2 size={15} />
-                      </button>
+                      <Button icon="edit" hint={t("lblEdit", "Sửa")}
+                        stylingMode="text" disabled={saving}
+                        onClick={() => openEdit(cell.data as ProductMaterialRow)} />
+                      <Button icon="trash" hint={t("lblDelete", "Xóa")}
+                        stylingMode="text" type="danger" disabled={saving}
+                        onClick={() => void handleDelete(cell.data as ProductMaterialRow)} />
                     </div>
                   )} />
               </DataGrid>
@@ -388,15 +340,29 @@ function ProductMaterialContent() {
                 disabled={saving} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <button type="button" disabled={saving} onClick={() => setPopupOpen(false)}
-                className="rounded-md border border-slate-200 px-4 py-2 text-sm">Hủy</button>
-              <button type="submit" disabled={saving}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
-                {saving ? "Đang lưu..." : "Lưu"}
-              </button>
+              <Button text={t("lblCancel", "Hủy")} stylingMode="outlined" type="normal"
+                disabled={saving} onClick={() => setPopupOpen(false)} />
+              <Button text={saving ? "Đang lưu..." : t("lblSave", "Lưu")}
+                stylingMode="contained" type="default" disabled={saving}
+                useSubmitBehavior />
             </div>
           </form>
         </Popup>
+        <BaseExcelImportPopup
+          visible={importOpen}
+          onClose={() => setImportOpen(false)}
+          onImported={(result) => {
+            if (result.success) {
+              void refreshCurrent()
+              void refreshProducts()
+            }
+          }}
+          title={t("PRODUCT_MATERIAL", "Import nguyên vật liệu cấu thành")}
+          moduleCd={importConfig.moduleCd}
+          templateUrl="/System/DownloadTemplate"
+          templateFileName={importConfig.templateName}
+          params={{ productId: importProductId, lang: localStorage.getItem("lang") ?? undefined }}
+        />
       </div>
     </DxPage>
   )
