@@ -12,7 +12,7 @@ import * as XLSX from "xlsx"
 import DxPage from "@/dx/DxPage"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
-import { useProductMaterialImportConfig } from "./ProductMaterialImportConfig"
+import { useProductMaterialImportConfig, useProductMaterialAllImportConfig } from "./ProductMaterialImportConfig"
 import { getProducts } from "@/api/productApi"
 import {
   deleteProductMaterial,
@@ -52,8 +52,10 @@ function ProductMaterialContent() {
   const [quantity, setQuantity] = useState(1)
   const gridRef = useRef<dxDataGrid | null>(null)
   const [importOpen, setImportOpen] = useState(false)
+  const [importAll, setImportAll] = useState(false)
   const [importProductId, setImportProductId] = useState(0)
   const importConfig = useProductMaterialImportConfig()
+  const importAllConfig = useProductMaterialAllImportConfig()
 
   const refreshProducts = useCallback(async () => {
     setLoadingProducts(true)
@@ -200,8 +202,16 @@ function ProductMaterialContent() {
   }
 
   function openImport() {
-    if (!selectedId || saving) return
+    if (!selectedId || saving || popupOpen || importOpen) return
+    setImportAll(false)
     setImportProductId(selectedId)
+    setImportOpen(true)
+  }
+
+  function openImportAll() {
+    if (saving || popupOpen || importOpen) return
+    setImportAll(true)
+    setImportProductId(0)
     setImportOpen(true)
   }
 
@@ -258,9 +268,15 @@ function ProductMaterialContent() {
               </h1>
               <p className="mt-1 text-xs text-slate-400">ĐVT: {product?.UNIT_NM ?? "—"} · Số NVL: {materials.length}</p>
             </div>
-            <span className="text-xs text-slate-400">
-              {loadingProducts ? "Đang tải danh mục..." : "Khai báo định mức NVL"}
-            </span>
+            <Button
+              type="default"
+              stylingMode="outlined"
+              icon="upload"
+              text={t("PRODUCT_MATERIAL_IMPORT_ALL", "Import tất cả")}
+              hint={t("PRODUCT_MATERIAL_IMPORT_ALL", "Import tất cả thành phẩm")}
+              disabled={saving || popupOpen || importOpen}
+              onClick={openImportAll}
+            />
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col p-4">
@@ -357,11 +373,14 @@ function ProductMaterialContent() {
               void refreshProducts()
             }
           }}
-          title={t("PRODUCT_MATERIAL", "Import nguyên vật liệu cấu thành")}
-          moduleCd={importConfig.moduleCd}
-          templateUrl="/System/DownloadTemplate"
-          templateFileName={importConfig.templateName}
-          params={{ productId: importProductId, lang: localStorage.getItem("lang") ?? undefined }}
+          title={importAll
+            ? t("PRODUCT_MATERIAL_IMPORT_ALL", "Import tất cả thành phẩm")
+            : t("PRODUCT_MATERIAL", "Import nguyên vật liệu cấu thành")}
+          moduleCd={importAll ? importAllConfig.moduleCd : importConfig.moduleCd}
+          templateFileName={importAll ? importAllConfig.templateName : importConfig.templateName}
+          params={importAll
+            ? { lang: localStorage.getItem("lang") ?? undefined }
+            : { productId: importProductId, lang: localStorage.getItem("lang") ?? undefined }}
         />
       </div>
     </DxPage>
