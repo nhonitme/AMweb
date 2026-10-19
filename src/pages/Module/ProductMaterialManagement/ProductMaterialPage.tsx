@@ -281,10 +281,10 @@ function ProductMaterialContent() {
 
           <div className="flex min-h-0 flex-1 flex-col p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div>
+              {/* <div>
                 <h2 className="text-sm font-semibold text-slate-800">Danh sách nguyên vật liệu cấu thành</h2>
                 <p className="text-xs text-slate-400">Số lượng NVL cần dùng cho một đơn vị thành phẩm</p>
-              </div>
+              </div> */}
               <GridToolbar
                 gridRef={gridRef}
                 onAdd={openAdd}
@@ -328,9 +328,9 @@ function ProductMaterialContent() {
                   )} />
               </DataGrid>
             </div>
-            <div className="mt-3 rounded-lg bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
+            {/* <div className="mt-3 rounded-lg bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
               Tổng: {materials.length} nguyên vật liệu
-            </div>
+            </div> */}
           </div>
         </section>
 
