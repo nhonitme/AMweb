@@ -191,8 +191,6 @@ function ProductMaterialContent() {
     if (!product) return
     const data = materials.map((row) => ({
       "MÃ NVL": row.MATERIAL_PRODUCT_CD,
-      "TÊN NGUYÊN VẬT LIỆU": row.MATERIAL_PRODUCT_NM,
-      "ĐVT": row.UNIT_NM ?? "",
       "SỐ LƯỢNG": row.QUANTITY,
     }))
     const workbook = XLSX.utils.book_new()
