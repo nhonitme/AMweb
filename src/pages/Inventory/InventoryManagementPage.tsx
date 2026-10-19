@@ -196,6 +196,7 @@ export default function InventoryManagementPage({
   const [linkPopupLoading, setLinkPopupLoading] = useState(false)
   const [linkApplying, setLinkApplying] = useState(false)
   const [linkPairs, setLinkPairs] = useState<LinkAmountPair[]>([])
+  const [createCogsForLinkedIssues, setCreateCogsForLinkedIssues] = useState(false)
   const [linkInventoryCandidates, setLinkInventoryCandidates] = useState<LinkAmountCandidate[]>([])
   const [linkDetailCandidates, setLinkDetailCandidates] = useState<LinkDetailCandidate[]>([])
   const [linkOptionKey, setLinkOptionKey] = useState("")
@@ -920,15 +921,21 @@ export default function InventoryManagementPage({
       return
     }
 
-    const nextFrom = new Date(today)
+    const nextFrom = new Date(monthStart)
     const nextTo = new Date(today)
     const optionKey = linkCounterpartOptions[0]?.optionKey ?? ""
     setLinkFromDate(nextFrom)
     setLinkToDate(nextTo)
     setLinkOptionKey(optionKey)
+    setCreateCogsForLinkedIssues(false)
     setLinkPopupVisible(true)
     void rebuildInventoryLinkPreview({ fromDate: nextFrom, toDate: nextTo, optionKey })
-  }, [linkCounterpartOptions, linkableInventoryType, rebuildInventoryLinkPreview, today])
+  }, [linkCounterpartOptions, linkableInventoryType, monthStart, rebuildInventoryLinkPreview, today])
+
+  const handleCloseLinkVouchers = useCallback(() => {
+    setLinkPopupVisible(false)
+    setCreateCogsForLinkedIssues(false)
+  }, [])
 
   const handleLinkRangeSearch = useCallback(() => {
     if (linkFromDate && linkToDate && linkFromDate > linkToDate) {
@@ -955,6 +962,7 @@ export default function InventoryManagementPage({
     setLinkApplying(true)
     let successCount = 0
     let failCount = 0
+    const failedVoucherNos: string[] = []
     try {
       for (const pair of linkPairs) {
         try {
@@ -964,10 +972,12 @@ export default function InventoryManagementPage({
             inventoryChitId: pair.inventory.chitId,
             chitDetailId: pair.detail.chitDetailId,
             chitDetailCd: pair.detail.chitDetailCd,
+            createCogsForLinkedIssue: linkableInventoryType === "IO" && createCogsForLinkedIssues,
           })
           successCount += 1
         } catch (error) {
           failCount += 1
+          failedVoucherNos.push(pair.inventory.chitNo || String(pair.inventory.chitId))
           console.error("Apply accounting inventory link failed", error)
         }
       }
@@ -975,28 +985,36 @@ export default function InventoryManagementPage({
       await invalidateInventoryVouchers()
       gridRef.current?.clearSelection()
       setLinkPopupVisible(false)
+      setCreateCogsForLinkedIssues(false)
+
+      const failureSummary = failedVoucherNos.length > 0
+        ? ` (${failedVoucherNos.slice(0, 3).join(", ")}${failedVoucherNos.length > 3 ? `, +${failedVoucherNos.length - 3}` : ""})`
+        : ""
 
       if (successCount > 0 && failCount === 0) {
-        notify(
-          t("LINK_VOUCHERS_SUCCESS", "Đã liên kết {0} phiếu kho").replace("{0}", String(successCount)),
-          "success",
-          3000,
-        )
+        const message = createCogsForLinkedIssues && linkableInventoryType === "IO"
+          ? t(
+              "LINK_VOUCHERS_COGS_SUCCESS",
+              "Đã liên kết {0} phiếu xuất kho và tạo/cập nhật phiếu giá vốn cho các phiếu này",
+            ).replace("{0}", String(successCount))
+          : t("LINK_VOUCHERS_SUCCESS", "Đã liên kết {0} phiếu kho").replace("{0}", String(successCount))
+        notify(message, "success", 4000)
       } else if (successCount > 0) {
+        const message = createCogsForLinkedIssues && linkableInventoryType === "IO"
+          ? t("LINK_VOUCHERS_COGS_PARTIAL", "Đã xử lý {0} phiếu xuất kho; {1} phiếu liên kết hoặc tạo giá vốn thất bại")
+          : t("LINK_VOUCHERS_PARTIAL", "Đã liên kết {0} phiếu kho, lỗi {1}")
         notify(
-          t("LINK_VOUCHERS_PARTIAL", "Đã liên kết {0} phiếu kho, lỗi {1}")
-            .replace("{0}", String(successCount))
-            .replace("{1}", String(failCount)),
+          `${message.replace("{0}", String(successCount)).replace("{1}", String(failCount))}${failureSummary}`,
           "warning",
-          4000,
+          7000,
         )
       } else {
-        notify(t("LINK_VOUCHERS_FAILED", "Không thể liên kết phiếu kho"), "error", 3000)
+        notify(`${t("LINK_VOUCHERS_FAILED", "Không thể liên kết phiếu kho")}${failureSummary}`, "error", 7000)
       }
     } finally {
       setLinkApplying(false)
     }
-  }, [invalidateInventoryVouchers, ledger, linkPairs, linkableInventoryType, t])
+  }, [createCogsForLinkedIssues, invalidateInventoryVouchers, ledger, linkPairs, linkableInventoryType, t])
 
   const linkToolbarItems = useMemo(() => {
     if (!linkableInventoryType) {
@@ -1076,13 +1094,16 @@ export default function InventoryManagementPage({
           counterpartOptions={linkCounterpartOptions}
           selectedOptionKey={linkOptionKey}
           onOptionKeyChange={handleLinkOptionKeyChange}
+          inventoryType={linkableInventoryType}
+          createCogsForLinkedIssues={createCogsForLinkedIssues}
+          onCreateCogsForLinkedIssuesChange={setCreateCogsForLinkedIssues}
           fromDate={linkFromDate}
           toDate={linkToDate}
           onFromDateChange={setLinkFromDate}
           onToDateChange={setLinkToDate}
           onRangeSearch={() => void handleLinkRangeSearch()}
           onConfirm={() => void handleConfirmLinkVouchers()}
-          onClose={() => setLinkPopupVisible(false)}
+          onClose={handleCloseLinkVouchers}
         />
 
         {excelEnabled && importConfig ? (

@@ -6,16 +6,18 @@ import { LanguageContext } from "@/lib/i18nLoader"
 import type { MenuTreeNode } from "@/types/menu"
 import { resolveMenuCaption } from "@/utils/resolveConfigCaption"
 
+import {
+  getMenuTrail,
+  MenuCurrentCaption,
+  MenuCurrentCheck,
+  type MenuNode,
+} from "./MenuCurrentLocation"
 import "./HeaderSubMenu.css"
 
 interface HeaderSubMenuProps {
   rootMenu: MenuTreeNode | null
   activeMenuId: string
   onMenuSelect: (menu: MenuTreeNode) => void
-}
-
-function containsMenuId(node: MenuTreeNode, id: string): boolean {
-  return node.id === id || (node.children ?? []).some((child) => containsMenuId(child, id))
 }
 
 export default function HeaderSubMenu({ rootMenu, activeMenuId, onMenuSelect }: HeaderSubMenuProps) {
@@ -25,7 +27,7 @@ export default function HeaderSubMenu({ rootMenu, activeMenuId, onMenuSelect }: 
     | { translate?: (key: string, fallback?: string) => string }
     | undefined
   const translate = languageContext?.translate ?? ((key: string, fallback?: string) => fallback ?? key)
-  const label = (menu: MenuTreeNode) => resolveMenuCaption(menu, translate)
+  const label = (menu: MenuNode) => resolveMenuCaption(menu as MenuTreeNode, translate)
 
   useEffect(() => {
     setOpenPath([])
@@ -84,16 +86,19 @@ export default function HeaderSubMenu({ rootMenu, activeMenuId, onMenuSelect }: 
         const children = item.children ?? []
         const hasChildren = children.length > 0
         const isOpen = openPath.length >= path.length && path.every((id, index) => openPath[index] === id)
-        const isActive = containsMenuId(item, activeMenuId)
+        const isCurrent = item.id === activeMenuId
+        const isActiveBranch = getMenuTrail(item, activeMenuId).length > 0
 
         return (
           <div key={item.id} className="header-submenu__nested-item">
-            <div className={`header-submenu__nested-row${isActive ? " header-submenu__nested-row--active" : ""}`}>
+            <div
+              className={`header-submenu__nested-row${isActiveBranch ? " header-submenu__nested-row--active" : ""}`}
+            >
               <button
                 type="button"
                 role="menuitem"
                 disabled={item.isDisabled}
-                aria-current={item.id === activeMenuId ? "page" : undefined}
+                aria-current={isCurrent ? "page" : undefined}
                 aria-haspopup={hasChildren ? "menu" : undefined}
                 aria-expanded={hasChildren ? isOpen : undefined}
                 className="header-submenu__nested-label"
@@ -106,6 +111,7 @@ export default function HeaderSubMenu({ rootMenu, activeMenuId, onMenuSelect }: 
                 }}
               >
                 <span className="header-submenu__label-text">{label(item)}</span>
+                <MenuCurrentCheck current={isCurrent} />
               </button>
               {hasChildren ? (
                 <button
@@ -135,11 +141,13 @@ export default function HeaderSubMenu({ rootMenu, activeMenuId, onMenuSelect }: 
         const children = item.children ?? []
         const hasChildren = children.length > 0
         const isOpen = openPath[0] === item.id
-        const isActive = containsMenuId(item, activeMenuId)
+        const activeBranch = getMenuTrail(item, activeMenuId).length > 0
 
         return (
           <div key={item.id} className="header-submenu__root-item">
-            <div className={`header-submenu__root-row${isActive ? " header-submenu__root-row--active" : ""}`}>
+            <div
+              className={`header-submenu__root-row${activeBranch ? " header-submenu__root-row--active" : ""}`}
+            >
               <button
                 type="button"
                 disabled={item.isDisabled}
@@ -155,7 +163,7 @@ export default function HeaderSubMenu({ rootMenu, activeMenuId, onMenuSelect }: 
                   }
                 }}
               >
-                {label(item)}
+                <MenuCurrentCaption item={item} activeMenuId={activeMenuId} label={label} />
               </button>
               {hasChildren ? (
                 <button

@@ -1611,6 +1611,7 @@ export default function JournalReportPage({
               onSearchTextChange={setSearchText}
               onSearch={() => void loadPreview({ showValidationMessage: true })}
               onRefresh={() => void loadPreview({ showValidationMessage: true })}
+              onPrint={openExportPopup}
               onExportPdf={openExportPopup}
               onExportExcel={showExportExcel ? handleExportExcel : undefined}
               onSysGridColumnSettings={handleOpenGridSettings}

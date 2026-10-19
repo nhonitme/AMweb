@@ -34,9 +34,6 @@ const kinds: Record<MainTab, { text: string; description: string }> = {
   MATCH: { text: "btnDebt", description: "Đối trừ thanh toán/thu tiền với công nợ" },
   CLEARING: { text: "btnClearing", description: "Bù trừ phải thu và phải trả cùng đối tượng" },
 }
-const currencyOptions: OffsetCurrency[] = ["VND", "USD", "EUR", "JPY", "KRW", "CNY"]
-const supportedCurrency = (code: string): code is OffsetCurrency =>
-  currencyOptions.some(currencyCode => currencyCode === code)
 
 const toCurrencyFilter = (code: string) => code === "VND" ? "VND" : `1|${code}`
 
@@ -175,9 +172,7 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
   const filterKind: OffsetKind = mainTab === "CLEARING" ? "CLEARING"
     : selectedMatchAccount.startsWith("131") ? "COLLECT" : "PAYMENT"
   // Saving an allocation needs one currency because the relation tables do not persist FC_TYPE.
-  const selectedCurrency = currencyCodes.length === 1 && supportedCurrency(currencyCodes[0])
-    ? currencyCodes[0]
-    : null
+  const selectedCurrency = currencyCodes.length === 1 ? currencyCodes[0] : null
   // Allocation always uses the filters that produced this view's rows, not draft toolbar values.
   const kind = currentSearch.filters.kind
   const historySelectedKeys = useMemo(
@@ -186,8 +181,7 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
     [historySelected, kind],
   )
   const appliedCurrencies = currentSearch.currencyCodes
-  const activeCurrency = appliedCurrencies.length === 1 && supportedCurrency(appliedCurrencies[0])
-    ? appliedCurrencies[0] : null
+  const activeCurrency = appliedCurrencies.length === 1 ? appliedCurrencies[0] : null
   const currency: OffsetCurrency = activeCurrency ?? "VND"
   const showForeignCurrency = appliedCurrencies.length !== 1 || appliedCurrencies[0] !== "VND"
 
@@ -273,11 +267,6 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
       notify(t("INVALID_DATE_RANGE", "Khoảng thời gian không hợp lệ"), "warning", 3000)
       return
     }
-    const unsupported = currencyCodes.filter(code => !supportedCurrency(code))
-    if (unsupported.length > 0) {
-      notify(`Loại tiền chưa hỗ trợ trong đối trừ/bù trừ: ${unsupported.join(", ")}`, "warning", 4000)
-      return
-    }
     if (subTab === "EXECUTE" && !selectedCurrency) {
       notify("Chọn đúng một loại tiền để thực hiện đối trừ/bù trừ", "warning", 4000)
       return
@@ -355,7 +344,8 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
       }
     }
     const confirmed = await confirm(
-      `Lưu ${pairs.length} cặp ${kind === "CLEARING" ? "bù trừ" : "đối trừ"}?`,
+      // `Lưu ${pairs.length} cặp ${kind === "CLEARING" ? "bù trừ" : "đối trừ"}?`,
+      t("MSG_ARE_YOU_SURE", "Bạn có chắc chắn không?"),
       t("CONFIRM", "Xác nhận"),
     )
     if (!confirmed) return
@@ -396,7 +386,8 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
     }
     const label = kind === "CLEARING" ? "bù trừ" : "đối trừ"
     const confirmed = await confirm(
-      `Bỏ ${recordIds.length} quan hệ ${label} đã chọn?`,
+      // `Bỏ ${recordIds.length} quan hệ ${label} đã chọn?`,
+      t("MSG_ARE_YOU_SURE", "Bạn có chắc chắn không?"),
       t("CONFIRM", "Xác nhận"),
     )
     if (!confirmed) return
@@ -464,7 +455,8 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
             customerCodes={customerCodes}
             onCustomerCodesChange={setCustomerCodes}
             currencyCodes={currencyCodes}
-            onCurrencyCodesChange={values => setCurrencyCodes(normalizeCurrencyCodes(values))}
+            currencyLookupSingleSelect
+            onCurrencyCodesChange={values => setCurrencyCodes(normalizeCurrencyCodes(values).slice(-1))}
             accountCodes={mainTab === "MATCH" ? matchAccountCodes
               : subTab === "EXECUTE" ? clearingAccount1Codes : undefined}
             accountPlaceholder={mainTab === "CLEARING" ? t("ACCOUNT_CODE", "Mã tài khoản") + " 131" : undefined}

@@ -8,6 +8,8 @@
   padding: 0 4px;
   background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
+  --menu-accent: #2563eb;
+  --menu-selected: #eff6ff;
 }
 
 .header-submenu__root-item,
@@ -28,8 +30,8 @@
 }
 
 .header-submenu__root-row--active {
-  color: #1e40af;
-  border-bottom-color: #2563eb;
+  color: #293547;
+  border-bottom-color: var(--menu-accent);
 }
 
 .header-submenu__root-label,
@@ -62,14 +64,19 @@
 
 .header-submenu__root-row:hover,
 .header-submenu__nested-row:hover {
-  color: #1d4ed8;
+  color: var(--menu-accent);
   background: #eff6ff;
 }
 
 .header-submenu__root-row button:focus-visible,
 .header-submenu__nested-row button:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--menu-accent);
   outline-offset: -2px;
+}
+
+.header-submenu__root-row button:active,
+.header-submenu__nested-row button:active {
+  transform: scale(0.98);
 }
 
 .header-submenu__dropdown,
@@ -99,7 +106,8 @@
 
 .header-submenu__flyout {
   top: -4px;
-  left: calc(100% - 2px);
+  left: auto;
+  right: calc(100% - 2px);
 }
 
 .header-submenu__panel-list {
@@ -117,6 +125,8 @@
   display: flex;
   flex: 1;
   align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   min-width: 0;
   padding: 7px 10px;
   text-align: left;
@@ -135,8 +145,46 @@
 }
 
 .header-submenu__nested-row--active {
-  color: #1d4ed8;
-  background: #eff6ff;
+  color: var(--menu-accent);
+  background: var(--menu-selected);
+}
+
+.header-submenu__nested-row:has(> [aria-current="page"]) {
+  box-shadow: inset 3px 0 var(--menu-accent);
+}
+
+.header-submenu__root-caption,
+.header-submenu__current-path {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.header-submenu__root-caption {
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.header-submenu__current-path {
+  max-width: min(360px, 60vw);
+}
+
+.header-submenu__path-divider {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.header-submenu__current-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--menu-accent);
+  font-weight: 700;
+}
+
+.header-submenu__current-check {
+  flex: none;
+  margin-left: auto;
 }
 
 .header-submenu button:disabled {
@@ -144,9 +192,15 @@
   opacity: 0.45;
 }
 
-@media (max-width: 767px) {
-  .header-submenu__flyout {
-    left: auto;
-    right: calc(100% - 2px);
+@media (max-width: 640px) {
+  .header-submenu__root-caption {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .header-submenu__current-path {
+    gap: 5px;
+    max-width: 50vw;
+    font-size: 12px;
   }
 }

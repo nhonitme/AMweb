@@ -1382,13 +1382,13 @@ const openEditPopup = useCallback(
       return
     }
 
-    const nextFrom = new Date(today)
+    const nextFrom = new Date(monthStart)
     const nextTo = new Date(today)
     setLinkFromDate(nextFrom)
     setLinkToDate(nextTo)
     setLinkPopupVisible(true)
     void rebuildAccountingLinkPreview({ fromDate: nextFrom, toDate: nextTo })
-  }, [chitType, rebuildAccountingLinkPreview, today])
+  }, [chitType, monthStart, rebuildAccountingLinkPreview, today])
 
   const handleLinkRangeSearch = useCallback(() => {
     if (linkFromDate && linkToDate && linkFromDate > linkToDate) {

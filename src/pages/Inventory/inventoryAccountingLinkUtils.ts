@@ -518,6 +518,7 @@ export async function applyInventoryAccountingLinkPair(params: {
   inventoryChitId: number
   chitDetailId: number
   chitDetailCd: string
+  createCogsForLinkedIssue?: boolean
 }): Promise<InventoryVoucher> {
   const detailId = Number(params.chitDetailId)
   const detailCd = String(params.chitDetailCd ?? "").trim()
@@ -546,6 +547,14 @@ export async function applyInventoryAccountingLinkPair(params: {
           INPUTS: [],
           OUTPUTS: applyAccountingDetailToInventoryLines(inventory.OUTPUTS, detailId, detailCd),
         }
+
+  if (params.createCogsForLinkedIssue && params.inventoryChitType !== "IO") {
+    throw new Error("Cost voucher creation is available only for inventory issue vouchers")
+  }
+
+  if (params.createCogsForLinkedIssue) {
+    stamped.IS_COGS = true
+  }
 
   const payload = mapInventoryVoucherToApiPayload({
     ...stamped,

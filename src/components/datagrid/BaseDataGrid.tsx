@@ -761,15 +761,21 @@ export function BaseDataGrid<T>({
         const clickTarget = e.event?.target instanceof Element ? e.event.target : null;
         const clickedSelectionControl = Boolean(clickTarget?.closest(".dx-command-select, .dx-select-checkbox"));
 
-        if (isSelectionColumn || clickedSelectionControl || isCommandColumn || e.key === undefined || e.key === null) {
+        if (isCommandColumn || e.key === undefined || e.key === null) {
             return;
         }
 
-        const nativeEvent = e.event as MouseEvent | undefined;
+        if (isSelectionColumn || clickedSelectionControl) return;
+
+        // DevExtreme may expose either the browser event or a wrapped event.
+        // Read the modifier from both so Ctrl/Cmd selection works on row cells.
+        const clickEvent = e.event as (MouseEvent & { originalEvent?: MouseEvent }) | undefined;
+        const nativeEvent = clickEvent?.originalEvent ?? clickEvent;
         const modifierPressed = enableModifierSelection && Boolean(nativeEvent?.ctrlKey || nativeEvent?.metaKey);
         if (modifierPressed) {
             const selectedKeys = e.component.getSelectedRowKeys?.() ?? [];
             const isAlreadySelected = selectedKeys.some((key) => key === e.key);
+            nativeEvent?.preventDefault?.();
             if (isAlreadySelected) {
                 e.component.deselectRows([e.key]);
             } else {

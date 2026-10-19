@@ -6,6 +6,7 @@ import "./index.css";
 import "./styles/icon-colors.scss";
 import "./styles/devextreme-overrides.css";
 import "./styles/master-data-edit-popup.css";
+import "./styles/am-v3-header.css";
 import "./api/axiosClient";
 
 import App from "./App";

@@ -1129,7 +1129,6 @@ export default function InventoryEditorPopup({
       wrapperAttr={{ class: "inventory-editor-popup", ...createPopupShortcutWrapperAttr(popupShortcutScopeId) }}
       animation={POPUP_FADE_ANIMATION}
       onHiding={() => {
-
         onClose()
       }}
     >

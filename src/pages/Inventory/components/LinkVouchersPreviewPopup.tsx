@@ -1,5 +1,6 @@
 import { useCallback, useContext, useMemo, useRef, useState } from "react"
 import Button from "devextreme-react/button"
+import CheckBox from "devextreme-react/check-box"
 import DataGrid, { Column, Selection, type DataGridTypes } from "devextreme-react/data-grid"
 import DropDownButton from "devextreme-react/drop-down-button"
 import LoadPanel from "devextreme-react/load-panel"
@@ -36,6 +37,8 @@ export type LinkVouchersPreviewPopupProps = {
   onOptionKeyChange: (optionKey: string) => void
   /** When set (accounting list flow), show IR/IO counterpart label instead of warehouse-oriented hints. */
   inventoryType?: "IR" | "IO" | null
+  createCogsForLinkedIssues?: boolean
+  onCreateCogsForLinkedIssuesChange?: (value: boolean) => void
   fromDate?: Date | null
   toDate?: Date | null
   onFromDateChange?: (value: Date | null) => void
@@ -64,6 +67,8 @@ export default function LinkVouchersPreviewPopup({
   selectedOptionKey,
   onOptionKeyChange,
   inventoryType = null,
+  createCogsForLinkedIssues = false,
+  onCreateCogsForLinkedIssuesChange,
   fromDate = null,
   toDate = null,
   onFromDateChange,
@@ -303,6 +308,14 @@ export default function LinkVouchersPreviewPopup({
             disabled={loading || applying || availableInventory.length === 0 || availableDetails.length === 0}
             onClick={handleAutoMap}
           />
+          {inventoryType === "IO" && onCreateCogsForLinkedIssuesChange ? (
+            <CheckBox
+              value={createCogsForLinkedIssues}
+              text={t("LINK_VOUCHERS_CREATE_COGS", "Tạo phiếu giá vốn cho phiếu xuất được liên kết")}
+              disabled={loading || applying}
+              onValueChanged={(event) => onCreateCogsForLinkedIssuesChange(Boolean(event.value))}
+            />
+          ) : null}
           <div className="text-sm text-slate-600">
             {t("LINK_VOUCHERS_PAIR_COUNT", "Số liên kết")}: <strong>{pairs.length}</strong>
           </div>

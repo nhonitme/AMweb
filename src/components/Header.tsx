@@ -744,7 +744,7 @@ export default function Header({
             {menuLayout === "header" && systemMenus.length > 0 ? (
               <nav
                 aria-label={t("SYSTEM_MENU", "Menu hệ thống")}
-                className="flex min-w-0 flex-1 items-center justify-start gap-x-0.5 overflow-x-auto"
+                className="header-system-menu flex min-w-0 flex-1 items-center justify-start overflow-x-auto"
               >
                 {systemMenus.map((menu) => {
                   const isSelected = menu.id === systemMenuNode?.id;
@@ -755,14 +755,10 @@ export default function Header({
                       type="button"
                       aria-current={isSelected ? "page" : undefined}
                       disabled={menu.isDisabled}
-                      className={`inline-flex flex-shrink-0 items-center gap-1 whitespace-nowrap border-b-2 px-1.5 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                        isSelected
-                          ? "border-blue-700 text-blue-800"
-                          : "border-transparent text-gray-800 hover:border-gray-400 hover:text-gray-950"
-                      }`}
+                      className="inline-flex flex-shrink-0 items-center whitespace-nowrap"
                       onClick={() => onSystemMenuSelect(menu)}
                     >
-                      <SystemMenuIcon size={16} aria-hidden="true" />
+                      <SystemMenuIcon size={20} aria-hidden="true" />
                       {resolveMenuCaption(menu, t)}
                     </button>
                   );

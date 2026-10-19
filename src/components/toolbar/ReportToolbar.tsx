@@ -73,6 +73,8 @@ type ReportToolbarProps = {
   secondaryAccountPlaceholder?: string
   bankCodes?: string[]
   currencyCodes?: string[]
+  /** Hide currency checkboxes and keep a single selected code. */
+  currencyLookupSingleSelect?: boolean
   /** Display 'All' when the VAT reduction appendix has no currency restriction. */
   currencyAllOptionEnabled?: boolean
   vatRates?: string[]
@@ -183,6 +185,7 @@ export function ReportToolbar({
   secondaryAccountPlaceholder,
   bankCodes,
   currencyCodes,
+  currencyLookupSingleSelect = false,
   currencyAllOptionEnabled = false,
   vatRates,
   warehouseCodes,
@@ -491,7 +494,7 @@ export function ReportToolbar({
       actions.push(SHORTCUT_ACTIONS.COLUMN_CHOOSER)
     }
 
-    if (showPrint && typeof onPrint === "function") {
+    if (typeof onPrint === "function") {
       actions.push(SHORTCUT_ACTIONS.PRINT)
     }
 
@@ -853,6 +856,7 @@ export function ReportToolbar({
                 dataSource={currencyLookupStore}
                 values={effectiveCurrencyCodes}
                 valueExpr="CODE_CD"
+                maxSelection={currencyLookupSingleSelect ? 1 : undefined}
                 searchExpr={["CODE_CD", "CODE_NAME"]}
                 placeholder={t("CURRENCY", "Currency")}
                 allOption={currencyAllOption}

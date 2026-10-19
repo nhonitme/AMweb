@@ -73,15 +73,13 @@ export default memo(function DebtOffsetHistoryGrid({
                 showInfo showNavigationButtons infoText={t("PAGE_TEXT", "Page {0} / {1} ({2} rows)")} />
               <Selection mode="multiple" selectByClick={false} showCheckBoxesMode="always" selectAllMode="page" />
               {/* Grouped headers mirror the two-level layout of the legacy Undo screen. */}
-              <Column caption={t("CUSTOMER_INFO", "Thông tin khách hàng")} alignment="center" name="historyCustomerBand" cssClass="debt-column-color">
+              <Column caption={t("CustomerInformation", "Thông tin khách hàng")} alignment="center" name="historyCustomerBand" cssClass="debt-column-color">
                 <Column dataField="CUSTOMER_CD" caption={t("CUSTOMER_CODE", "Mã khách hàng")} width={125} />
                 <Column dataField="CUSTOMER_NM_VIET" caption={t("CUSTOMER_NM", "Đối tượng")} minWidth={200} />
               </Column>
               <Column caption={kind === "CLEARING"
-                ? t("RECEIVABLE_VOUCHERS", "Chứng từ phải thu")
-                : kind === "COLLECT"
-                  ? t("RECEIPT_VOUCHERS", "Chứng từ thu")
-                  : t("PAYMENT_VOUCHERS", "Chứng từ thanh toán")} alignment="center" name="historySourceBand" cssClass="debt-column-color">
+                ? t("131Voucher", "Chứng từ phải thu")
+                  : t("PaymentVouchers", "Chứng từ thanh toán")} alignment="center" name="historySourceBand" cssClass="debt-column-color">
                 <Column dataField="CHIT_NO_PAY" caption={t("CHIT_NO_PAY", "Chứng từ nguồn")} minWidth={150}
                   calculateDisplayValue={(row: OffsetHistory) => row.CHIT_ID_PAY < 0 ? "Số dư đầu kỳ" : row.CHIT_NO_PAY ?? ""} />
                 <Column dataField="CHIT_YMD_PAY" caption={t("CHIT_YMD_PAY", "Ngày nguồn")} minWidth={120}
@@ -89,17 +87,17 @@ export default memo(function DebtOffsetHistoryGrid({
                 <Column dataField="DESCRIPTION_VIET_PAY" caption={t("DESCRIPTION", "Mô tả 1")} minWidth={220} />
               </Column>
               <Column caption={kind === "CLEARING" || kind === "PAYMENT"
-                ? t("PAYABLE_VOUCHERS", "Chứng từ phải trả")
-                : t("RECEIVABLE_VOUCHERS", "Chứng từ phải thu")} alignment="center" name="historyDebtBand" cssClass="debt-column-color">
+                ? t("331Voucher", "Chứng từ phải trả")
+                : t("LiabilitiesVoucher", "Chứng từ công nợ")} alignment="center" name="historyDebtBand" cssClass="debt-column-color">
                 <Column dataField="CHIT_NO_DEBT" caption={t("CHIT_NO_DEBT", "Chứng từ công nợ")} minWidth={170} 
                   calculateDisplayValue={(row: OffsetHistory) => row.CHIT_ID_DEBT < 0 ? "Số dư đầu kỳ" : row.CHIT_NO_DEBT ?? ""} />
                 <Column dataField="CHIT_YMD_DEBT" caption={t("CHIT_YMD_DEBT", "Ngày công nợ")} minWidth={120}
                   customizeText={e => dateLabel(String(e.value ?? ""))} />
                 <Column dataField="DESCRIPTION_VIET_DEBT" caption={t("DESCRIPTION", "Mô tả")} minWidth={220} />
               </Column>
-              <Column caption={t("PAYMENT", "Thanh toán")} alignment="center" cssClass="debt-column-color">
+              <Column caption={t("PAYMENT_AMOUNT", "Thanh toán")} alignment="center" cssClass="debt-column-color">
                 <Column dataField="PAYAMOUNT" caption={t("PAYAMOUNT", "Tiền VND")} minWidth={150} alignment="right" format={formatMoney} />
-                <Column dataField="PAYAMOUNT_FC" caption={t("PAYAMOUNT_FC", "Tiền ngoại tệ")} minWidth={150} alignment="right" format={formatMoney} visible={showForeignCurrency} />
+                <Column dataField="PAYAMOUNT_FC" caption={t("OFFSET_AMOUNT_FC", "Tiền ngoại tệ")} minWidth={150} alignment="right" format={formatMoney} visible={showForeignCurrency} />
               </Column>
               <Summary>
                 <TotalItem column="CHIT_ID_PAY" summaryType="count" showInColumn="DESCRIPTION_VIET_DEBT"

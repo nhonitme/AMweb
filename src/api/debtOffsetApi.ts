@@ -5,7 +5,7 @@ import { getApiObjectPayload } from "@/api/apiTypes"
 const URL = `${API_BASE_URL}/ap/utility/offset`
 
 export type OffsetKind = "PAYMENT" | "COLLECT" | "CLEARING"
-export type OffsetCurrency = "VND" | "USD" | "EUR" | "JPY" | "KRW" | "CNY"
+export type OffsetCurrency = string
 export type OffsetFilters = {
   kind: OffsetKind
   fromYmd: string

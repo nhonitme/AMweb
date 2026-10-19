@@ -1137,16 +1137,29 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
                 ) : null}
               </div>
 
-              <div className="flex shrink-0 items-center justify-between gap-3 border-t pt-2">
+              <div className="chit-editor-footer flex shrink-0 items-center justify-between gap-3 border-t border-gray-200 bg-white px-4 py-3">
                 <div className="text-sm text-slate-600">
                   {activeTab === "inventory"
                     ? `Chi tiết hóa đơn: ${inventoryJsonState.invoiceKey === activeInvoiceKey ? inventoryJsonState.rows.length : 0} dòng`
                     : null}
                   {activeDraft.error ? <div className="text-xs text-red-600">{activeDraft.error}</div> : null}
                 </div>
-                <div className="flex gap-2">
-                  <Button text={t("CLOSE", "Đóng")} stylingMode="outlined" disabled={!canClose} onClick={handleClose} />
-                  <Button text={t("VAT_SAVE_ALL", "Lưu tất cả")} type="default" stylingMode="contained" icon="save" disabled={!canSave} onClick={() => void saveAll()} />
+                <div className="flex gap-3">
+                  <Button
+                    text={t("VAT_SAVE_ALL", "Lưu tất cả")}
+                    icon="save"
+                    type="default"
+                    stylingMode="contained"
+                    disabled={!canSave}
+                    onClick={() => void saveAll()}
+                  />
+                  <Button
+                    text={t("CLOSE", "Đóng")}
+                    icon="close"
+                    stylingMode="outlined"
+                    disabled={!canClose}
+                    onClick={handleClose}
+                  />
                 </div>
               </div>
             </div>
