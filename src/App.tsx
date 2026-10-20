@@ -35,6 +35,7 @@ import { flattenFlatModuleMenusForSidebar, remapActiveMenuForFlatModules } from 
 import { collectDescendantIds as collectMasterDataDescendantIds, findMasterDataTopMenu, flattenMasterDataMenuForSidebar } from '@/lib/masterDataMenu';
 import {
     AUTH_SESSION_CHANGED_EVENT,
+    watchDailySession,
     buildAppPath,
     canRestoreSession,
     getCompanyCdFromPathname,
@@ -1123,6 +1124,8 @@ function AuthenticatedApp() {
             mounted = false;
         };
     }, [refreshGridColumnSettings, refreshLabels]);
+
+    useEffect(() => watchDailySession(), []);
 
     // Keep UI login state in sync with session cache. Idle token/session drops used to
     // clear React Query (incl. sys codes) while isLoggedIn stayed true → zombie page with

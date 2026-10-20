@@ -2,7 +2,7 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import API_BASE_URL from "../config/apiConfig";
 import { API_REQUEST_TIMEOUT_MS } from "../config/httpConfig";
 import { attachClientPublicIpInterceptor } from "@/lib/clientPublicIp";
-import { canRestoreSession, clearAuthSession, getCurrentCompanyCd, refreshToken } from "@/lib/login";
+import { hasSessionExpired, expireAuthSession, canRestoreSession, clearAuthSession, getCurrentCompanyCd, refreshToken } from "@/lib/login";
 import { isPublicApiPath, isPublicAppPath } from "@/lib/publicRoutes";
 import { normalizeApiError } from "./apiTypes";
 
@@ -106,6 +106,11 @@ function normalizeRequestData(config: InternalAxiosRequestConfig): void {
 }
 
 axios.interceptors.request.use((config) => {
+  const path = getApiRelativePath(String(config.url ?? "")).split("?")[0] ?? "";
+  if (!isPublicApiPath(path) && !isAuthEndpointPath(path) && hasSessionExpired()) {
+    expireAuthSession();
+    return Promise.reject(new Error("SESSION_EXPIRED"));
+  }
   const companyCd = getCurrentCompanyCd();
   const url = String(config.url ?? "");
 

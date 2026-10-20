@@ -41,6 +41,7 @@ type LoginCopy = {
   forgotPassword: string;
   signIn: string;
   loginFailed: string;
+  sessionExpired: string;
   needHelp: string;
   contactUs: string;
   forgotTitle: string;
@@ -75,6 +76,7 @@ const LOGIN_COPY: Record<LoginLanguageCode, LoginCopy> = {
     forgotPassword: 'Quên mật khẩu?',
     signIn: 'Đăng nhập',
     loginFailed: 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.',
+    sessionExpired: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
     needHelp: 'Cần hỗ trợ?',
     contactUs: 'Liên hệ với chúng tôi',
     forgotTitle: 'Quên mật khẩu?',
@@ -87,6 +89,7 @@ const LOGIN_COPY: Record<LoginLanguageCode, LoginCopy> = {
     backToLogin: '← Quay lại đăng nhập',
   },
   ENG: {
+    sessionExpired: "Your session has expired. Please sign in again.",
     headingSub: 'Accounting Software',
     featureReports: 'Accurate reporting',
     featureIntegration: 'Seamless data integration',
@@ -119,6 +122,7 @@ const LOGIN_COPY: Record<LoginLanguageCode, LoginCopy> = {
     backToLogin: '← Back to sign in',
   },
   KOR: {
+    sessionExpired: "세션이 만료되었습니다. 다시 로그인해 주세요.",
     headingSub: '회계 소프트웨어',
     featureReports: '정확한 보고서',
     featureIntegration: '원활한 데이터 연동',
@@ -465,6 +469,10 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                   <h2 className="text-2xl font-bold text-gray-900 mb-1">{copy.welcomeTitle}</h2>
                   <p className="text-gray-500 text-sm">{copy.welcomeSubtitle}</p>
                 </div>
+
+                {new URLSearchParams(window.location.search).get("reason") === "session-expired" && (
+                  <p role="status" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{copy.sessionExpired}</p>
+                )}
 
                 {errorMessage && (
                   <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start">

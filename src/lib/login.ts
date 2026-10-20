@@ -1,4 +1,5 @@
 import axios from "axios";
+import { isPublicAppPath } from "@/lib/publicRoutes";
 
 import { getApiErrorMessage, normalizeApiError } from "@/api/apiTypes";
 import { clearNotificationSummaryCache } from "@/api/notificationApi";
@@ -35,6 +36,10 @@ export type AuthCompany = {
 };
 
 type AuthSessionPayload = {
+  SessionExpiresAtUtc?: string;
+  ServerNowUtc?: string;
+  sessionExpiresAtUtc?: string;
+  serverNowUtc?: string;
   Companies?: AuthCompany[];
   DefaultCompanyCd?: string;
   IsAuthenticated?: boolean;
@@ -54,6 +59,8 @@ type AuthSessionPayload = {
 };
 
 export interface AuthSession {
+  sessionExpiresAtUtc?: string;
+  serverClockOffsetMs?: number;
   companies: AuthCompany[];
   defaultCompanyCd: string;
   isAuthenticated: boolean;
@@ -98,6 +105,8 @@ function readStoredSession(): AuthSession | null {
 
 let sessionCache: AuthSession | null = readStoredSession();
 let sessionResolved = sessionCache === null;
+let sessionRevision = 0;
+let pendingRefresh: Promise<boolean> | null = null;
 
 function hasStoredRestoreHint(): boolean {
   if (typeof window === "undefined") {
@@ -121,6 +130,7 @@ function setRestoreHint(enabled: boolean) {
 }
 
 function setSessionCache(session: AuthSession | null) {
+  sessionRevision += 1;
   const previousIdentity = sessionCache
     ? `${sessionCache.userPkId}:${sessionCache.userId}`
     : "";
@@ -151,6 +161,53 @@ function setSessionCache(session: AuthSession | null) {
 
 export function clearAuthSession(): void {
   setSessionCache(null);
+}
+
+export function hasSessionExpired(): boolean {
+  const deadline = Date.parse(sessionCache?.sessionExpiresAtUtc ?? "");
+  return Number.isFinite(deadline)
+    && Date.now() + (sessionCache?.serverClockOffsetMs ?? 0) >= deadline;
+}
+
+export function expireAuthSession(): void {
+  clearAuthSession();
+  if (typeof window !== "undefined" && !isPublicAppPath()) {
+    window.location.replace("/login?reason=session-expired");
+  }
+}
+
+export function watchDailySession(): () => void {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const check = () => {
+    clearTimeout(timer);
+    if (hasSessionExpired()) {
+      expireAuthSession();
+      return;
+    }
+    const deadline = Date.parse(sessionCache?.sessionExpiresAtUtc ?? "");
+    if (Number.isFinite(deadline)) {
+      const remaining = deadline - Date.now() - (sessionCache?.serverClockOffsetMs ?? 0);
+      timer = setTimeout(check, Math.max(1, Math.min(remaining, 60_000)));
+    }
+  };
+  // Each tab checks its own protected server deadline when another tab logs out.
+  const storage = (event: StorageEvent) => {
+    if (event.key === SESSION_RESTORE_HINT_KEY) check();
+  };
+  window.addEventListener(AUTH_SESSION_CHANGED_EVENT, check);
+  window.addEventListener("focus", check);
+  window.addEventListener("pageshow", check);
+  window.addEventListener("storage", storage);
+  document.addEventListener("visibilitychange", check);
+  check();
+  return () => {
+    clearTimeout(timer);
+    window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, check);
+    window.removeEventListener("focus", check);
+    window.removeEventListener("pageshow", check);
+    window.removeEventListener("storage", storage);
+    document.removeEventListener("visibilitychange", check);
+  };
 }
 
 function unwrapEnvelope<T>(payload: AuthEnvelope<T> | T): T {
@@ -190,7 +247,13 @@ function toSession(payload: unknown): AuthSession | null {
     ? userPkIdRaw
     : Number(userPkIdRaw) || 0;
 
+  const deadline = String(raw.SessionExpiresAtUtc ?? raw.sessionExpiresAtUtc ?? "");
+  const serverNow = Date.parse(String(raw.ServerNowUtc ?? raw.serverNowUtc ?? ""));
+  if (!Number.isFinite(Date.parse(deadline)) || !Number.isFinite(serverNow)) return null;
+
   return {
+    sessionExpiresAtUtc: deadline,
+    serverClockOffsetMs: serverNow - Date.now(),
     companies,
     defaultCompanyCd: String(raw.DefaultCompanyCd ?? raw.defaultCompanyCd ?? "").trim(),
     isAuthenticated: true,
@@ -207,10 +270,12 @@ function readErrorMessage(error: unknown, fallback: string): string {
 }
 
 async function requestSession(): Promise<AuthSession | null> {
+  const revision = sessionRevision;
   try {
     const response = await authHttp.get<AuthEnvelope<AuthSessionPayload> | AuthSessionPayload>("/auth/session");
+    if (revision !== sessionRevision) return sessionCache;
     const session = toSession(response.data);
-    setSessionCache(session);
+    if (session) setSessionCache(session);
     return session;
   } catch {
     return null;
@@ -247,7 +312,8 @@ export async function login(companyCD: string, userName: string, password: strin
   }
 }
 
-export async function refreshToken(): Promise<boolean> {
+async function performRefresh(): Promise<boolean> {
+  const revision = sessionRevision;
   if (!canRestoreSession()) {
     clearAuthSession();
     return false;
@@ -255,16 +321,30 @@ export async function refreshToken(): Promise<boolean> {
 
   try {
     const response = await authHttp.post<AuthEnvelope<AuthSessionPayload> | AuthSessionPayload>("/auth/refresh");
+    if (revision !== sessionRevision) return Boolean(sessionCache);
     const session = toSession(response.data);
+    if (!session) { expireAuthSession(); return false; }
     setSessionCache(session);
-    return Boolean(session);
+    return true;
   } catch {
-    setSessionCache(null);
+    if (revision !== sessionRevision) return Boolean(sessionCache);
+    expireAuthSession();
     return false;
   }
 }
 
+export function refreshToken(): Promise<boolean> {
+  if (!pendingRefresh) {
+    const run = () => performRefresh();
+    pendingRefresh = (typeof navigator !== "undefined" && navigator.locks
+      ? navigator.locks.request("amnote-auth-refresh", run) : run())
+      .finally(() => { pendingRefresh = null; });
+  }
+  return pendingRefresh;
+}
+
 export async function getSession(forceRefresh = false): Promise<AuthSession | null> {
+  if (hasSessionExpired()) { expireAuthSession(); return null; }
   if (!forceRefresh && sessionCache?.isAuthenticated && sessionResolved) {
     return sessionCache;
   }
@@ -300,6 +380,7 @@ export function isSessionResolved(): boolean {
 }
 
 export function canRestoreSession(): boolean {
+  if (hasSessionExpired()) { expireAuthSession(); return false; }
   return Boolean(sessionCache?.isAuthenticated) || hasStoredRestoreHint();
 }
 
