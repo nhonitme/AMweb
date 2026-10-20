@@ -6,8 +6,16 @@ import { deleteMasterRecords } from "@/lib/masterDelete";
 
 const API_URL = `${API_BASE_URL}/ProductInfo`;
 
-export async function getProducts(): Promise<Product[]> {
+export async function getProducts(division?: string | string[] | null): Promise<Product[]> {
+    const params: Record<string, string> = {};
+    const divisions = (Array.isArray(division) ? division : [division])
+        .flatMap((value) => String(value ?? "").split(/[,;|]/))
+        .map((value) => value.trim())
+        .filter(Boolean);
+    if (divisions.length > 0) params.division = divisions.join(",");
+
     const resp = await axios.get<ApiResponse<Product[]>>(API_URL, {
+        params,
         headers: {
             "Content-Type": "application/json",
         },

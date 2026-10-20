@@ -15,6 +15,7 @@ export interface ReportSignatureMappingSignatureApi {
 }
 
 export interface ReportSignatureMappingApi {
+  CONFIG_SOURCE?: ReportSignatureText
   MAPPING_ID?: number | null
   COMPANY_CD?: ReportSignatureText
   REPORT_KEY?: ReportSignatureText
@@ -40,6 +41,7 @@ export interface ReportSignatureMappingSignature {
 }
 
 export interface ReportSignatureMapping {
+  CONFIG_SOURCE: string
   MAPPING_ID: number | null
   COMPANY_CD: string
   REPORT_KEY: string

@@ -3,6 +3,7 @@ import "@devexpress/analytics-core/dist/css/dx-analytics.light.css"
 import "devexpress-reporting/dist/css/dx-webdocumentviewer.css"
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import Popup from "devextreme-react/popup"
+import { Settings } from "lucide-react"
 import { DxReportViewer, DxReportViewerRef, RequestOptions, TemplateEngine } from "devexpress-reporting-react/dx-report-viewer"
 import Callbacks from "devexpress-reporting-react/dx-report-viewer/options/Callbacks"
 import { CustomAction } from "devexpress-reporting/common/customAction"
@@ -11,8 +12,9 @@ import { ActionId, ExportFormatID, PreviewElements } from "devexpress-reporting/
 import { useCompanyLangRevision } from "@/lib/companyLang"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { useMenuExportName } from "@/hooks/useMenuExportName"
-import { getReportLanguageOptions, normalizeReportLanguage, type ReportLanguageCode } from "./reportLanguage"
+import { getReportLanguageOptions, type ReportLanguageCode } from "./reportLanguage"
 import ReportSignatureMappingEditor from "./ReportSignatureMappingEditor"
+import ReportPageSetupPopup, { type ReportPageSettings } from "./ReportPageSetupPopup"
 import { configureReportViewerRequests, getReportViewerHost, patchReportViewerSaveAs } from "./reportViewerConfig"
 
 type ReportViewerShellProps = {
@@ -22,6 +24,9 @@ type ReportViewerShellProps = {
   reportLanguage: ReportLanguageCode
   reportUrl: string
   onReportLanguageChange: (language: ReportLanguageCode) => void
+  pageSettings: ReportPageSettings
+  onPageSettingsChange: (settings: ReportPageSettings) => void
+  pageSetupEnabled: boolean
 }
 
 type ReportViewerToolbarAction = {
@@ -61,72 +66,15 @@ type ReportViewerCustomizeElementsPayload = {
 }
 
 const REFRESH_REPORT_ACTION_ID = "amnote-report-refresh"
-const EDIT_SIGNATURES_ACTION_ID = "amnote-report-edit-signatures"
-const REPORT_LANGUAGE_ACTION_ID = "amnote-report-language"
-const EDIT_SIGNATURES_TEMPLATE_NAME = "amnote-report-edit-signatures-icon"
-const LANGUAGE_TEMPLATE_NAME_VI = "amnote-report-language-icon-vi"
-const LANGUAGE_TEMPLATE_NAME_EN = "amnote-report-language-icon-en"
-const LANGUAGE_TEMPLATE_NAME_KOR = "amnote-report-language-icon-kor"
-const LANGUAGE_TEMPLATE_NAME_JPN = "amnote-report-language-icon-jpn"
-const LANGUAGE_TEMPLATE_NAME_THA = "amnote-report-language-icon-tha"
-const LANGUAGE_TEMPLATE_NAME_CHN = "amnote-report-language-icon-chn"
+const SETTINGS_ACTION_ID = "amnote-report-settings"
+const SETTINGS_TEMPLATE_NAME = "amnote-report-settings-icon"
 
 configureReportViewerRequests()
 
 const reportViewerTemplateEngine = new TemplateEngine()
-
-function createReportLanguageToolbarIcon(label: string) {
-  return function ReportLanguageToolbarIcon() {
-    const fontSize = label.length > 2 ? 4.6 : 6.25
-
-    return (
-      <svg viewBox="0 0 24 24" aria-hidden="true" className="am-report-viewer-icon am-report-viewer-icon-language">
-        <path
-          className="dxd-icon-fill"
-          d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm6.9 9h-2.1a15 15 0 0 0-1.6-5 8.1 8.1 0 0 1 3.7 5ZM12 4.1c1.1 1.3 2 3.9 2.4 6.9H9.6c.4-3 1.3-5.6 2.4-6.9ZM8.8 6a15 15 0 0 0-1.6 5H5.1a8.1 8.1 0 0 1 3.7-5Zm-3.7 7h2.1a15 15 0 0 0 1.6 5 8.1 8.1 0 0 1-3.7-5Zm6.9 6.9c-1.1-1.3-2-3.9-2.4-6.9h4.8c-.4 3-1.3 5.6-2.4 6.9Zm3.2-1.9a15 15 0 0 0 1.6-5h2.1a8.1 8.1 0 0 1-3.7 5Z"
-        />
-        <rect x="3" y="13.2" width="18" height="7" rx="3.5" fill="currentColor" opacity="0.18" />
-        <text
-          x="12"
-          y="18.4"
-          textAnchor="middle"
-          fontSize={fontSize}
-          fontWeight="700"
-          fill="currentColor"
-        >
-          {label}
-        </text>
-      </svg>
-    )
-  }
-}
-
-reportViewerTemplateEngine.setTemplate(EDIT_SIGNATURES_TEMPLATE_NAME, function EditSignaturesToolbarIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="am-report-viewer-icon am-report-viewer-icon-signatures">
-      <path
-        className="dxd-icon-fill"
-        d="m3 17.3 8.9-8.9 3.7 3.7-8.9 8.9H3v-3.7Zm10.3-10.4 1.3-1.3a2 2 0 0 1 2.8 0l1 1a2 2 0 0 1 0 2.8l-1.3 1.3-3.8-3.8Z"
-      />
-    </svg>
-  )
+reportViewerTemplateEngine.setTemplate(SETTINGS_TEMPLATE_NAME, function SettingsToolbarIcon() {
+  return <Settings aria-hidden="true" className="am-report-viewer-icon" />
 })
-
-reportViewerTemplateEngine.setTemplate(LANGUAGE_TEMPLATE_NAME_VI, createReportLanguageToolbarIcon("VI"))
-reportViewerTemplateEngine.setTemplate(LANGUAGE_TEMPLATE_NAME_EN, createReportLanguageToolbarIcon("EN"))
-reportViewerTemplateEngine.setTemplate(LANGUAGE_TEMPLATE_NAME_KOR, createReportLanguageToolbarIcon("KOR"))
-reportViewerTemplateEngine.setTemplate(LANGUAGE_TEMPLATE_NAME_JPN, createReportLanguageToolbarIcon("JPN"))
-reportViewerTemplateEngine.setTemplate(LANGUAGE_TEMPLATE_NAME_THA, createReportLanguageToolbarIcon("THA"))
-reportViewerTemplateEngine.setTemplate(LANGUAGE_TEMPLATE_NAME_CHN, createReportLanguageToolbarIcon("CHN"))
-
-const languageTemplateNames: Record<ReportLanguageCode, string> = {
-  VIET: LANGUAGE_TEMPLATE_NAME_VI,
-  ENG: LANGUAGE_TEMPLATE_NAME_EN,
-  KOR: LANGUAGE_TEMPLATE_NAME_KOR,
-  JPN: LANGUAGE_TEMPLATE_NAME_JPN,
-  THA: LANGUAGE_TEMPLATE_NAME_THA,
-  CHN: LANGUAGE_TEMPLATE_NAME_CHN,
-}
 
 export default function ReportViewerShell({
   companyCd,
@@ -135,12 +83,17 @@ export default function ReportViewerShell({
   reportLanguage,
   reportUrl,
   onReportLanguageChange,
+  pageSettings,
+  onPageSettingsChange,
+  pageSetupEnabled,
 }: ReportViewerShellProps) {
   const viewerRef = useRef<DxReportViewerRef | null>(null)
   const companyLangRevision = useCompanyLangRevision()
   const languageOptions = useMemo(() => getReportLanguageOptions(), [companyLangRevision])
+  const [settingsVisible, setSettingsVisible] = useState(false)
   const [signatureEditorVisible, setSignatureEditorVisible] = useState(false)
   const [languageSelectorVisible, setLanguageSelectorVisible] = useState(false)
+  const [pageSetupVisible, setPageSetupVisible] = useState(false)
   const [viewerRevision, setViewerRevision] = useState(0)
   const [reportInstanceToken] = useState(
     () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
@@ -219,25 +172,17 @@ export default function ReportViewerShell({
     return () => window.clearInterval(intervalId)
   }, [resolveExportFileName, versionedReportUrl])
 
-  const currentLanguageTemplateName = useMemo(
-    () => languageTemplateNames[normalizeReportLanguage(reportLanguage)],
-    [reportLanguage],
-  )
-
   const handleCustomizeMenuActions = useCallback(({ args }: ReportViewerCustomizeMenuActionsPayload) => {
     const actions = args?.Actions
     if (!Array.isArray(actions)) {
       return
     }
 
-    const normalizedReportKey = reportKey?.trim() ?? ""
-
     for (let index = actions.length - 1; index >= 0; index -= 1) {
       const itemId = actions[index]?.id
       if (
         itemId === REFRESH_REPORT_ACTION_ID ||
-        itemId === EDIT_SIGNATURES_ACTION_ID ||
-        itemId === REPORT_LANGUAGE_ACTION_ID ||
+        itemId === SETTINGS_ACTION_ID ||
         itemId === ActionId.Design ||
         itemId === ActionId.HighlightEditingFields ||
         itemId === ActionId.PrintPage ||
@@ -249,38 +194,18 @@ export default function ReportViewerShell({
 
     const exportAction = args?.GetById?.(ActionId.ExportTo)
     const exportActionIndex = exportAction ? actions.indexOf(exportAction) : -1
-    let insertAt = exportActionIndex >= 0 ? exportActionIndex + 1 : actions.length
-
-    if (companyCd && normalizedReportKey) {
-      const editAction = new CustomAction({
-        id: EDIT_SIGNATURES_ACTION_ID,
-        text: t("EDIT_SIGNATURES", "Sửa chữ ký"),
-        container: "toolbar",
-        imageTemplateName: EDIT_SIGNATURES_TEMPLATE_NAME,
-        visible: true,
-        disabled: false,
-        selected: false,
-        clickAction: () => setSignatureEditorVisible(true),
-      })
-
-      actions.splice(insertAt, 0, editAction)
-      insertAt += 1
-    }
-
-    const languageAction = new CustomAction({
-      id: REPORT_LANGUAGE_ACTION_ID,
-      text: `${t("REPORT_LANGUAGE_TOOLTIP", "Đổi ngôn ngữ report")} (${reportLanguage})`,
+    const insertAt = exportActionIndex >= 0 ? exportActionIndex + 1 : actions.length
+    actions.splice(insertAt, 0, new CustomAction({
+      id: SETTINGS_ACTION_ID,
+      text: t("SETTINGS", "Cài đặt"),
       container: "toolbar",
-      imageTemplateName: currentLanguageTemplateName,
+      imageTemplateName: SETTINGS_TEMPLATE_NAME,
       visible: true,
       disabled: false,
-      selected: false,
-      clickAction: () => setLanguageSelectorVisible(true),
+      clickAction: () => setSettingsVisible(true),
       hasSeparator: true,
-    })
-
-    actions.splice(insertAt, 0, languageAction)
-  }, [companyCd, currentLanguageTemplateName, reportKey, reportLanguage, t])
+    }))
+  }, [t])
 
   const handleCustomizeExportOptions = useCallback(({ args }: ReportViewerCustomizeExportOptionsPayload) => {
     if (typeof args?.HideFormat !== "function") {
@@ -332,19 +257,50 @@ export default function ReportViewerShell({
       </div>
 
       <Popup
+        visible={settingsVisible}
+        title={t("SETTINGS", "Cài đặt")}
+        showTitle={true}
+        dragEnabled={false}
+        hideOnOutsideClick={true}
+        showCloseButton={true}
+        width={360}
+        height="auto"
+        maxWidth="95vw"
+        onHiding={() => setSettingsVisible(false)}
+      >
+        <div className="space-y-2 bg-white p-4">
+          {[
+            { key: "signatures", label: t("EDIT_SIGNATURES", "Sửa chữ ký"), visible: Boolean(companyCd && reportKey?.trim()), open: () => setSignatureEditorVisible(true) },
+            { key: "page", label: t("REPORT_PAGE_SETUP", "Cấu hình trang in"), visible: pageSetupEnabled, open: () => setPageSetupVisible(true) },
+            { key: "language", label: t("REPORT_LANGUAGE_TOOLTIP", "Đổi ngôn ngữ report") + " (" + reportLanguage + ")", visible: true, open: () => setLanguageSelectorVisible(true) },
+          ].filter((item) => item.visible).map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className="w-full rounded-lg border border-slate-200 px-4 py-3 text-left text-sm text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
+              onClick={() => {
+                setSettingsVisible(false)
+                item.open()
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </Popup>
+
+      <Popup
         visible={signatureEditorVisible}
         title={t("EDIT_SIGNATURES", "Sửa chữ ký")}
         showTitle={true}
         dragEnabled={false}
         hideOnOutsideClick={false}
         showCloseButton={true}
-        width="96vw"
-        height="92vh"
-        maxWidth={1500}
-        maxHeight={980}
+        width="min(1040px, 96vw)"
+        height="min(650px, 90vh)"
         onHiding={() => setSignatureEditorVisible(false)}
       >
-        <div className="h-full overflow-auto bg-slate-50 p-4 sm:p-5">
+        <div className="h-full min-h-0 overflow-hidden bg-white">
           {reportKey ? (
             <ReportSignatureMappingEditor
               reportKey={reportKey}
@@ -358,6 +314,17 @@ export default function ReportViewerShell({
           ) : null}
         </div>
       </Popup>
+
+      {pageSetupVisible && (
+        <ReportPageSetupPopup
+          settings={pageSettings}
+          onClose={() => setPageSetupVisible(false)}
+          onApply={(settings) => {
+            setPageSetupVisible(false)
+            onPageSettingsChange(settings)
+          }}
+        />
+      )}
 
       <Popup
         visible={languageSelectorVisible}

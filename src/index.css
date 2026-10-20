@@ -1097,26 +1097,55 @@ tbody {
   fill: #166534;
 }
 
+.report-signature-editor .dx-data-row > td {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  cursor: pointer;
+}
+
 .am-report-viewer .am-report-viewer-icon-refresh .dxd-icon-fill {
   fill: #2563eb;
-}
-
-.am-report-viewer .am-report-viewer-icon-signatures .dxd-icon-fill {
-  fill: #db2777;
-}
-
-.am-report-viewer .am-report-viewer-icon-language .dxd-icon-fill {
-  fill: #7c3aed;
 }
 
 .am-report-viewer .am-report-viewer-icon-refresh:hover .dxd-icon-fill {
   fill: #1d4ed8;
 }
 
-.am-report-viewer .am-report-viewer-icon-signatures:hover .dxd-icon-fill {
-  fill: #be185d;
+/* Color the built-in viewer actions by their function. */
+.am-report-viewer .dxrd-toolbar :is(
+  .dxrd-image-preview-first,
+  .dxrd-image-preview-prev,
+  .dxrd-image-preview-next,
+  .dxrd-image-preview-last
+) .dxd-icon-fill {
+  fill: #2563eb;
 }
 
-.am-report-viewer .am-report-viewer-icon-language:hover .dxd-icon-fill {
-  fill: #6d28d9;
+.am-report-viewer .dxrd-toolbar :is(.dxrd-image-zoomin, .dxrd-image-zoomout) .dxd-icon-fill {
+  fill: #0891b2;
+}
+
+.am-report-viewer .dxrd-toolbar .dxrd-image-print .dxd-icon-fill {
+  fill: #4f46e5;
+}
+
+.am-report-viewer .dxrd-toolbar :is(.dxrd-image-preview-single-page, .dxrd-image-preview-multipage) .dxd-icon-fill {
+  fill: #d97706;
+}
+
+.am-report-viewer .dxrd-toolbar .dxrd-image-search .dxd-icon-fill {
+  fill: #0d9488;
+}
+
+.am-report-viewer .dxrd-toolbar .dxrd-toolbar-item:hover .dxrd-toolbar-item-image {
+  filter: brightness(0.85);
+}
+
+.am-report-viewer .dxrd-toolbar :is(
+  .dx-state-disabled,
+  .dxd-state-disabled,
+  [disabled],
+  [aria-disabled="true"]
+) .dxd-icon-fill {
+  fill: #cbd5e1;
 }

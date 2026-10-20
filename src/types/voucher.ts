@@ -111,6 +111,7 @@ export interface InventoryOutputApi {
   REVENUE_AMOUNT_CC?: number | null
   AMOUNT_FC?: number | null
   REVENUE_AMOUNT_FC?: number | null
+  REVENUE_AMOUNT_TOTAL?: number | null
   SUMMARY?: InventoryText
   INVENTORY_YMD?: InventoryDateValue
   INPUT_INVENTORY_YMD?: InventoryDateValue
@@ -208,6 +209,7 @@ export interface InventoryOutputLine {
   REVENUE_AMOUNT_CC: number | null
   AMOUNT_FC: number | null
   REVENUE_AMOUNT_FC: number | null
+  REVENUE_AMOUNT_TOTAL: number | null
   SUMMARY: string
   INVENTORY_YMD: InventoryDateValue
   INPUT_INVENTORY_YMD?: InventoryDateValue

@@ -83,6 +83,15 @@ const ManagementInfoPage = lazy(() => import('./pages/Module/ManagementInfo/Mana
 const AcclistPage = lazy(() => import('./pages/Module/AcclistManagement/AcclistPage'));
 const ConfiguredReportViewer = lazy(() => import('./pages/Reports/ConfiguredReportViewer'));
 const JournalReportPage = lazy(() => import('./pages/Reports/JournalReportPage'));
+const SalesJournalReportPage = () => (
+    <JournalReportPage
+        reportCode="AR_SALES_JOURNAL"
+        menuCode="AR_REPORT_SALES_JOURNAL"
+        titleKey="AR_SALES_JOURNAL"
+        titleFallback="Sổ nhật ký bán hàng"
+        showExportExcel={true}
+    />
+);
 const VatInOutListPage = lazy(() => import('./pages/Tax/VatInOutListPage'));
 const ServiceAllocationCheckPage = lazy(() => import('./pages/Reports/ServiceAllocationCheckPage'));
 const DebtOffsetPage = lazy(() => import('./pages/Accounting/DebtOffsetPage'));
@@ -777,7 +786,11 @@ function AppWorkspaceRoutes({
                         <Route path="/gl/voucher/other" element={<OtherVoucherPage />} />
                         <Route
                             path="/ar/report/sales-journal"
-                            element={<JournalReportPage reportCode="AR_SALES_JOURNAL" menuCode="AR_REPORT_SALES_JOURNAL" titleKey="AR_SALES_JOURNAL" titleFallback="Sổ nhật ký bán hàng" showExportExcel={true} />}
+                            element={<SalesJournalReportPage />}
+                        />
+                        <Route
+                            path="/gl/report/sales-journal"
+                            element={<SalesJournalReportPage />}
                         />
                         <Route
                             path="/ar/report/sales-detail"
@@ -785,7 +798,7 @@ function AppWorkspaceRoutes({
                         />
                         <Route
                             path="/gl/book/sales-journal"
-                            element={<JournalReportPage reportCode="AR_SALES_JOURNAL" menuCode="GL_BOOK_SALES_JOURNAL" titleKey="AR_SALES_JOURNAL" titleFallback="Sổ nhật ký bán hàng" showExportExcel={true} />}
+                            element={<SalesJournalReportPage />}
                         />
                         <Route
                             path="/gl/book/sales-detail"

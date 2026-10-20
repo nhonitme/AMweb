@@ -233,9 +233,28 @@ export default function ReportSignatureMappingEditor({
   const dragTooltip = t("REPORT_SIGNATURE_DRAG_HINT", "Drag selected rows to reorder")
 
   return (
-    <div className="report-signature-editor relative space-y-4">
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="mb-3 flex flex-wrap justify-end gap-2">
+    <div className="report-signature-editor relative flex h-full min-h-0 flex-col">
+      <section className="flex min-h-0 flex-1 flex-col bg-white">
+        <div className="shrink-0 pb-3">
+        {mapping && (
+          <p className="mb-2 shrink-0 text-xs text-slate-500">
+            {mapping.CONFIG_SOURCE === "SYSTEM"
+              ? t("REPORT_CONFIG_SOURCE_SYSTEM", "Đang dùng mặc định hệ thống. Lưu sẽ tạo cấu hình riêng của công ty.")
+              : mapping.CONFIG_SOURCE === "COMPANY"
+                ? t("REPORT_CONFIG_SOURCE_COMPANY", "Cấu hình riêng của công ty")
+                : t("REPORT_CONFIG_SOURCE_CATALOG", "Đang dùng cấu hình dự phòng của báo cáo")}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="mr-auto rounded-full bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700">
+            {t("SELECTED", "Đã chọn")}: {selectedCodes.length}/{gridRows.length}
+          </span>
+          <Button
+            stylingMode="outlined"
+            text={t("SELECT_ALL", "Chọn tất cả")}
+            disabled={loading || saving || selectedCodes.length === gridRows.length}
+            onClick={() => setSelectedCodes([...displayOrder])}
+          />
           <Button
             icon="refresh"
             stylingMode="outlined"
@@ -248,29 +267,38 @@ export default function ReportSignatureMappingEditor({
             disabled={selectedCodes.length === 0 || loading || saving}
             icon="clear"
             stylingMode="outlined"
-            text={t("CLEAR_SELECTION", "Clear selection")}
+            text={t("CLEAR_SELECTION", "Bỏ chọn hết")}
             type="normal"
             onClick={() => setSelectedCodes([])}
           />
         </div>
 
+        <p className="mt-2 text-xs text-slate-500">
+          {t("REPORT_SIGNATURE_SELECT_HINT", "Tick ô hoặc bấm dòng để chọn. Kéo biểu tượng ⋮⋮ để đổi thứ tự chữ ký.")}
+        </p>
+        </div>
+
+        <div className="min-h-0 flex-1">
         <DataGrid
           dataSource={gridRows}
           keyExpr="SIGN_CODE"
           selectedRowKeys={selectedCodes}
           onSelectionChanged={handleSelectionChanged}
           columnAutoWidth={true}
+          disabled={loading || saving}
+          wordWrapEnabled={true}
           hoverStateEnabled={true}
           rowAlternationEnabled={false}
           repaintChangesOnly={false}
           showBorders={true}
-          height={580}
+          height="100%"
           noDataText={loading ? "" : t("NO_DATA", "No signatures available")}
         >
-          <Selection mode="multiple" showCheckBoxesMode="always" selectAllMode="allPages" />
+          <Selection mode="multiple" showCheckBoxesMode="always" selectAllMode="allPages" selectByClick={true} />
           <Scrolling mode="standard" />
           <Paging enabled={false} />
           <Sorting mode="none" />
+          <Column type="selection" width={44} />
           <RowDragging
             allowReordering={true}
             showDragIcons={false}
@@ -282,7 +310,7 @@ export default function ReportSignatureMappingEditor({
 
           <Column
             caption=""
-            width={52}
+            width={36}
             alignment="center"
             allowSorting={false}
             cellRender={({ data }: { data: ReportSignatureGridRow }) =>
@@ -302,7 +330,7 @@ export default function ReportSignatureMappingEditor({
 
           <Column
             caption={t("ORDER", "Order")}
-            width={70}
+            width={60}
             alignment="center"
             allowSorting={false}
             cellRender={({ data }: { data: ReportSignatureGridRow }) =>
@@ -314,10 +342,11 @@ export default function ReportSignatureMappingEditor({
             }
           />
 
-          <Column dataField="SIGN_CODE" caption={t("SIGN_CODE", "Sign Code")} width={110} allowSorting={false} />
+          <Column dataField="SIGN_CODE" caption={t("SIGN_CODE", "Sign Code")} width={85} allowSorting={false} />
           <Column
             dataField="DISPLAY_LABEL"
-            caption={t("DISPLAY_LABEL", "Display Label")}
+            caption={t("DISPLAY_LABEL", "Nhãn hiển thị")}
+            minWidth={200}
             allowSorting={false}
             cellRender={({ data }: { data: ReportSignatureGridRow }) => {
               const value = data.DISPLAY_LABEL?.trim()
@@ -326,17 +355,19 @@ export default function ReportSignatureMappingEditor({
           />
           <Column
             dataField="SIGN_TITLE"
-            caption={t("SIGN_TITLE", "Signer Title")}
+            caption={t("SIGN_TITLE", "Chức danh người ký")}
+            minWidth={160}
             allowSorting={false}
             cellRender={({ data }: { data: ReportSignatureGridRow }) => {
               const value = data.SIGN_TITLE?.trim()
               return value ? t(value, value) : ""
             }}
           />
-          <Column dataField="SIGN_NAME" caption={t("SIGN_NAME", "Signer Name")} allowSorting={false} />
+          <Column dataField="SIGN_NAME" caption={t("SIGN_NAME", "Tên người ký")} minWidth={160} allowSorting={false} />
         </DataGrid>
+        </div>
 
-        <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-white pt-3 mt-3">
           <Button
             stylingMode="outlined"
             text={t("dxDataGrid-editingCancelRowChanges", "Cancel")}

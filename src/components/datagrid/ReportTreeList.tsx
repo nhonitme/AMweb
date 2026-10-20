@@ -18,6 +18,7 @@ import TreeList, {
   FilterRow,
   HeaderFilter,
   Scrolling,
+  Sorting,
   StateStoring,
 } from "devextreme-react/tree-list"
 import type dxTreeList from "devextreme/ui/tree_list"
@@ -69,6 +70,7 @@ import {
   type ReportDataGridRow,
 } from "./ReportDataGrid"
 import { translateReportColumnCaption } from "@/utils/reportColumnCaption"
+import { getReportRowLabel, preservesReportRowOrder } from "./reportOutlineMetadata"
 
 function customizeZeroAsBlankText(cellInfo: { value?: unknown; valueText?: string }): string {
   const value = cellInfo.value
@@ -118,7 +120,7 @@ const HIDDEN_TECHNICAL_FIELDS = new Set<string>([
   "COMPANY_CD",
 ])
 
-const ROW_TYPE_TOTAL_ROWS = new Set(["TOTAL", "TOTAL_FOOTER", "OPENING_TOTAL", "TOTAL_PERIOD", "ENDING_TOTAL"])
+const ROW_TYPE_TOTAL_ROWS = new Set(["SUMMARY", "SUBTOTAL", "GRAND_TOTAL", "TOTAL", "TOTAL_FOOTER", "OPENING_TOTAL", "TOTAL_PERIOD", "ENDING_TOTAL"])
 const ROW_TYPE_GROUP_ROWS = new Set(["GROUP", "SECTION"])
 
 function readTechnicalField(row: ReportDataGridRow, aliases: readonly string[]): string | null {
@@ -237,6 +239,7 @@ function ReportTreeList(
     () => resolveTreeRows(toLocalizedReportDataGridRows(preview, t, reportCode)),
     [preview, reportCode, t],
   )
+  const preserveRowOrder = useMemo(() => preservesReportRowOrder(treeRows), [treeRows])
   // Report tree views always start fully expanded; users can collapse branches afterward.
   const defaultExpandAll = true
 
@@ -359,6 +362,9 @@ function ReportTreeList(
       }
 
       event.rowElement?.setAttribute("data-report-row-type", event.data.ROW_TYPE)
+      event.rowElement?.setAttribute("data-report-keep-order", String(preserveRowOrder))
+      event.rowElement?.classList.toggle("report-outline-label-row", Boolean(getReportRowLabel(event.data)))
+
       if (event.data.ROW_TYPE === "GROUP") {
         event.rowElement?.classList.add("font-semibold", "bg-blue-50")
       } else if (event.data.ROW_TYPE === "SECTION") {
@@ -367,7 +373,7 @@ function ReportTreeList(
         event.rowElement?.classList.add("font-semibold", "bg-slate-100")
       }
     },
-    [],
+    [preserveRowOrder],
   )
 
   const resolvedGridId = reportCode.trim()
@@ -380,6 +386,10 @@ function ReportTreeList(
   const [columnSettingsVisible, setColumnSettingsVisible] = useState(false)
   const [columnSettingsLoading, setColumnSettingsLoading] = useState(false)
   const [columnSettingsItems, setColumnSettingsItems] = useState<GridColumnSettingEditorItem[]>([])
+  // Hidden, locked fields are retired metadata, not user-selectable columns.
+  const editableColumnSettingsItems = useMemo(() => columnSettingsItems.filter((item) =>
+    !isTechnicalDisplayField(item.columnName) && (item.isVisible || item.allowHiding),
+  ), [columnSettingsItems])
   const columnSettingsTargetKey = columnSettingState.targetIdentity ?? `${menuCode ?? ""}::${resolvedGridId}`
   const columnSettingsTargetKeyRef = useRef(columnSettingsTargetKey)
   const appliedColumnSettingsRef = useRef<{
@@ -415,14 +425,23 @@ function ReportTreeList(
             dataType={column.DATA_TYPE === "date" ? "date" : column.DATA_TYPE === "number" ? "number" : undefined}
             format={resolveColumnDisplayFormat(column, tempDecimalPlacesByField)}
             customizeText={resolveColumnDataType(column) === "number" ? customizeZeroAsBlankText : undefined}
-            cellRender={sysCodeType ? (cellData) => {
+            allowSorting={!preserveRowOrder}
+            cellRender={(cellData) => {
+              const groupLabel = getReportRowLabel(cellData.data)
+              if (groupLabel) {
+                const firstField = cellData.component.getVisibleColumns().find((item: { dataField?: string }) => item.dataField)?.dataField
+                return column.FIELD_NAME === firstField
+                  ? <span className="report-outline-row-label">{groupLabel}</span>
+                  : null
+              }
+              if (!sysCodeType) return cellData.text
               const raw = String(cellData.value ?? cellData.text ?? "").trim()
               if (!raw || !labelsReady) {
                 return raw
               }
               const codeName = getCodeName(sysCodeType, raw).trim()
               return codeName ? t(codeName, codeName) : raw
-            } : undefined}
+            }}
             alignment={column.ALIGN}
             width={column.WIDTH || undefined}
             allowResizing
@@ -452,7 +471,7 @@ function ReportTreeList(
         showInColumnChooser={false}
       />,
     ],
-    [columns, getCodeName, labelsReady, sysCodeMap, t, tempDecimalPlacesByField],
+    [columns, getCodeName, labelsReady, preserveRowOrder, sysCodeMap, t, tempDecimalPlacesByField],
   )
   const renderedColumnChildren = useMemo(() => {
     const configured = applyGridColumnSettingsToChildren(
@@ -468,6 +487,14 @@ function ReportTreeList(
       if (!React.isValidElement(child)) return child
       const field = (child.props as { dataField?: string }).dataField
       const column = columns.find((item) => normalizeColumnKey(item.FIELD_NAME) === normalizeColumnKey(field))
+      if (preserveRowOrder) {
+        return React.cloneElement(child as React.ReactElement<Record<string, unknown>>, {
+          allowSorting: false,
+          sortOrder: undefined,
+          sortIndex: undefined,
+          ...(column ? { format: resolveColumnDisplayFormat(column, tempDecimalPlacesByField) } : {}),
+        })
+      }
       if (!column || tempDecimalPlacesByField[normalizeColumnKey(field)] === undefined) return child
       return React.cloneElement(child as React.ReactElement<{ format?: string }>, {
         format: resolveColumnDisplayFormat(column, tempDecimalPlacesByField),
@@ -476,7 +503,7 @@ function ReportTreeList(
     // columnLayoutSignature/companyLangRevision intentionally bust the memo when
     // cached settings arrays are replaced in place.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columnChildren, columnLayoutSignature, companyLangRevision, columns, tempDecimalPlacesByField])
+  }, [columnChildren, columnLayoutSignature, companyLangRevision, columns, preserveRowOrder, tempDecimalPlacesByField])
 
   const { cachedEditorItems: cachedColumnSettings, syncEditorItemsToComponent } = columnSettingState
   useEffect(() => {
@@ -795,6 +822,7 @@ function ReportTreeList(
   const syncScrollFromTree = useCallback(() => {
     const scrollable = resolveScrollable()
     if (!scrollable) return
+    const left = Number(scrollable.scrollOffset?.()?.left ?? 0)
     const maxLeft = Math.max(0, Number(scrollable.scrollWidth?.() ?? 0) - Number(scrollable.clientWidth?.() ?? 0))
     const needed = maxLeft > 2
     setHorizontalScrollNeeded((current) => current === needed ? current : needed)
@@ -803,7 +831,6 @@ function ReportTreeList(
     const contentWidth = Math.max(1, Math.round(proxy.clientWidth + maxLeft))
     setHorizontalScrollContentWidth((current) => current === contentWidth ? current : contentWidth)
     if (horizontalScrollSyncingRef.current) return
-    const left = Number(scrollable.scrollOffset?.()?.left ?? 0)
     if (Math.abs(proxy.scrollLeft - left) > 1) {
       horizontalScrollSyncingRef.current = true
       proxy.scrollLeft = left
@@ -817,13 +844,14 @@ function ReportTreeList(
     if (!proxy || !scrollable || horizontalScrollSyncingRef.current) return
     horizontalScrollSyncingRef.current = true
     const maxLeft = Math.max(0, Number(scrollable.scrollWidth?.() ?? 0) - Number(scrollable.clientWidth?.() ?? 0))
-    scrollable.scrollTo?.({ left: Math.min(Math.max(0, proxy.scrollLeft), maxLeft) })
+    const left = Math.min(Math.max(0, proxy.scrollLeft), maxLeft)
+    scrollable.scrollTo?.({ left })
     window.requestAnimationFrame(() => { horizontalScrollSyncingRef.current = false })
   }, [getProxyScrollContainer, resolveScrollable])
 
-  const handleProxyInitialized = useCallback((event: { component: dxScrollView }) => {
-    hScrollProxyRef.current = event.component
-    void event.component.update().then(syncScrollFromTree)
+  const handleProxyInitialized = useCallback((event: { component?: dxScrollView }) => {
+    hScrollProxyRef.current = event.component ?? null
+    if (event.component) void event.component.update().then(syncScrollFromTree)
   }, [syncScrollFromTree])
 
   const handleProxyDisposing = useCallback(() => {
@@ -892,6 +920,7 @@ function ReportTreeList(
         >
           <Scrolling mode="virtual" rowRenderingMode="virtual" useNative={false} showScrollbar="always" scrollByThumb scrollByContent={false} />
           <ColumnFixing enabled />
+          {preserveRowOrder ? <Sorting mode="none" /> : null}
           {columnSettingState.enabled ? (
             <StateStoring
               enabled
@@ -908,6 +937,7 @@ function ReportTreeList(
         </TreeList>
   ), [
     treeRows,
+    preserveRowOrder,
     handleInitialized,
     handleContentReady,
     handleRowDblClick,
@@ -988,7 +1018,7 @@ function ReportTreeList(
         key={`${columnSettingsTargetKey}::column-settings`}
         visible={columnSettingsVisible}
         title={t("SYS_GRID_COLUMN_SETTING", "Thiết lập cột hiển thị")}
-        items={columnSettingsItems}
+        items={editableColumnSettingsItems}
         loading={columnSettingsLoading}
         onClose={() => setColumnSettingsVisible(false)}
         onReset={handleColumnSettingsReset}
@@ -1005,3 +1035,4 @@ function ReportTreeList(
 }
 
 export default forwardRef(ReportTreeList)
+

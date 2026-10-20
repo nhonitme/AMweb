@@ -68,6 +68,7 @@ function normalizeSignature(item: ReportSignatureMappingSignatureApi): ReportSig
 function normalizeMapping(payload: ReportSignatureMappingApi): ReportSignatureMapping {
   return {
     MAPPING_ID: normalizeNumber(payload.MAPPING_ID),
+    CONFIG_SOURCE: normalizeText(payload.CONFIG_SOURCE),
     COMPANY_CD: normalizeText(payload.COMPANY_CD),
     REPORT_KEY: normalizeText(payload.REPORT_KEY),
     REPORT_CODE: normalizeText(payload.REPORT_CODE),

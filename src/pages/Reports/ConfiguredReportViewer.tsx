@@ -4,8 +4,18 @@ import { useSearchParams } from "react-router-dom";
 import { useWorkspaceTabRoute } from "@/components/workspaceTabs/WorkspaceTabs";
 import { LanguageContext } from "@/lib/i18nLoader";
 import ReportViewerShell from "./ReportViewerShell";
+import type { ReportPageSettings } from "./ReportPageSetupPopup";
 import { normalizeReportLanguage, type ReportLanguageCode } from "./reportLanguage";
 import { buildConfiguredReportUrl, resolveReportCompanyCd } from "./reportViewerConfig";
+
+function readReportPageSettings(params: URLSearchParams): ReportPageSettings {
+  const orientation = params.get("printPageOrientation")?.toUpperCase();
+  const paperKind = params.get("printPaperKind")?.toUpperCase();
+  return {
+    orientation: orientation === "AUTO" || orientation === "PORTRAIT" || orientation === "LANDSCAPE" ? orientation : "",
+    paperKind: paperKind === "AUTO" || paperKind === "A4" || paperKind === "A3" ? paperKind : "",
+  };
+}
 
 export default function ConfiguredReportViewer() {
   const tabRoute = useWorkspaceTabRoute();
@@ -31,6 +41,19 @@ export default function ConfiguredReportViewer() {
     () => normalizeReportLanguage(effectiveSearchParams.get("language") ?? effectiveSearchParams.get("lang") ?? lang),
     [effectiveSearchParams, lang],
   );
+
+  const pageSettings = useMemo(() => readReportPageSettings(effectiveSearchParams), [effectiveSearchParams]);
+  const handlePageSettingsChange = useCallback((settings: ReportPageSettings) => {
+    const nextParams = new URLSearchParams(effectiveSearchParams);
+    for (const [key, value] of [
+      ["printPageOrientation", settings.orientation],
+      ["printPaperKind", settings.paperKind],
+    ]) {
+      if (value) nextParams.set(key, value);
+      else nextParams.delete(key);
+    }
+    setSearchParams(nextParams);
+  }, [effectiveSearchParams, setSearchParams]);
 
   const handleReportLanguageChange = useCallback(
     (nextLanguage: ReportLanguageCode) => {
@@ -69,6 +92,9 @@ export default function ConfiguredReportViewer() {
       reportLanguage={reportLanguage}
       reportUrl={reportUrl}
       onReportLanguageChange={handleReportLanguageChange}
+      pageSettings={pageSettings}
+      onPageSettingsChange={handlePageSettingsChange}
+      pageSetupEnabled={effectiveSearchParams.get("printLayout")?.toUpperCase() === "DEFAULT_GRID"}
     />
   );
 }

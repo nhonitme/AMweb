@@ -2,7 +2,6 @@ import type { AxiosResponse } from "axios"
 
 import axios from "./axiosClient"
 import API_BASE_URL from "../config/apiConfig"
-import { deleteMasterRecords } from "@/lib/masterDelete"
 import type { CompanySignatureInfoApi } from "@/types/companySignatureInfo"
 
 const BASE_URL = `${API_BASE_URL}/CompanySignatureInfo`
@@ -176,5 +175,12 @@ export async function uploadCompanySignatureImage(
 export async function deleteCompanySignatures(
   signatureIds: number[],
 ): Promise<{ success: boolean; message?: string }> {
-  return deleteMasterRecords(BASE_URL, signatureIds, "SignatureIds")
+  const response = await axios.post<ApiEnvelope<{ deleted: number }>>(
+    `${BASE_URL}/bulk-delete`, { SignatureIds: signatureIds },
+  )
+  const result = normalizeResponse<{ deleted: number }>(response)
+  if (!result.success || result.data.deleted <= 0) {
+    throw new Error(result.message || "Không có chữ ký nào được xóa. Hãy tải lại danh sách.")
+  }
+  return { success: true, message: result.message }
 }

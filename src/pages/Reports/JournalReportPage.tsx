@@ -20,6 +20,7 @@ import ReportDataGrid, {
   toLocalizedReportDataGridRows,
 } from "@/components/datagrid/ReportDataGrid"
 import ReportTreeList, { type ReportTreeListHandle } from "@/components/datagrid/ReportTreeList"
+import { prepareReportOutlineExportRows } from "@/components/datagrid/reportOutlineMetadata"
 import { ReportToolbar } from "@/components/toolbar/ReportToolbar"
 import {
   getAcclistLookupStore,
@@ -95,7 +96,6 @@ type JournalReportPageProps = {
   menuCode:
     | "AR_REPORT_SALES_JOURNAL"
     | "AR_REPORT_SALES_DETAIL"
-    | "GL_BOOK_SALES_JOURNAL"
     | "GL_BOOK_SALES_DETAIL"
     | "AP_REPORT_PURCHASE_JOURNAL"
     | "GL_BOOK_JOURNAL"
@@ -1500,7 +1500,10 @@ export default function JournalReportPage({
       return
     }
 
-    const exportRows = toLocalizedReportDataGridRows(preview, t, reportCode)
+    const exportRows = prepareReportOutlineExportRows(
+      toLocalizedReportDataGridRows(preview, t, reportCode),
+      exportColumns.map((column) => column.dataField),
+    )
     exportToExcel(
       reportCode.trim().toUpperCase() === "CASH_BOOK"
         ? blankZeroCashBookMoneyValues(exportRows)
@@ -1806,3 +1809,4 @@ export default function JournalReportPage({
     </DxPage>
   )
 }
+

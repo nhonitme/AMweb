@@ -334,6 +334,7 @@ export const normalizeInventoryOutput = (record: InventoryOutputApi): InventoryO
   REVENUE_AMOUNT_CC: normalizeNumber(record.REVENUE_AMOUNT_CC),
   AMOUNT_FC: normalizeNumber(record.AMOUNT_FC),
   REVENUE_AMOUNT_FC: normalizeNumber(record.REVENUE_AMOUNT_FC),
+  REVENUE_AMOUNT_TOTAL: normalizeNumber(record.REVENUE_AMOUNT_TOTAL),
   SUMMARY: trimText(record.SUMMARY),
   INVENTORY_YMD: normalizeDateTime(record.INVENTORY_YMD),
   INPUT_INVENTORY_YMD: normalizeDateTime(record.INPUT_INVENTORY_YMD),
@@ -684,6 +685,7 @@ export function buildInventorySourceOutputLines(
   inventoryYmd: ChitInfo["CHIT_YMD"],
   inventoryChitType: Extract<ChitType, "IR" | "IO">,
 ): InventoryOutputLine[] {
+  const isSalesSource = ["SO", "SD"].includes(trimText(source.CHIT_TYPE).toUpperCase())
   return sourceDetails.map((detail, index) => ({
     ROW_KEY: createRowKey(`source_output_${index + 1}`),
     OUTPUT_ID: null,
@@ -717,12 +719,17 @@ export function buildInventorySourceOutputLines(
     UNIT_NM_KOR: "",
     UNIT_NM_CHINA: "",
     QUANTITY: normalizeNumber(detail.QUANTITY),
-    UNIT_PRICE_CC: normalizeNumber(detail.UNIT_PRICE),
+    UNIT_PRICE_CC: isSalesSource ? 0 : normalizeNumber(detail.UNIT_PRICE),
+    REVENUE_UNIT_PRICE_CC: isSalesSource ? normalizeNumber(detail.UNIT_PRICE) : 0,
     FC_TYPE: trimText(detail.FC_TYPE) || DEFAULT_CURRENCY_CODE,
     UNIT_PRICE_FC: 0,
+    REVENUE_UNIT_PRICE_FC: 0,
     EXCHANGE_RATES: 0,
-    AMOUNT_CC: normalizeNumber(detail.PRODUCT_AMOUNT) ?? normalizeNumber(detail.AMOUNT) ?? 0,
+    AMOUNT_CC: isSalesSource ? 0 : normalizeNumber(detail.PRODUCT_AMOUNT) ?? normalizeNumber(detail.AMOUNT) ?? 0,
+    REVENUE_AMOUNT_CC: isSalesSource ? normalizeNumber(detail.PRODUCT_AMOUNT) ?? normalizeNumber(detail.AMOUNT) ?? 0 : 0,
     AMOUNT_FC: 0,
+    REVENUE_AMOUNT_FC: 0,
+    REVENUE_AMOUNT_TOTAL: 0,
     SUMMARY:
       trimText(detail.DETAIL_DESCRIPTION_VIET) ||
       trimText(detail.PRODUCT_NOTE) ||
@@ -730,6 +737,7 @@ export function buildInventorySourceOutputLines(
     INVENTORY_YMD: detail.INVENTORY_YMD ?? inventoryYmd ?? source.CHIT_YMD ?? null,
     STATE: "1",
     CHITDETAIL_ID: detail.CHITDETAIL_ID ?? null,
+    CHITDETAIL_ID_COGS: null,
     CHITDETAIL_CD: trimText(detail.CHITDETAIL_CD),
     SORT: index + 1,
     ISDEL: false,
@@ -1052,6 +1060,7 @@ export const mapInventoryOutputToApiPayload = (record: InventoryOutputLine): Inv
   REVENUE_AMOUNT_CC: record.REVENUE_AMOUNT_CC ?? 0,
   AMOUNT_FC: record.AMOUNT_FC ?? 0,
   REVENUE_AMOUNT_FC: record.REVENUE_AMOUNT_FC ?? 0,
+  REVENUE_AMOUNT_TOTAL: record.REVENUE_AMOUNT_TOTAL ?? 0,
   SUMMARY: trimText(record.SUMMARY),
   INVENTORY_YMD: normalizeDate(record.INVENTORY_YMD),
   INPUT_INVENTORY_YMD: normalizeDate(record.INPUT_INVENTORY_YMD),

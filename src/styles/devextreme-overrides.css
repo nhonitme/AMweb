@@ -659,6 +659,33 @@
 }
 
 /* Shared TreeList row styling: distinguish hierarchy and report summary rows. */
+.report-tree-list .report-outline-label-row > td:first-child {
+  position: relative;
+  z-index: 1;
+  text-align: left !important;
+  overflow: visible !important;
+}
+
+.report-tree-list .report-outline-label-row .dx-treelist-text-content {
+  overflow: visible;
+}
+
+.report-outline-row-label {
+  position: relative;
+  z-index: 2;
+  display: inline-block;
+  white-space: nowrap;
+  text-align: left;
+  font-weight: 600;
+}
+
+.report-tree-list .dx-data-row[data-report-keep-order="true"][data-report-row-type="SUBTOTAL"] > td {
+  background: #e2e8f0 !important;
+  border-top: 1px solid #94a3b8 !important;
+  border-bottom: 1px solid #94a3b8 !important;
+  font-weight: 600;
+}
+
 .report-tree-list .dx-treelist-rowsview .dx-data-row > td + td {
   border-left: 1px solid #d6e4f7 !important;
 }
@@ -715,3 +742,4 @@
   background-color: #ffffff !important;
   border-bottom: 1px solid #e2e8f0 !important;
 }
+

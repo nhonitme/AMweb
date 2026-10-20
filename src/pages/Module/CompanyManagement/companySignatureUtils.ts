@@ -43,7 +43,6 @@ export const createDefaultCompanySignatureInfo = (): CompanySignatureInfo => ({
   SIGN_IMAGE_URL: "",
   SORT_ORDER: 0,
   IS_ACTIVE: true,
-  ISDEL: false,
 })
 
 export const normalizeCompanySignatureRows = (
@@ -64,7 +63,6 @@ export const normalizeCompanySignatureRows = (
     SIGN_IMAGE_URL: normalizeText(row.SIGN_IMAGE_URL),
     SORT_ORDER: normalizeNumber(row.SORT_ORDER),
     IS_ACTIVE: normalizeFlag(row.IS_ACTIVE, true),
-    ISDEL: normalizeFlag(row.ISDEL, false),
   }))
 
 export const mapCompanySignatureToApiPayload = (
@@ -78,5 +76,4 @@ export const mapCompanySignatureToApiPayload = (
   SIGN_IMAGE_URL: normalizeText(row.SIGN_IMAGE_URL) || null,
   SORT_ORDER: normalizeNumber(row.SORT_ORDER),
   IS_ACTIVE: row.IS_ACTIVE ? "1" : "0",
-  ISDEL: row.ISDEL ? "1" : "0",
 })

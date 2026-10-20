@@ -703,15 +703,6 @@ export default function InventoryEditorPopup({
       setDraft((current) => ({
         ...current,
         IS_COGS: enabled,
-        OUTPUTS: enabled
-          ? current.OUTPUTS.map((line) => ({
-            ...line,
-            REVENUE_UNIT_PRICE_CC: line.REVENUE_UNIT_PRICE_CC || line.UNIT_PRICE_CC,
-            REVENUE_UNIT_PRICE_FC: line.REVENUE_UNIT_PRICE_FC || line.UNIT_PRICE_FC,
-            REVENUE_AMOUNT_CC: line.REVENUE_AMOUNT_CC || line.AMOUNT_CC,
-            REVENUE_AMOUNT_FC: line.REVENUE_AMOUNT_FC || line.AMOUNT_FC,
-          }))
-          : current.OUTPUTS,
       }))
       return
     }

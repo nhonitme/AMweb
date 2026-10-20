@@ -7,12 +7,14 @@ import Popup from "devextreme-react/popup"
 import SelectBox from "devextreme-react/select-box"
 import notify from "devextreme/ui/notify"
 import { confirm } from "devextreme/ui/dialog"
-import * as XLSX from "xlsx"
 
 import DxPage from "@/dx/DxPage"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
+import { exportToExcel } from "@/lib/excelUtils"
+import { useCurrentMenuExportName } from "@/hooks/useCurrentMenuExportName"
+import type { ColumnConfig } from "@/types/table"
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
-import { useProductMaterialImportConfig, useProductMaterialAllImportConfig } from "./ProductMaterialImportConfig"
+import { useProductMaterialAllImportConfig } from "./ProductMaterialImportConfig"
 import { getProducts } from "@/api/productApi"
 import {
   deleteProductMaterial,
@@ -26,8 +28,17 @@ import { LanguageContext } from "@/lib/i18nLoader"
 import type { Product } from "@/types/product"
 import type { ProductMaterialRow } from "@/types/productMaterial"
 
+const PRODUCT_DIVISION_FILTER = "155"
 const numberFormat = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 6 })
 const matchText = (input: string) => input.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+
+function readLoadedRows(result: unknown): ProductMaterialRow[] | null {
+  if (Array.isArray(result)) return result as ProductMaterialRow[]
+  if (result && typeof result === "object" && Array.isArray((result as { data?: unknown }).data)) {
+    return (result as { data: ProductMaterialRow[] }).data
+  }
+  return null
+}
 
 function ProductMaterialContent() {
   const { translate } = useContext(LanguageContext) as {
@@ -38,6 +49,7 @@ function ProductMaterialContent() {
     [translate],
   )
   const companyCd = getCurrentCompanyCd()
+  const exportName = useCurrentMenuExportName()
   const [products, setProducts] = useState<Product[]>([])
   const [counts, setCounts] = useState<Record<number, number>>({})
   const [selectedId, setSelectedId] = useState(0)
@@ -52,15 +64,15 @@ function ProductMaterialContent() {
   const [quantity, setQuantity] = useState(1)
   const gridRef = useRef<dxDataGrid | null>(null)
   const [importOpen, setImportOpen] = useState(false)
-  const [importAll, setImportAll] = useState(false)
-  const [importProductId, setImportProductId] = useState(0)
-  const importConfig = useProductMaterialImportConfig()
   const importAllConfig = useProductMaterialAllImportConfig()
 
   const refreshProducts = useCallback(async () => {
     setLoadingProducts(true)
     try {
-      const [catalog, summary] = await Promise.all([getProducts(), getProductMaterialSummary()])
+      const [catalog, summary] = await Promise.all([
+        getProducts(PRODUCT_DIVISION_FILTER),
+        getProductMaterialSummary(),
+      ])
       const sorted = [...catalog].sort((a, b) => a.PRODUCT_CD.localeCompare(b.PRODUCT_CD))
       const nextCounts: Record<number, number> = {}
       summary.forEach((item) => { nextCounts[item.PRODUCT_ID] = item.MATERIAL_COUNT })
@@ -189,29 +201,79 @@ function ProductMaterialContent() {
     }
   }
 
-  function handleExport() {
+  const handleExport = useCallback(async () => {
     if (!product) return
-    const data = materials.map((row) => ({
-      "MÃ NVL": row.MATERIAL_PRODUCT_CD,
-      "SỐ LƯỢNG": row.QUANTITY,
-    }))
-    const workbook = XLSX.utils.book_new()
-    const sheet = XLSX.utils.json_to_sheet(data.length ? data : [{ "MÃ NVL": "", "SỐ LƯỢNG": "" }])
-    XLSX.utils.book_append_sheet(workbook, sheet, "NguyenVatLieu")
-    XLSX.writeFile(workbook, "NVL_" + product.PRODUCT_CD + ".xlsx")
-  }
+
+    const grid = gridRef.current
+    const exportColumns: ColumnConfig[] = (grid?.getVisibleColumns() ?? []).flatMap((column, index) => {
+      const dataField = typeof column.dataField === "string" ? column.dataField.trim() : ""
+      if (!dataField) return []
+      const width = typeof column.width === "number" && Number.isFinite(column.width) ? column.width : 120
+      return [{
+        id: dataField,
+        dataField,
+        displayName: typeof column.caption === "string" && column.caption.trim() ? column.caption : dataField,
+        width,
+        visible: column.visible !== false,
+        pinned: Boolean(column.fixed),
+        originalOrder: index,
+      }]
+    })
+
+    if (exportColumns.length === 0) {
+      notify(t("NO_COLUMNS_TO_EXPORT", "Không có cột hiển thị để xuất"), "warning", 2500)
+      return
+    }
+
+    let rows = materials
+    const dataSource = grid?.getDataSource()
+    if (dataSource) {
+      try {
+        const loaded = await dataSource.store().load({
+          filter: grid?.getCombinedFilter(true) || undefined,
+          sort: dataSource.sort() || undefined,
+        })
+        rows = readLoadedRows(loaded) ?? materials
+      } catch {
+        rows = materials
+      }
+    }
+
+    if (rows.length === 0) {
+      notify(t("NO_DATA_TO_EXPORT", "Không có dữ liệu để xuất"), "warning", 2500)
+      return
+    }
+
+    const excelRows = rows.map((row) => {
+      const item: Record<string, unknown> = {}
+      for (const column of exportColumns) {
+        item[column.dataField] = row[column.dataField as keyof ProductMaterialRow] ?? ""
+      }
+      return item
+    })
+
+    const productCode = product.PRODUCT_CD.trim().replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_")
+    let fileName = "NVL_" + productCode + ".xlsx"
+    let sheetName = "NguyenVatLieu"
+    try {
+      const menuFileName = exportName.fileName("xlsx")
+      fileName = productCode
+        ? menuFileName.replace(/\.xlsx$/i, () => "_" + productCode + ".xlsx")
+        : menuFileName
+      sheetName = exportName.sheetName()
+    } catch {
+      fileName = "NVL_" + productCode + ".xlsx"
+    }
+
+    try {
+      await exportToExcel(excelRows, exportColumns, fileName, sheetName)
+    } catch (error) {
+      notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất Excel thất bại")), "error", 4000)
+    }
+  }, [exportName, materials, product, t])
 
   function openImport() {
-    if (!selectedId || saving || popupOpen || importOpen) return
-    setImportAll(false)
-    setImportProductId(selectedId)
-    setImportOpen(true)
-  }
-
-  function openImportAll() {
     if (saving || popupOpen || importOpen) return
-    setImportAll(true)
-    setImportProductId(0)
     setImportOpen(true)
   }
 
@@ -260,23 +322,12 @@ function ProductMaterialContent() {
         </aside>
 
         <section className="flex min-w-0 flex-1 flex-col rounded-xl border border-slate-200 bg-white">
-          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 p-5">
-            <div>
-              <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Thành phẩm đang chọn</p>
-              <h1 className="text-lg font-bold text-slate-800">
-                {product ? product.PRODUCT_CD + "  " + product.PRODUCT_NM_VIET : "Chưa chọn thành phẩm"}
-              </h1>
-              <p className="mt-1 text-xs text-slate-400">ĐVT: {product?.UNIT_NM ?? "—"} · Số NVL: {materials.length}</p>
-            </div>
-            <Button
-              type="default"
-              stylingMode="outlined"
-              icon="upload"
-              text={t("PRODUCT_MATERIAL_IMPORT_ALL", "Import tất cả")}
-              hint={t("PRODUCT_MATERIAL_IMPORT_ALL", "Import tất cả thành phẩm")}
-              disabled={saving || popupOpen || importOpen}
-              onClick={openImportAll}
-            />
+          <div className="border-b border-slate-200 px-5 py-4">
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Thành phẩm đang chọn</p>
+            <h1 className="text-lg font-bold text-slate-800">
+              {product ? product.PRODUCT_CD + "  " + product.PRODUCT_NM_VIET : "Chưa chọn thành phẩm"}
+            </h1>
+            <p className="mt-1 text-xs text-slate-400">ĐVT: {product?.UNIT_NM ?? "—"} · Số NVL: {materials.length}</p>
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col p-4">
@@ -295,7 +346,7 @@ function ProductMaterialContent() {
                 showColumnChooser={false}
                 showExportPdf={false}
                 showSearch={false}
-                importDisabled={!selectedId || saving || loadingDetails}
+                importDisabled={saving || popupOpen || importOpen}
                 exportXlsxDisabled={!selectedId || saving || loadingDetails}
                 shortcutsEnabled={!popupOpen && !importOpen}
               />
@@ -373,14 +424,10 @@ function ProductMaterialContent() {
               void refreshProducts()
             }
           }}
-          title={importAll
-            ? t("PRODUCT_MATERIAL_IMPORT_ALL", "Import tất cả thành phẩm")
-            : t("PRODUCT_MATERIAL", "Import nguyên vật liệu cấu thành")}
-          moduleCd={importAll ? importAllConfig.moduleCd : importConfig.moduleCd}
-          templateFileName={importAll ? importAllConfig.templateName : importConfig.templateName}
-          params={importAll
-            ? { lang: localStorage.getItem("lang") ?? undefined }
-            : { productId: importProductId, lang: localStorage.getItem("lang") ?? undefined }}
+          title={t("PRODUCT_MATERIAL_IMPORT_ALL", "Import tất cả thành phẩm")}
+          moduleCd={importAllConfig.moduleCd}
+          templateFileName={importAllConfig.templateName}
+          params={{ lang: localStorage.getItem("lang") ?? undefined }}
         />
       </div>
     </DxPage>

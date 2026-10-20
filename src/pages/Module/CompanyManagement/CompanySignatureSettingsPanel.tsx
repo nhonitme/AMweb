@@ -279,6 +279,10 @@ export default function CompanySignatureSettingsPanel({
 
   const handleDelete = useCallback(
     async (row: CompanySignatureInfo) => {
+      if (row.COMPANY_CD.trim().toLowerCase() !== companyCd.trim().toLowerCase()) {
+        notify(t("INHERITED_SIGNATURE_DELETE_BLOCKED", "Không thể xóa mẫu chữ ký dùng chung từ công ty"), "warning", 3000)
+        return
+      }
       if (isFixedSignatureCode(row.SIGN_CODE)) {
         notify(
           t("FIXED_SIGN_CODE_DELETE_BLOCKED", "Không xóa được chữ ký mặc định 01-06"),
@@ -293,7 +297,7 @@ export default function CompanySignatureSettingsPanel({
       }
 
       const confirmed = await confirm(
-        t("MSG_CONFIRM_DELETE_RECORD", "Bạn có chắc muốn xóa {0} bản ghi?").replace("{0}", "1"),
+        t("SIGNATURE_CONFIRM_HARD_DELETE", "Xóa vĩnh viễn chữ ký này? Nếu có mẫu dùng chung cùng mã, công ty sẽ dùng lại mẫu đó."),
         t("MSG_CONFIRM_DELETE", "Xác nhận xóa"),
       )
       if (!confirmed) {
@@ -308,7 +312,7 @@ export default function CompanySignatureSettingsPanel({
         notify(getApiErrorMessage(error, t("DELETE_FAILED", "Xóa thất bại")), "error", 3500)
       }
     },
-    [onReload, t],
+    [companyCd, onReload, t],
   )
 
   const handlePickImage = useCallback((row: CompanySignatureInfo) => {
@@ -489,7 +493,7 @@ export default function CompanySignatureSettingsPanel({
             const key = rowKey(row)
             const isSaving = savingKey === key
             const isUploading = uploadingKey === key
-            const canDelete = !isFixedSignatureCode(row.SIGN_CODE)
+            const canDelete = !isFixedSignatureCode(row.SIGN_CODE) && row.COMPANY_CD.trim().toLowerCase() === companyCd.trim().toLowerCase()
             const orderIndex = sortedRows.findIndex((item) => rowKey(item) === key)
             const canReorder = !keyword.trim()
             const canPickImage = !isUploading && typeof row.ID === "number" && row.ID > 0
@@ -561,6 +565,7 @@ export default function CompanySignatureSettingsPanel({
                           stylingMode="text"
                           type="danger"
                           hint={t("DELETE", "Xóa")}
+                          disabled={isSaving || isUploading || saveTimersRef.current.has(key)}
                           onClick={() => void handleDelete(row)}
                         />
                       ) : null}

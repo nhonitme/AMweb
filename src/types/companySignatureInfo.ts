@@ -10,7 +10,6 @@ export interface CompanySignatureInfoApi {
   SIGN_IMAGE_URL?: CompanySignatureText
   SORT_ORDER?: number | null
   IS_ACTIVE?: CompanySignatureText | boolean
-  ISDEL?: CompanySignatureText | boolean
 }
 
 export interface CompanySignatureInfo {
@@ -23,7 +22,6 @@ export interface CompanySignatureInfo {
   SIGN_IMAGE_URL: string
   SORT_ORDER: number
   IS_ACTIVE: boolean
-  ISDEL: boolean
 }
 
 export interface DeleteCompanySignaturesRequest {
