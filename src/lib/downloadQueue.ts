@@ -4,7 +4,7 @@ export type DownloadStatus = "queued" | "downloading" | "ready" | "saving" | "co
 export type DownloadResult = { id: string; status: "completed" | "cancelled" | "failed"; error?: string }
 export type DownloadProgress = { loaded: number; total?: number }
 export type DownloadJobView = { id: string; fileName: string; batchId?: string; status: DownloadStatus; error?: string; size?: number; retryable?: boolean; progress?: DownloadProgress }
-export type DownloadRequest = { fileName: string; language?: string; batchId?: string; retryable?: boolean; load: (signal: AbortSignal, progress: (value: DownloadProgress) => void) => Promise<Blob> }
+export type DownloadRequest = { fileName: string; preserveFileName?: boolean; language?: string; batchId?: string; retryable?: boolean; load: (signal: AbortSignal, progress: (value: DownloadProgress) => void) => Promise<Blob> }
 type Job = DownloadJobView & { request: DownloadRequest; controller: AbortController; blob?: Blob; readyOrder?: number; resolve: (result: DownloadResult) => void }
 export const DOWNLOAD_LIMITS = { concurrent: 5, readyFiles: 5, readyBytes: 128 * 1024 * 1024 } as const
 
@@ -50,7 +50,10 @@ export class DownloadQueue {
     this.listeners.forEach(listener => listener())
   }
   enqueue(request: DownloadRequest): Promise<DownloadResult> {
-    const normalizedRequest = { ...request, fileName: buildDownloadFileName(request.fileName, request.language) }
+    const normalizedRequest = {
+      ...request,
+      fileName: request.preserveFileName ? request.fileName : buildDownloadFileName(request.fileName, request.language),
+    }
     return new Promise(resolve => {
       this.jobs.push({ id: crypto.randomUUID(), fileName: normalizedRequest.fileName, batchId: normalizedRequest.batchId, retryable: normalizedRequest.retryable !== false, status: "queued", request: normalizedRequest, controller: new AbortController(), resolve })
       this.publish()

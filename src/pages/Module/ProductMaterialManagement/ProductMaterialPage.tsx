@@ -252,21 +252,24 @@ function ProductMaterialContent() {
       return item
     })
 
-    const productCode = product.PRODUCT_CD.trim().replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_")
-    let fileName = "NVL_" + productCode + ".xlsx"
+    // The menu naming helper already adds a timestamp. Avoid appending
+    // PRODUCT_CD, language, company or a second DownloadQueue timestamp.
+    let fileName = "khai_bao_nvl_va_thanh_pham.xlsx"
     let sheetName = "NguyenVatLieu"
     try {
-      const menuFileName = exportName.fileName("xlsx")
-      fileName = productCode
-        ? menuFileName.replace(/\.xlsx$/i, () => "_" + productCode + ".xlsx")
-        : menuFileName
+      fileName = exportName.fileName("xlsx")
+        .normalize("NFKD")
+        .replace(/\p{M}/gu, "")
+        .toLocaleLowerCase("en-US")
+        .replace(/[^\p{L}\p{N}.]+/gu, "_")
+        .replace(/_+\.xlsx$/i, ".xlsx")
       sheetName = exportName.sheetName()
     } catch {
-      fileName = "NVL_" + productCode + ".xlsx"
+      // Keep the readable fallback instead of adding extra name segments.
     }
 
     try {
-      await exportToExcel(excelRows, exportColumns, fileName, sheetName)
+      await exportToExcel(excelRows, exportColumns, fileName, sheetName, { preserveFileName: true })
     } catch (error) {
       notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất Excel thất bại")), "error", 4000)
     }
