@@ -76,6 +76,8 @@ export interface BaseExcelImportPopupProps {
   importMode?: 'server' | 'client';
   showTemplateDownload?: boolean;
   showSheetSelector?: boolean;
+  /** Optional portal container for pages with a nested .dx-viewport. */
+  popupContainer?: string;
 }
 
 export interface StartExcelImportJobOptions {
