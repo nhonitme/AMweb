@@ -362,8 +362,8 @@ function ProductMaterialContent() {
                 <Paging defaultPageSize={30} />
                 <Column caption={t("PM_SEQUENCE", "STT")} width={52} alignment="center"
                   cellRender={(cell) => cell.rowIndex + 1} />
-                <Column dataField="MATERIAL_PRODUCT_CD" caption={t("PM_MATERIAL_CODE", "Mã NVL")} minWidth={115} />
-                <Column dataField="MATERIAL_PRODUCT_NM" caption={t("PM_MATERIAL_NAME", "Nguyên vật liệu")} minWidth={220} />
+                <Column dataField="MATERIAL_PRODUCT_CD" caption={t("PM_MATERIAL_CODE", "Mã NVL")} width={200} />
+                <Column dataField="MATERIAL_PRODUCT_NM" caption={t("PM_MATERIAL_NAME", "Nguyên vật liệu")}/>
                 <Column dataField="UNIT_NM" caption={t("PM_UNIT", "ĐVT")} width={100} alignment="center" />
                 <Column dataField="QUANTITY" caption={t("PM_QUANTITY", "Số lượng định mức")} width={160} alignment="right"
                   cellRender={(cell) => numberFormat.format(Number(cell.value) || 0)} />
