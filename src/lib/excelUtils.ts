@@ -65,9 +65,9 @@ export async function exportToExcel<T extends Record<string, unknown>>(
   columns: ColumnConfig[],
   fileName: string,
   sheetName = "Sheet1",
-  options: { withBorders?: boolean } = {},
+  options: { withBorders?: boolean; preserveFileName?: boolean } = {},
 ) {
-  return downloadFile({ fileName: fileName, load: async () => {
+  return downloadFile({ fileName, preserveFileName: options.preserveFileName, load: async () => {
 
   const widthMatrix: string[][] = [columns.map((column) => column.displayName)]
   const worksheetData = data.map((item) => {
