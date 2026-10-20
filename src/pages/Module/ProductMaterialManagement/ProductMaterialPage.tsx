@@ -15,17 +15,16 @@ import { useCurrentMenuExportName } from "@/hooks/useCurrentMenuExportName"
 import type { ColumnConfig } from "@/types/table"
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
 import { useProductMaterialAllImportConfig } from "./ProductMaterialImportConfig"
-import { getProducts } from "@/api/productApi"
 import {
-  deleteProductMaterial,
-  getProductMaterialSummary,
-  getProductMaterials,
-  saveProductMaterial,
-} from "@/api/productMaterialApi"
+  useProductMaterialMutations,
+  useProductMaterialsQuery,
+  useProductMaterialSummaryQuery,
+  useProductsByDivisionQuery,
+} from "@/hooks/queries/useProductMaterialQueries"
+import { useMasterListLoadError } from "@/hooks/queries/master/masterQueryHelpers"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { getCurrentCompanyCd } from "@/lib/login"
 import { LanguageContext } from "@/lib/i18nLoader"
-import type { Product } from "@/types/product"
 import type { ProductMaterialRow } from "@/types/productMaterial"
 
 const PRODUCT_DIVISION_FILTER = "155"
@@ -49,17 +48,9 @@ function ProductMaterialContent() {
     (key: string, fallback: string) => translate?.(key, fallback) ?? fallback,
     [translate],
   )
-  const companyCd = getCurrentCompanyCd()
   const exportName = useCurrentMenuExportName()
-  const [products, setProducts] = useState<Product[]>([])
-  const [materialCatalog, setMaterialCatalog] = useState<Product[]>([])
-  const [counts, setCounts] = useState<Record<number, number>>({})
   const [selectedId, setSelectedId] = useState(0)
-  const [materials, setMaterials] = useState<ProductMaterialRow[]>([])
   const [search, setSearch] = useState("")
-  const [loadingProducts, setLoadingProducts] = useState(false)
-  const [loadingDetails, setLoadingDetails] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [popupOpen, setPopupOpen] = useState(false)
   const [editId, setEditId] = useState(0)
   const [materialProductId, setMaterialProductId] = useState(0)
@@ -68,59 +59,89 @@ function ProductMaterialContent() {
   const [importOpen, setImportOpen] = useState(false)
   const importAllConfig = useProductMaterialAllImportConfig()
 
-  const refreshProducts = useCallback(async () => {
-    setLoadingProducts(true)
-    try {
-      const [catalog, nvlCatalog, summary] = await Promise.all([
-        getProducts(PRODUCT_DIVISION_FILTER),
-        getProducts(MATERIAL_DIVISION_FILTER),
-        getProductMaterialSummary(),
-      ])
-      const sorted = [...catalog].sort((a, b) => a.PRODUCT_CD.localeCompare(b.PRODUCT_CD))
-      const sortedNvl = [...nvlCatalog].sort((a, b) => a.PRODUCT_CD.localeCompare(b.PRODUCT_CD))
-      const nextCounts: Record<number, number> = {}
-      summary.forEach((item) => { nextCounts[item.PRODUCT_ID] = item.MATERIAL_COUNT })
-      setProducts(sorted)
-      setMaterialCatalog(sortedNvl)
-      setCounts(nextCounts)
-      setSelectedId((current) => sorted.some((item) => item.PRODUCT_ID === current)
-        ? current : (sorted[0]?.PRODUCT_ID ?? 0))
-    } catch (error) {
-      notify(getApiErrorMessage(error, t("PM_LOAD_PRODUCTS_FAILED", "Không tải được danh mục sản phẩm")), "error", 4000)
-    } finally {
-      setLoadingProducts(false)
-    }
-  }, [t])
+  const {
+    data: products = [],
+    isLoading: loadingProductCatalog,
+    isFetching: fetchingProductCatalog,
+    isError: productsError,
+    error: productsLoadError,
+    refetch: refetchProducts,
+  } = useProductsByDivisionQuery(PRODUCT_DIVISION_FILTER)
 
-  useEffect(() => { void refreshProducts() }, [refreshProducts, companyCd])
+  const {
+    data: materialCatalog = [],
+    isLoading: loadingMaterialCatalog,
+    isFetching: fetchingMaterialCatalog,
+    isError: materialCatalogError,
+    error: materialCatalogLoadError,
+    refetch: refetchMaterialCatalog,
+  } = useProductsByDivisionQuery(MATERIAL_DIVISION_FILTER)
+
+  const {
+    data: summary = [],
+    isLoading: loadingSummary,
+    isFetching: fetchingSummary,
+    isError: summaryError,
+    error: summaryLoadError,
+    refetch: refetchSummary,
+  } = useProductMaterialSummaryQuery()
+
+  const {
+    data: materials = [],
+    isLoading: loadingDetails,
+    isFetching: fetchingDetails,
+    isError: materialsError,
+    error: materialsLoadError,
+  } = useProductMaterialsQuery(selectedId)
+
+  const { saveMutation, deleteMutation, invalidate } = useProductMaterialMutations()
+  const saving = saveMutation.isPending || deleteMutation.isPending
+  const loadingProducts = loadingProductCatalog || loadingMaterialCatalog || loadingSummary
+    || fetchingProductCatalog || fetchingMaterialCatalog || fetchingSummary
+  const loadingMaterialDetails = loadingDetails || fetchingDetails
+
+  useMasterListLoadError(
+    productsError || materialCatalogError || summaryError,
+    productsLoadError ?? materialCatalogLoadError ?? summaryLoadError,
+    t,
+    "Failed to load product material catalogs",
+  )
+  useMasterListLoadError(
+    materialsError,
+    materialsLoadError,
+    t,
+    "Failed to load product materials",
+  )
 
   useEffect(() => {
-    let active = true
-    if (!selectedId) {
-      setMaterials([])
-      return
-    }
-    setMaterials([])
-    setLoadingDetails(true)
-    void getProductMaterials(selectedId)
-      .then((rows) => { if (active) setMaterials(rows) })
-      .catch((error) => {
-        if (active) notify(getApiErrorMessage(error, t("PM_LOAD_MATERIAL_FAILED", "Không tải được danh sách NVL")), "error", 4000)
-      })
-      .finally(() => { if (active) setLoadingDetails(false) })
-    return () => { active = false }
-  }, [selectedId, companyCd, t])
+    setSelectedId((current) =>
+      products.some((item) => item.PRODUCT_ID === current)
+        ? current
+        : (products[0]?.PRODUCT_ID ?? 0),
+    )
+  }, [products])
+
+  const refreshProducts = useCallback(async () => {
+    await Promise.all([
+      refetchProducts(),
+      refetchMaterialCatalog(),
+      refetchSummary(),
+    ])
+  }, [refetchMaterialCatalog, refetchProducts, refetchSummary])
 
   const refreshCurrent = useCallback(async () => {
-    if (!selectedId) return
-    const [rows, summary] = await Promise.all([
-      getProductMaterials(selectedId), getProductMaterialSummary(),
-    ])
-    setMaterials(rows)
+    if (!selectedId) {
+      await refetchSummary()
+      return
+    }
+    await invalidate(selectedId)
+  }, [invalidate, refetchSummary, selectedId])
+
+  const counts = useMemo(() => {
     const nextCounts: Record<number, number> = {}
     summary.forEach((item) => { nextCounts[item.PRODUCT_ID] = item.MATERIAL_COUNT })
-    setCounts(nextCounts)
-  }, [selectedId])
+    return nextCounts
+  }, [summary])
 
   const product = useMemo(
     () => products.find((item) => item.PRODUCT_ID === selectedId),
@@ -171,20 +192,19 @@ function ProductMaterialContent() {
       notify(t("PM_DUPLICATE_DECLARATION", "Nguyên vật liệu này đã được khai báo cho thành phẩm"), "warning", 3000)
       return
     }
-    setSaving(true)
     try {
-      await saveProductMaterial(editId, {
-        PRODUCT_ID: selectedId,
-        MATERIAL_PRODUCT_ID: materialProductId,
-        QUANTITY: Number(quantity.toFixed(6)),
+      await saveMutation.mutateAsync({
+        materialId: editId,
+        payload: {
+          PRODUCT_ID: selectedId,
+          MATERIAL_PRODUCT_ID: materialProductId,
+          QUANTITY: Number(quantity.toFixed(6)),
+        },
       })
-      await refreshCurrent()
       setPopupOpen(false)
       notify(t("PM_SAVE_OK", "Lưu nguyên vật liệu thành công"), "success", 2500)
     } catch (error) {
       notify(getApiErrorMessage(error, t("PM_SAVE_FAILED", "Lưu nguyên vật liệu thất bại")), "error", 4000)
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -194,15 +214,14 @@ function ProductMaterialContent() {
       t("PM_DELETE_CONFIRM_TITLE", "Xác nhận xóa"),
     )
     if (!ok) return
-    setSaving(true)
     try {
-      await deleteProductMaterial(row.MATERIAL_ID)
-      await refreshCurrent()
+      await deleteMutation.mutateAsync({
+        materialId: row.MATERIAL_ID,
+        productId: selectedId,
+      })
       notify(t("PM_DELETE_OK", "Xóa nguyên vật liệu thành công"), "success", 2500)
     } catch (error) {
       notify(getApiErrorMessage(error, t("PM_DELETE_FAILED", "Xóa nguyên vật liệu thất bại")), "error", 4000)
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -354,7 +373,7 @@ function ProductMaterialContent() {
                 showExportPdf={false}
                 showSearch={false}
                 importDisabled={saving || popupOpen || importOpen}
-                exportXlsxDisabled={!selectedId || saving || loadingDetails}
+                exportXlsxDisabled={!selectedId || saving || loadingMaterialDetails}
                 shortcutsEnabled={!popupOpen && !importOpen}
               />
             </div>
@@ -363,8 +382,8 @@ function ProductMaterialContent() {
               <DataGrid dataSource={materials} keyExpr="MATERIAL_ID"
                 onInitialized={(event) => { gridRef.current = event.component ?? null }}
                 showBorders columnAutoWidth={false} rowAlternationEnabled
-                loadPanel={{ enabled: loadingDetails }}
-                noDataText={loadingDetails
+                loadPanel={{ enabled: loadingMaterialDetails }}
+                noDataText={loadingMaterialDetails
                   ? t("PM_MATERIAL_LOADING", "Đang tải nguyên vật liệu...")
                   : t("PM_MATERIAL_NOT_CONFIGURED", "Chưa khai báo nguyên vật liệu")}
                 height="100%" width="100%">
@@ -433,7 +452,7 @@ function ProductMaterialContent() {
           onClose={() => setImportOpen(false)}
           onImported={(result) => {
             if (result.success) {
-              void refreshCurrent()
+              void invalidate(selectedId || undefined)
               void refreshProducts()
             }
           }}

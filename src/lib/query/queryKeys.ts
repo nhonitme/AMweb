@@ -44,6 +44,14 @@ export const queryKeys = {
   master: {
     all: ["master"] as const,
     products: (companyCd: string) => [...queryKeys.master.all, "products", companyCd] as const,
+    productsByDivision: (companyCd: string, division: string) =>
+      [...queryKeys.master.products(companyCd), "division", division] as const,
+    productMaterialsRoot: (companyCd: string) =>
+      [...queryKeys.master.all, "product-materials", companyCd] as const,
+    productMaterialsSummary: (companyCd: string) =>
+      [...queryKeys.master.productMaterialsRoot(companyCd), "summary"] as const,
+    productMaterials: (companyCd: string, productId: number) =>
+      [...queryKeys.master.productMaterialsRoot(companyCd), "list", productId] as const,
     productKinds: (companyCd: string) => [...queryKeys.master.all, "product-kinds", companyCd] as const,
     productUnits: (companyCd: string) => [...queryKeys.master.all, "product-units", companyCd] as const,
     stores: (companyCd: string) => [...queryKeys.master.all, "stores", companyCd] as const,
