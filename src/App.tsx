@@ -72,6 +72,7 @@ const ExchangeRateRecalculationPage = lazy(() => import('./pages/Accounting/Exch
 const PaymentVoucherPage = lazy(() => import('./pages/VoucherManagement/PaymentVoucherPage'));
 const ReceiptVoucherPage = lazy(() => import('./pages/VoucherManagement/ReceiptVoucherPage'));
 const CostObjectPage = lazy(() => import('./pages/Module/DepartmentManagement'));
+const CostObjectSetupPage = lazy(() => import('./pages/Costing/CostObjectSetupPage'));
 const BankManagementPage = lazy(() => import('./pages/Module/BankManagementPage/bankInfo'));
 const CustomerExtPage = lazy(() => import('./pages/Module/CustomerManagementPage/CustomerExtPage'));
 const ProductList = lazy(() => import('./pages/Module/ProductManagement/ProductPage'));
@@ -731,6 +732,7 @@ function AppWorkspaceRoutes({
                         />
                         <Route path="/cost-center" element={<Navigate to={buildAppPath(currentCompanyCd, "/master/cost-center")} replace />} />
                         <Route path="/master/cost-center" element={<CostObjectPage />} />
+                        <Route path="/cost/cost-object" element={<CostObjectSetupPage />} />
                         <Route path="/bank-management" element={<BankManagementPage />} />
                         <Route path="/master/bank" element={<BankManagementPage />} />
                         <Route path="/company" element={<CompanyManagement />} />
