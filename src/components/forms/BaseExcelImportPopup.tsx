@@ -659,6 +659,10 @@ export default function BaseExcelImportPopup({
       showCloseButton
       dragEnabled
       hideOnOutsideClick={false}
+      // Mount on body so shading/positioning do not shrink the page layout
+      // inside .dx-viewport (app scrolls on an inner container, not body).
+      container="body"
+      enableBodyScroll
       onShowing={(event) => {
         bindExcelPopup(event.component);
       }}
