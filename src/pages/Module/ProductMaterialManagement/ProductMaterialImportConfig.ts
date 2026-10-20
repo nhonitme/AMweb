@@ -6,6 +6,6 @@ export function useProductMaterialAllImportConfig(): ExcelImportConfig {
   const { translate } = useContext(LanguageContext)
   return {
     moduleCd: "ProductMaterialInfoAll",
-    templateName: translate?.("PRODUCT_MATERIAL_IMPORT_ALL", "Import tat ca thanh pham") ?? "ProductMaterialInfoAll",
+    templateName: translate?.("PRODUCT_MATERIAL_IMPORT_ALL", "Import tất cả thành phẩm") ?? "ProductMaterialInfoAll",
   }
 }
