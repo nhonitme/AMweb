@@ -1,7 +1,7 @@
 import { Popup as DataGridPopup } from "devextreme-react/data-grid";
 import { Popup as TreeListPopup } from "devextreme-react/tree-list";
 import type { HiddenEvent, HidingEvent, ShownEvent } from "devextreme/ui/popup";
-import { useMemo, useState, type ComponentProps } from "react";
+import { useMemo, useRef, useState, type ComponentProps } from "react";
 import { MasterPopupValidationSummary } from "./masterPopupValidation";
 
 import { useCurrentMenuTitle } from "@/hooks/useCurrentMenuTitle";
@@ -228,6 +228,19 @@ function useMasterPopupTitleComponent(
   );
 }
 
+// Keep popup options stable when onShown updates errorHost.
+function useStablePopupProps<T extends object>(props: T): T {
+  const previous = useRef(props);
+  const keys = Object.keys(props) as Array<keyof T>;
+  if (
+    keys.length !== Object.keys(previous.current).length ||
+    keys.some((key) => !Object.is(props[key], previous.current[key]))
+  ) {
+    previous.current = props;
+  }
+  return previous.current;
+}
+
 export default function MasterDataEditPopup({
   title,
   showTitle,
@@ -237,11 +250,9 @@ export default function MasterDataEditPopup({
 }: MasterDataEditPopupProps) {
   const [errorHost, setErrorHost] = useState<HTMLElement | null>(null);
   const stableTitleComponent = useMasterPopupTitleComponent(title, showTitle, titleComponent, titleRender);
-  return (
-    <>
-    <DataGridPopup
-      {...resolveMasterDataEditPopupProps({
-        ...props,
+  const stableProps = useStablePopupProps(props);
+  const resolvedProps = useMemo(() => resolveMasterDataEditPopupProps({
+        ...stableProps,
         title,
         showTitle,
         titleComponent: stableTitleComponent,
@@ -255,13 +266,17 @@ export default function MasterDataEditPopup({
             content.prepend(host);
           }
           setErrorHost(host);
-          props.onShown?.(event);
+          stableProps.onShown?.(event);
         },
         onHidden: (event) => {
           setErrorHost(null);
-          props.onHidden?.(event);
+          stableProps.onHidden?.(event);
         },
-      })}
+      }), [stableProps, title, showTitle, stableTitleComponent, titleRender]);
+  return (
+    <>
+    <DataGridPopup
+      {...resolvedProps}
     />
     <MasterPopupValidationSummary host={errorHost} />
     </>

@@ -1,4 +1,4 @@
-﻿import { useContext, useMemo } from "react"
+﻿import {useContext, useMemo, useCallback } from "react"
 import { Form as DxForm } from "devextreme-react/data-grid"
 import { GroupItem, Item } from "devextreme-react/form"
 
@@ -22,9 +22,7 @@ type FormItemConfig = {
   colSpan?: number
 }
 
-const getEditorConfig = (
-  fieldKey: string,
-): { editorType: BankEditorType; editorOptions?: Record<string, unknown> } => {
+const getEditorConfig = (): { editorType: BankEditorType; editorOptions?: Record<string, unknown> } => {
   return {
     editorType: "dxTextBox",
     editorOptions: createOutlinedEditorOptions({}),
@@ -36,14 +34,14 @@ export default function BankForm({ isUpdate }: BankFormProps) {
     translate: (key: string, fallback?: string) => string
   }
 
-  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+  const t = useCallback((key: string, fallback: string) => (translate ? translate(key, fallback) : fallback), [translate])
   const validation = useMasterFormValidation(t)
 
   const groups = useMemo(() => {
     const createItem = (fieldKey: string): FormItemConfig => {
       const field = bankFields.find((item) => item.key === fieldKey)
       const caption = t(fieldKey, field?.caption ?? fieldKey)
-      const { editorType, editorOptions } = getEditorConfig(fieldKey)
+      const { editorType, editorOptions } = getEditorConfig()
 
       return {
         dataField: fieldKey,
@@ -76,7 +74,7 @@ export default function BankForm({ isUpdate }: BankFormProps) {
     ]
   }, [isUpdate, t])
 
-  return (
+  return useMemo(() => (
     <div className="bank-form">
       <DxForm colCount={1} labelLocation="top" width="100%" onInitialized={validation.onInitialized} onFieldDataChanged={validation.onFieldDataChanged}>
         {groups.map((group) => (
@@ -98,5 +96,5 @@ export default function BankForm({ isUpdate }: BankFormProps) {
         ))}
       </DxForm>
     </div>
-  )
+  ), [groups, validation])
 }

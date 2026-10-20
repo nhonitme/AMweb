@@ -1,6 +1,6 @@
 import { checkCodeExists } from "@/api/lookupApi";
 import { useMasterFormValidation } from "@/components/forms/useMasterFormValidation";
-import { useContext } from 'react';
+import {useContext, useMemo } from 'react';
 import { Form } from 'devextreme-react/data-grid';
 import { Item } from 'devextreme-react/form';
 import "devextreme/ui/lookup";
@@ -19,7 +19,7 @@ export function StoreForm() {
   const lblChoose = translate ? translate('lblChoose', 'Choose') : 'Choose';
 
   const validation = useMasterFormValidation(translate);
-  return (
+  return useMemo(() => (
     <Form key={companyLangRevision} colCount={2} onInitialized={validation.onInitialized} onFieldDataChanged={validation.onFieldDataChanged}>
       <Item
         dataField="STORE_KIND_ID"
@@ -67,5 +67,5 @@ export function StoreForm() {
       <Item dataField="STORE_NM_KOR" colSpan={2} visible={isLangFieldVisible('STORE_NM_KOR') || isDefaultLangField('STORE_NM_KOR')} validationRules={isDefaultLangField('STORE_NM_KOR') ? validation.required('STORE_NM_KOR') : []} editorOptions={createOutlinedEditorOptions()} />
       <Item dataField="STORE_NM_CHINA" colSpan={2} visible={isLangFieldVisible('STORE_NM_CHINA') || isDefaultLangField('STORE_NM_CHINA')} validationRules={isDefaultLangField('STORE_NM_CHINA') ? validation.required('STORE_NM_CHINA') : []} editorOptions={createOutlinedEditorOptions()} />
     </Form>
-  );
+  ), [translate, companyLangRevision, validation, lblKind, lblChoose]);
 }

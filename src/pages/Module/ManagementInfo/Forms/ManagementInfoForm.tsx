@@ -1,4 +1,4 @@
-import { useContext, useMemo } from "react"
+import {useContext, useMemo, useCallback } from "react"
 import { Form as DxForm } from "devextreme-react/data-grid"
 import { GroupItem, Item } from "devextreme-react/form"
 
@@ -23,7 +23,7 @@ export function ManagementInfoForm() {
     translate: (key: string, fallback?: string) => string
   }
 
-  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+  const t = useCallback((key: string, fallback: string) => (translate ? translate(key, fallback) : fallback), [translate])
   const companyLangRevision = useCompanyLangRevision()
   const validation = useMasterFormValidation(t)
 
@@ -51,7 +51,7 @@ export function ManagementInfoForm() {
     ]
   }, [companyLangRevision, t])
 
-  return (
+  return useMemo(() => (
     <div className="management-info-form">
       <DxForm colCount={1} labelLocation="top" width="100%" onInitialized={validation.onInitialized} onFieldDataChanged={validation.onFieldDataChanged}>
         {groups.map((group) => (
@@ -110,5 +110,5 @@ export function ManagementInfoForm() {
         ))}
       </DxForm>
     </div>
-  )
+  ), [groups, validation, t, companyLangRevision])
 }

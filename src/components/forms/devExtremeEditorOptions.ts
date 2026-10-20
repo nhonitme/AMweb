@@ -2,7 +2,7 @@ import { createDateBoxEditorOptions, type DateBoxEditorOptions } from "./dateBox
 
 export function createOutlinedEditorOptions<T extends Record<string, unknown>>(editorOptions: T = {} as T) {
   return {
-    stylingMode: "outlined",
+    stylingMode: "outlined" as const,
     ...editorOptions,
   }
 }

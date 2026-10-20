@@ -156,7 +156,7 @@ function resolveDxForm(component: FormLike): dxForm | null {
   const element =
     typeof (rawElement as Element).closest === "function"
       ? (rawElement as Element)
-      : ((rawElement as { get?: (index: number) => Element | undefined })[0] ??
+      : ((rawElement as { [index: number]: Element | undefined })[0] ??
           (rawElement as { get?: (index: number) => Element | undefined }).get?.(0))
 
   if (!element || typeof element.closest !== "function") {
@@ -407,8 +407,17 @@ export default function CustomerExtForm({
   }, [categoryCodes, customerTypeCodes, identityLabels, t])
 
   const groups = formGroups && formGroups.length > 0 ? formGroups : defaultGroups
+  // Stable option references prevent DevExtreme from rebuilding the popup.
+  const itemLabels = useMemo(() => new Map(groups.flatMap(group =>
+    group.items.map(item => [item, typeof item.label === "string" ? { text: item.label } : item.label] as const),
+  )), [groups])
+  const customerCodeRules = useMemo(() => validation.code(
+    "CUSTOMER_CD", "CUSTOMER_ID",
+    (id, value) => id ? checkCodeExists("customer", value, id) : Promise.resolve(false),
+    "Mã khách hàng",
+  ), [validation])
 
-  return (
+  return useMemo(() => (
     <div className="customer-ext-form">
       <DxForm
         colCount={1}
@@ -424,11 +433,11 @@ export default function CustomerExtForm({
               <Item
                 key={typeof item.label === "string" ? item.dataField : `${item.dataField}-custom`}
                 dataField={item.dataField}
-                label={typeof item.label === "string" ? { text: item.label } : item.label}
+                label={itemLabels.get(item)}
                 editorType={item.editorType}
                 editorOptions={item.editorOptions}
                 validationRules={item.dataField === "CUSTOMER_CD"
-                  ? validation.code("CUSTOMER_CD", "CUSTOMER_ID", (id, value) => id ? checkCodeExists("customer", value, id) : Promise.resolve(false), "Mã khách hàng")
+                  ? customerCodeRules
                   : item.validationRules}
                 cssClass={item.dataField === "CUSTOMER_NM_VIET" && item.render ? "master-custom-validation" : undefined}
                 colSpan={item.colSpan}
@@ -439,5 +448,5 @@ export default function CustomerExtForm({
         ))}
       </DxForm>
     </div>
-  )
+  ), [groups, itemLabels, customerCodeRules, validation])
 }

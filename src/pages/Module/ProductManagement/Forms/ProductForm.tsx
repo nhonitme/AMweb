@@ -1,6 +1,6 @@
 import { checkCodeExists } from "@/api/lookupApi";
 import { useMasterFormValidation } from "@/components/forms/useMasterFormValidation";
-import { useContext } from 'react';
+import {useContext, useMemo } from 'react';
 import { Form } from 'devextreme-react/data-grid';
 import { Item  } from 'devextreme-react/form';
 import { createOutlinedEditorOptions } from '@/components/forms/devExtremeEditorOptions';
@@ -62,7 +62,7 @@ export function ProductForm() {
   const companyLangRevision = useCompanyLangRevision();
 
   const validation = useMasterFormValidation(translate);
-  return (
+  return useMemo(() => (
     <Form key={companyLangRevision} colCount={2} onInitialized={validation.onInitialized} onFieldDataChanged={validation.onFieldDataChanged} customizeItem={validation.customizeItem}>
       <Item dataField="PRODUCT_CD" validationRules={validation.code("PRODUCT_CD", "PRODUCT_ID", (id, value) => checkCodeExists("product", value, id))} editorOptions={createOutlinedEditorOptions()} />
       <Item />
@@ -175,5 +175,5 @@ export function ProductForm() {
       />
       <Item dataField="SUMMARY" editorOptions={createOutlinedEditorOptions()} />
     </Form>
-  );
+  ), [translate, companyLangRevision, validation]);
 }

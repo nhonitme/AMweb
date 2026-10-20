@@ -1,4 +1,5 @@
 import { captureMasterPopupError, showMasterPopupError } from "@/components/datagrid/masterPopupValidation";
+
 import { useCallback, useContext, useMemo, useRef, useState } from "react"
 import { LoadPanel } from "devextreme-react"
 import { Editing } from "devextreme-react/data-grid"
@@ -353,6 +354,7 @@ export default function CustomerExtManager({
   onRowUpdatingRef.current = onRowUpdating
   const onRowRemovingRef = useRef(onRowRemoving)
   onRowRemovingRef.current = onRowRemoving
+
 
   const onEditingStart = useCallback((event: { key?: TKey; data?: CustomerExt; component?: dxDataGrid<CustomerExt, TKey> }) => {
     const changes = (event.component?.option("editing.changes") ?? []) as Array<{ type?: string }>

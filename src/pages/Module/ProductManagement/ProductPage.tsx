@@ -1,4 +1,5 @@
 import { captureMasterPopupError } from "@/components/datagrid/masterPopupValidation";
+
 import {
   clearMasterFormDraft,
   getMasterFormDraftChanges,
@@ -289,7 +290,7 @@ export default function ProductList({
                 const newRow = event.component?.getVisibleRows().find((row) => row.isNewRow)?.data;
                 const change = editingKey !== null && editingKey !== undefined
                   ? { type: "update" as const, key: editingKey as number, data: lookupChanges as Partial<Product> }
-                  : { type: "insert" as const, data: { ...(newRow as Product | undefined), ...lookupChanges } as Product };
+                  : { type: "insert" as const, key: undefined, data: { ...(newRow as Product | undefined), ...lookupChanges } as Product };
                 event.changes = [...changes, change];
               }
             }

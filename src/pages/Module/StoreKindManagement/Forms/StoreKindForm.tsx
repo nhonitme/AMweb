@@ -1,6 +1,6 @@
 import { checkCodeExists } from "@/api/lookupApi";
 import { useMasterFormValidation } from "@/components/forms/useMasterFormValidation";
-import { useContext } from "react";
+import {useContext, useMemo, type FC } from "react";
 import { LanguageContext } from "@/lib/i18nLoader";
 import { Form } from 'devextreme-react/data-grid';
 import { Item} from 'devextreme-react/form';
@@ -11,11 +11,11 @@ type StoreFormProps = {
   isUpdate: boolean;
 };
 
-export function StoreKindForm({isUpdate }: StoreFormProps) {
+export const StoreKindForm: FC<StoreFormProps> = () => {
   const { translate } = useContext(LanguageContext) as { translate: (key: string, fallback?: string) => string };
   const companyLangRevision = useCompanyLangRevision();
   const validation = useMasterFormValidation(translate);
-  return (
+  return useMemo(() => (
     <Form key={companyLangRevision} colCount={2} onInitialized={validation.onInitialized} onFieldDataChanged={validation.onFieldDataChanged}>
       
       <Item dataField="STORE_KIND_CD" validationRules={validation.code("STORE_KIND_CD", "STORE_KIND_ID", (id, value) => checkCodeExists("store-kind", value, id))} colSpan={2}
@@ -37,5 +37,5 @@ export function StoreKindForm({isUpdate }: StoreFormProps) {
       <Item dataField="STORE_KIND_NM_KOR" colSpan={2} visible={isLangFieldVisible('STORE_KIND_NM_KOR') || isDefaultLangField('STORE_KIND_NM_KOR')} validationRules={isDefaultLangField('STORE_KIND_NM_KOR') ? validation.required('STORE_KIND_NM_KOR') : []} editorOptions={createOutlinedEditorOptions()} />
       <Item dataField="STORE_KIND_NM_CHINA" colSpan={2} visible={isLangFieldVisible('STORE_KIND_NM_CHINA') || isDefaultLangField('STORE_KIND_NM_CHINA')} validationRules={isDefaultLangField('STORE_KIND_NM_CHINA') ? validation.required('STORE_KIND_NM_CHINA') : []} editorOptions={createOutlinedEditorOptions()} />
     </Form>
-  );
+  ), [companyLangRevision, validation]);
 }

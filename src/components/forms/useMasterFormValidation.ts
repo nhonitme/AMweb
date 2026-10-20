@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef } from "react"
+import { useCallback, useContext, useEffect, useMemo, useRef } from "react"
 import type dxForm from "devextreme/ui/form"
 import type { ValidationRule } from "devextreme/common"
 import { MasterPopupValidationContext } from "@/components/datagrid/masterPopupValidation"
@@ -37,13 +37,15 @@ export function collectMasterFormRequiredErrors(items: FormItem[], data: Record<
 
 export function useMasterFormValidation(t: MasterTranslate) {
   const popup = useContext(MasterPopupValidationContext)
+  const popupRef = useRef(popup)
+  popupRef.current = popup
+  const registerFormValidation = popup?.registerFormValidation
   const formRef = useRef<dxForm | null>(null)
-  const onInitialized = ({ component }: { component?: dxForm }) => { formRef.current = component ?? null }
+  const onInitialized = useCallback(({ component }: { component?: dxForm }) => { formRef.current = component ?? null }, [])
 
-  useEffect(() => popup?.registerFormValidation?.((row) => {
+  useEffect(() => registerFormValidation?.((row) => {
     const form = formRef.current
     if (!form) return [{ dataField: "", message: t("FORM_NOT_READY", "Form chưa sẵn sàng. Vui lòng thử lưu lại.") }]
-    // Grid events carry the complete original row and patch, including its ID.
     const data = { ...row, ...(form.option("formData") as Record<string, unknown> ?? {}) }
     const errors = collectMasterFormRequiredErrors(form.option("items") as FormItem[] ?? [], data)
     for (const error of errors) {
@@ -51,12 +53,12 @@ export function useMasterFormValidation(t: MasterTranslate) {
     }
     if (errors.length) form.getEditor(errors[0].dataField)?.focus()
     return errors
-  }), [popup?.registerFormValidation])
+  }), [registerFormValidation, t])
 
-  const required = (field: string, fallback = field): ValidationRule[] => [
+  const required = useCallback((field: string, fallback = field): ValidationRule[] => [
     { type: "required", message: requiredMasterMessage(t, t(field, fallback)) },
-  ]
-  const code = (field: string, idField: string, exists: (id: number | undefined, value: string) => Promise<boolean>, fallback = field): ValidationRule[] => {
+  ], [t])
+  const code = useCallback((field: string, idField: string, exists: (id: number | undefined, value: string) => Promise<boolean>, fallback = field): ValidationRule[] => {
     const validate = createDuplicateCodeValidator({ idField, exists })
     return [
       ...required(field, fallback),
@@ -64,26 +66,25 @@ export function useMasterFormValidation(t: MasterTranslate) {
         type: "async", message: duplicateMasterMessage(t, t(field, fallback)),
         validationCallback: async (event) => {
           return validate({ value: event.value, data: {
-              ...popup?.getEditingData?.(),
+              ...popupRef.current?.getEditingData?.(),
               ...(formRef.current?.option("formData") as Record<string, unknown> ?? {}),
             } })
         },
       },
     ]
-  }
-  const onFieldDataChanged = (event: { dataField?: string }) => {
+  }, [required, t])
+  const onFieldDataChanged = useCallback((event: { dataField?: string }) => {
     if (!event.dataField) return
-    popup?.clearFieldError?.(event.dataField)
+    popupRef.current?.clearFieldError?.(event.dataField)
     formRef.current?.getEditor(event.dataField)?.option({ validationStatus: "valid", validationErrors: [] })
-  }
-  // Composite React editors may contain an unrelated first dxTextBox (e.g. tax
-  // lookup before customer name). Validate their field value in rowValidating,
-  // rather than attaching a native validator to that first widget.
-  const customizeItem = (item: FormItem) => {
+  }, [])
+  // Validate composite editors in rowValidating, not on their first nested widget.
+  const customizeItem = useCallback((item: FormItem) => {
     if (item.cssClass?.includes("master-custom-validation")) {
       item.isRequired = item.validationRules?.some(rule => rule.type === "required") ?? false
       item.validationRules = []
     }
-  }
-  return { required, code, onInitialized, onFieldDataChanged, customizeItem }
+  }, [])
+  return useMemo(() => ({ required, code, onInitialized, onFieldDataChanged, customizeItem }),
+    [required, code, onInitialized, onFieldDataChanged, customizeItem])
 }

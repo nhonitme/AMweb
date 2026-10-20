@@ -2,7 +2,7 @@ import { checkCodeExists } from "@/api/lookupApi";
 import { useMasterFormValidation } from "@/components/forms/useMasterFormValidation";
 import { Form } from 'devextreme-react/tree-list';
 import { Item  } from 'devextreme-react/form';
-import { useContext } from 'react';
+import {useContext, useMemo } from 'react';
 import { createOutlinedEditorOptions } from '@/components/forms/devExtremeEditorOptions';
 import { isDefaultLangField, isLangFieldVisible, useCompanyLangRevision } from '@/lib/companyLang';
 import { LanguageContext } from '@/lib/i18nLoader';
@@ -18,7 +18,7 @@ export function AcclistForm({ isUpdate, lblChoose, lblAccType, data }: AcclistFo
   const { translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string };
   const companyLangRevision = useCompanyLangRevision();
   const validation = useMasterFormValidation(translate);
-  return (
+  return useMemo(() => (
     <Form key={companyLangRevision} colCount={2} onInitialized={validation.onInitialized} onFieldDataChanged={validation.onFieldDataChanged}>
       <Item dataField="ACC_CD" validationRules={validation.code("ACC_CD", "ACC_ID", (id, value) => checkCodeExists("account", value, id))}
         editorOptions={createOutlinedEditorOptions({           
@@ -54,5 +54,5 @@ export function AcclistForm({ isUpdate, lblChoose, lblAccType, data }: AcclistFo
       <Item dataField="ACCTITLE_NM_KOR" colSpan={2} visible={isLangFieldVisible('ACCTITLE_NM_KOR') || isDefaultLangField('ACCTITLE_NM_KOR')} validationRules={isDefaultLangField('ACCTITLE_NM_KOR') ? validation.required('ACCTITLE_NM_KOR') : []} editorOptions={createOutlinedEditorOptions()} />
       <Item dataField="ACCTITLE_NM_CHINA" colSpan={2} visible={isLangFieldVisible('ACCTITLE_NM_CHINA') || isDefaultLangField('ACCTITLE_NM_CHINA')} validationRules={isDefaultLangField('ACCTITLE_NM_CHINA') ? validation.required('ACCTITLE_NM_CHINA') : []} editorOptions={createOutlinedEditorOptions()} />
     </Form>
-  );
+  ), [companyLangRevision, validation, isUpdate, lblChoose, lblAccType, data]);
 }

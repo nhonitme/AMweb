@@ -1,4 +1,4 @@
-import { useContext, useMemo } from "react"
+import {useContext, useMemo, useCallback, type FC } from "react"
 import { Form as DxForm } from "devextreme-react/tree-list"
 import { GroupItem, Item } from "devextreme-react/form"
 
@@ -28,8 +28,6 @@ type FormItemConfig = {
 
 const requiredDepartmentFields = new Set<DepartmentFieldKey>(["DEPARTMENT_CD"])
 
-// Flag prefixes for the language-specific name fields, matching the country codes
-// already used by the app's own language switcher (see src/utils/language.ts).
 const departmentNameFieldFlags: Partial<Record<DepartmentFieldKey, string>> = {
   DEP_NAME_VIET: "\u{1F1FB}\u{1F1F3}",
   DEP_NAME_ENG: "\u{1F1FA}\u{1F1F8}",
@@ -42,12 +40,12 @@ const getEditorConfig = (): { editorType: DepartmentEditorType; editorOptions?: 
   editorOptions: createOutlinedEditorOptions({}),
 })
 
-export default function DepartmentInfoForm({ isUpdate }: DepartmentInfoFormProps) {
+const DepartmentInfoForm: FC<DepartmentInfoFormProps> = () => {
   const { translate } = useContext(LanguageContext) as {
     translate: (key: string, fallback?: string) => string
   }
 
-  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+  const t = useCallback((key: string, fallback: string) => (translate ? translate(key, fallback) : fallback), [translate])
   const companyLangRevision = useCompanyLangRevision()
   const validation = useMasterFormValidation(t)
 
@@ -67,8 +65,6 @@ export default function DepartmentInfoForm({ isUpdate }: DepartmentInfoFormProps
           requiredDepartmentFields.has(fieldKey)
             ? validation.code(fieldKey, "DEPARTMENT_ID", (id, value) => checkCodeExists("department", value, id), baseCaption)
             : isDefaultLangField(fieldKey) ? validation.required(fieldKey, baseCaption) : [],
-        // When a group has just one field, keep the input at a readable width
-        // instead of letting it stretch across the whole (otherwise-empty) row.
         cssClass: groupItemCount === 1 ? "field-narrow" : undefined,
       }
     }
@@ -79,8 +75,6 @@ export default function DepartmentInfoForm({ isUpdate }: DepartmentInfoFormProps
     const visibleNameFields = departmentFieldGroups.names.filter((fieldKey) => isLangFieldVisible(fieldKey) || isDefaultLangField(fieldKey))
     const namesItems = visibleNameFields.map((fieldKey) => createItem(fieldKey, visibleNameFields.length))
 
-    // Match the group's column count to how many fields it actually has, so a
-    // lone field doesn't leave half the row visibly blank.
     const colCountFor = (itemCount: number) => Math.max(1, Math.min(2, itemCount))
 
     return [
@@ -99,9 +93,9 @@ export default function DepartmentInfoForm({ isUpdate }: DepartmentInfoFormProps
         cardVariant: "lang" as const,
       },
     ]
-  }, [companyLangRevision, t])
+  }, [companyLangRevision, t, validation])
 
-  return (
+  return useMemo(() => (
     <div className="department-info-form">
       <DxForm colCount={1} labelLocation="top" width="100%" onInitialized={validation.onInitialized} onFieldDataChanged={validation.onFieldDataChanged}>
         {groups.map((group) => (
@@ -127,5 +121,7 @@ export default function DepartmentInfoForm({ isUpdate }: DepartmentInfoFormProps
         ))}
       </DxForm>
     </div>
-  )
+  ), [groups, validation])
 }
+
+export default DepartmentInfoForm
