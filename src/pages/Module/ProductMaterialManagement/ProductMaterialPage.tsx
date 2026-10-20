@@ -383,7 +383,7 @@ function ProductMaterialContent() {
           </div>
         </section>
 
-        <Popup visible={popupOpen} showTitle title={editId ? t("PM_POPUP_EDIT", "Sửa nguyên vật liệu") : t("PM_POPUP_ADD", "Thêm nguyên vật liệu")}
+        <Popup container="body" visible={popupOpen} showTitle title={editId ? t("PM_POPUP_EDIT", "Sửa nguyên vật liệu") : t("PM_POPUP_ADD", "Thêm nguyên vật liệu")}
           width={540} height="auto" dragEnabled={false} closeOnOutsideClick={!saving}
           onHiding={() => { if (!saving) setPopupOpen(false) }}>
           <form className="space-y-4 p-2" onSubmit={(event) => {
@@ -414,6 +414,7 @@ function ProductMaterialContent() {
           </form>
         </Popup>
         <BaseExcelImportPopup
+          popupContainer="body"
           visible={importOpen}
           onClose={() => setImportOpen(false)}
           onImported={(result) => {

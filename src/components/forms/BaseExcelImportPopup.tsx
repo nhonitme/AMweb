@@ -84,6 +84,7 @@ export default function BaseExcelImportPopup({
   importMode,
   showTemplateDownload = true,
   showSheetSelector = true,
+  popupContainer,
 }: BaseExcelImportPopupProps) {
 
   const queryClient = useQueryClient();
@@ -652,6 +653,7 @@ export default function BaseExcelImportPopup({
 
   return (
     <Popup
+      container={popupContainer}
       visible={visible}
       title={t("LOAD_DATA_FROM_EXCEL", "Import Excel")}
       width="min(980px, 96vw)"
