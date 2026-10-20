@@ -11,7 +11,7 @@ import type dxDataGrid from "devextreme/ui/data_grid";
 import { useNavigate } from "react-router-dom";
 
 import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid";
-import { SummaryCard, formatNumber, getStatusClass } from "@/utils/openingBalanceHelpers";
+import { formatNumber, getStatusClass } from "@/utils/openingBalanceHelpers";
 import { LanguageContext } from "@/lib/i18nLoader";
 import { buildAppPath, getCurrentCompanyCd } from "@/lib/login";
 import { getApiErrorMessage } from "@/api/apiTypes";
@@ -112,7 +112,7 @@ export default function CostObjectSetupPage() {
   const completionRate = total > 0 ? String(Math.round(registered * 100 / total)) + "%" : "—";
 
   return (
-    <div className="min-h-full bg-gray-50 p-0">
+    <div className="flex h-full min-h-0 w-full flex-col gap-2 overflow-hidden bg-gray-50 p-1 sm:p-2">
       <LoadPanel
         visible={busy || isLoading || isFetching}
         shading
@@ -121,28 +121,28 @@ export default function CostObjectSetupPage() {
         message={t("LOADING", "Đang tải dữ liệu...")}
       />
 
-      <div className="space-y-4">
-        <div className="rounded-2xl border border-red-100 bg-white shadow-sm">
-          <div className="flex flex-col gap-4 p-4 md:flex-row md:items-end md:justify-between md:p-5">
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="min-w-[130px]">
-                <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+        <div className="shrink-0 rounded-xl border border-red-100 bg-white shadow-sm">
+          <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2 px-3 py-2">
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="min-w-[100px]">
+                <div className="mb-1 text-xs font-medium text-gray-500">
                   {t("COST_OBJECT_ACCOUNT", "TK thành phẩm")}
                 </div>
                 <TextBox
-                  width={140}
+                  width={105}
                   value={divisionInput}
                   stylingMode="outlined"
                   onValueChanged={e => setDivisionInput(String(e.value ?? ""))}
                   onEnterKey={applyAccountFilter}
                 />
               </div>
-              <div className="min-w-[170px]">
-                <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+              <div className="min-w-[145px]">
+                <div className="mb-1 text-xs font-medium text-gray-500">
                   {t("STATUS", "Trạng thái")}
                 </div>
                 <SelectBox
-                  width={185}
+                  width={155}
                   dataSource={STATUS_OPTIONS}
                   valueExpr="value"
                   displayExpr="text"
@@ -162,7 +162,8 @@ export default function CostObjectSetupPage() {
                 disabled={busy}
               />
               <Button
-                text={t("RELOAD_PAGE", "Tải lại")}
+                icon="refresh"
+                hint={t("RELOAD_PAGE", "Tải lại")}
                 stylingMode="outlined"
                 onClick={() => void refetch()}
                 disabled={busy}
@@ -195,36 +196,42 @@ export default function CostObjectSetupPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard title={t("TOTAL", "Tổng thành phẩm")} value={formatNumber(total)} subtitle="" tone="blue" />
-          <SummaryCard title={t("COST_OBJECT_REGISTERED", "Đã khai báo")} value={formatNumber(registered)} subtitle="" tone="green" />
-          <SummaryCard title={t("COST_OBJECT_MISSING", "Chưa khai báo")} value={formatNumber(missing)} subtitle="" tone="amber" />
-          <SummaryCard
-            title={t("COST_OBJECT_PROGRESS", "Tỷ lệ hoàn thành")}
-            value={completionRate}
-            subtitle=""
-            tone={missing > 0 ? "amber" : "green"}
-          />
+        <div className="grid shrink-0 grid-cols-2 gap-2 xl:grid-cols-4">
+          <div className="flex min-h-[42px] items-center justify-between gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-1.5 text-blue-700">
+            <span className="truncate text-xs font-medium">{t("TOTAL", "Tổng thành phẩm")}</span>
+            <strong className="shrink-0 text-base tabular-nums">{formatNumber(total)}</strong>
+          </div>
+          <div className="flex min-h-[42px] items-center justify-between gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-emerald-700">
+            <span className="truncate text-xs font-medium">{t("COST_OBJECT_REGISTERED", "Đã khai báo")}</span>
+            <strong className="shrink-0 text-base tabular-nums">{formatNumber(registered)}</strong>
+          </div>
+          <div className="flex min-h-[42px] items-center justify-between gap-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-1.5 text-amber-700">
+            <span className="truncate text-xs font-medium">{t("COST_OBJECT_MISSING", "Chưa khai báo")}</span>
+            <strong className="shrink-0 text-base tabular-nums">{formatNumber(missing)}</strong>
+          </div>
+          <div className="flex min-h-[42px] items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-gray-700">
+            <span className="truncate text-xs font-medium">{t("COST_OBJECT_PROGRESS", "Tỷ lệ hoàn thành")}</span>
+            <strong className="shrink-0 text-base tabular-nums">{completionRate}</strong>
+          </div>
         </div>
 
-        <div className="rounded-2xl border border-red-100 bg-white shadow-sm">
-          <div className="border-b border-gray-100 px-4 py-3 md:px-5">
-            <div className="text-base font-semibold text-gray-900">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-red-100 bg-white shadow-sm">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-3 py-2">
+            <div className="text-sm font-semibold text-gray-900">
               {t("COST_OBJECT_SETUP", "Khai báo đối tượng tập hợp chi phí")}
             </div>
-            <div className="mt-1 text-sm text-gray-500">
+            <div className="hidden text-xs text-gray-500 lg:inline">
               {t("COST_OBJECT_RULE", "Một thành phẩm tương ứng một đối tượng; mã đối tượng = mã thành phẩm.")}
             </div>
           </div>
 
           {error && (
-            <div className="mx-4 mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="mx-2 mt-2 shrink-0 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm text-red-700">
               {getApiErrorMessage(error, t("LOAD_FAILED", "Không tải được dữ liệu."))}
             </div>
           )}
 
-          <div className="p-3 md:p-4">
-            <div style={{ height: "min(62vh, 620px)", minHeight: 360 }}>
+          <div className="min-h-0 flex-1 overflow-hidden p-1.5 sm:p-2">
               <BaseDataGrid<CostObjectRow>
                 dataSource={rows}
                 keyExpr="PRODUCT_ID"
@@ -284,7 +291,6 @@ export default function CostObjectSetupPage() {
                   />
                 </Summary>
               </BaseDataGrid>
-            </div>
           </div>
         </div>
       </div>
