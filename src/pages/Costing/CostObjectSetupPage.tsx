@@ -134,7 +134,7 @@ export default function CostObjectSetupPage() {
           <span style={{ opacity: .65, fontSize: 12 }}>{t("COST_OBJECT_ACCOUNT_NOTE", "Lọc thành phẩm theo tiền tố tài khoản (mặc định 155).")}</span>
         </div>
         {error && <div style={{ color: "var(--dx-color-danger, #c33)" }}>{getApiErrorMessage(error, "Không tải được dữ liệu.")}</div>}
-        <DataGrid<CostObjectRow>
+        <DataGrid<CostObjectRow, number>
           dataSource={rows}
           keyExpr="PRODUCT_ID"
           showBorders
