@@ -1,0 +1,64 @@
+/* Cascading submenu is a navigation overlay, above page content (layer 80). */
+.am-sidebar-tree-expanded.am-cascade-enabled [aria-level="2"] > .dx-treeview-node-container { display: none !important; }
+.am-sidebar-tree-expanded.am-cascade-enabled .dx-treeview-node:not(.dx-treeview-root-node) > .dx-treeview-item .dx-treeview-toggle-item-visibility::before {
+  top: 10px;
+  transform: rotate(-45deg);
+}
+.am-sidebar-tree-expanded .dx-treeview-item[data-submenu-open="true"] { background: #f3f4f5; }
+.am-cascade {
+  position: fixed;
+  z-index: 80;
+  width: max-content;
+  min-width: 134px;
+  max-width: min(280px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 4px 16px rgb(16 24 40 / .1);
+  color: #252b33;
+  font-family: var(--am-ui-font, "Inter", Arial, sans-serif);
+  font-size: var(--am-font-size, 13px);
+}
+.am-cascade__item {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 400;
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+}
+.am-cascade__label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.am-cascade__arrow {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  color: #72777f;
+}
+.am-cascade__item:is(:hover, :focus-visible),
+.am-cascade__item[data-submenu-open="true"],
+.am-cascade__item--active {
+  background: var(--am-sidebar-active-bg);
+  color: var(--am-sidebar-active-color);
+}
+.am-cascade__item[data-submenu-open="true"] > .am-cascade__arrow { color: inherit; }
+.am-cascade__item:focus-visible { outline: 2px solid rgb(37 99 235 / .3); outline-offset: -2px; }
+.am-cascade__item:disabled { cursor: not-allowed; opacity: .45; }
+.am-cascade__loading { width: 150px; height: 88px; margin: 8px; background: repeating-linear-gradient(to bottom, #f1f5f9 0 12px, transparent 12px 30px); }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .am-cascade__item { transition: background-color 120ms, color 120ms; }
+}

@@ -1,0 +1,311 @@
+/* Company-switcher blue selection, regular labels, sentence case.
+   AMnote navigation: Inter, 13px, 32px rows and right disclosure.
+   Only the expanded left navigation changes layout. Keep DevExtreme handlers. */
+@font-face {
+  font-family: "Inter";
+  src: url("./am-v3-inter-variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+:root {
+  --am-shell-header-height: 56px;
+  --am-ui-font: "Inter", Arial, sans-serif;
+  --am-sidebar-active-bg: #eff6ff;
+  --am-sidebar-active-color: #2563eb;
+  --am-sidebar-active-border: #bfdbfe;
+}
+body, button, input, select, textarea,
+.dx-widget, .dx-texteditor-input, .dx-placeholder,
+.am-sidebar-tree-item-text, .header-submenu {
+  font-family: var(--am-ui-font) !important;
+  font-synthesis: none;
+}
+/* Explicitly preserve the icon font used by DevExtreme controls. */
+.dx-icon, .dx-icon::before { font-family: DXIcons !important; }
+
+/* Default width is 240px via SIDEBAR_DEFAULT_WIDTH; do not force width here —
+   the shell supports user resize (200–480). */
+div.flex.flex-col.border-r:has(.am-sidebar-tree) {
+  height: 100dvh;
+  background: #fff !important;
+  border-color: #e5e7eb !important;
+  color: #252b33;
+}
+div.flex.flex-col.border-r:has(.am-sidebar-tree-expanded) > div:first-child {
+  border-color: #e5e7eb;
+}
+/* Brand block and toolbar share one border-box height in left-menu mode. */
+div.flex.flex-col.border-r:has(.am-sidebar-tree) > div:first-child {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  flex: 0 0 var(--am-shell-header-height);
+  height: var(--am-shell-header-height);
+  min-height: var(--am-shell-header-height);
+  padding: 0 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+body:has(.am-sidebar-tree-expanded, .am-sidebar-tree-collapsed) header {
+  box-sizing: border-box;
+  min-height: var(--am-shell-header-height);
+}
+body:has(.am-sidebar-tree-expanded, .am-sidebar-tree-collapsed) header > div:first-of-type {
+  min-height: calc(var(--am-shell-header-height) - 9px);
+}
+div.flex.flex-col.border-r:has(.am-sidebar-tree-expanded) > div:has(.menu-search-wrapper) {
+  padding: 10px 12px 4px;
+  border: 0;
+  background: #fff;
+}
+.am-sidebar-tree-expanded.dx-treeview {
+  background: #fff;
+  color: #252b33;
+  font-size: var(--am-font-size, 13px);
+}
+.am-sidebar-tree-expanded .dx-treeview-node-container { padding: 0 !important; }
+.am-sidebar-tree-expanded .dx-treeview-node { padding: 2px 0 !important; }
+.am-sidebar-tree-expanded .dx-treeview-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  margin: 0 8px;
+  padding: 6px 28px 6px 12px !important;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #252b33;
+  box-shadow: none;
+}
+.am-sidebar-tree-expanded .dx-treeview-item-content {
+  width: 100%;
+  min-width: 0;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.am-sidebar-tree-expanded .am-sidebar-tree-item {
+  gap: 10px;
+  width: 100%;
+  color: inherit;
+  font-size: var(--am-font-size, 13px);
+  font-weight: 400;
+  line-height: 20px;
+}
+.am-sidebar-tree-expanded .am-sidebar-tree-item-text {
+  color: inherit;
+  font-size: inherit;
+  font-weight: 400;
+  line-height: 20px;
+  transform: none !important;
+}
+/* Lowercase the label, then capitalize only its first rendered letter.
+   Keep the original translated text, search values and accessible names. */
+.am-sidebar-tree-expanded .am-sidebar-tree-item-text {
+  display: block;
+  text-transform: lowercase;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+.am-sidebar-tree-expanded .am-sidebar-tree-item-text::first-letter {
+  text-transform: uppercase;
+}
+.am-sidebar-tree-expanded .am-sidebar-tree-item > :is(svg, .dx-icon) {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent !important;
+  color: #72777f;
+  box-shadow: none;
+  font-size: 16px;
+}
+.am-sidebar-tree-expanded .am-sidebar-tree-item > svg [opacity] { opacity: 0; }
+.am-sidebar-tree-expanded .dx-treeview-node:not(.dx-treeview-root-node) > .dx-treeview-item .am-sidebar-tree-item > :is(svg, .dx-icon) { display: none; }
+.am-sidebar-tree-expanded [aria-level="2"] > .dx-treeview-item { padding-left: 40px !important; }
+.am-sidebar-tree-expanded [aria-level="3"] > .dx-treeview-item { padding-left: 52px !important; }
+.am-sidebar-tree-expanded [aria-level="4"] > .dx-treeview-item { padding-left: 64px !important; }
+.am-sidebar-tree-expanded [aria-level="5"] > .dx-treeview-item { padding-left: 76px !important; }
+.am-sidebar-tree-expanded .dx-treeview-item:is(:hover, .dx-state-hover) {
+  background: #f3f4f5;
+  color: #252b33;
+}
+.am-sidebar-tree-expanded .dx-treeview-item:has(.am-sidebar-tree-item-active),
+.am-sidebar-tree-expanded .dx-treeview-node:is(.dx-state-selected,.dx-treeview-node-is-selected) > .dx-treeview-item {
+  background: var(--am-sidebar-active-bg);
+  color: var(--am-sidebar-active-color);
+  box-shadow: inset 0 0 0 1px var(--am-sidebar-active-border);
+}
+.am-sidebar-tree-expanded .am-sidebar-tree-item-active,
+.am-sidebar-tree-expanded .am-sidebar-tree-item-active > :is(svg,.dx-icon) { color: var(--am-sidebar-active-color); font-weight: 400; }
+.am-sidebar-tree-expanded .dx-treeview-item::before { display: none !important; }
+.am-sidebar-tree-expanded .dx-treeview-toggle-item-visibility {
+  position: absolute;
+  inset-inline-start: auto !important;
+  inset-inline-end: 2px;
+  top: 50%;
+  width: 24px;
+  height: 28px;
+  margin: 0;
+  transform: translateY(-50%);
+  color: #757b80;
+}
+.am-sidebar-tree-expanded .dx-treeview-toggle-item-visibility::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 9px;
+  width: 7px;
+  height: 7px;
+  margin: 0;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+}
+.am-sidebar-tree-expanded .dx-treeview-toggle-item-visibility-opened::before { top: 12px; transform: rotate(225deg); }
+.am-sidebar-tree-expanded .dx-treeview-item:has(.am-sidebar-tree-item-active) .dx-treeview-toggle-item-visibility { color: var(--am-sidebar-active-color); }
+.am-sidebar-tree-expanded .dx-treeview-expander-icon-stub { display: none; }
+.am-sidebar-tree-expanded .dx-treeview-item.dx-state-focused { box-shadow: inset 0 0 0 2px rgb(37 99 235 / .3); }
+.am-sidebar-tree-collapsed .am-sidebar-tree-item-collapsed.am-sidebar-tree-item-active {
+  background: var(--am-sidebar-active-bg);
+  color: var(--am-sidebar-active-color);
+  box-shadow: none;
+}
+.am-sidebar-tree-collapsed .am-sidebar-tree-item-collapsed.am-sidebar-tree-item-active > svg {
+  color: var(--am-sidebar-active-color);
+}
+.am-sidebar-tree-collapsed .am-sidebar-tree-item-collapsed {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+}
+.am-sidebar-tree-collapsed .dx-treeview-item:is(:hover,.dx-state-hover) .am-sidebar-tree-item-collapsed {
+  background: #f3f4f5;
+  color: #475569;
+}
+.am-sidebar-tree-collapsed .dx-treeview-item:is(:hover,.dx-state-hover) .am-sidebar-tree-item-collapsed.am-sidebar-tree-item-active {
+  background: var(--am-sidebar-active-bg);
+  color: var(--am-sidebar-active-color);
+}
+/* Collapsed navigation popover uses the same row rhythm as expanded mode. */
+.am-sidebar-flyout-panel {
+  left: 70px;
+  width: min(272px, calc(100vw - 86px));
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(15 23 42 / .12);
+  color: #252b33;
+  font-family: var(--am-ui-font);
+}
+.am-sidebar-flyout-title {
+  padding: 12px 16px;
+  border-bottom: 1px solid #eef0f3;
+  background: #fff;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: lowercase;
+}
+.am-sidebar-flyout-title::first-letter { text-transform: uppercase; }
+.am-sidebar-tree-flyout { padding: 6px 0; background: #fff; }
+.am-sidebar-tree-flyout .dx-treeview-node-container { padding: 0 !important; }
+.am-sidebar-tree-flyout .dx-treeview-node { padding: 2px 0 !important; }
+.am-sidebar-tree-flyout .dx-treeview-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  margin: 0 6px;
+  padding: 7px 30px 7px 12px !important;
+  border-radius: 6px;
+  background: transparent;
+  color: #252b33;
+  box-shadow: none;
+}
+.am-sidebar-tree-flyout [aria-level="2"] > .dx-treeview-item { padding-left: 28px !important; }
+.am-sidebar-tree-flyout [aria-level="3"] > .dx-treeview-item { padding-left: 44px !important; }
+.am-sidebar-tree-flyout [aria-level="4"] > .dx-treeview-item { padding-left: 60px !important; }
+.am-sidebar-tree-flyout .dx-treeview-item-content { width: 100%; min-width: 0; padding: 0 !important; }
+.am-sidebar-tree-flyout .am-sidebar-tree-item {
+  gap: 10px;
+  color: inherit;
+  font-size: var(--am-font-size,13px);
+  font-weight: 400;
+  line-height: 20px;
+}
+.am-sidebar-tree-flyout .am-sidebar-tree-item > :is(svg,.dx-icon) { display: none; }
+.am-sidebar-tree-flyout .am-sidebar-tree-item-text {
+  display: block;
+  font-weight: 400;
+  line-height: 20px;
+  text-transform: lowercase;
+  transform: none !important;
+  color: inherit;
+}
+.am-sidebar-tree-flyout .am-sidebar-tree-item-text::first-letter { text-transform: uppercase; }
+.am-sidebar-tree-flyout .dx-treeview-item:is(:hover,.dx-state-hover) { background: #f3f4f5; color: #252b33; }
+.am-sidebar-tree-flyout .dx-treeview-item:has(.am-sidebar-tree-item-active),
+.am-sidebar-tree-flyout .dx-treeview-node:is(.dx-state-selected,.dx-treeview-node-is-selected) > .dx-treeview-item {
+  background: var(--am-sidebar-active-bg);
+  color: var(--am-sidebar-active-color);
+}
+.am-sidebar-tree-flyout .am-sidebar-tree-item-active { color: var(--am-sidebar-active-color); font-weight: 400; }
+.am-sidebar-tree-flyout .dx-treeview-item::before { display: none !important; }
+.am-sidebar-tree-flyout .dx-treeview-expander-icon-stub { display: none; }
+.am-sidebar-tree-flyout .dx-treeview-toggle-item-visibility {
+  position: absolute;
+  inset-inline-start: auto !important;
+  inset-inline-end: 2px;
+  top: 50%;
+  width: 24px;
+  height: 28px;
+  margin: 0;
+  transform: translateY(-50%);
+  color: #72777f;
+}
+.am-sidebar-tree-flyout .dx-treeview-toggle-item-visibility::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 9px;
+  width: 7px;
+  height: 7px;
+  margin: 0;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+}
+.am-sidebar-tree-flyout .dx-treeview-toggle-item-visibility-opened::before { top: 12px; transform: rotate(225deg); }
+.am-sidebar-tree-flyout .dx-treeview-item:has(.am-sidebar-tree-item-active) .dx-treeview-toggle-item-visibility { color: var(--am-sidebar-active-color); }
+.am-sidebar-tree-flyout .dx-treeview-item.dx-state-focused { box-shadow: inset 0 0 0 2px rgb(37 99 235 / .3); }
+.am-sidebar-tree-collapsed .am-sidebar-tree-item-collapsed.am-sidebar-tree-item-active .dx-icon { color: var(--am-sidebar-active-color); }
+/* v3: active icon tile only — hide the legacy left accent bar from overrides. */
+.am-sidebar-tree-collapsed .am-sidebar-tree-item-collapsed.am-sidebar-tree-item-active::before { display: none; }
+div:has(> .am-sidebar-tree-expanded) { padding-top: 4px; }
+div:has(> .menu-search-wrapper) .dx-texteditor {
+  border: 1px solid transparent !important;
+  border-radius: 8px;
+  background: rgb(241 245 249 / .8);
+  box-shadow: none;
+}
+div:has(> .menu-search-wrapper) .dx-texteditor-input { font-size: var(--am-font-size, 13px); }
+.menu-search-wrapper .dx-texteditor::before,
+.menu-search-wrapper .dx-texteditor::after {
+  display: none !important;
+  border: 0 !important;
+}
+.menu-search-wrapper .dx-texteditor:is(:hover, .dx-state-hover):not(.dx-state-focused) {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+div:has(> .menu-search-wrapper) .dx-texteditor.dx-state-focused {
+  border-color: var(--am-sidebar-active-border) !important;
+  box-shadow: 0 0 0 2px rgb(37 99 235 / .1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .am-sidebar-tree-expanded .am-sidebar-tree-item-text { transition: none; }
+}

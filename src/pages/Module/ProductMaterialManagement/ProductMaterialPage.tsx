@@ -358,6 +358,7 @@ function ProductMaterialContent() {
               <DataGrid dataSource={materials} keyExpr="MATERIAL_ID"
                 onInitialized={(event) => { gridRef.current = event.component ?? null }}
                 showBorders columnAutoWidth={false} rowAlternationEnabled
+                loadPanel={{ enabled: loadingDetails }}
                 noDataText={loadingDetails
                   ? t("PM_MATERIAL_LOADING", "Đang tải nguyên vật liệu...")
                   : t("PM_MATERIAL_NOT_CONFIGURED", "Chưa khai báo nguyên vật liệu")}
