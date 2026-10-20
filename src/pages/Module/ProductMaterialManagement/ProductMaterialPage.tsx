@@ -29,6 +29,7 @@ import type { Product } from "@/types/product"
 import type { ProductMaterialRow } from "@/types/productMaterial"
 
 const PRODUCT_DIVISION_FILTER = "155"
+const MATERIAL_DIVISION_FILTER = "152"
 const numberFormat = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 6 })
 const matchText = (input: string) => input.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
 
@@ -51,6 +52,7 @@ function ProductMaterialContent() {
   const companyCd = getCurrentCompanyCd()
   const exportName = useCurrentMenuExportName()
   const [products, setProducts] = useState<Product[]>([])
+  const [materialCatalog, setMaterialCatalog] = useState<Product[]>([])
   const [counts, setCounts] = useState<Record<number, number>>({})
   const [selectedId, setSelectedId] = useState(0)
   const [materials, setMaterials] = useState<ProductMaterialRow[]>([])
@@ -69,14 +71,17 @@ function ProductMaterialContent() {
   const refreshProducts = useCallback(async () => {
     setLoadingProducts(true)
     try {
-      const [catalog, summary] = await Promise.all([
+      const [catalog, nvlCatalog, summary] = await Promise.all([
         getProducts(PRODUCT_DIVISION_FILTER),
+        getProducts(MATERIAL_DIVISION_FILTER),
         getProductMaterialSummary(),
       ])
       const sorted = [...catalog].sort((a, b) => a.PRODUCT_CD.localeCompare(b.PRODUCT_CD))
+      const sortedNvl = [...nvlCatalog].sort((a, b) => a.PRODUCT_CD.localeCompare(b.PRODUCT_CD))
       const nextCounts: Record<number, number> = {}
       summary.forEach((item) => { nextCounts[item.PRODUCT_ID] = item.MATERIAL_COUNT })
       setProducts(sorted)
+      setMaterialCatalog(sortedNvl)
       setCounts(nextCounts)
       setSelectedId((current) => sorted.some((item) => item.PRODUCT_ID === current)
         ? current : (sorted[0]?.PRODUCT_ID ?? 0))
@@ -130,11 +135,11 @@ function ProductMaterialContent() {
   }, [products, search])
 
   const materialOptions = useMemo(
-    () => products.filter((item) => item.PRODUCT_ID !== selectedId).map((item) => ({
+    () => materialCatalog.filter((item) => item.PRODUCT_ID !== selectedId).map((item) => ({
       ...item,
       DISPLAY: item.PRODUCT_CD + " - " + item.PRODUCT_NM_VIET,
     })),
-    [products, selectedId],
+    [materialCatalog, selectedId],
   )
 
   function openAdd() {
@@ -330,7 +335,7 @@ function ProductMaterialContent() {
           <div className="border-b border-slate-200 px-5 py-4">
             <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("PM_SELECTED_PRODUCT", "Thành phẩm đang chọn")}</p>
             <h1 className="text-lg font-bold text-slate-800">
-              {product ? product.PRODUCT_CD + "  " + product.PRODUCT_NM_VIET : t("PM_NO_PRODUCT_SELECTED", "Chưa chọn thành phẩm")}
+              {product ? product.PRODUCT_CD + " - " + product.PRODUCT_NM_VIET : t("PM_NO_PRODUCT_SELECTED", "Chưa chọn thành phẩm")}
             </h1>
             <p className="mt-1 text-xs text-slate-400">{t("PM_PRODUCT_UNIT_AND_COUNT", "ĐVT: {0} · Số NVL: {1}")
               .replace("{0}", product?.UNIT_NM ?? "—").replace("{1}", String(materials.length))}</p>
