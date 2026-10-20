@@ -279,7 +279,7 @@ function ProductMaterialContent() {
 
   return (
     <DxPage>
-      <div className="flex h-full min-h-[540px] flex-col gap-3 bg-slate-50 p-3 lg:flex-row">
+      <div className="relative flex h-full min-h-[540px] flex-col gap-3 bg-slate-50 p-3 lg:flex-row">
         <aside className="flex w-full shrink-0 flex-col rounded-xl border border-slate-200 bg-white lg:w-[310px]">
           <div className="border-b border-slate-200 p-4">
             <div className="mb-3 flex items-center justify-between">
@@ -383,6 +383,11 @@ function ProductMaterialContent() {
           </div>
         </section>
 
+        {/* DevExtreme Popup's root widget stays at its JSX location even with container="body".
+            Keep popup roots out of the flex layout to prevent page width shifting when
+            dx-state-invisible (display: none) is removed on show. The visible overlay
+            is still rendered in document.body by DevExtreme. */}
+        <div className="absolute left-0 top-0 h-0 w-0">
         <Popup container="body" visible={popupOpen} showTitle title={editId ? t("PM_POPUP_EDIT", "Sửa nguyên vật liệu") : t("PM_POPUP_ADD", "Thêm nguyên vật liệu")}
           width={540} height="auto" dragEnabled={false} closeOnOutsideClick={!saving}
           onHiding={() => { if (!saving) setPopupOpen(false) }}>
@@ -428,6 +433,7 @@ function ProductMaterialContent() {
           templateFileName={importAllConfig.templateName}
           params={{ lang: localStorage.getItem("lang") ?? undefined }}
         />
+        </div>
       </div>
     </DxPage>
   )
