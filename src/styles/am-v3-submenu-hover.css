@@ -58,7 +58,14 @@
 .am-cascade__item[data-submenu-open="true"] > .am-cascade__arrow { color: inherit; }
 .am-cascade__item:focus-visible { outline: 2px solid rgb(37 99 235 / .3); outline-offset: -2px; }
 .am-cascade__item:disabled { cursor: not-allowed; opacity: .45; }
-.am-cascade__loading { width: 150px; height: 88px; margin: 8px; background: repeating-linear-gradient(to bottom, #f1f5f9 0 12px, transparent 12px 30px); }
+.am-cascade__item--active[aria-haspopup="menu"] {
+  background: transparent;
+  color: var(--am-sidebar-active-color);
+}
+.am-cascade__item[aria-haspopup="menu"]:is(:hover, :focus-visible),
+.am-cascade__item[aria-haspopup="menu"][data-submenu-open="true"] {
+  background: #f3f4f5;
+}
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .am-cascade__item { transition: background-color 120ms, color 120ms; }
 }

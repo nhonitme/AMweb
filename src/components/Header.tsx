@@ -72,6 +72,10 @@ interface HeaderProps {
   systemMenus: MenuTreeNode[];
   onSystemMenuSelect: (menu: MenuTreeNode) => void;
   onLogout: () => void;
+  /** Active leaf/branch caption when left-menu layout is on. */
+  activeMenuNode?: MenuTreeNode | null;
+  onToggleNavigation?: () => void;
+  navigationCollapsed?: boolean;
 }
 
 type CompanyOption = {
@@ -148,6 +152,9 @@ export default function Header({
   systemMenuNode,
   systemMenus,
   onSystemMenuSelect,
+  activeMenuNode = null,
+  onToggleNavigation,
+  navigationCollapsed = false,
 }: HeaderProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -740,7 +747,48 @@ export default function Header({
                   draggable={false}
                 />
               </div>
-            ) : null}
+            ) : (
+              <div className="am-header-navigation">
+                <button
+                  type="button"
+                  className="am-header-navigation__toggle"
+                  onClick={onToggleNavigation}
+                  aria-label={
+                    navigationCollapsed
+                      ? t("SIDEBAR_EXPAND", "Mở rộng menu")
+                      : t("SIDEBAR_COLLAPSE", "Thu gọn menu")
+                  }
+                  title={
+                    navigationCollapsed
+                      ? t("SIDEBAR_EXPAND", "Mở rộng menu")
+                      : t("SIDEBAR_COLLAPSE", "Thu gọn menu")
+                  }
+                  aria-expanded={!navigationCollapsed}
+                >
+                  <Menu
+                    className="am-header-navigation__glyph"
+                    size={20}
+                    strokeWidth={2}
+                    aria-hidden="true"
+                    focusable="false"
+                  />
+                </button>
+                <span className="am-header-navigation__divider" aria-hidden="true" />
+                <span
+                  className="am-header-navigation__title"
+                  title={
+                    activeMenuNode
+                      ? resolveMenuCaption(activeMenuNode, t)
+                      : t("SYSTEM_MENU", "Menu hệ thống")
+                  }
+                  aria-live="polite"
+                >
+                  {activeMenuNode
+                    ? resolveMenuCaption(activeMenuNode, t)
+                    : t("SYSTEM_MENU", "Menu hệ thống")}
+                </span>
+              </div>
+            )}
             {menuLayout === "header" && systemMenus.length > 0 ? (
               <nav
                 aria-label={t("SYSTEM_MENU", "Menu hệ thống")}

@@ -15,6 +15,47 @@
   --am-sidebar-active-color: #2563eb;
   --am-sidebar-active-border: #bfdbfe;
 }
+.am-sidebar-edge-toggle { display: none !important; }
+.am-header-navigation {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  width: 100%;
+  color: var(--am-sidebar-active-color);
+}
+.am-header-navigation__toggle {
+  display: inline-flex;
+  flex: 0 0 36px;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #4b5563;
+  cursor: pointer;
+}
+.am-header-navigation__toggle:hover { background: #f3f4f6; color: #4b5563; }
+.am-header-navigation__toggle:active { background: #e5e7eb; transform: scale(.96); }
+.am-header-navigation__toggle:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.am-header-navigation__glyph { display: block; flex: none; width: 20px; height: 20px; }
+.am-header-navigation__divider { flex: none; width: 3px; height: 20px; border-radius: 2px; background: var(--am-sidebar-active-color); }
+.am-header-navigation__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--am-ui-font);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+@media (max-width: 640px) {
+  .am-header-navigation { gap: 8px; }
+  .am-header-navigation__title { font-size: 13px; }
+}
 body, button, input, select, textarea,
 .dx-widget, .dx-texteditor-input, .dx-placeholder,
 .am-sidebar-tree-item-text, .header-submenu {
@@ -24,8 +65,11 @@ body, button, input, select, textarea,
 /* Explicitly preserve the icon font used by DevExtreme controls. */
 .dx-icon, .dx-icon::before { font-family: DXIcons !important; }
 
-/* Default width is 240px via SIDEBAR_DEFAULT_WIDTH; do not force width here —
-   the shell supports user resize (200–480). */
+/* Width comes from SIDEBAR_* + useSidebarWidth (user resize 200–480).
+   Do not force 240px here. */
+.relative.flex-shrink-0:has(.am-sidebar-tree-expanded, .am-sidebar-tree-collapsed) {
+  transition: none !important;
+}
 div.flex.flex-col.border-r:has(.am-sidebar-tree) {
   height: 100dvh;
   background: #fff !important;
@@ -283,8 +327,7 @@ div.flex.flex-col.border-r:has(.am-sidebar-tree-expanded) > div:has(.menu-search
 .am-sidebar-tree-flyout .dx-treeview-item:has(.am-sidebar-tree-item-active) .dx-treeview-toggle-item-visibility { color: var(--am-sidebar-active-color); }
 .am-sidebar-tree-flyout .dx-treeview-item.dx-state-focused { box-shadow: inset 0 0 0 2px rgb(37 99 235 / .3); }
 .am-sidebar-tree-collapsed .am-sidebar-tree-item-collapsed.am-sidebar-tree-item-active .dx-icon { color: var(--am-sidebar-active-color); }
-/* v3: active icon tile only — hide the legacy left accent bar from overrides. */
-.am-sidebar-tree-collapsed .am-sidebar-tree-item-collapsed.am-sidebar-tree-item-active::before { display: none; }
+.am-sidebar-tree-collapsed .am-sidebar-tree-item-collapsed.am-sidebar-tree-item-active::before { background: var(--am-sidebar-active-color); }
 div:has(> .am-sidebar-tree-expanded) { padding-top: 4px; }
 div:has(> .menu-search-wrapper) .dx-texteditor {
   border: 1px solid transparent !important;
@@ -308,4 +351,25 @@ div:has(> .menu-search-wrapper) .dx-texteditor.dx-state-focused {
 }
 @media (prefers-reduced-motion: reduce) {
   .am-sidebar-tree-expanded .am-sidebar-tree-item-text { transition: none; }
+}
+
+/* Highlight the selected destination, without filling its ancestor rows.
+   The collapsed rail keeps its active icon tile for orientation. */
+:is(.am-sidebar-tree-expanded, .am-sidebar-tree-flyout)
+  .dx-treeview-node:has(> .dx-treeview-item .dx-treeview-toggle-item-visibility)
+  > .dx-treeview-item:has(.am-sidebar-tree-item-active) {
+  background: transparent;
+  box-shadow: none;
+  color: var(--am-sidebar-active-color);
+}
+:is(.am-sidebar-tree-expanded, .am-sidebar-tree-flyout)
+  .dx-treeview-node:has(> .dx-treeview-item .dx-treeview-toggle-item-visibility)
+  > .dx-treeview-item:has(.am-sidebar-tree-item-active):is(:hover, .dx-state-hover) {
+  background: #f3f4f5;
+}
+:is(.am-sidebar-tree-expanded, .am-sidebar-tree-flyout)
+  .dx-treeview-node:has(> .dx-treeview-item .dx-treeview-toggle-item-visibility)
+  > .dx-treeview-item:has(.am-sidebar-tree-item-active).dx-state-focused {
+  outline: 2px solid rgb(37 99 235 / .3);
+  outline-offset: -2px;
 }

@@ -7,6 +7,9 @@ import "./styles/icon-colors.scss";
 import "./styles/devextreme-overrides.css";
 import "./styles/master-data-edit-popup.css";
 import "./styles/am-v3-header.css";
+import "./styles/am-v3-sidebar.css";
+import "./styles/am-v3-submenu-hover.css";
+import "@/lib/am-v3-submenu-hover.js";
 import "./api/axiosClient";
 
 import App from "./App";

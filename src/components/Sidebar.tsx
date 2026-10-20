@@ -249,6 +249,52 @@ export default function Sidebar({
     });
   }, [activeMenu, menuTree]);
 
+  // Bridge real menu data to am-v3-submenu-hover (cascade popups when DOM children are not mounted).
+  useEffect(() => {
+    type CascadeMenuNode = {
+      id: string;
+      name: string;
+      isDisabled?: boolean;
+      children?: CascadeMenuNode[];
+    };
+
+    const mapNodes = (nodes: MenuTreeNode[]): CascadeMenuNode[] =>
+      nodes.map((node) => ({
+        id: node.id,
+        name: resolveMenuCaption(node, translate),
+        isDisabled: node.isDisabled,
+        children: mapNodes(node.children ?? []),
+      }));
+
+    const publish = () => {
+      window.dispatchEvent(
+        new CustomEvent('amnote-menu-data', {
+          detail: { items: mapNodes(menuTree), activeId: activeMenu },
+        }),
+      );
+    };
+
+    const onSelect = (event: Event) => {
+      const id = String((event as CustomEvent<{ id?: string }>).detail?.id ?? '');
+      if (!id) {
+        return;
+      }
+      const node = findNodeById(menuTree, id);
+      if (node && !node.isDisabled) {
+        onMenuSelect(node);
+      }
+    };
+
+    window.addEventListener('amnote-menu-request', publish);
+    window.addEventListener('amnote-menu-select', onSelect);
+    publish();
+
+    return () => {
+      window.removeEventListener('amnote-menu-request', publish);
+      window.removeEventListener('amnote-menu-select', onSelect);
+    };
+  }, [activeMenu, menuTree, onMenuSelect, translate]);
+
   const selectedItemKeys = useMemo(
     () => (activeMenu ? [activeMenu] : []),
     [activeMenu],
@@ -599,7 +645,7 @@ export default function Sidebar({
                 focusStateEnabled
                 activeStateEnabled
                 hoverStateEnabled
-                animationEnabled
+                animationEnabled={false}
                 noDataText={translate('NO_DATA', 'No data')}
                 itemRender={renderExpandedTreeItem}
                 onItemClick={handleFlyoutItemClick}
@@ -683,7 +729,7 @@ export default function Sidebar({
               focusStateEnabled
               activeStateEnabled
               hoverStateEnabled
-              animationEnabled
+              animationEnabled={false}
               noDataText={translate('NO_DATA', 'No data')}
               itemRender={renderExpandedTreeItem}
               onItemClick={handleExpandedItemClick}

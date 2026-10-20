@@ -633,7 +633,7 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
                                         : t('SIDEBAR_COLLAPSE', 'Thu gọn menu')
                                 }
                                 onClick={toggleSidebar}
-                                className="absolute top-1/2 right-0 z-30 flex h-7 w-7 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-md transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+                                className="am-sidebar-edge-toggle"
                             >
                                 {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
                             </button>
@@ -648,6 +648,9 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
                     systemMenuNode={systemMenuNode}
                     systemMenus={visibleMenuTree}
                     onSystemMenuSelect={handleSystemMenuSelect}
+                    activeMenuNode={activeMenu ? findMenuById(menuTree, activeMenu) : null}
+                    onToggleNavigation={toggleSidebar}
+                    navigationCollapsed={isMobile ? !sidebarOpen : sidebarCollapsed}
                 />
 
                 {willRenderHeaderTabs ? (

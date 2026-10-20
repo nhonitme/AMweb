@@ -9,6 +9,40 @@
   let observedTree;
   let wasSearching = false;
   let pointer;
+  const modelNodes = new Map();
+  let activeId = '';
+  const activeBranch = (node) => node.id === activeId || node.children?.some(activeBranch);
+  const modelElement = (node) => {
+    const element = document.createElement('li');
+    element.className = 'dx-treeview-node';
+    element.dataset.itemId = node.id;
+    element.dataset.amModel = 'true';
+    element.setAttribute('aria-label', node.name);
+    if (node.isDisabled) element.setAttribute('aria-disabled', 'true');
+    const row = document.createElement('div');
+    row.className = 'dx-treeview-item';
+    const label = document.createElement('span');
+    label.className = `am-sidebar-tree-item-text${activeBranch(node) ? ' am-sidebar-tree-item-active' : ''}`;
+    label.textContent = node.name;
+    row.append(label);
+    if (node.children?.length) {
+      const toggle = document.createElement('span');
+      toggle.className = 'dx-treeview-toggle-item-visibility';
+      row.append(toggle);
+    }
+    element.append(row);
+    return element;
+  };
+  window.addEventListener('amnote-menu-data', (event) => {
+    modelNodes.clear();
+    activeId = event.detail.activeId;
+    const visit = (nodes) => nodes.forEach(node => {
+      modelNodes.set(String(node.id), node);
+      if (node.children) visit(node.children);
+    });
+    visit(event.detail.items || []);
+    closeFrom();
+  });
   const sentence = (text) => {
     const value = text.trim().toLocaleLowerCase();
     return value.replace(/\p{L}/u, (letter) => letter.toLocaleUpperCase());
@@ -16,13 +50,15 @@
   const direct = (element, selector) => Array.from(element.children).find((child) => child.matches(selector));
   const rowOf = (node) => direct(node, '.dx-treeview-item');
   const childrenOf = (node) => {
+    const model = modelNodes.get(node.getAttribute('data-item-id'));
+    if (model) return (model.children || []).map(modelElement);
     const group = direct(node, '.dx-treeview-node-container');
     return group ? Array.from(group.children).filter((child) => child.matches('.dx-treeview-node')) : [];
   };
   const labelOf = (node) => sentence(rowOf(node)?.querySelector('.am-sidebar-tree-item-text')?.textContent || node.getAttribute('aria-label') || '');
   const hasChildren = (node) => Boolean(rowOf(node)?.querySelector('.dx-treeview-toggle-item-visibility'));
   const isDisabled = (node) => node.getAttribute('aria-disabled') === 'true' || rowOf(node)?.classList.contains('dx-state-disabled');
-  const currentNode = (node) => node.isConnected ? node : Array.from(observedTree?.querySelectorAll('.dx-treeview-node') || []).find((candidate) => candidate.getAttribute('data-item-id') === node.getAttribute('data-item-id'));
+  const currentNode = (node) => node.isConnected || node.dataset.amModel ? node : Array.from(observedTree?.querySelectorAll('.dx-treeview-node') || []).find((candidate) => candidate.getAttribute('data-item-id') === node.getAttribute('data-item-id'));
   const isSearching = () => Boolean(document.querySelector('.menu-search-wrapper input')?.value.trim());
   const collapseSiblings = (node) => {
     if (isSearching() || !node?.parentElement) return;
@@ -60,6 +96,12 @@
     node = currentNode(node);
     if (!node) return;
     if (isDisabled(node)) return;
+    const id = node.getAttribute('data-item-id');
+    if (modelNodes.has(id)) {
+      closeFrom();
+      window.dispatchEvent(new CustomEvent('amnote-menu-select', { detail: { id } }));
+      return;
+    }
     internalAction = true;
     try { rowOf(node)?.click(); } finally { internalAction = false; }
     closeFrom();
@@ -84,13 +126,7 @@
     if (signature === panel.signature) { positionPanel(panel); return; }
     panel.signature = signature;
     panel.element.replaceChildren();
-    panel.element.setAttribute('aria-busy', nodes.length ? 'false' : 'true');
-    if (!nodes.length) {
-      const skeleton = document.createElement('div');
-      skeleton.className = 'am-cascade__loading';
-      skeleton.setAttribute('aria-label', 'Loading menu');
-      panel.element.append(skeleton);
-    }
+    panel.element.setAttribute('aria-busy', 'false');
     nodes.forEach((node) => {
       const branch = hasChildren(node);
       const button = document.createElement('button');
@@ -145,17 +181,16 @@
     cancelClose();
     source = currentNode(source);
     if (!source || isDisabled(source)) return;
-    collapseSiblings(source);
+    if (!childrenOf(source).length) {
+      window.dispatchEvent(new Event('amnote-menu-request'));
+      source = currentNode(source);
+      if (!source || !childrenOf(source).length) { closeFrom(depth); return; }
+    }
     if (panels[depth]?.source === source) {
       if (focus) panels[depth].element.querySelector('button:not(:disabled)')?.focus();
       return;
     }
     closeFrom(depth);
-    if (source.getAttribute('aria-expanded') !== 'true') {
-      internalAction = true;
-      try { rowOf(source)?.querySelector('.dx-treeview-toggle-item-visibility')?.click(); }
-      finally { internalAction = false; }
-    }
     const element = document.createElement('div');
     element.className = 'am-cascade';
     element.setAttribute('role', 'menu');
@@ -178,6 +213,7 @@
     if (focus) element.querySelector('button:not(:disabled)')?.focus();
   }
   const refresh = () => {
+    refreshFrame = 0;
     const tree = document.querySelector(rootSelector);
     const treeChanged = tree !== observedTree;
     if (tree !== observedTree) {
@@ -192,7 +228,7 @@
       wasSearching = searching;
     }
     for (const panel of panels) {
-      if (!panel.source.isConnected) {
+      if (!panel.source.isConnected && !panel.source.dataset.amModel) {
         const replacement = Array.from(tree?.querySelectorAll('.dx-treeview-node') || []).find((node) => node.getAttribute('data-item-id') === panel.sourceId);
         if (!replacement) { closeFrom(panel.depth); break; }
         panel.source = replacement;
@@ -218,8 +254,11 @@
       if (node.matches('.dx-treeview-node[aria-expanded="true"]') && node.closest(rootSelector)) openedGroups.set(node.parentElement, node);
     }
     for (const node of openedGroups.values()) collapseSiblings(node);
-    if (!records.some((record) => record.target instanceof Element && !record.target.closest('.am-cascade'))) return;
-    window.cancelAnimationFrame(refreshFrame);
+    if (!records.some((record) => record.target instanceof Element && (
+      record.target.closest('.am-sidebar-tree') ||
+      Array.from(record.addedNodes).some(node => node instanceof Element && (node.matches('.am-sidebar-tree') || node.querySelector('.am-sidebar-tree')))
+    ))) return;
+    if (refreshFrame) return;
     refreshFrame = window.requestAnimationFrame(refresh);
   });
   observer.observe(document.getElementById('root') || document.body, {
@@ -244,6 +283,7 @@
   });
   document.addEventListener('click', (event) => {
     if (internalAction || !(event.target instanceof Element)) return;
+    if (event.target.closest('.am-header-navigation__toggle')) { closeFrom(); return; }
     const row = event.target.closest(`${rootSelector} .dx-treeview-item`);
     const node = row?.parentElement;
     if (node && hasChildren(node) && !isDisabled(node) && node.getAttribute('aria-expanded') !== 'true') collapseSiblings(node);
@@ -275,5 +315,6 @@
   document.addEventListener('wheel', (event) => {
     if (event.target instanceof Element && event.target.closest(rootSelector)) closeFrom();
   }, { passive: true });
+  window.dispatchEvent(new Event('amnote-menu-request'));
   refresh();
 })();
