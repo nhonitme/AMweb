@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useContext, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useId, useMemo, useRef, useState, type ComponentType } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Column, Summary, TotalItem } from "devextreme-react/data-grid";
 import Button from "devextreme-react/button";
@@ -24,9 +24,12 @@ const STATUS_OPTIONS = [
 ];
 const FINISHED_GOODS_ACCOUNT = "155";
 
-const CostCenterCatalog = lazy(() => import("@/pages/Module/DepartmentManagement"));
-const InventoryCatalog = lazy(() => import("@/pages/Module/ProductManagement/ProductPage"));
-type CatalogPopup = "cost-center" | "inventory" | null;
+type CatalogType = "cost-center" | "inventory";
+type CatalogPopup = CatalogType | null;
+
+function CatalogContent({ component: Component }: { component: ComponentType }) {
+  return <Component />;
+}
 
 export default function CostObjectSetupPage() {
   const { translate } = useContext(LanguageContext) as {
@@ -40,6 +43,9 @@ export default function CostObjectSetupPage() {
   const [selectedStatus, setSelectedStatus] = useState<FilterStatus>("ALL");
   const [appliedStatus, setAppliedStatus] = useState<FilterStatus>("ALL");
   const [activeCatalog, setActiveCatalog] = useState<CatalogPopup>(null);
+  const [catalogComponent, setCatalogComponent] = useState<ComponentType | null>(null);
+  const [loadingCatalog, setLoadingCatalog] = useState<CatalogPopup>(null);
+  const catalogOpenInProgress = useRef(false);
   const [busy, setBusy] = useState(false);
   const queryKey = ["cost-objects", companyCd, FINISHED_GOODS_ACCOUNT];
 
@@ -109,6 +115,25 @@ export default function CostObjectSetupPage() {
     void performSync(ids);
   };
 
+  const openCatalog = async (catalog: CatalogType) => {
+    if (catalogOpenInProgress.current || activeCatalog !== null) return;
+    catalogOpenInProgress.current = true;
+    setLoadingCatalog(catalog);
+    try {
+      // Resolve first-time JS chunk before showing popup to avoid Suspense fallback swap.
+      const module = catalog === "cost-center"
+        ? await import("@/pages/Module/DepartmentManagement")
+        : await import("@/pages/Module/ProductManagement/ProductPage");
+      setCatalogComponent(() => module.default);
+      setActiveCatalog(catalog);
+    } catch (error) {
+      notify(getApiErrorMessage(error, t("LOAD_FAILED", "Không mở được danh mục.")), "error", 3500);
+    } finally {
+      catalogOpenInProgress.current = false;
+      setLoadingCatalog(null);
+    }
+  };
+
 
   const total = data?.TOTAL ?? 0;
   const registered = data?.REGISTERED ?? 0;
@@ -149,14 +174,16 @@ export default function CostObjectSetupPage() {
                 text={t("COST_OBJECT_MASTER_CATALOG", "Đối tượng tập hợp chi phí")}
                 hint="/master/cost-center"
                 stylingMode="outlined"
-                onClick={() => setActiveCatalog("cost-center")}
+                disabled={loadingCatalog !== null}
+                onClick={() => void openCatalog("cost-center")}
               />
               <Button
                 icon="box"
                 text={t("INVENTORY_ITEM_SETUP", "Khai báo hàng tồn kho")}
                 hint="/master/inventory"
                 stylingMode="outlined"
-                onClick={() => setActiveCatalog("inventory")}
+                disabled={loadingCatalog !== null}
+                onClick={() => void openCatalog("inventory")}
               />
               <Button
                 icon="check"
@@ -299,6 +326,7 @@ export default function CostObjectSetupPage() {
         dragEnabled={false}
         resizeEnabled
         hideOnOutsideClick={false}
+        animation={{ show: { type: "fade", duration: 0 }, hide: { type: "fade", duration: 0 } }}
         width="min(1400px, 96vw)"
         height="min(820px, 92vh)"
         onHiding={() => setActiveCatalog(null)}
@@ -308,10 +336,9 @@ export default function CostObjectSetupPage() {
         }}
       >
         <div className="h-full min-h-0 w-full overflow-hidden p-1">
-          <Suspense fallback={<div className="p-3 text-sm text-gray-500">{t("LOADING", "Đang tải dữ liệu...")}</div>}>
-            {activeCatalog === "cost-center" && <CostCenterCatalog />}
-            {activeCatalog === "inventory" && <InventoryCatalog />}
-          </Suspense>
+          {activeCatalog !== null && catalogComponent !== null && (
+            <CatalogContent component={catalogComponent} />
+          )}
         </div>
       </Popup>
     </div>
