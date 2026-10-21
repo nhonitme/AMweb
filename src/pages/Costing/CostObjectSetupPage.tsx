@@ -1,7 +1,8 @@
-import { lazy, Suspense, useCallback, useContext, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useContext, useId, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Column, Summary, TotalItem } from "devextreme-react/data-grid";
 import Button from "devextreme-react/button";
+import LoadPanel from "devextreme-react/load-panel";
 import Popup from "devextreme-react/popup";
 import SelectBox from "devextreme-react/select-box";
 import notify from "devextreme/ui/notify";
@@ -34,6 +35,7 @@ export default function CostObjectSetupPage() {
   const t = useCallback((key: string, fallback: string) => translate?.(key, fallback) ?? fallback, [translate]);
   const queryClient = useQueryClient();
   const grid = useRef<dxDataGrid | null>(null);
+  const gridOverlayTargetId = `cost-object-grid-${useId().replace(/:/g, "")}`;
   const companyCd = getCurrentCompanyCd();
   const [selectedStatus, setSelectedStatus] = useState<FilterStatus>("ALL");
   const [appliedStatus, setAppliedStatus] = useState<FilterStatus>("ALL");
@@ -200,14 +202,6 @@ export default function CostObjectSetupPage() {
             <div className="text-sm font-semibold text-gray-900">
               {t("COST_OBJECT_SETUP", "Khai báo đối tượng tập hợp chi phí")}
             </div>
-            {/* Keep the loading label mounted so async refetch never alters the flex layout. */}
-            <span
-              className="shrink-0 text-xs text-gray-500"
-              aria-live="polite"
-              style={{ visibility: busy || isLoading || isFetching ? "visible" : "hidden" }}
-            >
-              {t("LOADING", "Đang tải dữ liệu...")}
-            </span>
             {/* <div className="hidden text-xs text-gray-500 lg:inline">
               {t("COST_OBJECT_RULE", "Một thành phẩm tương ứng một đối tượng; mã đối tượng = mã thành phẩm.")}
             </div> */}
@@ -219,7 +213,7 @@ export default function CostObjectSetupPage() {
             </div>
           )}
 
-          <div className="min-h-0 flex-1 overflow-hidden p-1.5 sm:p-2">
+          <div id={gridOverlayTargetId} className="relative min-h-0 flex-1 overflow-hidden p-1.5 sm:p-2">
               <BaseDataGrid<CostObjectRow>
                 dataSource={rows}
                 keyExpr="PRODUCT_ID"
@@ -279,6 +273,18 @@ export default function CostObjectSetupPage() {
                   />
                 </Summary>
               </BaseDataGrid>
+              {/* Portal the overlay into the fixed-height grid container; never add a flex row. */}
+              <LoadPanel
+                visible={busy || isLoading || isFetching}
+                showIndicator
+                showPane
+                shading
+                shadingColor="rgba(0, 0, 0, 0.12)"
+                hideOnOutsideClick={false}
+                message={t("LOADING", "Đang tải dữ liệu...")}
+                container={`#${gridOverlayTargetId}`}
+                position={{ of: `#${gridOverlayTargetId}` }}
+              />
           </div>
         </div>
       </div>
