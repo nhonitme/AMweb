@@ -150,7 +150,7 @@ export default function CostObjectSetupPage() {
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 icon="folder"
-                text={t("COST_CENTER_LIST", "Đối tượng tập hợp chi phí")}
+                text={t("COST_OBJECT_MASTER_CATALOG", "Đối tượng tập hợp chi phí")}
                 hint="/master/cost-center"
                 stylingMode="outlined"
                 onClick={() => setActiveCatalog("cost-center")}
@@ -284,7 +284,7 @@ export default function CostObjectSetupPage() {
       <Popup
         visible={activeCatalog !== null}
         title={activeCatalog === "cost-center"
-          ? t("COST_CENTER_LIST", "Đối tượng tập hợp chi phí")
+          ? t("COST_OBJECT_MASTER_CATALOG", "Đối tượng tập hợp chi phí")
           : t("INVENTORY_ITEM_SETUP", "Khai báo hàng tồn kho")}
         showTitle
         showCloseButton
