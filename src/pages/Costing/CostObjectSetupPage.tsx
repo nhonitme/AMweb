@@ -220,9 +220,9 @@ export default function CostObjectSetupPage() {
             <div className="text-sm font-semibold text-gray-900">
               {t("COST_OBJECT_SETUP", "Khai báo đối tượng tập hợp chi phí")}
             </div>
-            <div className="hidden text-xs text-gray-500 lg:inline">
+            {/* <div className="hidden text-xs text-gray-500 lg:inline">
               {t("COST_OBJECT_RULE", "Một thành phẩm tương ứng một đối tượng; mã đối tượng = mã thành phẩm.")}
-            </div>
+            </div> */}
           </div>
 
           {error && (
