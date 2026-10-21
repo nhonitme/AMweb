@@ -133,10 +133,10 @@ export default function LicenseInfoPage() {
         </div>
         {tab === "general" ? <div className="px-5 pb-4">
           <Detail label={t("LICENSE_COMPANY_NAME", "Tên công ty")} value={data.COMPANY_NM}/><Detail label={t("LICENSE_COMPANY_CODE", "Mã công ty")} value={data.COMPANY_CD}/>
-          <Detail label={t("LICENSE_KEY_MASKED", "Mã License (đã ẩn)")} value={data.LICENSE_KEY_MASKED}/><Detail label={t("LICENSE_PACKAGE_LABEL", "Gói License")} value={data.PLAN_CODE}/>
-          <Detail label={t("LICENSE_TYPE_LABEL", "Loại giấy phép")} value={data.LICENSE_TYPE}/><Detail label={t("LICENSE_START_DATE", "Ngày bắt đầu")} value={formatDate(data.START_DATE)}/>
+          {/* <Detail label={t("LICENSE_KEY_MASKED", "Mã License (đã ẩn)")} value={data.LICENSE_KEY_MASKED}/><Detail label={t("LICENSE_PACKAGE_LABEL", "Gói License")} value={data.PLAN_CODE}/>
+          <Detail label={t("LICENSE_TYPE_LABEL", "Loại giấy phép")} value={data.LICENSE_TYPE}/><Detail label={t("LICENSE_START_DATE", "Ngày bắt đầu")} value={formatDate(data.START_DATE)}/> */}
           <Detail label={t("LICENSE_EXPIRATION_DATE", "Ngày hết hạn")} value={formatDate(data.END_DATE)}/><Detail label={t("LICENSE_MAX_USERS", "Số người dùng tối đa")} value={data.MAX_USERS}/>
-          <Detail label={t("LICENSE_MAX_CONCURRENT_USERS", "Số phiên đồng thời tối đa")} value={data.MAX_CONCURRENT_USERS}/>
+          {/* <Detail label={t("LICENSE_MAX_CONCURRENT_USERS", "Số phiên đồng thời tối đa")} value={data.MAX_CONCURRENT_USERS}/> */}
           <Detail label={t("LICENSE_PROVIDER", "Đơn vị cung cấp")} value="AMNote"/>
         </div> : <div className="overflow-x-auto p-5">
           {data.RENEWAL_HISTORY.length === 0 ? <p className="text-sm text-gray-500 dark:text-gray-400">{t("LICENSE_NO_RENEWAL_HISTORY", "Chưa có lịch sử gia hạn.")}</p> :
