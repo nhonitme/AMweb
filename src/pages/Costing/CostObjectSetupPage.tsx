@@ -259,7 +259,7 @@ export default function CostObjectSetupPage() {
               >
                 <Column dataField="PRODUCT_CD" caption={t("COST_OBJECT_PRODUCT_CODE", "Mã thành phẩm")} width={150} />
                 <Column dataField="PRODUCT_NM_VIET" caption={t("COST_OBJECT_PRODUCT_NAME", "Tên thành phẩm")} minWidth={250} />
-                <Column dataField="DIVISION" caption={t("COST_OBJECT_ACCOUNT", "Tài khoản")} alignment="center" width={110} />
+                <Column dataField="DIVISION" caption={t("COST_OBJECT_ACCOUNT", "Tài khoản")} alignment="center" width={200} />
                 <Column dataField="DEPARTMENT_CD" caption={t("COST_OBJECT_CD", "Mã đối tượng THCP")} width={170} />
                 <Column dataField="DEP_NAME_VIET" caption={t("COST_OBJECT_NAME", "Tên đối tượng THCP")} minWidth={220} />
                 <Column
