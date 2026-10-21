@@ -7,10 +7,15 @@ export type CostObjectRow = {
   PRODUCT_CD: string;
   PRODUCT_NM_VIET: string;
   PRODUCT_NM_ENG?: string | null;
+  PRODUCT_NM_KOR?: string | null;
+  PRODUCT_NM_CHINA?: string | null;
   DIVISION?: string | null;
   DEPARTMENT_ID?: number | null;
   DEPARTMENT_CD?: string | null;
   DEP_NAME_VIET?: string | null;
+  DEP_NAME_ENG?: string | null;
+  DEP_NAME_KOR?: string | null;
+  DEP_NAME_CHINA?: string | null;
   STATUS: "REGISTERED" | "MISSING";
 };
 
