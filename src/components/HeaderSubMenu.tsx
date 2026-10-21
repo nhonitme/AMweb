@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight } from "lucide-react"
-import { useContext, useEffect, useRef, useState } from "react"
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react"
 
 import { findFirstMenuRoutePath } from "@/api/menuApi"
 import { LanguageContext } from "@/lib/i18nLoader"
@@ -56,6 +56,62 @@ export default function HeaderSubMenu({ rootMenu, activeMenuId, onMenuSelect }: 
       window.removeEventListener("keydown", closeOnEscape)
     }
   }, [openPath.length])
+
+  // Keep each open panel inside the browser viewport. Cascaded panels
+  // normally open right; use the left side when the right side is full.
+  useLayoutEffect(() => {
+    if (openPath.length === 0) return
+
+    const repositionPanels = () => {
+      const panels = menuRef.current?.querySelectorAll<HTMLElement>(
+        ".header-submenu__dropdown, .header-submenu__flyout",
+      )
+      if (!panels) return
+
+      // Reset before measuring so resize/scroll never reuse stale offsets.
+      panels.forEach((panel) => {
+        panel.style.left = ""
+        panel.style.right = ""
+      })
+
+      // Query order is parent-first: nested flyouts use their final parent position.
+      panels.forEach((panel) => {
+        const anchor = panel.parentElement
+        if (!anchor) return
+
+        const anchorRect = anchor.getBoundingClientRect()
+        const panelWidth = panel.getBoundingClientRect().width
+        const viewportWidth = document.documentElement.clientWidth
+        const margin = 8
+        let desiredLeft = anchorRect.left
+
+        if (panel.classList.contains("header-submenu__flyout")) {
+          const openRight = anchorRect.right - 2
+          const openLeft = anchorRect.left - panelWidth + 2
+          const fitsRight = openRight + panelWidth <= viewportWidth - margin
+          const fitsLeft = openLeft >= margin
+
+          desiredLeft = fitsRight || !fitsLeft ? openRight : openLeft
+        }
+
+        // Very narrow viewports: allow flyouts to overlap their parent
+        // rather than disappear off the left/right edge.
+        const maxLeft = Math.max(margin, viewportWidth - panelWidth - margin)
+        const safeLeft = Math.min(Math.max(desiredLeft, margin), maxLeft)
+        panel.style.left = `${safeLeft - anchorRect.left}px`
+        panel.style.right = "auto"
+      })
+    }
+
+    repositionPanels()
+    window.addEventListener("resize", repositionPanels)
+    window.addEventListener("scroll", repositionPanels, true)
+
+    return () => {
+      window.removeEventListener("resize", repositionPanels)
+      window.removeEventListener("scroll", repositionPanels, true)
+    }
+  }, [openPath, rootMenu?.id])
 
   if (!rootMenu?.children?.length) {
     return null
