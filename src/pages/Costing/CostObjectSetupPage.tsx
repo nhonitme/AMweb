@@ -1,19 +1,18 @@
-import { useCallback, useContext, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Column, Summary, TotalItem } from "devextreme-react/data-grid";
 import LoadPanel from "devextreme-react/load-panel";
 import Button from "devextreme-react/button";
-import TextBox from "devextreme-react/text-box";
+import Popup from "devextreme-react/popup";
 import SelectBox from "devextreme-react/select-box";
 import notify from "devextreme/ui/notify";
 import { confirm } from "devextreme/ui/dialog";
 import type dxDataGrid from "devextreme/ui/data_grid";
-import { useNavigate } from "react-router-dom";
 
 import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid";
 import { formatNumber, getStatusClass } from "@/utils/openingBalanceHelpers";
 import { LanguageContext } from "@/lib/i18nLoader";
-import { buildAppPath, getCurrentCompanyCd } from "@/lib/login";
+import { getCurrentCompanyCd } from "@/lib/login";
 import { getApiErrorMessage } from "@/api/apiTypes";
 import { getCostObjectOverview, syncCostObjects, type CostObjectRow } from "@/api/costObjectApi";
 
@@ -23,33 +22,37 @@ const STATUS_OPTIONS = [
   { value: "MISSING", text: "Chưa khai báo" },
   { value: "REGISTERED", text: "Đã khai báo" },
 ];
-const CODE_MAX_LENGTH = 20;
+const FINISHED_GOODS_ACCOUNT = "155";
+
+const CostCenterCatalog = lazy(() => import("@/pages/Module/DepartmentManagement"));
+const InventoryCatalog = lazy(() => import("@/pages/Module/ProductManagement/ProductPage"));
+type CatalogPopup = "cost-center" | "inventory" | null;
 
 export default function CostObjectSetupPage() {
   const { translate } = useContext(LanguageContext) as {
     translate?: (key: string, fallback?: string) => string;
   };
   const t = useCallback((key: string, fallback: string) => translate?.(key, fallback) ?? fallback, [translate]);
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const grid = useRef<dxDataGrid | null>(null);
   const companyCd = getCurrentCompanyCd();
-  const [divisionInput, setDivisionInput] = useState("155");
-  const [divisionPrefix, setDivisionPrefix] = useState("155");
-  const [filter, setFilter] = useState<FilterStatus>("ALL");
+  const [selectedStatus, setSelectedStatus] = useState<FilterStatus>("ALL");
+  const [appliedStatus, setAppliedStatus] = useState<FilterStatus>("ALL");
+  const [activeCatalog, setActiveCatalog] = useState<CatalogPopup>(null);
   const [busy, setBusy] = useState(false);
-  const queryKey = ["cost-objects", companyCd, divisionPrefix];
+  const queryKey = ["cost-objects", companyCd, FINISHED_GOODS_ACCOUNT];
 
   const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey,
-    queryFn: () => getCostObjectOverview(divisionPrefix),
+    queryFn: () => getCostObjectOverview(FINISHED_GOODS_ACCOUNT),
     enabled: Boolean(companyCd),
+    refetchOnWindowFocus: false,
   });
 
   const rows = useMemo(() => {
     const items = data?.ITEMS ?? [];
-    return filter === "ALL" ? items : items.filter(item => item.STATUS === filter);
-  }, [data, filter]);
+    return appliedStatus === "ALL" ? items : items.filter(item => item.STATUS === appliedStatus);
+  }, [data, appliedStatus]);
 
   const selectedMissingIds = () => {
     const ids = new Set((grid.current?.getSelectedRowKeys() ?? []).map(Number));
@@ -72,7 +75,7 @@ export default function CostObjectSetupPage() {
     if (!ok) return;
     setBusy(true);
     try {
-      const result = await syncCostObjects(ids, divisionPrefix);
+      const result = await syncCostObjects(ids, FINISHED_GOODS_ACCOUNT);
       await queryClient.invalidateQueries({ queryKey });
       grid.current?.clearSelection();
       notify(
@@ -90,14 +93,11 @@ export default function CostObjectSetupPage() {
     }
   };
 
-  const applyAccountFilter = () => {
-    const value = divisionInput.trim();
-    if (!/^\d{1,20}$/.test(value) || value.length > CODE_MAX_LENGTH) {
-      notify(t("COST_OBJECT_ACCOUNT_INVALID", "Mã tài khoản phải có từ 1 đến 20 chữ số."), "warning", 3000);
-      return;
-    }
-    setDivisionPrefix(value);
+  const applyStatusFilter = () => {
+    // Status choice is a draft until Execute requests fresh data.
+    setAppliedStatus(selectedStatus);
     grid.current?.clearSelection();
+    void refetch();
   };
 
   const startAllMissing = () => {
@@ -125,18 +125,6 @@ export default function CostObjectSetupPage() {
         <div className="shrink-0 rounded-xl border border-red-100 bg-white shadow-sm">
           <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2 px-3 py-2">
             <div className="flex flex-wrap items-end gap-2">
-              <div className="min-w-[100px]">
-                <div className="mb-1 text-xs font-medium text-gray-500">
-                  {t("COST_OBJECT_ACCOUNT", "TK thành phẩm")}
-                </div>
-                <TextBox
-                  width={105}
-                  value={divisionInput}
-                  stylingMode="outlined"
-                  onValueChanged={e => setDivisionInput(String(e.value ?? ""))}
-                  onEnterKey={applyAccountFilter}
-                />
-              </div>
               <div className="min-w-[145px]">
                 <div className="mb-1 text-xs font-medium text-gray-500">
                   {t("STATUS", "Trạng thái")}
@@ -146,35 +134,33 @@ export default function CostObjectSetupPage() {
                   dataSource={STATUS_OPTIONS}
                   valueExpr="value"
                   displayExpr="text"
-                  value={filter}
+                  value={selectedStatus}
                   stylingMode="outlined"
-                  onValueChanged={e => {
-                    setFilter(e.value as FilterStatus);
-                    grid.current?.clearSelection();
-                  }}
+                  onValueChanged={e => setSelectedStatus(e.value as FilterStatus)}
                 />
               </div>
               <Button
                 text={t("EXECUTE", "Thực hiện")}
                 stylingMode="contained"
                 type="default"
-                onClick={applyAccountFilter}
-                disabled={busy}
-              />
-              <Button
-                icon="refresh"
-                hint={t("RELOAD_PAGE", "Tải lại")}
-                stylingMode="outlined"
-                onClick={() => void refetch()}
+                onClick={applyStatusFilter}
                 disabled={busy}
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button
-                icon="plus"
-                text={t("PRODUCT_LIST", "Danh mục thành phẩm")}
+                icon="folder"
+                text={t("COST_OBJECT_MASTER_CATALOG", "Đối tượng tập hợp chi phí")}
+                hint="/master/cost-center"
                 stylingMode="outlined"
-                onClick={() => navigate(buildAppPath(companyCd, "/master/inventory"))}
+                onClick={() => setActiveCatalog("cost-center")}
+              />
+              <Button
+                icon="box"
+                text={t("INVENTORY_ITEM_SETUP", "Khai báo hàng tồn kho")}
+                hint="/master/inventory"
+                stylingMode="outlined"
+                onClick={() => setActiveCatalog("inventory")}
               />
               <Button
                 icon="check"
@@ -294,6 +280,32 @@ export default function CostObjectSetupPage() {
           </div>
         </div>
       </div>
+
+      <Popup
+        visible={activeCatalog !== null}
+        title={activeCatalog === "cost-center"
+          ? t("COST_OBJECT_MASTER_CATALOG", "Đối tượng tập hợp chi phí")
+          : t("INVENTORY_ITEM_SETUP", "Khai báo hàng tồn kho")}
+        showTitle
+        showCloseButton
+        dragEnabled={false}
+        resizeEnabled
+        hideOnOutsideClick={false}
+        width="min(1400px, 96vw)"
+        height="min(820px, 92vh)"
+        onHiding={() => setActiveCatalog(null)}
+        onHidden={() => {
+          grid.current?.clearSelection();
+          void queryClient.invalidateQueries({ queryKey });
+        }}
+      >
+        <div className="h-full min-h-0 w-full overflow-hidden p-1">
+          <Suspense fallback={<div className="p-3 text-sm text-gray-500">{t("LOADING", "Đang tải dữ liệu...")}</div>}>
+            {activeCatalog === "cost-center" && <CostCenterCatalog />}
+            {activeCatalog === "inventory" && <InventoryCatalog />}
+          </Suspense>
+        </div>
+      </Popup>
     </div>
   );
 }
