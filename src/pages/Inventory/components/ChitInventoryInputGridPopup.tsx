@@ -11,7 +11,6 @@ import type {
     InitNewRowEvent,
     InitializedEvent,
     ToolbarPreparingEvent,
-    ContentReadyEvent,
     EditorPreparingEvent,
 } from "devextreme/ui/data_grid"
 
@@ -74,7 +73,7 @@ interface ChitInventoryInputGridPopupProps {
     linkSlot?: ReactNode
 }
 
-const RUNTIME_COLUMN_SETTING_EXCLUDED_NAMES = ["AMOUNT_CC", "UNIT_PRICE_FC", "EXCHANGE_RATES", "AMOUNT_FC"] as const
+const RUNTIME_COLUMN_SETTING_EXCLUDED_NAMES = ["UNIT_PRICE_FC", "EXCHANGE_RATES", "AMOUNT_FC"] as const
 const MAX_DETAIL_GRID_HEIGHT = 420
 
 function createRowKey(detailRowKey?: string | null) {
@@ -597,7 +596,7 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
         }, [columnSettingState.cachedEditorItems, columnSettingState.syncEditorItemsToComponent])
 
         const handleContentReady = useCallback(
-            (_event: ContentReadyEvent<InventoryInputLine, string>) => {
+            () => {
                 notifyGridContentReady()
             },
             [notifyGridContentReady],

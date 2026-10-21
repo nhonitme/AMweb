@@ -2,6 +2,22 @@
     padding: 0;
 }
 
+.inventory-editor-popup .inventory-issue-tabs {
+    flex: 0 0 auto;
+    max-width: 100%;
+}
+
+.inventory-editor-popup .inventory-issue-tabs .dx-tab {
+    min-width: 112px;
+    padding: 8px 14px;
+}
+
+.inventory-editor-popup .inventory-issue-tabs .dx-tab.dx-tab-selected {
+    background-color: #e8f2ff;
+    color: #1765ad;
+    font-weight: 600;
+}
+
 .inventory-editor-popup > .dx-overlay-content > .dx-popup-title {
     border-bottom: 1px solid #dce0e5;
 }

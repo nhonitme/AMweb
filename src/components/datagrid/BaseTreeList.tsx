@@ -63,6 +63,7 @@ interface BaseTreeListProps<T extends object> {
   screenCd?: string;
   gridId?: string;
   persistColumnSettings?: boolean;
+  selectionMode?: "single" | "multiple";
   onRowDblClick?: (e: RowDblClickEvent) => void;
   onRowClick?: (e: RowClickEvent) => void;
 
@@ -99,6 +100,7 @@ export function BaseTreeList<T extends object>({
   screenCd,
   gridId,
   persistColumnSettings = true,
+  selectionMode = "single",
   onRowDblClick,
   onRowClick,
   onInitialized,
@@ -394,7 +396,8 @@ export function BaseTreeList<T extends object>({
 
   const handleRowClickInternal = (e: RowClickEvent) => {
     const comp = e.component;
-    if (comp) {
+    // Multiple selection is handled by TreeList, including its checkbox clicks.
+    if (comp && selectionMode === "single" && e.rowType === "data") {
       const key = e.key;
       if (comp.isRowSelected(key)) {
         comp.deselectRows(key);
@@ -489,7 +492,15 @@ export function BaseTreeList<T extends object>({
           event.promise = flushActiveEditorValue(document.activeElement);
         }}
         onEditingStart={onEditingStart}
-        selection={{ mode: "single" }}
+        selection={{ mode: selectionMode, allowSelectAll: true, recursive: false }}
+        onOptionChanged={(event) => {
+          if (selectionMode !== "multiple") return;
+          const path = event.fullName;
+          if (path === "filterValue" || path === "searchPanel.text" ||
+            /^columns\[\d+\]\.(filterValue|filterValues|selectedFilterOperation|filterType)$/.test(path)) {
+            event.component.clearSelection();
+          }
+        }}
         onEditorPreparing={onEditorPreparing}
         onInitNewRow={(e) => {
         if (copyDataRef.current) {

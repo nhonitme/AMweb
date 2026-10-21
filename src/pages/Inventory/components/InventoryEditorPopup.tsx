@@ -3,6 +3,7 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "r
 
 import "./InventoryEditorPopup.css"
 import Button from "devextreme-react/button"
+import Tabs from "devextreme-react/tabs"
 import MasterLookupFormField from "@/components/lookup/MasterLookupFormField"
 import { customerLookupStore } from "@/components/lookup/customerLookupStore"
 import { renderSharedCustomerLookupPage } from "@/components/lookup/sharedMasterLookupPages"
@@ -137,11 +138,14 @@ export default function InventoryEditorPopup({
   const [activeInventoryIssueTab, setActiveInventoryIssueTab] = useState<"output" | "cogs">("output")
   const isInputVoucher = chitType === "IR"
   const isAdjustmentVoucher = chitType === "IA"
+  const isCogsTab = chitType === "IO" && Boolean(draft.IS_COGS) && activeInventoryIssueTab === "cogs"
   const activeGridId = isInputVoucher
     ? "inventory-input-editor-grid"
     : isAdjustmentVoucher
       ? "inventory-adjustment-editor-grid"
-      : "inventory-output-editor-grid"
+      : isCogsTab
+        ? "inventory-cogs-editor-grid"
+        : "inventory-output-editor-grid"
   const activeGridRef = isInputVoucher ? inputGridRef : outputGridRef
   const activeColumnSettingStateRef = isInputVoucher ? inputColumnSettingStateRef : outputColumnSettingStateRef
 
@@ -191,12 +195,14 @@ export default function InventoryEditorPopup({
           ? t("INVENTORY_INPUT", "Inventory Input")
           : isAdjustmentVoucher
             ? t("INVENTORY_ADJUSTMENT", "Inventory adjustment")
-            : t("INVENTORY_OUTPUT", "Inventory Output"),
+            : isCogsTab
+              ? t("INVENTORY_COGS", "Giá vốn")
+              : t("INVENTORY_OUTPUT", "Inventory Output"),
         items,
         loading,
       },
     ],
-    [activeGridId, isAdjustmentVoucher, isInputVoucher, t],
+    [activeGridId, isAdjustmentVoucher, isInputVoucher, isCogsTab, t],
   )
 
   const openColumnSettings = useCallback(() => {
@@ -422,14 +428,14 @@ export default function InventoryEditorPopup({
     }
 
     const confirmed = await confirm(
-      t("CONFIRM_REMOVE_INVENTORY_COGS_LINK", "Bỏ liên kết sẽ xóa phiếu giá vốn OT khi lưu phiếu xuất kho. Bạn có muốn tiếp tục?"),
+      t("CONFIRM_REMOVE_INVENTORY_COGS_DETAIL_LINK", "Bỏ liên kết với detail giá vốn khi lưu phiếu xuất kho. Detail do phiếu kho tự tạo sẽ được xóa; detail OT có sẵn được giữ lại. Bạn có muốn tiếp tục?"),
       t("CONFIRM", "Xác nhận"),
     )
     if (!confirmed) {
       return
     }
 
-    setDraft((current) => ({ ...current, IS_COGS: false, COGS: null, COGS_AMOUNT: null, CLEAR_COGS_LINK: true }))
+    setDraft((current) => ({ ...current, IS_COGS: false, COGS: null, CHITDETAIL_ID_COGS: null, COGS_AMOUNT: null, CLEAR_COGS_LINK: true }))
     setLinkedCogsSourceId(null)
     setLinkedCogsVoucherNo("")
     notify(t("INVENTORY_COGS_UNLINK_PENDING", "Đã chọn bỏ liên kết giá vốn. Lưu phiếu xuất kho để hoàn tất."), "info", 3000)
@@ -520,9 +526,8 @@ export default function InventoryEditorPopup({
       return 0
     }
 
-    return draft.OUTPUTS.find((line) => !line.ISDEL && Number(line.CHITDETAIL_ID_COGS ?? 0) > 0)
-      ?.CHITDETAIL_ID_COGS ?? 0
-  }, [chitType, draft.OUTPUTS])
+    return draft.CHITDETAIL_ID_COGS ?? draft.COGS?.DETAILS[0]?.CHITDETAIL_ID ?? 0
+  }, [chitType, draft.CHITDETAIL_ID_COGS, draft.COGS])
 
   const isAccountingLinked = linkedAccountingDetailId > 0 && (selectedAccountingSourceId ?? 0) > 0
 
@@ -696,7 +701,7 @@ export default function InventoryEditorPopup({
     if (event.dataField === "IS_COGS" && chitType === "IO") {
       const enabled = event.value === true || event.value === "1"
 
-      if (!enabled && draftRef.current.COGS) {
+      if (!enabled && (draftRef.current.COGS || draftRef.current.CHITDETAIL_ID_COGS)) {
         setDraft((current) => ({ ...current, IS_COGS: true }))
         return
       }
@@ -1075,27 +1080,61 @@ export default function InventoryEditorPopup({
     return `${actionLabel} ${voucherLabel}`
   }, [isUpdate, t, voucherLabel])
 
+  const inventoryTabItems = [
+    ...(!(visible && initialIssueTab === "cogs" && draft.IS_COGS)
+      ? [{ id: "output" as const, text: t("INVENTORY_OUTPUT", "Xuất kho") }]
+      : []),
+    ...(draft.IS_COGS
+      ? [{ id: "cogs" as const, text: t("INVENTORY_COGS", "Giá vốn") }]
+      : []),
+  ]
+
   const inventoryTabs = chitType === "IO" && (
-    <div role="tablist" className="flex shrink-0 gap-2 border-b border-slate-200 px-3 py-2">
-      {!(visible && initialIssueTab === "cogs" && draft.IS_COGS) ? (
-        <Button
-          text={t("INVENTORY_OUTPUT", "Xuất kho")}
-          type={activeInventoryIssueTab === "output" ? "default" : undefined}
-          stylingMode={activeInventoryIssueTab === "output" ? "contained" : "outlined"}
-          onClick={() => setActiveInventoryIssueTab("output")}
-          elementAttr={{ role: "tab", "aria-selected": activeInventoryIssueTab === "output" }}
-        />
-      ) : null}
-      {draft.IS_COGS ? (
-        <Button
-          text={t("INVENTORY_COGS", "Giá vốn")}
-          type={activeInventoryIssueTab === "cogs" ? "default" : undefined}
-          stylingMode={activeInventoryIssueTab === "cogs" ? "contained" : "outlined"}
-          onClick={() => setActiveInventoryIssueTab("cogs")}
-          elementAttr={{ role: "tab", "aria-selected": activeInventoryIssueTab === "cogs" }}
-        />
-      ) : null}
+    <div className="flex shrink-0 justify-start">
+      <Tabs
+        className="inventory-issue-tabs"
+        width={inventoryTabItems.length * 112}
+        items={inventoryTabItems}
+        keyExpr="id"
+        selectedIndex={inventoryTabItems.findIndex((item) => item.id === activeInventoryIssueTab)}
+        onItemClick={(event) => {
+          if (event.itemData) setActiveInventoryIssueTab(event.itemData.id)
+        }}
+      />
     </div>
+  )
+
+  const useRightVoucherFields = chitType === "IR" || chitType === "IO"
+
+  const customerHeaderField = (
+    <Item
+      dataField="CUSTOMER_ID"
+      label={{ text: t("CUSTOMER_CD", "Customer") }}
+      render={({ component }) => (
+        <MasterLookupFormField<CustomerExt>
+          form={component}
+          dataField="CUSTOMER_ID"
+          dataSource={customerLookupStore}
+          valueExpr="CUSTOMER_ID"
+          getValue={(item) => item.CUSTOMER_ID}
+          onApplyItem={(item) => component.updateData("CUSTOMER_CD", item.CUSTOMER_CD ?? "")}
+          onClear={() => component.updateData("CUSTOMER_CD", "")}
+          displayExpr={(item) => {
+            if (!item) return ""
+            const code = String(item.CUSTOMER_CD ?? "").trim()
+            const name = getCustomerLookupName(item, `CUSTOMER_NM_${getCurrentDataLanguageSuffix()}`)
+            return code && name ? `${code} - ${name}` : code || name
+          }}
+          placeholder={t("SELECT", "Select")}
+          popupTitle={t("CUSTOMER_LIST", "Customers")}
+          buttonHint={t("SEARCH", "Open customer list")}
+          searchExpr={buildCustomerLookupSearchExpr(`CUSTOMER_NM_${getCurrentDataLanguageSuffix()}`)}
+          renderPopupContent={({ closePopup, onPick }) =>
+            renderSharedCustomerLookupPage({ closePopup, onPick })
+          }
+        />
+      )}
+    />
   )
 
   return (
@@ -1175,34 +1214,7 @@ export default function InventoryEditorPopup({
                 label={{ text: t("PAYER_INFO", "Payer") }}
                 editorOptions={createVoucherEditorOptions()}
               />
-              <Item
-                dataField="CUSTOMER_ID"
-                label={{ text: t("CUSTOMER_CD", "Customer") }}
-                render={({ component }) => (
-                  <MasterLookupFormField<CustomerExt>
-                    form={component}
-                    dataField="CUSTOMER_ID"
-                    dataSource={customerLookupStore}
-                    valueExpr="CUSTOMER_ID"
-                    getValue={(item) => item.CUSTOMER_ID}
-                    onApplyItem={(item) => component.updateData("CUSTOMER_CD", item.CUSTOMER_CD ?? "")}
-                    onClear={() => component.updateData("CUSTOMER_CD", "")}
-                    displayExpr={(item) => {
-                      if (!item) return ""
-                      const code = String(item.CUSTOMER_CD ?? "").trim()
-                      const name = getCustomerLookupName(item, `CUSTOMER_NM_${getCurrentDataLanguageSuffix()}`)
-                      return code && name ? `${code} - ${name}` : code || name
-                    }}
-                    placeholder={t("SELECT", "Select")}
-                    popupTitle={t("CUSTOMER_LIST", "Customers")}
-                    buttonHint={t("SEARCH", "Open customer list")}
-                    searchExpr={buildCustomerLookupSearchExpr(`CUSTOMER_NM_${getCurrentDataLanguageSuffix()}`)}
-                    renderPopupContent={({ closePopup, onPick }) =>
-                      renderSharedCustomerLookupPage({ closePopup, onPick })
-                    }
-                  />
-                )}
-              />
+              {!useRightVoucherFields ? customerHeaderField : null}
               <Item
                 dataField="CHIT_NO"
                 editorType="dxTextBox"
@@ -1226,6 +1238,7 @@ export default function InventoryEditorPopup({
                 label={{ text: t("CHIT_YMD", "Voucher Date") }}
                 editorOptions={createVoucherDateBoxEditorOptions({ validationMessageMode: "always" })}
               />
+              {useRightVoucherFields ? customerHeaderField : null}
               {chitType === "IO" ? (
                 <Item
                   dataField="IS_COGS"
@@ -1286,7 +1299,7 @@ export default function InventoryEditorPopup({
                     columnSettingStateRef={outputColumnSettingStateRef}
                     linkSlot={isAdjustmentVoucher ? undefined : accountingLinkSlot}
                     beforeGridSlot={inventoryTabs}
-                    costMode={chitType === "IO" && draft.IS_COGS && activeInventoryIssueTab === "cogs"}
+                    costMode={isCogsTab}
                     adjustmentMode={isAdjustmentVoucher}
                   />
                 )}

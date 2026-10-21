@@ -23,7 +23,7 @@ type ApiEnvelope<T> = {
 
 type InventoryVoucherType = "IR" | "IO" | "IA"
 
-type InventoryVoucherFilters = {
+export type InventoryVoucherFilters = {
   fromYmd?: string | null
   toYmd?: string | null
   chitId?: number | null
@@ -69,6 +69,7 @@ export async function getInventoryVouchers(
   ledger: InventoryInputType,
   chitType: InventoryVoucherType,
   filters: InventoryVoucherFilters = {},
+  signal?: AbortSignal,
 ): Promise<PagedResult<InventoryVoucherApi>> {
   const params: Record<string, boolean | string | number> = {
     INPUT_TYPE: ledger,
@@ -83,6 +84,7 @@ export async function getInventoryVouchers(
 
   const response = await axios.get<ApiEnvelope<InventoryVoucherApi[]>>(`${getInventoryBaseUrl()}/Get`, {
     params,
+    signal,
   })
 
   return normalizePagedResponse<InventoryVoucherApi>(
@@ -92,10 +94,19 @@ export async function getInventoryVouchers(
   )
 }
 
-export async function getInventoryIssueIdByCogsVoucherId(cogsVoucherId: number): Promise<number | null> {
+export async function getInventoryIssueLinksByCogsVoucherId(cogsVoucherId: number): Promise<Record<number, number>> {
+  type Link = { CHITDETAIL_ID: number; INVENTORY_CHIT_ID: number }
+  const response = await axios.get<ApiEnvelope<Link[]>>(
+    `${getInventoryBaseUrl()}/GetIssueLinksByCogsVoucher`, { params: { CHIT_ID: cogsVoucherId } },
+  )
+  const { data } = normalizeResponse<Link[]>(response)
+  return Object.fromEntries((data ?? []).map(link => [link.CHITDETAIL_ID, link.INVENTORY_CHIT_ID]))
+}
+
+export async function getInventoryIssueIdByCogsVoucherId(cogsVoucherId: number, cogsDetailId?: number): Promise<number | null> {
   const response = await axios.get<ApiEnvelope<{ INVENTORY_CHIT_ID?: number | null }>>(
     `${getInventoryBaseUrl()}/GetIssueByCogsVoucher`,
-    { params: { CHIT_ID: cogsVoucherId } },
+    { params: { CHIT_ID: cogsVoucherId, CHITDETAIL_ID: cogsDetailId } },
   )
   const { data } = normalizeResponse<{ INVENTORY_CHIT_ID?: number | null }>(response)
   const inventoryChitId = Number(data?.INVENTORY_CHIT_ID ?? 0)

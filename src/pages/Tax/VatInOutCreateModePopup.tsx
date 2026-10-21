@@ -57,7 +57,9 @@ export default function VatInOutCreateModePopup({
       hideOnOutsideClick={false}
       width="min(560px, 94vw)"
       height="auto"
-      onHiding={onClose}
+      onHiding={() => {
+        onClose()
+      }}
     >
       <div className="flex flex-col gap-4 p-4">
         <div className="text-sm text-slate-600">
@@ -100,7 +102,9 @@ export default function VatInOutCreateModePopup({
             displayExpr="label"
             layout="vertical"
             value={creationMode}
-            onValueChanged={(event) => setCreationMode((event.value ?? "MERGED") as VatVoucherCreationMode)}
+            onValueChanged={(event) => {
+              setCreationMode((event.value ?? "MERGED") as VatVoucherCreationMode)
+            }}
           />
         </div>
         <div className="flex justify-end gap-2">

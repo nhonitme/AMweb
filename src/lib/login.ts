@@ -326,7 +326,7 @@ async function performRefresh(): Promise<boolean> {
     if (!session) { expireAuthSession(); return false; }
     setSessionCache(session);
     return true;
-  } catch {
+  } catch (error) {
     if (revision !== sessionRevision) return Boolean(sessionCache);
     expireAuthSession();
     return false;

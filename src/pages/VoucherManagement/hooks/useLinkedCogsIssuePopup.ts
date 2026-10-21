@@ -15,6 +15,7 @@ export function useLinkedCogsIssuePopup(t: Translate) {
   const invalidateInventoryLists = useInventoryVoucherListInvalidate()
   const [voucher, setVoucher] = useState<InventoryVoucher | null>(null)
   const [loading, setLoading] = useState(false)
+  const [refreshVersion, setRefreshVersion] = useState(0)
   const openInFlightRef = useRef(false)
 
   const open = useCallback((inventoryId: number): boolean => {
@@ -49,6 +50,7 @@ export function useLinkedCogsIssuePopup(t: Translate) {
       const saved = normalizeInventoryVoucherApi(response.data, "IO", getCurrentCompanyCd())
       await invalidateInventoryLists()
       setVoucher(saved)
+      setRefreshVersion(version => version + 1)
       notify(t("MSG_EDIT_SUCCESS", "Đã cập nhật thành công"), "success", 3000)
     } catch (error) {
       notify(getApiErrorMessage(error, t("SAVE_FAILED", "Lưu thất bại")), "error", 3000)
@@ -63,5 +65,5 @@ export function useLinkedCogsIssuePopup(t: Translate) {
     return true
   }, [loading])
 
-  return { voucher, loading, open, save, close }
+  return { voucher, loading, open, save, close, refreshVersion }
 }

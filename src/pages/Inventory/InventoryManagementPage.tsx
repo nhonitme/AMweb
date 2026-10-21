@@ -303,6 +303,19 @@ export default function InventoryManagementPage({
     [pageNumber, pageSize, t],
   )
 
+  const refreshListQuery = useCallback(async (
+    fromParam: Date | null, toParam: Date | null, targetPage: number, targetPageSize: number,
+  ) => {
+    const sameQuery = listFetchEnabled
+      && listQueryFromYmd === (formatDateToYmd(fromParam) ?? "")
+      && listQueryToYmd === (formatDateToYmd(toParam) ?? "")
+      && pageNumber === targetPage && pageSize === targetPageSize
+    if (!applyListQuery(fromParam, toParam, targetPage, targetPageSize)) return
+    if (sameQuery) await refetchInventoryVouchers()
+    else await invalidateInventoryVouchers({ refetchType: "none" })
+  }, [applyListQuery, invalidateInventoryVouchers, listFetchEnabled, listQueryFromYmd,
+    listQueryToYmd, pageNumber, pageSize, refetchInventoryVouchers])
+
   const loadData = useCallback(
     (fromParam: Date | null, toParam: Date | null, targetPage = pageNumber, targetPageSize = pageSize) => {
       applyListQuery(fromParam, toParam, targetPage, targetPageSize)
@@ -399,9 +412,8 @@ export default function InventoryManagementPage({
     routeScopeKey: `${ledger}:${chitType}`,
     loadList: useCallback(async () => {
       initialPagingEventsSuppressedRef.current = true
-      applyListQuery(fromDate, toDate, 1, 20)
-      await invalidateInventoryVouchers()
-    }, [applyListQuery, fromDate, invalidateInventoryVouchers, toDate]),
+      await refreshListQuery(fromDate, toDate, 1, 20)
+    }, [fromDate, refreshListQuery, toDate]),
     openVoucher: openInventoryVoucherFromRoute,
     onPageLoadingChange: setLoading,
   })
@@ -418,9 +430,8 @@ export default function InventoryManagementPage({
   }, [applyListQuery, fromDate, openChitRoute, toDate])
 
   const handleRangeSearch = useCallback(() => {
-    applyListQuery(fromDate, toDate, 1, pageSize)
-    void invalidateInventoryVouchers()
-  }, [applyListQuery, fromDate, invalidateInventoryVouchers, pageSize, toDate])
+    void refreshListQuery(fromDate, toDate, 1, pageSize)
+  }, [fromDate, pageSize, refreshListQuery, toDate])
 
   const handleGridInitialized = useCallback((event: InitializedEvent<InventoryVoucher, string | number>) => {
     gridRef.current = event.component ?? null
@@ -665,6 +676,7 @@ export default function InventoryManagementPage({
         : result.message || t("SAVE_SUCCESS", "Saved successfully")
       notify(saveMessage, "success", 3000)
 
+      await invalidateInventoryVouchers()
       if (reopenNew) {
         setInitialIssueTab("output")
         setEditingRow(createDefaultInventoryVoucher(chitType, getCurrentCompanyCd(), getCurrentUserId()))
@@ -677,7 +689,6 @@ export default function InventoryManagementPage({
       setPopupVisible(false)
       openChitRoute.markListLoaded()
       initialLoadTriggeredRef.current = true
-      await invalidateInventoryVouchers()
     } catch (error) {
       notify(getApiErrorMessage(error, t("SAVE_FAILED", "Lưu thất bại")), "error", 3000)
       throw error
@@ -1223,7 +1234,7 @@ export default function InventoryManagementPage({
           readOnly={isPeriodLockVoucher(linkedCogsPopup.voucher)}
           loading={linkedCogsPopup.loading}
           onClose={linkedCogsPopup.close}
-          onReturnToLinkedInventory={linkedCogsPopup.close}
+          onReturnToLinkedInventory={(inventoryId) => inventoryId === Number(editingRow.CHIT_ID) && linkedCogsPopup.close()}
           onSave={linkedCogsPopup.save}
         />
       ) : null}

@@ -5,11 +5,12 @@ import {
   createDefaultChit,
   createDefaultChitDetail,
 } from "@/pages/VoucherManagement/chitUtils"
-import type { ChitInfo, VatVoucherType } from "@/types/voucher"
+import type { ChitInfo, ChitType, VatVoucherType } from "@/types/voucher"
+export type { VatVoucherType } from "@/types/voucher"
 import type { CustomerExt } from "@/types/customerExt"
-import type { ReportPreviewCellValue } from "@/api/configuredReportPreviewApi"
+import type { VatInOutInvoice } from "@/api/vatInOutApi"
 
-export type VatInvoiceRow = Record<string, ReportPreviewCellValue> & { ROW_KEY: string }
+export type VatInvoiceRow = VatInOutInvoice & { ROW_KEY: string }
 export type VatInvoiceType = "BUY" | "SELL"
 export function getDefaultVatVoucherType(invoiceType: VatInvoiceType): VatVoucherType {
   return invoiceType === "BUY" ? "PO" : "SO"
@@ -25,37 +26,15 @@ export type VatVoucherDraft = {
   error?: string
 }
 
-export function readInvoiceValue(row: VatInvoiceRow, candidates: string[]): ReportPreviewCellValue {
-  const fields = new Map(Object.keys(row).map((key) => [key.trim().toUpperCase(), key]))
-  for (const candidate of candidates) {
-    const field = fields.get(candidate.toUpperCase())
-    const value = field ? row[field] : null
-    if (value !== null && value !== undefined && String(value).trim() !== "") return value
-  }
-  return null
-}
-
-export function readInvoiceText(row: VatInvoiceRow, candidates: string[]): string {
-  const value = readInvoiceValue(row, candidates)
-  return value == null ? "" : String(value).trim()
-}
-
-export function readInvoiceNumber(row: VatInvoiceRow, candidates: string[]): number {
-  const value = readInvoiceValue(row, candidates)
-  if (typeof value === "number" && Number.isFinite(value)) return value
-  const parsed = Number(String(value ?? "").replace(/,/g, ""))
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
 export function getVatInvoiceKey(row: VatInvoiceRow): string {
-  return readInvoiceText(row, ["mhdon", "MHDON", "INVOICE_ID", "ID"])
+  return row.mhdon
 }
 
 export function formatVatInvoiceLabel(row: VatInvoiceRow): string {
-  const form = readInvoiceText(row, ["khmshdon", "KHMSHDON"])
-  const series = readInvoiceText(row, ["khhdon", "KHHDON"])
-  const number = readInvoiceText(row, ["shdon", "SHDON"])
-  const date = normalizeYmd(readInvoiceText(row, ["tdlap", "TDLAP"]))
+  const form = (row.khmshdon ?? "")
+  const series = (row.khhdon ?? "")
+  const number = (row.shdon ?? "")
+  const date = normalizeYmd((row.tdlap ?? ""))
   const formAndSeries = `${form}${series}`
   const invoiceNumber = [formAndSeries, number].filter(Boolean).join("/")
   return [invoiceNumber, date && formatYmdForDisplay(date)]
@@ -73,39 +52,39 @@ export function buildVatVoucherDraft(
   const companyCd = getCurrentCompanyCd()
   const userId = getCurrentUserId()
   const chitType: ChitType = voucherType
-  const firstDate = normalizeYmd(readInvoiceText(invoices[0], ["tdlap", "TDLAP"])) ?? new Date()
+  const firstDate = normalizeYmd((invoices[0].tdlap ?? "")) ?? new Date()
   const details = invoices.flatMap((invoice, index) => {
-    const date = normalizeYmd(readInvoiceText(invoice, ["tdlap", "TDLAP"])) ?? firstDate
-    const taxable = readInvoiceNumber(invoice, ["tgtcthue", "TGTCTHUE"])
-    const vat = readInvoiceNumber(invoice, ["tgtthue", "TGTTHUE"])
-    const currency = readInvoiceText(invoice, ["dvtte", "DVTTE"]) || "VND"
-    const exchangeRate = readInvoiceNumber(invoice, ["tgia", "TGIA"]) || 1
+    const date = normalizeYmd((invoice.tdlap ?? "")) ?? firstDate
+    const taxable = (invoice.tgtcthue ?? 0)
+    const vat = (invoice.tgtthue ?? 0)
+    const currency = (invoice.dvtte ?? "") || "VND"
+    const exchangeRate = (invoice.TGia ?? 0) || 1
     const isForeignCurrency = currency.toUpperCase() !== "VND"
     const taxableAmount = isForeignCurrency ? taxable * exchangeRate : taxable
     const vatAmount = isForeignCurrency ? vat * exchangeRate : vat
-    const issuerName = readInvoiceText(invoice, ["nbten", "NBTEN"])
-    const issuerAddress = readInvoiceText(invoice, ["nbdchi", "NBDCHI"])
-    const issuerTaxCode = readInvoiceText(invoice, ["nbmst", "NBMST"])
-    const partyName = invoiceType === "BUY" ? issuerName : readInvoiceText(invoice, ["nmten", "NMTEN"])
-    const partyAddress = invoiceType === "BUY" ? issuerAddress : readInvoiceText(invoice, ["nmdchi", "NMDCHI"])
-    const partyTaxCode = invoiceType === "BUY" ? issuerTaxCode : readInvoiceText(invoice, ["nmmst", "NMMST"])
+    const issuerName = (invoice.nbten ?? "")
+    const issuerAddress = (invoice.nbdchi ?? "")
+    const issuerTaxCode = (invoice.nbmst ?? "")
+    const partyName = invoiceType === "BUY" ? issuerName : (invoice.nmten ?? "")
+    const partyAddress = invoiceType === "BUY" ? issuerAddress : (invoice.nmdchi ?? "")
+    const partyTaxCode = invoiceType === "BUY" ? issuerTaxCode : (invoice.nmmst ?? "")
 
     const sharedDetail = {
       CHIT_YMD: date,
       FC_TYPE: currency,
       FC_RATE: exchangeRate,
       CUSTOMER_NM_VIET: partyName,
-      VAT_SERIAL_NO: readInvoiceText(invoice, ["khhdon", "KHHDON"]),
-      VAT_CHIT_NO: readInvoiceText(invoice, ["shdon", "SHDON"]),
+      VAT_SERIAL_NO: (invoice.khhdon ?? ""),
+      VAT_CHIT_NO: (invoice.shdon ?? ""),
       VAT_CHIT_NO_2: getVatInvoiceKey(invoice),
-      VAT_INVOICE_CD: readInvoiceText(invoice, ["khmshdon", "KHMSHDON"]),
-      VAT_INVOICE_NM: readInvoiceText(invoice, ["khmshdon_ten", "KHMSHDON_TEN"]),
+      VAT_INVOICE_CD: (invoice.khmshdon ?? ""),
+      VAT_INVOICE_NM: (invoice.khmshdon_ten ?? ""),
       VAT_COMPANY_ISSUE: issuerName,
       VAT_COMPANY_ISSUE_ADDRESS: issuerAddress,
       VAT_COMPANY_ISSUE_CD: issuerTaxCode,
       VAT_COMPANY_TAXCD: issuerTaxCode,
       VAT_PRODUCT_NM: partyName,
-      VAT_ETC: readInvoiceText(invoice, ["GChu", "GCHU"]),
+      VAT_ETC: (invoice.GChu ?? ""),
       VAT_YMD: date,
       UNDEFINE: [partyAddress, partyTaxCode].filter(Boolean).join(" | "),
     }
@@ -158,12 +137,8 @@ function normalizeCustomerMatchText(value: unknown): string {
 }
 
 export function findMatchingInvoiceCustomer(invoice: VatInvoiceRow, invoiceType: VatInvoiceType, customers: CustomerExt[]): CustomerExt | null {
-  const taxCode = normalizeCustomerMatchText(readInvoiceText(invoice, invoiceType === "BUY"
-    ? ["nbmst", "NBMST"]
-    : ["nmmst", "NMMST"]))
-  const name = normalizeCustomerMatchText(readInvoiceText(invoice, invoiceType === "BUY"
-    ? ["nbten", "NBTEN"]
-    : ["nmten", "NMTEN"]))
+  const taxCode = normalizeCustomerMatchText(invoiceType === "BUY" ? invoice.nbmst : invoice.nmmst)
+  const name = normalizeCustomerMatchText(invoiceType === "BUY" ? invoice.nbten : invoice.nmten)
   const activeCustomers = customers.filter((customer) => !customer.ISDEL && Number(customer.CUSTOMER_ID) > 0)
   if (taxCode) {
     const taxMatches = activeCustomers.filter((customer) => normalizeCustomerMatchText(customer.TAX_CD) === taxCode)
@@ -212,3 +187,5 @@ export function createVatVoucherDrafts(
     linkedInvoiceKeys: [],
   }))
 }
+
+

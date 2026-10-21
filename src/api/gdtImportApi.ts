@@ -136,7 +136,8 @@ export async function getGdtInvoiceDetail(
       params: { type, mhdon: mhdon.trim() },
       timeout: 30_000,
     })
-    return getApiObjectPayload<GdtInvoiceDetailPayload>(resp.data)
+    const payload = getApiObjectPayload<GdtInvoiceDetailPayload>(resp.data)
+    return payload
   } catch (error) {
     throw new Error(getApiErrorMessage(error, "Không tải được chi tiết hàng hóa/dịch vụ của hóa đơn"))
   }

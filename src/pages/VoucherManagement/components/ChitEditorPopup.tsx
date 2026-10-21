@@ -25,7 +25,7 @@ import { getCurrentCompanyCd } from "@/lib/login"
 import { disableBuiltInPopupEscape, usePopupEscapeLayer } from "@/components/popup/popupEscapeStack"
 
 
-import { getInventoryIssueIdByCogsVoucherId } from "@/api/inventoryVoucherApi"
+import { getInventoryIssueLinksByCogsVoucherId } from "@/api/inventoryVoucherApi"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { LanguageContext } from "@/lib/i18nLoader"
 import {
@@ -84,6 +84,7 @@ interface ChitEditorPopupProps {
     loading: boolean
     onClose: () => void
     onReturnToLinkedInventory?: (inventoryId: number) => boolean
+    inventoryLinkRefreshVersion?: number
     onSave: SaveAccountingWithInventory
     onSaveAndNew?: SaveAccountingWithInventory
     printReportCode?: string | null
@@ -106,6 +107,7 @@ export function ChitEditorPopup({
     loading,
     onClose,
     onReturnToLinkedInventory,
+    inventoryLinkRefreshVersion = 0,
     onSave,
     onSaveAndNew,
     printReportCode,
@@ -123,7 +125,7 @@ export function ChitEditorPopup({
     const [detailLayoutVersion, setDetailLayoutVersion] = useState(0)
     const [columnSettingsVisible, setColumnSettingsVisible] = useState(false)
     const [columnSettingsTabs, setColumnSettingsTabs] = useState<GridColumnSettingsPopupTab[]>([])
-    const [linkedCogsIssueId, setLinkedCogsIssueId] = useState<number | null>(null)
+    const [linkedCogsIssues, setLinkedCogsIssues] = useState<Record<number, number>>({})
     const [cogsSourceLookupLoading, setCogsSourceLookupLoading] = useState(false)
     const [cogsSourceLookupError, setCogsSourceLookupError] = useState(false)
     const cogsSourceLookupSeqRef = useRef(0)
@@ -222,10 +224,13 @@ export function ChitEditorPopup({
         }))
     }, [setDraft])
 
+    const rowInventory = useRowInventoryEditor({ visible, chitType, readOnly, draftRef, setDraft, gridRef: detailGridRef, onSave, onSaveAndNew, t })
+    const cogsDetailIdsKey = draft.DETAILS.filter(row => !row.ISDEL).map(row => Number(row.CHITDETAIL_ID)).filter(id => id > 0).sort((a, b) => a - b).join(",")
+
     const loadLinkedCogsIssue = useCallback(async () => {
         const cogsVoucherId = Number(draftRef.current.CHIT_ID ?? 0)
         if (chitType !== "OT" || !visible || !isUpdate || cogsVoucherId <= 0) {
-            setLinkedCogsIssueId(null)
+            setLinkedCogsIssues({})
             setCogsSourceLookupError(false)
             return
         }
@@ -234,12 +239,12 @@ export function ChitEditorPopup({
         cogsSourceLookupSeqRef.current = requestSeq
         setCogsSourceLookupLoading(true)
         setCogsSourceLookupError(false)
-        setLinkedCogsIssueId(null)
+        setLinkedCogsIssues({})
 
         try {
-            const issueId = await getInventoryIssueIdByCogsVoucherId(cogsVoucherId)
+            const links = await getInventoryIssueLinksByCogsVoucherId(cogsVoucherId)
             if (cogsSourceLookupSeqRef.current === requestSeq) {
-                setLinkedCogsIssueId(issueId)
+                setLinkedCogsIssues(links)
             }
         } catch (error) {
             if (cogsSourceLookupSeqRef.current === requestSeq) {
@@ -255,15 +260,15 @@ export function ChitEditorPopup({
 
     useEffect(() => {
         cogsSourceLookupSeqRef.current += 1
-        setLinkedCogsIssueId(null)
+        setLinkedCogsIssues({})
         setCogsSourceLookupError(false)
         setCogsSourceLookupLoading(false)
         if (chitType === "OT" && visible && isUpdate && Number(draft.CHIT_ID ?? 0) > 0) {
             void loadLinkedCogsIssue()
         }
-    }, [chitType, draft.CHIT_ID, isUpdate, loadLinkedCogsIssue, visible])
+    }, [chitType, draft.CHIT_ID, cogsDetailIdsKey, rowInventory.refreshVersion, inventoryLinkRefreshVersion, isUpdate, loadLinkedCogsIssue, visible])
 
-    const handleOpenLinkedCogsIssue = useCallback(() => {
+    const handleOpenLinkedCogsIssue = useCallback((linkedCogsIssueId: number | undefined) => {
         if (!linkedCogsIssueId) {
             if (cogsSourceLookupError) {
                 void loadLinkedCogsIssue()
@@ -295,9 +300,9 @@ export function ChitEditorPopup({
                 } satisfies VoucherOpenLocationState,
             },
         )
-    }, [cogsSourceLookupError, linkedCogsIssueId, loadLinkedCogsIssue, navigate, onReturnToLinkedInventory])
+    }, [cogsSourceLookupError, loadLinkedCogsIssue, navigate, onReturnToLinkedInventory])
 
-    const rowInventory = useRowInventoryEditor({ visible, chitType, readOnly, draftRef, setDraft, gridRef: detailGridRef, onSave, onSaveAndNew, t })
+
 
     const editorDraft = useChitEditorDraft({
         visible,
@@ -725,41 +730,20 @@ export function ChitEditorPopup({
                                 pendingInventoryRowKeys={rowInventory.pendingKeys}
                                 inventoryRefreshVersion={rowInventory.refreshVersion}
                                 showInventoryLinkActions={showInventoryLinkActions}
-                                linkSlot={chitType === "OT" && (linkedCogsIssueId || cogsSourceLookupError) ? (
-                                    linkedCogsIssueId ? (
-                                        <div className="inline-flex max-w-full items-stretch overflow-hidden rounded-md border border-emerald-200 bg-emerald-50 text-emerald-900">
-                                            <button
-                                                type="button"
-                                                disabled={loading || cogsSourceLookupLoading}
-                                                aria-label={`${t("OPEN_LINKED_INVENTORY_ISSUE", "Mở phiếu xuất kho đã liên kết")} · ${linkedCogsIssueId}`}
-                                                title={`${t("OPEN_LINKED_INVENTORY_ISSUE", "Mở phiếu xuất kho đã liên kết")} · ${linkedCogsIssueId}`}
-                                                className="inline-flex max-w-full items-center gap-1.5 px-2.5 py-1 text-sm hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
-                                                onClick={handleOpenLinkedCogsIssue}
-                                            >
-                                                <span className="whitespace-nowrap font-medium">{t("LINKED", "Đã liên kết")}</span>
-                                                <span className="truncate font-semibold">{t("INVENTORY_ISSUE", "Phiếu xuất kho")} · {linkedCogsIssueId}</span>
-                                            </button>
-                                            <button
-                                                type="button"
-                                                disabled={loading || cogsSourceLookupLoading}
-                                                aria-label={t("OPEN_INVENTORY_TO_UNLINK", "Mở phiếu xuất kho để bỏ liên kết")}
-                                                title={t("OPEN_INVENTORY_TO_UNLINK", "Mở phiếu xuất kho để bỏ liên kết")}
-                                                className="inline-flex min-w-10 items-center justify-center border-l border-emerald-200 px-3 text-2xl font-semibold leading-none text-red-600 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
-                                                onClick={handleOpenLinkedCogsIssue}
-                                            >
-                                                <span aria-hidden="true">×</span>
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <Button
-                                            text={t("RETRY", "Thử lại")}
-                                            icon="refresh"
-                                            stylingMode="outlined"
-                                            disabled={loading || cogsSourceLookupLoading}
-                                            onClick={handleOpenLinkedCogsIssue}
-                                        />
-                                    )
-                                ) : null}
+                                renderDetailLink={chitType === "OT" ? (row) => {
+                                    const issueId = linkedCogsIssues[Number(row.CHITDETAIL_ID)]
+                                    const canLink = row.DEBIT === "632" && row.CREDIT === "156" && Number(row.AMOUNT) >= 0 && row.FC_TYPE === "VND"
+                                    return <button
+                                        type="button"
+                                        className="inline-flex h-7 items-center rounded border border-emerald-200 bg-emerald-50 px-2 text-xs font-medium text-emerald-900 disabled:opacity-50"
+                                        disabled={loading || cogsSourceLookupLoading || rowInventory.loading || (!issueId && !cogsSourceLookupError && (readOnly || !canLink))}
+                                        title={issueId ? t("OPEN_LINKED_INVENTORY_ISSUE", "Mở phiếu xuất kho đã liên kết") : canLink ? t("LINK_VOUCHERS", "Liên kết phiếu") : t("COGS_DETAIL_LINK_ACCOUNTS_REQUIRED", "Liên kết giá vốn yêu cầu dòng Nợ 632 / Có 156, tiền VND không âm")}
+                                        onClick={() => {
+                                            if (issueId || cogsSourceLookupError) handleOpenLinkedCogsIssue(issueId)
+                                            else void rowInventory.open(row)
+                                        }}
+                                    >{t("INVENTORY_ROW_BUTTON", "Hàng tồn kho")}</button>
+                                } : undefined}
                             />
                         </div>
                     </div>
@@ -853,7 +837,7 @@ export function ChitEditorPopup({
                         readOnly={isPeriodLockVoucher(linkedCogsPopup.voucher)}
                         loading={linkedCogsPopup.loading}
                         onClose={linkedCogsPopup.close}
-                        onReturnToLinkedInventory={linkedCogsPopup.close}
+                        onReturnToLinkedInventory={(inventoryId) => inventoryId === Number(rowInventory.editor?.value.CHIT_ID) && linkedCogsPopup.close()}
                         onSave={linkedCogsPopup.save}
                         screenCd={screenCd}
                     />

@@ -32,14 +32,14 @@ export function useInventoryVoucherListQuery(params: InventoryListQueryParams, e
       params.pageNumber,
       params.pageSize,
     ),
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       const filters: InventoryVoucherFilters = {
         fromYmd: params.fromYmd,
         toYmd: params.toYmd,
         pageNumber: params.pageNumber,
         pageSize: params.pageSize,
       }
-      return getInventoryVouchers(params.ledger, params.chitType, filters)
+      return getInventoryVouchers(params.ledger, params.chitType, filters, signal)
     },
     enabled: enabled && Boolean(companyCd) && hasValidRange,
     staleTime: STALE_TIME.TRANSACTION,
@@ -50,9 +50,10 @@ export function useInventoryVoucherListInvalidate() {
   const queryClient = useQueryClient()
   const companyCd = getCurrentCompanyCd()
 
-  return useCallback(async () => {
+  return useCallback(async (options?: { refetchType?: "active" | "none" }) => {
     await queryClient.invalidateQueries({
       queryKey: queryKeys.transaction.inventoryRoot(companyCd),
+      refetchType: options?.refetchType ?? "active",
     })
   }, [companyCd, queryClient])
 }

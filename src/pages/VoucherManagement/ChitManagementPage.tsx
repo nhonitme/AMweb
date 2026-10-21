@@ -1814,6 +1814,7 @@ const openEditPopup = useCallback(
           readOnly={editorReadOnly}
           loading={popupLoading}
           onReturnToLinkedInventory={chitType === "OT" ? linkedCogsIssuePopup.open : undefined}
+          inventoryLinkRefreshVersion={linkedCogsIssuePopup.refreshVersion}
           onClose={() => {
             if (chitType === "SO" || chitType === "OT") {
               const closeParams = new URLSearchParams(location.search)

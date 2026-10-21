@@ -410,6 +410,7 @@ export function createInventoryVoucherCopy(
     ...base,
     ...source,
     COGS: null,
+    CHITDETAIL_ID_COGS: null,
     IS_COGS: false,
     COGS_AMOUNT: null,
     CHIT_ID: null,
@@ -483,6 +484,7 @@ export function normalizeInventoryVoucherApi(
   const normalizedRecord: InventoryVoucher = {
     IS_COGS: toBool(item.IS_COGS),
     COGS: item.COGS,
+    CHITDETAIL_ID_COGS: Number(item.CHITDETAIL_ID_COGS) > 0 ? Number(item.CHITDETAIL_ID_COGS) : null,
     CHIT_ID: item.CHIT_ID ?? null,
     COMPANY_CD: trimText(item.COMPANY_CD) || companyCd,
     INPUT_TYPE: inputType,
@@ -665,6 +667,7 @@ export function mapInventoryVoucherToApiPayload(record: InventoryVoucher): Inven
     CHIT_YMD: formatInventoryDate(record.CHIT_YMD),
     CHIT_TYPE: record.CHIT_TYPE,
     IS_COGS: toFlag(record.IS_COGS),
+    CHITDETAIL_ID_COGS: record.CHITDETAIL_ID_COGS ?? null,
     COGS_AMOUNT: record.COGS_AMOUNT ?? null,
     CLEAR_COGS_LINK: record.CLEAR_COGS_LINK ?? false,
     AMOUNT: totalAmount,

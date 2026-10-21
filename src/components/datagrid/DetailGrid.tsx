@@ -20,6 +20,7 @@ import { applyHeaderFieldNameTooltip } from "@/lib/gridHeaderFieldTooltip"
 import {
   applyGridColumnSettingsToChildren,
   applyRuntimeColumnVisibilityToChildren,
+  applyRuntimeColumnVisibilityToComponent,
   type RuntimeColumnVisibilityOptions,
 } from "./gridColumnSettingRender"
 import { useCompanyLangRevision } from "@/lib/companyLang"
@@ -200,6 +201,18 @@ export function DetailGrid<TData>({
       noDataText={isEmpty ? " " : emptyStateText}
       paging={{ enabled: false }}
       onInitialized={handleInitialized}
+      onContentReady={(event) => {
+        const needsVisibilityUpdate = runtimeColumnVisibility?.forceVisibleColumnNames?.some(
+          (name) => event.component.columnOption(name, "visible") !== true
+            || event.component.columnOption(name, "allowHiding") !== false,
+        ) || Object.entries(runtimeColumnVisibility?.controlledColumnVisibility ?? {}).some(
+          ([name, visible]) => event.component.columnOption(name, "visible") !== visible
+            || event.component.columnOption(name, "allowHiding") !== false,
+        )
+        if (needsVisibilityUpdate) {
+          applyRuntimeColumnVisibilityToComponent(event.component, runtimeColumnVisibility)
+        }
+      }}
       onCellPrepared={(event) => {
         applyHeaderFieldNameTooltip(event)
       }}

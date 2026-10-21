@@ -73,6 +73,7 @@ export default function DepartmentManagementPage({
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false)
   const [selectedParentRow, setSelectedParentRow] = useState<DepartmentInfo | null>(null)
   const treeListRef = useRef<dxTreeList | null>(null)
+  const toolbarDeleteBusyRef = useRef(false)
 
   const { lang, translate } = useContext(LanguageContext) as {
     translate: (key: string, fallback?: string) => string
@@ -206,10 +207,11 @@ export default function DepartmentManagementPage({
   }, [])
 
   const handleToolbarDelete = useCallback(async () => {
+    if (toolbarDeleteBusyRef.current || deleteMutation.isPending) return
     const selectedKeys = (treeListRef.current?.getSelectedRowKeys() || []) as Array<string | number>
-    const departmentIds = selectedKeys
+    const departmentIds = Array.from(new Set(selectedKeys
       .map((key) => Number(key))
-      .filter((value) => Number.isFinite(value) && value > 0)
+      .filter((value) => Number.isFinite(value) && value > 0)))
 
     if (!departmentIds.length) {
       notify(t("MSG_NO_ROWS_SELECTED", "Chưa chọn dòng"), "warning", 2000)
@@ -221,17 +223,18 @@ export default function DepartmentManagementPage({
       "Are you sure you want to delete {0} record?",
     ).replace("{0}", String(departmentIds.length))
 
-    const isConfirmed = await confirm(confirmText, t("MSG_CONFIRM_DELETE", "Confirm delete"))
-    if (!isConfirmed) {
-      return
-    }
-
+    toolbarDeleteBusyRef.current = true
     try {
+      const isConfirmed = await confirm(confirmText, t("MSG_CONFIRM_DELETE", "Confirm delete"))
+      if (!isConfirmed) return
       await deleteMutation.mutateAsync(departmentIds)
+      treeListRef.current?.clearSelection()
       notify(t("DELETE_SUCCESS", "Deleted successfully"), "success", 3000)
     } catch (error) {
       console.error("Bulk delete department error", error)
       notify(getApiErrorMessage(error, t("DELETE_FAILED", "Xóa thất bại")), "error", 3000)
+    } finally {
+      toolbarDeleteBusyRef.current = false
     }
   }, [deleteMutation, t])
 
@@ -274,6 +277,10 @@ export default function DepartmentManagementPage({
   }, [gridId, menuCode, screenCd, t])
 
   const onRowDblClick = useCallback((event: RowDblClickEvent<DepartmentTreeRow, TKey>) => {
+    const target = event.event?.target
+    if (event.rowType !== "data" || (target instanceof Element && target.closest(
+      ".dx-command-select, .dx-select-checkbox, .dx-command-edit, .dx-treelist-collapsed, .dx-treelist-expanded, button, a",
+    ))) return
     if (isLookup) {
       if (event.data) {
         onPickDepartment?.(event.data)
@@ -323,6 +330,7 @@ export default function DepartmentManagementPage({
       }
     >
       <BaseTreeList<DepartmentTreeRow>
+        selectionMode={isLookup ? "single" : "multiple"}
         dataSource={gridData}
         keyExpr="DEPARTMENT_ID"
         parentIdExpr="PARENT_ID"

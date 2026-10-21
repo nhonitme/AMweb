@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import Button from "devextreme-react/button"
 import DateBox from "devextreme-react/date-box"
 import { Column } from "devextreme-react/data-grid"
@@ -42,8 +42,6 @@ import {
   formatVatInvoiceLabel,
   getDefaultVatVoucherType,
   getVatInvoiceKey,
-  readInvoiceNumber,
-  readInvoiceText,
   type VatInvoiceRow,
   type VatInvoiceType,
   type VatVoucherType,
@@ -98,10 +96,10 @@ function buildDraftSequenceCodes(preview: SysCodeSequencePreview, drafts: VatBat
   let currentResetKey = String(preview.RESET_KEY ?? "")
   const result = new Map<string, string>()
 
-  unsavedDrafts.forEach((draft, index) => {
+  unsavedDrafts.forEach((draft) => {
     const date = draft.record.CHIT_YMD
     const expectedResetKey = getSequenceResetKey(resetType, date)
-    if (index > 0 && resetType !== "NONE" && expectedResetKey !== currentResetKey) {
+    if (resetType !== "NONE" && expectedResetKey !== currentResetKey) {
       currentNumber = 0
     }
     currentNumber += 1
@@ -232,6 +230,9 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
   const [drafts, setDrafts] = useState<VatBatchDraft[]>([])
   const [voucherType, setVoucherType] = useState<VatVoucherType>(() => getDefaultVatVoucherType(invoiceType))
   const [activeDraftKey, setActiveDraftKey] = useState("")
+  const [dateEditingDraftKey, setDateEditingDraftKey] = useState("")
+  const [openingCustomersPending, setOpeningCustomersPending] = useState(true)
+  const [openingSequencePending, setOpeningSequencePending] = useState(true)
   const [activeTab, setActiveTab] = useState<BatchTab>("posting")
   const [saving, setSaving] = useState(false)
   const [columnSettingsVisible, setColumnSettingsVisible] = useState(false)
@@ -248,19 +249,22 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
   const [customerLookup, setCustomerLookup] = useState<CustomerExt[]>([])
   const [inventoryLookupsLoaded, setInventoryLookupsLoaded] = useState(false)
   const [sequencePreviewVersion, setSequencePreviewVersion] = useState(0)
+  const sequencePreviewRef = useRef(new Map<string, Promise<SysCodeSequencePreview | null>>())
+  const sequenceDraftsRef = useRef(drafts)
+  sequenceDraftsRef.current = drafts
   const savingRef = useRef(false)
   const detailGridRef = useRef<ChitDetailGridHandle | null>(null)
   const cogsGridRef = useRef<ChitDetailGridHandle | null>(null)
   const detailColumnSettingStateRef = useRef<GridColumnSettingState | null>(null)
   const cogsColumnSettingStateRef = useRef<GridColumnSettingState | null>(null)
   const inventoryJsonCacheRef = useRef(new Map<string, VatInvoiceInventoryJsonRow[]>())
-
   useEffect(() => {
     if (visible) setVoucherType(getDefaultVatVoucherType(invoiceType))
   }, [invoiceType, invoices, visible])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!visible) return
+    setOpeningSequencePending(true)
     const companyCd = getCurrentCompanyCd()
     const nextDrafts: VatBatchDraft[] = createVatVoucherDrafts(invoices, invoiceType, voucherType).map((draft) => ({
       ...draft,
@@ -276,6 +280,7 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
     }))
     setDrafts(nextDrafts)
     setActiveDraftKey(nextDrafts[0]?.key ?? "")
+    setDateEditingDraftKey("")
     setActiveTab("posting")
     setInventoryJsonState({ invoiceKey: "", rows: [], loading: false })
     setProducts([])
@@ -287,18 +292,27 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
   useEffect(() => {
     if (!visible) return
     let cancelled = false
+    setOpeningCustomersPending(true)
     void fetchCustomerLookup()
-      .then((customers) => { if (!cancelled) setCustomerLookup(customers) })
+      .then((customers) => {
+        if (!cancelled) setCustomerLookup(customers)
+      })
       .catch((error: unknown) => { if (!cancelled) notify(getApiErrorMessage(error, "Không tải được danh mục khách hàng."), "error", 4500) })
+      .finally(() => { if (!cancelled) setOpeningCustomersPending(false) })
     return () => { cancelled = true }
   }, [visible])
 
   useEffect(() => {
     if (!visible || customerLookup.length === 0) return
-    setDrafts((current) => current.map((draft) => {
+    setDrafts((current) => {
+      let changed = false
+      const next = current.map((draft) => {
       const matchedRecord = applyInvoiceCustomerMatch(draft.record, draft.invoices, invoiceType, customerLookup)
+      if (matchedRecord !== draft.record) changed = true
       return matchedRecord === draft.record ? draft : { ...draft, record: matchedRecord }
-    }))
+      })
+      return changed ? next : current
+    })
   }, [customerLookup, invoiceType, invoices, visible])
 
   useEffect(() => {
@@ -347,21 +361,32 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
 
   const draftSequenceDateKey = drafts.map((draft) => {
     const date = normalizeYmd(draft.record.CHIT_YMD)
-    return `${draft.key}:${date ? `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}` : ""}`
+    return `${draft.key}:${draft.savedChitCd ?? ""}:${draft.chitNoAutoGenerated !== false}:${date ? `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}` : ""}`
   }).join("|")
 
   useEffect(() => {
-    if (!visible || drafts.length === 0) return
-    const firstUnsavedDraft = drafts.find((draft) => !draft.savedChitCd)
+    if (!visible) {
+      sequencePreviewRef.current.clear()
+      return
+    }
+    const firstUnsavedDraft = sequenceDraftsRef.current.find((draft) => !draft.savedChitCd)
     if (!firstUnsavedDraft) return
 
     let cancelled = false
     const objectType = getVoucherSequenceObjectType(chitType)
-    void previewSysCodeSequence(objectType, firstUnsavedDraft.record.CHIT_YMD)
+    const snapshotKey = `${objectType}:${sequencePreviewVersion}`
+    let previewPromise = sequencePreviewRef.current.get(snapshotKey)
+    if (!previewPromise) {
+      previewPromise = previewSysCodeSequence(objectType, firstUnsavedDraft.record.CHIT_YMD)
+      sequencePreviewRef.current.set(snapshotKey, previewPromise)
+    }
+    void previewPromise
       .then((preview) => {
-        if (cancelled || !preview) return
-        const codes = buildDraftSequenceCodes(preview, drafts)
+        if (cancelled) return
+        setOpeningSequencePending(false)
+        if (!preview?.NEXT_CD || preview.NEXT_NO <= 0) return
         setDrafts((current) => {
+          const codes = buildDraftSequenceCodes(preview, current)
           let changed = false
           const next = current.map((draft) => {
             if (draft.savedChitCd || draft.chitNoAutoGenerated === false) return draft
@@ -373,10 +398,12 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
           return changed ? next : current
         })
       })
-      .catch(() => undefined)
+      .catch(() => {
+        if (!cancelled) setOpeningSequencePending(false)
+      })
 
     return () => { cancelled = true }
-  }, [chitType, draftSequenceDateKey, drafts, sequencePreviewVersion, visible])
+  }, [chitType, draftSequenceDateKey, sequencePreviewVersion, visible])
 
   useEffect(() => {
     if (!visible || !loadInventoryDetail || invoiceType !== "SELL" || activeTab !== "inventory" || !activeInvoiceKey || !inventoryLookupsLoaded) return
@@ -640,7 +667,7 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
         }
       }
       const currenciesByDraft = workingDrafts.map((draft) => new Set(
-        draft.invoices.map((invoice) => readInvoiceText(invoice, ["dvtte", "DVTTE"]).toUpperCase() || "VND"),
+        draft.invoices.map((invoice) => (invoice.dvtte ?? "").toUpperCase() || "VND"),
       ))
       if (currenciesByDraft.some((currencies) => currencies.size > 1)) {
         notify(t("VAT_BATCH_MIXED_CURRENCY", "Một chứng từ không thể chứa hóa đơn khác loại tiền."), "error", 4000)
@@ -793,8 +820,8 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
           }
 
           const invoice = draft.invoices[0]
-          const currency = readInvoiceText(invoice, ["dvtte", "DVTTE"]) || "VND"
-          const exchangeRate = readInvoiceNumber(invoice, ["tgia", "TGIA"]) || 1
+          const currency = (invoice.dvtte ?? "") || "VND"
+          const exchangeRate = (invoice.TGia ?? 0) || 1
           const outputLines = selectedRows.map((row, index) => {
             const mapping = draft.inventoryMappings[row.key]
             if (!mapping?.product || !mapping.store) throw new Error(`Chưa chọn đủ mã hàng và kho cho hóa đơn ${invoiceKey}.`)
@@ -919,7 +946,12 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
         )}
       />
       <div className="relative flex h-full min-h-0 flex-col gap-3 overflow-hidden p-3">
-        <div className="flex min-h-0 flex-1 flex-col gap-3">
+        {openingCustomersPending || openingSequencePending ? (
+          <div role="status" className="absolute inset-0 z-10 flex items-center justify-center bg-white text-sm text-slate-600">
+            Đang chuẩn bị chứng từ…
+          </div>
+        ) : null}
+        <div className="flex min-h-0 flex-1 flex-col gap-3" style={{ visibility: openingCustomersPending || openingSequencePending ? "hidden" : "visible" }}>
           <div className="h-[clamp(100px,24vh,220px)] shrink-0 overflow-hidden rounded border border-slate-200">
             <BaseDataGrid<VatBatchDraft>
               dataSource={drafts}
@@ -950,8 +982,8 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
                 allowFiltering={false}
                 cellRender={(cell) => {
                   const invoice = cell.data.invoices[0]
-                  const form = readInvoiceText(invoice, ["khmshdon", "KHMSHDON"])
-                  const series = readInvoiceText(invoice, ["khhdon", "KHHDON"])
+                  const form = (invoice.khmshdon ?? "")
+                  const series = (invoice.khhdon ?? "")
                   return <span title={formatVatInvoiceLabel(invoice)}>{`${form}${series}` || "—"}</span>
                 }}
               />
@@ -961,7 +993,7 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
                 width={130}
                 allowSorting={false}
                 allowFiltering={false}
-                cellRender={(cell) => readInvoiceText(cell.data.invoices[0], ["shdon", "SHDON"]) || "—"}
+                cellRender={(cell) => (cell.data.invoices[0].shdon ?? "") || "—"}
               />
               <Column
                 dataField="INVOICE_DATE"
@@ -970,7 +1002,7 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
                 allowSorting={false}
                 allowFiltering={false}
                 cellRender={(cell) => {
-                  const date = normalizeYmd(readInvoiceText(cell.data.invoices[0], ["tdlap", "TDLAP"]))
+                  const date = normalizeYmd((cell.data.invoices[0].tdlap ?? ""))
                   return date ? formatYmdForDisplay(date) : "—"
                 }}
               />
@@ -980,7 +1012,7 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
                 minWidth={220}
                 allowSorting={false}
                 allowFiltering={false}
-                cellRender={(cell) => <div className="truncate text-xs text-slate-600">{readInvoiceText(cell.data.invoices[0], ["ten", "TEN", "nbten", "nmten"])}</div>}
+                cellRender={(cell) => <div className="truncate text-xs text-slate-600">{(cell.data.invoices[0].ten ?? "")}</div>}
               />
               <Column
                 dataField="TOTAL_AMOUNT"
@@ -1013,8 +1045,10 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
                 allowFiltering={false}
                 cellRender={(cell) => (
                   <div className="flex h-full items-center" onClick={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()}>
+                    {dateEditingDraftKey === cell.data.key ? (
                     <DateBox
                       {...createDateBoxEditorOptions({ inputAttr: { tabIndex: 0 } })}
+                      defaultOpened
                       value={normalizeYmd(cell.data.record.CHIT_YMD)}
                       stylingMode="outlined"
                       height={26}
@@ -1022,6 +1056,19 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
                       disabled={saving || Boolean(cell.data.savedChitCd)}
                       onValueChanged={(event) => handleDraftVoucherDateChange(cell.data.key, event.value)}
                     />
+                    ) : (
+                      <button
+                        type="button"
+                        className="h-7 w-full px-1 text-left text-xs text-slate-800 focus:rounded-sm focus:ring-1 focus:ring-inset focus:ring-sky-500 disabled:text-slate-500"
+                        disabled={saving || Boolean(cell.data.savedChitCd)}
+                        aria-label={t("CHIT_YMD", "Ngày giao dịch")}
+                        onClick={() => {
+                          setDateEditingDraftKey(cell.data.key)
+                        }}
+                      >
+                        {formatYmdForDisplay(cell.data.record.CHIT_YMD)}
+                      </button>
+                    )}
                   </div>
                 )}
               />
@@ -1181,3 +1228,4 @@ export default function VatInOutBatchVoucherPopup({ visible, invoiceType, invoic
     </Popup>
   )
 }
+

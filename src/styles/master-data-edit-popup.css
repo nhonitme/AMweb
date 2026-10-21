@@ -292,16 +292,19 @@
   max-width: 320px;
 }
 
-.master-data-edit-popup .dx-popup-bottom {
+.master-data-edit-popup .dx-popup-bottom,
+.vat-quick-create-popup .dx-popup-bottom {
   padding: 16px 26px !important;
   background: #ffffff;
   border-top: 1px solid #f1f3f5;
 }
 
-.master-data-edit-popup .dx-popup-bottom .dx-button {
+.master-data-edit-popup .dx-popup-bottom .dx-button,
+.vat-quick-create-popup .dx-popup-bottom .dx-button {
   border-radius: 9px !important;
 }
 
-.master-data-edit-popup .dx-popup-bottom .dx-button-default {
+.master-data-edit-popup .dx-popup-bottom .dx-button-default,
+.vat-quick-create-popup .dx-popup-bottom .dx-button-default {
   background: #2563eb !important;
 }

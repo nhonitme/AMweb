@@ -1,47 +1,63 @@
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { Column } from "devextreme-react/data-grid"
 import LoadPanel from "devextreme-react/load-panel"
 import SelectBox from "devextreme-react/select-box"
 import notify from "devextreme/ui/notify"
 import type dxDataGrid from "devextreme/ui/data_grid"
-import type { SelectionChangedEvent } from "devextreme/ui/data_grid"
+import type { OptionChangedEvent, SelectionChangedEvent } from "devextreme/ui/data_grid"
 
-import { getConfiguredReportPreview } from "@/api/configuredReportPreviewApi"
-import type { ConfiguredReportPreview, ReportPreviewColumn, ReportPreviewCellValue } from "@/api/configuredReportPreviewApi"
+import { getVatInOutExportData, type VatInOutQuery } from "@/api/vatInOutApi"
 import { getChits } from "@/api/voucherApi"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { getUserSettingsBatch, saveUserSettingsBulk } from "@/api/userSettingApi"
 import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid"
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout"
-import ReportPdfExportPopup, { type ReportPrintTemplateCode } from "@/components/reports/ReportPdfExportPopup"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import DxPage from "@/dx/DxPage"
 import { exportToExcel } from "@/lib/excelUtils"
 import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { getCurrentCompanyCd } from "@/lib/login"
-import { getStoredGridTemplateId } from "@/lib/sysGridColumnTemplateStorage"
+import { useVatInOutListQuery, useVatInOutListInvalidate } from "@/hooks/queries/useVatInOutListQuery"
+import { DEFAULT_PAGE_SIZE, createMirrorPagedStore, syncMirroredGridPage, SERVER_PAGING_REMOTE_OPERATIONS, resolvePageNumber, resolvePageSize } from "@/lib/paging"
 import { formatDateToYmd, formatYmdForDisplay, normalizeYmd } from "@/pages/Accounting/accountingDateUtils"
-import FetchGdtVatPopup from "@/pages/Reports/components/FetchGdtVatPopup"
+import FetchGdtVatPopupContent from "@/pages/Reports/components/FetchGdtVatPopup"
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
-import { buildReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
-import { normalizeReportLanguage, type ReportLanguageCode } from "@/pages/Reports/reportLanguage"
+import { normalizeReportLanguage } from "@/pages/Reports/reportLanguage"
+import { buildMasterGridReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
 import ChitEditorPopup from "@/pages/VoucherManagement/components/ChitEditorPopup"
 import { normalizeChitRows } from "@/pages/VoucherManagement/chitUtils"
 import type { ColumnConfig } from "@/types/table"
 import type { ChitInfo, ChitLedger, ChitType } from "@/types/voucher"
 import { getCurrentLang } from "@/utils/language"
 
-import VatInOutBatchVoucherPopup from "./VatInOutBatchVoucherPopup"
-import VatInOutCreateModePopup, { type VatVoucherCreationMode } from "./VatInOutCreateModePopup"
-import VatInOutMergedVoucherPopup from "./VatInOutMergedVoucherPopup"
+import { VAT_INVOICE_COLUMNS } from "./vatInOutColumns"
+import type { VatInvoiceRow } from "./vatInvoiceVoucherDraft"
+import VatInOutBatchVoucherPopupContent from "./VatInOutBatchVoucherPopup"
+import VatInOutCreateModePopupContent, { type VatVoucherCreationMode } from "./VatInOutCreateModePopup"
+import VatInOutMergedVoucherPopupContent from "./VatInOutMergedVoucherPopup"
 import VatInOutQuickBatchCreatePopup from "./VatInOutQuickBatchCreatePopup"
 
 type InvoiceType = "BUY" | "SELL"
-type VatInvoiceRow = Record<string, ReportPreviewCellValue> & { ROW_KEY: string }
+
+// Keep popup state mounted, but apply changing page props only when visible
+// or on a visibility transition (including the close cleanup).
+function skipHiddenPopupUpdate(previous: { visible: boolean }, next: { visible: boolean }): boolean {
+  return !previous.visible && !next.visible
+}
+
+const FetchGdtVatPopup = memo(FetchGdtVatPopupContent, skipHiddenPopupUpdate)
+const VatInOutBatchVoucherPopup = memo(VatInOutBatchVoucherPopupContent, skipHiddenPopupUpdate)
+const VatInOutCreateModePopup = memo(VatInOutCreateModePopupContent, skipHiddenPopupUpdate)
+const VatInOutMergedVoucherPopup = memo(VatInOutMergedVoucherPopupContent, skipHiddenPopupUpdate)
 
 const TOOLBAR_FIELD = "page-toolbar__field"
 const LOAD_INVENTORY_DETAIL_SETTING = "VAT_INOUT_LOAD_INVENTORY_DETAIL"
+const VAT_INOUT_MENU_CODE = "VAT_INOUT_LIST"
+const VAT_INOUT_REPORT_CODE = "TAX_VAT_INOUT_LIST"
+const VAT_INOUT_SCREEN_CD = "/tax/vat/inout-list"
+const VAT_INOUT_GRID_ID = "vat-inout-invoice-grid"
+const VAT_INOUT_PRINT_PAGE_SIZE = 2147483647
 const VAT_INVOICE_STATUS_OPTIONS = [
   { value: "", langKey: "VAT_INOUT_STATUS_ALL", fallback: "Tất cả" },
   { value: "1", langKey: "eInvoice_AdjustType_NM_1", fallback: "Hóa đơn mới" },
@@ -53,28 +69,12 @@ const VAT_INVOICE_STATUS_OPTIONS = [
   { value: "998", langKey: "eInvoice_AdjustType_NM_998", fallback: "Chưa có JSON" },
 ]
 
-function readField(row: VatInvoiceRow, fieldName: string): ReportPreviewCellValue {
-  const actual = Object.keys(row).find((key) => key.trim().toUpperCase() === fieldName.trim().toUpperCase())
-  return actual ? row[actual] : null
-}
-
-function getInvoiceId(values: Record<string, ReportPreviewCellValue>, fallback: string): string {
-  const key = Object.keys(values).find((field) => field.trim().toUpperCase() === "MHDON")
-  return String((key ? values[key] : "") ?? "").trim() || fallback
-}
-
 function isAlreadyLinked(row: VatInvoiceRow): boolean {
-  const chitId = Number(readField(row, "__CHIT_ID"))
+  const chitId = row.__CHIT_ID
   return Boolean(
-    String(readField(row, "AUTO_CHIT_CD") ?? "").trim()
+    (row.AUTO_CHIT_CD ?? "").trim()
     || (Number.isSafeInteger(chitId) && chitId > 0),
   )
-}
-
-function resolveColumnType(column: ReportPreviewColumn): "string" | "number" | "date" | "boolean" {
-  const normalized = String(column.DATA_TYPE ?? "string").toLowerCase()
-  if (normalized === "number" || normalized === "date" || normalized === "boolean") return normalized
-  return "string"
 }
 
 function resolveDateDisplay(value: unknown): string {
@@ -83,7 +83,7 @@ function resolveDateDisplay(value: unknown): string {
 }
 
 export default function VatInOutListPage() {
-  const exportName = useMenuExportName("VAT_INOUT_LIST")
+  const exportName = useMenuExportName(VAT_INOUT_MENU_CODE)
   const { lang, translate } = useContext(LanguageContext) as {
     lang?: string
     translate?: (key: string, fallback?: string) => string
@@ -101,16 +101,15 @@ export default function VatInOutListPage() {
   const [invoiceStatus, setInvoiceStatus] = useState(() => initialParams.get("status") ?? "")
   const searchTextRef = useRef("")
   const gridRef = useRef<dxDataGrid | null>(null)
-  const requestRef = useRef<{ controller: AbortController; sequence: number } | null>(null)
-  const requestSequenceRef = useRef(0)
-  const [preview, setPreview] = useState<ConfiguredReportPreview | null>(null)
+  const rowsRef = useRef<VatInvoiceRow[]>([])
+  const totalRecordsRef = useRef(0)
+  const initialPagingEventsSuppressedRef = useRef(true)
+  const [pageNumber, setPageNumber] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
+  const [listQuery, setListQuery] = useState<VatInOutQuery | null>(null)
   const [rows, setRows] = useState<VatInvoiceRow[]>([])
   const [loading, setLoading] = useState(false)
-  const [pdfExportPopupVisible, setPdfExportPopupVisible] = useState(false)
-  const [exportLanguage, setExportLanguage] = useState<ReportLanguageCode>(
-    () => normalizeReportLanguage(lang ?? getCurrentLang()),
-  )
-  const [exportPrintTemplate, setExportPrintTemplate] = useState<ReportPrintTemplateCode>("BOOK")
+  const [exporting, setExporting] = useState(false)
   const [selectedInvoices, setSelectedInvoices] = useState<VatInvoiceRow[]>([])
   const [gdtPopupVisible, setGdtPopupVisible] = useState(false)
   const [createModePopupVisible, setCreateModePopupVisible] = useState(false)
@@ -122,7 +121,6 @@ export default function VatInOutListPage() {
   const [linkedVoucher, setLinkedVoucher] = useState<{ record: ChitInfo; ledger: ChitLedger; chitType: ChitType } | null>(null)
   const [linkedVoucherLoading, setLinkedVoucherLoading] = useState(false)
   const linkedVoucherRequestRef = useRef(0)
-
   const statusOptions = useMemo(
     () => VAT_INVOICE_STATUS_OPTIONS.map((option) => ({
       value: option.value,
@@ -134,13 +132,13 @@ export default function VatInOutListPage() {
     { value: "BUY", label: t("VAT_INOUT_TYPE_BUY", "Hóa đơn đầu vào") },
     { value: "SELL", label: t("VAT_INOUT_TYPE_SELL", "Hóa đơn đầu ra") },
   ], [t])
-  const printTemplateOptions = useMemo(
-    () => [
-      { code: "BOOK", label: t("REPORT_PRINT_TEMPLATE_BOOK", "Mẫu in sổ") },
-      { code: "DEFAULT_GRID", label: t("REPORT_PRINT_TEMPLATE_DEFAULT_GRID", "In mặc định") },
-    ] satisfies { code: ReportPrintTemplateCode; label: string }[],
-    [t],
-  )
+
+  const invalidateInvoices = useVatInOutListInvalidate()
+  const { data: listResponse, isLoading: isListLoading, isFetching: isListFetching,
+    isError: isListError, error: listError } = useVatInOutListQuery(listQuery, pageNumber, pageSize)
+  const dataSource = useMemo(() => createMirrorPagedStore<VatInvoiceRow>(
+    "ROW_KEY", () => rowsRef.current, () => totalRecordsRef.current,
+  ), [])
 
   const loadInvoices = useCallback(async (preserveSelection = false) => {
     const fromYmd = formatDateToYmd(fromDate)
@@ -153,55 +151,64 @@ export default function VatInOutListPage() {
       notify(t("INVALID_DATE_RANGE", "Ngày bắt đầu phải trước hoặc bằng ngày kết thúc."), "warning", 2500)
       return
     }
-
-    requestRef.current?.controller.abort()
-    const controller = new AbortController()
-    const sequence = requestSequenceRef.current + 1
-    requestSequenceRef.current = sequence
-    requestRef.current = { controller, sequence }
-    setLoading(true)
-    if (!preserveSelection) {
-      setSelectedInvoices([])
-      gridRef.current?.clearSelection()
-      setPreview(null)
-      setRows([])
+    setSelectedInvoices([])
+    gridRef.current?.clearSelection()
+    if (preserveSelection && listQuery) {
+      await invalidateInvoices()
+      return
     }
-
-    try {
-      const result = await getConfiguredReportPreview({
-        companyCd: getCurrentCompanyCd() || undefined,
-        reportCode: "TAX_VAT_INOUT_LIST",
-        menuCode: "VAT_INOUT_LIST",
-        fromYmd,
-        toYmd,
-        type: invoiceType,
-        status: invoiceStatus,
-        keyword: searchTextRef.current,
-        searchText: searchTextRef.current,
-        language: normalizeReportLanguage(lang || getCurrentLang()),
-        gridId: "VAT_INOUT_LIST",
-      }, { signal: controller.signal })
-      if (requestRef.current?.sequence !== sequence) return
-      setPreview(result)
-      setRows(result.ROWS.map((row) => ({
-        ...row.VALUES,
-        ROW_KEY: getInvoiceId(row.VALUES, row.ROW_KEY),
-      })))
-    } catch (error) {
-      if (controller.signal.aborted) return
-      notify(getApiErrorMessage(error, t("LOAD_FAILED", "Không tải được danh sách hóa đơn VAT.")), "error", 4000)
-    } finally {
-      if (requestRef.current?.sequence === sequence) {
-        requestRef.current = null
-        setLoading(false)
-      }
-    }
-  }, [fromDate, invoiceStatus, invoiceType, lang, t, toDate])
+    setPageNumber(1)
+    setListQuery({
+      TYPE: invoiceType, FROM_YMD: fromYmd, TO_YMD: toYmd, STATUS: invoiceStatus,
+      SEARCH_TEXT: searchTextRef.current, LANGUAGE: normalizeReportLanguage(lang || getCurrentLang()),
+    })
+    await invalidateInvoices()
+  }, [fromDate, toDate, invoiceType, invoiceStatus, lang, t, listQuery, invalidateInvoices])
 
   useEffect(() => {
-    return () => requestRef.current?.controller.abort()
-  }, [])
+    setLoading(Boolean(listQuery) && (isListLoading || isListFetching))
+  }, [listQuery, isListLoading, isListFetching])
 
+  useEffect(() => {
+    if (isListError && listError) {
+      notify(getApiErrorMessage(listError, t("LOAD_FAILED", "Không tải được danh sách hóa đơn VAT.")), "error", 4000)
+    }
+  }, [isListError, listError, t])
+
+  useEffect(() => {
+    if (!listResponse || !listQuery) return
+    const { totalRecords, totalPages, pageNumber: responsePageNumber, pageSize: responsePageSize } = listResponse
+    if (totalRecords > 0 && pageNumber > totalPages) {
+      setPageNumber(totalPages)
+      return
+    }
+    if (totalRecords === 0 && pageNumber !== 1) {
+      setPageNumber(1)
+      return
+    }
+    const data = listResponse.data.map((row) => ({ ...row, ROW_KEY: row.mhdon }))
+    rowsRef.current = data
+    totalRecordsRef.current = totalRecords
+    setRows(data)
+    if (responsePageNumber > 0 && responsePageNumber !== pageNumber) setPageNumber(responsePageNumber)
+    if (responsePageSize > 0 && responsePageSize !== pageSize) setPageSize(responsePageSize)
+    setSelectedInvoices([])
+    gridRef.current?.clearSelection()
+    syncMirroredGridPage(gridRef.current, responsePageNumber, initialPagingEventsSuppressedRef)
+  }, [listResponse, listQuery, pageNumber, pageSize])
+
+  const handleOptionChanged = useCallback((event: OptionChangedEvent) => {
+    if (!String(event.fullName).startsWith("paging.") || initialPagingEventsSuppressedRef.current || loading) return
+    if (event.fullName === "paging.pageIndex") {
+      setPageNumber(resolvePageNumber(Number(event.value ?? 0) + 1))
+      setPageSize(resolvePageSize(event.component.pageSize()))
+    }
+    if (event.fullName === "paging.pageSize") {
+      event.component.pageIndex(0)
+      setPageNumber(1)
+      setPageSize(resolvePageSize(event.value))
+    }
+  }, [loading])
   useEffect(() => {
     if (!createModePopupVisible) return
     let cancelled = false
@@ -218,8 +225,12 @@ export default function VatInOutListPage() {
           notify(getApiErrorMessage(error, t("LOAD_FAILED", "Không tải được tùy chọn lập chứng từ.")), "error", 4000)
         }
       })
-      .finally(() => { if (!cancelled) setInventorySettingLoading(false) })
-    return () => { cancelled = true }
+      .finally(() => {
+        if (!cancelled) setInventorySettingLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [createModePopupVisible, invoiceType, t])
 
   const handleLoadInventoryDetailChange = useCallback(async (value: boolean) => {
@@ -242,12 +253,14 @@ export default function VatInOutListPage() {
 
   const handleSelectionChanged = useCallback((event: SelectionChangedEvent) => {
     const selectedRows = (event.selectedRowsData ?? []) as VatInvoiceRow[]
-    const allEligibleRows = selectedRows.filter((row) => !isAlreadyLinked(row) && Boolean(String(readField(row, "mhdon") ?? "").trim()))
+    const allEligibleRows = selectedRows.filter((row) => !isAlreadyLinked(row) && Boolean(row.mhdon.trim()))
     const eligibleRows = allEligibleRows.slice(0, 100)
     if (eligibleRows.length !== selectedRows.length) {
       const eligibleKeys = new Set(eligibleRows.map((row) => row.ROW_KEY))
       const blockedKeys = selectedRows.filter((row) => !eligibleKeys.has(row.ROW_KEY)).map((row) => row.ROW_KEY)
-      if (blockedKeys.length) event.component?.deselectRows(blockedKeys)
+      if (blockedKeys.length) {
+        event.component?.deselectRows(blockedKeys)
+      }
       notify(allEligibleRows.length > 100
         ? t("VAT_BATCH_LIMIT_100", "Mỗi lần lập tối đa 100 hóa đơn.")
         : t("VAT_ALREADY_HAS_VOUCHER", "Hóa đơn đã liên kết chứng từ hoặc thiếu mã hóa đơn nên không thể chọn."), "warning", 2500)
@@ -272,8 +285,8 @@ export default function VatInOutListPage() {
   }, [])
 
   const handleOpenLinkedVoucher = useCallback(async (row: VatInvoiceRow) => {
-    const chitId = Number(readField(row, "__CHIT_ID"))
-    const rawChitType = String(readField(row, "__CHIT_TYPE") ?? "").trim().toUpperCase()
+    const chitId = row.__CHIT_ID
+    const rawChitType = (row.__CHIT_TYPE ?? "").trim().toUpperCase()
     const allowedTypes = invoiceType === "BUY" ? ["PO", "PS"] : ["SO"]
     if (!Number.isSafeInteger(chitId) || chitId <= 0 || !allowedTypes.includes(rawChitType)) {
       notify(t("SOURCE_VOUCHER_NOT_FOUND", "Không tìm thấy chứng từ liên kết để mở."), "warning", 3000)
@@ -316,27 +329,27 @@ export default function VatInOutListPage() {
   const handleLinkedVoucherSave = useCallback(async (_record: ChitInfo) => {}, [])
 
   const handleExportExcel = useCallback(async () => {
-    if (!preview?.ROWS.length || rows.length === 0) {
+    if (rows.length === 0) {
       notify(t("NO_DATA_TO_EXPORT", "Không có dữ liệu để xuất."), "warning", 2500)
       return
     }
 
     const hiddenFields = new Set(["MHDON", "AUTO_CHIT_CD", "ROW_KEY"])
-    const previewColumnsByField = new Map(
-      preview.COLUMNS.map((column) => [column.FIELD_NAME.trim().toUpperCase(), column] as const),
+    const columnsByField = new Map(
+      VAT_INVOICE_COLUMNS.map((column) => [column.field.toUpperCase(), column] as const),
     )
     const visibleGridColumns = gridRef.current?.getVisibleColumns?.() ?? []
     const exportColumns: ColumnConfig[] = visibleGridColumns.flatMap((gridColumn, index) => {
       const fieldName = String(gridColumn.dataField ?? "").trim()
       const normalizedFieldName = fieldName.toUpperCase()
-      const previewColumn = previewColumnsByField.get(normalizedFieldName)
-      if (!fieldName || hiddenFields.has(normalizedFieldName) || !previewColumn) return []
+      const definition = columnsByField.get(normalizedFieldName)
+      if (!fieldName || hiddenFields.has(normalizedFieldName) || !definition) return []
 
       return [{
-        id: previewColumn.COLUMN_KEY || previewColumn.FIELD_NAME,
-        dataField: previewColumn.FIELD_NAME,
-        displayName: String(gridColumn.caption || previewColumn.CAPTION || previewColumn.LABEL_TEXT || fieldName),
-        width: Number(gridColumn.width ?? previewColumn.WIDTH) || previewColumn.WIDTH || 8,
+        id: definition.field,
+        dataField: definition.field,
+        displayName: String(gridColumn.caption || t(definition.field.toUpperCase(), definition.caption) || fieldName),
+        width: Number(gridColumn.width ?? definition.width) || definition.width || 8,
         visible: true,
         pinned: false,
         originalOrder: index,
@@ -349,55 +362,49 @@ export default function VatInOutListPage() {
     }
 
     try {
-      await exportToExcel(rows, exportColumns, exportName.fileName("xlsx"), exportName.sheetName())
+      if (!listQuery) return
+      setExporting(true)
+      const data = await getVatInOutExportData(listQuery)
+      const exportRows = data.map((row) => ({ ...row, ROW_KEY: row.mhdon }))
+      await exportToExcel(exportRows, exportColumns, exportName.fileName("xlsx"), exportName.sheetName())
     } catch (error) {
       notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Không xuất được Excel.")), "error", 4000)
+    } finally {
+      setExporting(false)
     }
-  }, [exportName, preview, rows, t])
+  }, [exportName, rows, t, listQuery])
 
-  const handleExportPdf = useCallback((language: ReportLanguageCode, printTemplate: ReportPrintTemplateCode) => {
+  const handleExportPdf = useCallback(() => {
     const fromYmd = formatDateToYmd(fromDate)
     const toYmd = formatDateToYmd(toDate)
-    if (!fromYmd || !toYmd) {
-      notify(t("MSG_FROMDATE", "Vui lòng chọn khoảng ngày hợp lệ."), "warning", 2500)
-      return
-    }
-    if (fromYmd > toYmd) {
-      notify(t("INVALID_DATE_RANGE", "Ngày bắt đầu phải trước hoặc bằng ngày kết thúc."), "warning", 3000)
+    if (!fromYmd || !toYmd || fromYmd > toYmd) {
+      notify(t("INVALID_DATE_RANGE", "Vui lòng chọn khoảng ngày hợp lệ."), "warning", 3000)
       return
     }
 
-    const reportParams = {
-      companyCd: getCurrentCompanyCd() || undefined,
-      reportCode: "TAX_VAT_INOUT_LIST",
-      menuCode: "VAT_INOUT_LIST",
+    const searchText = searchTextRef.current.trim()
+    const targetUrl = buildMasterGridReportViewerPageUrl({
+      companyCd: getCurrentCompanyCd(),
+      reportCode: VAT_INOUT_REPORT_CODE,
+      menuCode: VAT_INOUT_MENU_CODE,
+      screenCd: VAT_INOUT_SCREEN_CD,
+      gridId: VAT_INOUT_GRID_ID,
       fromYmd,
       toYmd,
       type: invoiceType,
-      status: invoiceStatus,
-      keyword: searchTextRef.current,
-      searchText: searchTextRef.current,
-      language: normalizeReportLanguage(language),
-      ...(printTemplate === "DEFAULT_GRID"
-        ? {
-            printLayout: "DEFAULT_GRID",
-            printGridId: "TAX_VAT_INOUT_LIST",
-            printTemplateId: getStoredGridTemplateId("TAX_VAT_INOUT_LIST") || undefined,
-          }
-        : { printLayout: printTemplate }),
-    }
-    const targetUrl = buildReportViewerPageUrl(reportParams)
-    setPdfExportPopupVisible(false)
-    setExportLanguage(normalizeReportLanguage(language))
-    setExportPrintTemplate(printTemplate)
-    if (!openReportViewerPage(targetUrl, t("VAT_INOUT_LIST", "Danh sách hóa đơn mua vào/bán ra"))) {
+      status: invoiceStatus || undefined,
+      searchText: searchText || undefined,
+      pageNumber: 1,
+      pageSize: VAT_INOUT_PRINT_PAGE_SIZE,
+      language: normalizeReportLanguage(lang || getCurrentLang()),
+    })
+    if (!openReportViewerPage(targetUrl)) {
       notify(t("UNABLE_TO_OPEN_REPORT_VIEWER", "Không mở được trình xem báo cáo"), "error", 3000)
     }
-  }, [fromDate, invoiceStatus, invoiceType, t, toDate])
-
+  }, [fromDate, toDate, invoiceType, invoiceStatus, lang, t])
   const chooseVoucherCreationMode = useCallback((mode: VatVoucherCreationMode) => {
     if (mode === "MERGED") {
-      const currencies = new Set(selectedInvoices.map((invoice) => String(readField(invoice, "DVTTE") ?? "VND").trim().toUpperCase() || "VND"))
+      const currencies = new Set(selectedInvoices.map((invoice) => (invoice.dvtte ?? "VND").trim().toUpperCase() || "VND"))
       if (currencies.size > 1) {
         notify(t("VAT_BATCH_MIXED_CURRENCY", "Không thể gộp hóa đơn khác loại tiền vào cùng một chứng từ."), "error", 4000)
         return
@@ -406,29 +413,30 @@ export default function VatInOutListPage() {
     setCreateModePopupVisible(false)
     if (mode === "MERGED") setMergedVoucherPopupVisible(true)
     else setBatchPopupVisible(true)
-  }, [selectedInvoices, t])
+  }, [selectedInvoices, loadInventoryDetail, t])
 
   const columns = useMemo(() => {
-    const dynamicColumns = (preview?.COLUMNS ?? []).map((column) => {
-      const field = column.FIELD_NAME
+    const invoiceColumns = VAT_INVOICE_COLUMNS.map((column) => {
+      const field = column.field
       const normalized = field.trim().toUpperCase()
-      const hidden = normalized === "MHDON" || normalized === "AUTO_CHIT_CD" || normalized === "ROW_KEY"
-      const dateColumn = /(^|_)(YMD|DATE|TDLAP|CHIT_YMD)$/.test(normalized) || normalized === "TDLAP"
+      const hidden = Boolean(column.hidden)
+      const dateColumn = column.type === "date"
       return (
         <Column
           key={field}
           dataField={field}
-          caption={column.CAPTION || column.LABEL_TEXT || field}
-          dataType={dateColumn ? "string" : resolveColumnType(column)}
-          width={column.WIDTH > 0 ? column.WIDTH : undefined}
+          caption={t(field.toUpperCase(), column.caption)}
+          dataType={column.type === "number" ? "number" : "string"}
+          format={column.type === "number" ? "#,##0.##" : undefined}
+          width={column.width}
           visible={!hidden}
           allowSorting
           allowFiltering
           customizeText={dateColumn ? (cell) => resolveDateDisplay(cell.value) : undefined}
           cellRender={normalized === "CHIT_NO" ? (cell: { data: VatInvoiceRow }) => {
-            const value = String(readField(cell.data, field) ?? "").trim()
+            const value = (cell.data.CHIT_NO ?? "").trim()
             if (!value) return null
-            const chitId = Number(readField(cell.data, "__CHIT_ID"))
+            const chitId = cell.data.__CHIT_ID
             if (!Number.isSafeInteger(chitId) || chitId <= 0) return value
             return (
               <button
@@ -447,8 +455,8 @@ export default function VatInOutListPage() {
         />
       )
     })
-    return dynamicColumns
-  }, [handleOpenLinkedVoucher, preview, t])
+    return invoiceColumns
+  }, [handleOpenLinkedVoucher, t])
 
   const toolbarFilters = (
     <div className="flex flex-wrap items-end gap-2">
@@ -495,9 +503,9 @@ export default function VatInOutListPage() {
           onRefresh={() => void loadInvoices()}
           showColumnChooser={true}
           showExportPdf={true}
-          onExportPdf={() => setPdfExportPopupVisible(true)}
+          onExportPdf={handleExportPdf}
           showExportXlsx={true}
-          exportXlsxDisabled={loading || rows.length === 0}
+          exportXlsxDisabled={loading || exporting || rows.length === 0}
           onExportXlsx={() => void handleExportExcel()}
           showImport={false}
           showDelete={false}
@@ -522,13 +530,14 @@ export default function VatInOutListPage() {
               disabled: selectedInvoices.length === 0 || loading,
               onClick: () => {
                 setCreateModePopupVisible(true)
-              },
+                          },
             },
           ]}
         />
       }
       overlays={
         <>
+
           <VatInOutCreateModePopup
             visible={createModePopupVisible}
             invoiceType={invoiceType}
@@ -548,6 +557,7 @@ export default function VatInOutListPage() {
             onChoose={chooseVoucherCreationMode}
             onClose={() => setCreateModePopupVisible(false)}
           />
+
           <VatInOutMergedVoucherPopup
             visible={mergedVoucherPopupVisible}
             invoiceType={invoiceType}
@@ -556,6 +566,7 @@ export default function VatInOutListPage() {
             onClose={closeMergedVoucherPopup}
             onSaved={() => loadInvoices(true)}
           />
+
           <FetchGdtVatPopup
             visible={gdtPopupVisible}
             invoiceType={invoiceType}
@@ -564,6 +575,7 @@ export default function VatInOutListPage() {
             onClose={() => setGdtPopupVisible(false)}
             onFetched={() => loadInvoices()}
           />
+
           <VatInOutBatchVoucherPopup
             visible={batchPopupVisible}
             invoiceType={invoiceType}
@@ -572,6 +584,7 @@ export default function VatInOutListPage() {
             onClose={closeBatchPopup}
             onSaved={() => loadInvoices(true)}
           />
+
           <VatInOutQuickBatchCreatePopup
             visible={Boolean(quickBatchKind)}
             kind={quickBatchKind}
@@ -579,6 +592,7 @@ export default function VatInOutListPage() {
             invoices={selectedInvoices}
             onClose={() => setQuickBatchKind(null)}
           />
+
           {linkedVoucher ? (
             <ChitEditorPopup
               visible
@@ -592,45 +606,43 @@ export default function VatInOutListPage() {
               onSave={handleLinkedVoucherSave}
             />
           ) : null}
-          <ReportPdfExportPopup
-            visible={pdfExportPopupVisible}
-            defaultLanguage={exportLanguage}
-            defaultPrintTemplate={exportPrintTemplate}
-            onHide={() => setPdfExportPopupVisible(false)}
-            onConfirm={handleExportPdf}
-            description={t("VAT_INOUT_LIST", "Danh sách hóa đơn mua vào/bán ra")}
-            printTemplateOptions={printTemplateOptions}
-            printTemplateLookupVisible={true}
-            fromDate={fromDate}
-            toDate={toDate}
-            onFromDateChange={setFromDate}
-            onToDateChange={setToDate}
-          />
+
         </>
       }
     >
+
       <BaseDataGrid<VatInvoiceRow>
         enableModifierSelection
         enableDragSelection
-        dataSource={rows}
+        dataSource={dataSource}
         keyExpr="ROW_KEY"
-        menuCode="VAT_INOUT_LIST"
-        screenCd="/tax/vat/inout-list"
-        gridId="vat-inout-invoice-grid"
+        menuCode={VAT_INOUT_MENU_CODE}
+        screenCd={VAT_INOUT_SCREEN_CD}
+        gridId={VAT_INOUT_GRID_ID}
         selectMode="multiple"
         selectAllMode="page"
         selectByClick={false}
         actionButtons={false}
-        pagingEnabled={false}
-        showPager={false}
-        onInitialized={(event) => { gridRef.current = event.component ?? null }}
+        pagingEnabled={true}
+        showPager={true}
+        pageSize={pageSize}
+        defaultPageSize={DEFAULT_PAGE_SIZE}
+        remoteOperations={SERVER_PAGING_REMOTE_OPERATIONS}
+        loadPanelEnabled={false}
+        onOptionChanged={handleOptionChanged}
+        onInitialized={(event) => {
+          gridRef.current = event.component ?? null
+          if (gridRef.current) syncMirroredGridPage(gridRef.current, pageNumber, initialPagingEventsSuppressedRef)
+        }}
         onSelectionChanged={handleSelectionChanged}
       >
         {columns}
       </BaseDataGrid>
-      <LoadPanel visible={loading || linkedVoucherLoading} showIndicator={true} showPane={true} shading={true} shadingColor="rgba(0, 0, 0, 0.15)" />
+
+      <LoadPanel visible={loading || exporting || linkedVoucherLoading} showIndicator={true} showPane={true} shading={true} shadingColor="rgba(0, 0, 0, 0.15)" />
     </MasterDataPageLayout>
   )
 
   return <DxPage>{content}</DxPage>
 }
+

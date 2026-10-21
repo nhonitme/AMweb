@@ -353,6 +353,7 @@ export interface InventoryCogs {
 }
 
 export interface InventoryVoucherApi {
+  CHITDETAIL_ID_COGS?: number | null
   COGS?: InventoryCogs | null
   CHIT_ID?: number | null
   COMPANY_CD?: ChitText
@@ -503,6 +504,7 @@ export interface ChitInfo {
 }
 
 export interface InventoryVoucher {
+  CHITDETAIL_ID_COGS?: number | null
   COGS?: InventoryCogs | null
   CHIT_ID: number | null
   COMPANY_CD: string

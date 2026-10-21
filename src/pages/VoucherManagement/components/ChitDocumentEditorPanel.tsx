@@ -27,6 +27,7 @@ interface ChitDocumentEditorPanelProps {
   pendingInventoryRowKeys?: string[]
   inventoryRefreshVersion?: number
   showInventoryLinkActions?: boolean
+  renderDetailLink?: (row: ChitDetail) => ReactNode
   linkSlot?: ReactNode
 }
 
@@ -50,6 +51,7 @@ export default function ChitDocumentEditorPanel({
   pendingInventoryRowKeys,
   inventoryRefreshVersion,
   showInventoryLinkActions,
+  renderDetailLink,
   linkSlot,
 }: ChitDocumentEditorPanelProps) {
   return (
@@ -76,6 +78,7 @@ export default function ChitDocumentEditorPanel({
         pendingInventoryRowKeys={pendingInventoryRowKeys}
         inventoryRefreshVersion={inventoryRefreshVersion}
         showInventoryLinkActions={showInventoryLinkActions}
+        renderDetailLink={renderDetailLink}
         linkSlot={linkSlot}
       />
     </div>

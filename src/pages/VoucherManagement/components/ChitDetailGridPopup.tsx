@@ -91,7 +91,8 @@ interface ChitDetailGridProps {
     pendingInventoryRowKeys?: string[]
     inventoryRefreshVersion?: number
     showInventoryLinkActions?: boolean
-    linkSlot?: ReactNode
+    renderDetailLink?: (row: ChitDetail) => ReactNode
+  linkSlot?: ReactNode
 }
 
 const RUNTIME_COLUMN_SETTING_EXCLUDED_NAMES = ["FC_AMOUNT", "FC_RATE"] as const
@@ -223,7 +224,8 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
             pendingInventoryRowKeys = [],
             inventoryRefreshVersion = 0,
             showInventoryLinkActions: showInventoryLinkActionsProp,
-            linkSlot,
+            renderDetailLink,
+  linkSlot,
         },
         ref,
     ) {
@@ -261,7 +263,7 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
         )
         const visibleDetails = useMemo(() => getActiveChitDetails(details), [details])
         const showInventoryLinkActions = showInventoryLinkActionsProp ?? isInventoryLinkedAccountingVoucherType(chitType)
-        const detailActionsColumnWidth = showInventoryLinkActions ? 190 : 60
+        const detailActionsColumnWidth = renderDetailLink ? 250 : showInventoryLinkActions ? 190 : 60
         const usePercentHeight = height === "100%"
         const activeDetailIdsKey = useMemo(
             () =>
@@ -934,6 +936,7 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                                                 }}
                                             />
                                         </div>
+                                        {cellInfo.data && renderDetailLink ? renderDetailLink(cellInfo.data) : null}
                                         {showInventoryLinkActions ? (
                                             <OpenLinkedInventoryButton
                                                 targets={linkedTargets}

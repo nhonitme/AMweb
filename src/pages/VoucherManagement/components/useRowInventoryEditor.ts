@@ -48,7 +48,7 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
 
     const open = async (row: ChitDetail, target?: LinkedInventoryTarget) => {
         if (busyRef.current || (!target && readOnly)) return
-        const inventoryType = target?.chitType ?? getInventoryTypeForAccountingChitType(chitType)
+        const inventoryType = target?.chitType ?? (chitType === "OT" ? "IO" : getInventoryTypeForAccountingChitType(chitType))
         if (inventoryType !== "IR" && inventoryType !== "IO") return
         busyRef.current = true
         setLoading(true)
@@ -66,11 +66,12 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
                 const source = draftRef.current
                 value = createDefaultInventoryVoucher(inventoryType, source.COMPANY_CD)
                 value.CHIT_YMD = source.CHIT_YMD
+                if (chitType === "OT") { value.IS_COGS = true; value.COGS_AMOUNT = currentRow.AMOUNT; value.CHITDETAIL_ID_COGS = currentRow.CHITDETAIL_ID }
                 value.PAYER_INFO = source.PAYER_INFO
                 value.DESCRIPTION_VIET = currentRow.DETAIL_DESCRIPTION_VIET || source.DESCRIPTION_VIET
                 value.DESCRIPTION_ENG = currentRow.DETAIL_DESCRIPTION_ENG || source.DESCRIPTION_ENG
                 value.DESCRIPTION_KOR = currentRow.DETAIL_DESCRIPTION_KOR || source.DESCRIPTION_KOR
-                const defaults = { INVENTORY_YMD: source.CHIT_YMD, AMOUNT_CC: currentRow.AMOUNT, CHITDETAIL_ID: currentRow.CHITDETAIL_ID, CHITDETAIL_CD: currentRow.CHITDETAIL_CD }
+                const defaults = { INVENTORY_YMD: source.CHIT_YMD, AMOUNT_CC: currentRow.AMOUNT, CHITDETAIL_ID: chitType === "OT" ? null : currentRow.CHITDETAIL_ID, CHITDETAIL_CD: chitType === "OT" ? "" : currentRow.CHITDETAIL_CD }
                 value.INPUTS = value.INPUTS.map((line) => ({ ...line, ...defaults }))
                 value.OUTPUTS = value.OUTPUTS.map((line) => ({ ...line, ...defaults, OUTPUT_INVENTORY_YMD: source.CHIT_YMD }))
             }
@@ -88,8 +89,10 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
         const linked = {
             ...value,
             CHIT_YMD: formatInventoryDate(value.CHIT_YMD),
+            CHITDETAIL_ID_COGS: chitType === "OT" ? detail.CHITDETAIL_ID : value.CHITDETAIL_ID_COGS,
+            IS_COGS: chitType === "OT" || value.IS_COGS,
             INPUTS: type === "IR" ? value.INPUTS.flatMap((line) => update && Number(line.CHITDETAIL_ID) > 0 ? [line] : applyAccountingDetailToInventoryLines([line], detail.CHITDETAIL_ID, detail.CHITDETAIL_CD)) : value.INPUTS,
-            OUTPUTS: type === "IO" ? value.OUTPUTS.flatMap((line) => update && Number(line.CHITDETAIL_ID) > 0 ? [line] : applyAccountingDetailToInventoryLines([line], detail.CHITDETAIL_ID, detail.CHITDETAIL_CD)) : value.OUTPUTS,
+            OUTPUTS: type === "IO" && chitType !== "OT" ? value.OUTPUTS.flatMap((line) => update && Number(line.CHITDETAIL_ID) > 0 ? [line] : applyAccountingDetailToInventoryLines([line], detail.CHITDETAIL_ID, detail.CHITDETAIL_CD)) : value.OUTPUTS,
         }
         const payload = mapInventoryVoucherToApiPayload(linked)
         const result = update
@@ -108,7 +111,7 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
         try {
             const row = draftRef.current.DETAILS.find((item) => item.ROW_KEY === editor.rowKey && !item.ISDEL)
             if (!row) throw new Error("Dòng nguồn không còn tồn tại")
-            if (chitType === "SO") {
+            if (chitType === "SO" || chitType === "OT") {
                 pendingRef.current.set(row.ROW_KEY, { ...value, CHIT_ID: editor.isUpdate ? value.CHIT_ID : null })
                 cogsDraftReadyRef.current = false
                 cogsDraftQueueRef.current = []
@@ -140,7 +143,7 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
     }
 
     const afterSave: AfterAccountingSave = async (saved, submitted) => {
-        if (chitType === "SO") {
+        if (chitType === "SO" || chitType === "OT") {
             setDraft(saved)
             for (const [rowKey, pending] of pendingRef.current) {
                 const submittedRow = submitted.DETAILS.find((row) => row.ROW_KEY === rowKey && !row.ISDEL)

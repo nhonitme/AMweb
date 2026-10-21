@@ -32,15 +32,28 @@ export function downloadUrlFile(url: string, fileName: string): Promise<boolean>
     return response.blob()
   } })
 }
-
-
+function downloadBlobLegacy(blob: Blob, fileName: string): boolean {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = fileName
+  try {
+    document.body.appendChild(link)
+    link.click()
+    return true
+  } finally {
+    link.remove()
+    // Give the browser time to start reading the blob before releasing it.
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  }
+}
 
 function saveBlobDirect(blob: Blob, fileName: string): Promise<boolean> {
   const save = async () => {
     try {
       const picker = (window as SavePickerWindow).showSaveFilePicker
-      if (!picker) throw new Error(translate("DOWNLOAD_SAVE_AS_UNSUPPORTED", "Trình duyệt không hỗ trợ Save As. Hãy dùng Chrome hoặc Edge qua HTTPS."))
-      if (!navigator.userActivation.isActive) {
+      if (!picker) return downloadBlobLegacy(blob, fileName)
+      if (!navigator.userActivation?.isActive) {
         const escapedName = fileName.replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]!))
         const dialog = custom({
           title: translate("DOWNLOAD_SAVE_AS", "Lưu tệp thành"),
@@ -58,14 +71,14 @@ function saveBlobDirect(blob: Blob, fileName: string): Promise<boolean> {
         await writer.write(blob)
         await writer.close()
       } catch (error) {
-        await writer.abort()
+        await writer.abort().catch(() => undefined)
         throw error
       }
       return true
     } catch (error) {
       const isAbort = error instanceof DOMException && error.name === "AbortError"
       if (isAbort) return false
-      throw error
+      return downloadBlobLegacy(blob, fileName)
     }
   }
   return save()
