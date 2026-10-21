@@ -339,7 +339,7 @@ function ProductMaterialContent() {
                     ((counts[item.PRODUCT_ID] ?? 0) > 0
                       ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-400")}>
                     {(counts[item.PRODUCT_ID] ?? 0) > 0
-                      ? t("PM_HAS_MATERIAL", "Có NVL")
+                      ? t("PM_HAS_MATERIAL", "Có NVL") + ` ${counts[item.PRODUCT_ID]}`
                       : t("PM_NO_MATERIAL", "Chưa có")}
                   </span>
                 </div>
