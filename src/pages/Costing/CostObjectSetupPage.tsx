@@ -1,4 +1,5 @@
 import { useCallback, useContext, useId, useMemo, useRef, useState, type ComponentType } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Column, Summary, TotalItem } from "devextreme-react/data-grid";
 import Button from "devextreme-react/button";
@@ -316,31 +317,38 @@ export default function CostObjectSetupPage() {
         </div>
       </div>
 
-      <Popup
-        visible={activeCatalog !== null}
-        title={activeCatalog === "cost-center"
-          ? t("COST_OBJECT_MASTER_CATALOG", "Đối tượng tập hợp chi phí")
-          : t("INVENTORY_ITEM_SETUP", "Khai báo hàng tồn kho")}
-        showTitle
-        showCloseButton
-        dragEnabled={false}
-        resizeEnabled
-        hideOnOutsideClick={false}
-        animation={{ show: { type: "fade", duration: 0 }, hide: { type: "fade", duration: 0 } }}
-        width="min(1400px, 96vw)"
-        height="min(820px, 92vh)"
-        onHiding={() => setActiveCatalog(null)}
-        onHidden={() => {
-          grid.current?.clearSelection();
-          void queryClient.invalidateQueries({ queryKey });
-        }}
-      >
-        <div className="h-full min-h-0 w-full overflow-hidden p-1">
-          {activeCatalog !== null && catalogComponent !== null && (
-            <CatalogContent component={catalogComponent} />
-          )}
-        </div>
-      </Popup>
+      {/* Keep the catalog overlay outside this page's flex column.
+          DevExtreme's Popup must not consume space from the main grid when opened. */}
+      {typeof document !== "undefined" && createPortal(
+        <Popup
+          visible={activeCatalog !== null}
+          title={activeCatalog === "cost-center"
+            ? t("COST_OBJECT_MASTER_CATALOG", "Đối tượng tập hợp chi phí")
+            : t("INVENTORY_ITEM_SETUP", "Khai báo hàng tồn kho")}
+          showTitle
+          showCloseButton
+          dragEnabled={false}
+          resizeEnabled
+          hideOnOutsideClick={false}
+          container="body"
+          position={{ my: "center", at: "center", of: window }}
+          animation={{ show: { type: "fade", duration: 0 }, hide: { type: "fade", duration: 0 } }}
+          width="min(1400px, 96vw)"
+          height="min(820px, 92vh)"
+          onHiding={() => setActiveCatalog(null)}
+          onHidden={() => {
+            grid.current?.clearSelection();
+            void queryClient.invalidateQueries({ queryKey });
+          }}
+        >
+          <div className="h-full min-h-0 w-full overflow-hidden p-1">
+            {activeCatalog !== null && catalogComponent !== null && (
+              <CatalogContent component={catalogComponent} />
+            )}
+          </div>
+        </Popup>,
+        document.body,
+      )}
     </div>
   );
 }
