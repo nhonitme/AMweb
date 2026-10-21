@@ -64,6 +64,7 @@ import {
 
 const DashboardPage = lazy(() => import('./components/DashboardPage'));
 const HelpSupportPage = lazy(() => import('./components/HelpSupportPage'));
+const LicenseInfoPage = lazy(() => import('./components/LicenseInfoPage'));
 const CompanyManagement = lazy(() => import('./pages/Module/CompanyManagement/CompanyInfo'));
 const DebitNotePage = lazy(() => import('./pages/VoucherManagement/DebitNotePage'));
 const CreditNotePage = lazy(() => import('./pages/VoucherManagement/CreditNotePage'));
@@ -738,6 +739,7 @@ function AppWorkspaceRoutes({
                         <Route path="/company" element={<CompanyManagement />} />
                         <Route path="/master/company" element={<CompanyManagement />} />
                         <Route path="/profile" element={<ProfilePage />} />
+                        <Route path="/system/license" element={<LicenseInfoPage />} />
                         <Route path="/help-support" element={<HelpSupportPage />} />
                       <Route path="/master/user" element={<UserManagementPage />} />
                         <Route path="/customer-management" element={<Navigate to={buildAppPath(currentCompanyCd, "/master/customer")} replace />} />
