@@ -266,10 +266,10 @@ function AppContent({ onLogout, licenseExpired }: { onLogout: () => void; licens
     const { menuLayout, showWorkspaceBar, showHeaderMenuBar, setShowHeaderMenuBar } = useMenuLayout();
     const useHeaderTabs = menuLayout === "header";
     const willRenderHeaderTabs = useHeaderTabs && showHeaderMenuBar;
-    const willRenderWorkspaceBar = !useHeaderTabs && showWorkspaceBar;
+    const willRenderWorkspaceBar = !licenseExpired && !useHeaderTabs && showWorkspaceBar;
     // Hiding header tabs changes only their visibility. Keep the active route
     // inside its workspace tab so reports do not unmount and auto-fetch again.
-    const workspaceTabsEnabled = useHeaderTabs || willRenderWorkspaceBar;
+    const workspaceTabsEnabled = !licenseExpired && (useHeaderTabs || willRenderWorkspaceBar);
     const didAutoExpandSidebarRef = useRef(false);
     const navigate = useNavigate();
     const location = useLocation();
@@ -730,27 +730,35 @@ function LicenseAccessGate({ onLogout }: { onLogout: () => void }) {
     const location = useLocation();
     const { translate } = useContext(LanguageContext);
     const companyCd = getCompanyCdFromPathname(location.pathname) || resolveDefaultCompanyCd();
-    const [licenseState, setLicenseState] = useState<"checking" | "ready" | "expired">("checking");
+    const [access, setAccess] = useState<{
+        companyCd: string;
+        state: "checking" | "ready" | "expired";
+    }>({ companyCd: "", state: "checking" });
+    // A previous company's status must never be shown while switching companies.
+    const licenseState = access.companyCd === companyCd ? access.state : "checking";
 
     useEffect(() => {
         if (!companyCd) {
-            setLicenseState("ready");
+            setAccess({ companyCd, state: "ready" });
             return;
         }
 
         let mounted = true;
-        setLicenseState("checking");
+        setAccess({ companyCd, state: "checking" });
         const checkLicense = async () => {
             try {
                 const license = await getCurrentLicense();
                 if (mounted) {
-                    setLicenseState(license?.LICENSE_STATUS?.trim().toUpperCase() === "EXPIRED" ? "expired" : "ready");
+                    setAccess({ companyCd, state: license?.LICENSE_STATUS?.trim().toUpperCase() === "EXPIRED" ? "expired" : "ready" });
                 }
             } catch (error) {
                 // Avoid locking otherwise valid companies if License tables/API
                 // are not deployed yet. This is a UI gate, not server-side enforcement.
                 console.error("Failed to verify current company License", error);
-                if (mounted) setLicenseState("ready");
+                if (mounted) setAccess((previous) => ({
+                    companyCd,
+                    state: previous.companyCd === companyCd && previous.state === "expired" ? "expired" : "ready",
+                }));
             }
         };
 
