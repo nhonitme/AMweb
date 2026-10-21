@@ -33,7 +33,7 @@ function Detail({ label, value }: { label: string; value?: string | number | nul
 }
 
 export default function LicenseInfoPage() {
-  const { t } = useContext(LanguageContext);
+  const { translate: t } = useContext(LanguageContext);
   const companyCd = getCurrentCompanyCd();
   const [data, setData] = useState<LicenseInfo | null>(null);
   const [loading, setLoading] = useState(true);
