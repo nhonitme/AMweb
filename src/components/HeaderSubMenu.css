@@ -83,7 +83,7 @@
 .header-submenu__flyout {
   position: absolute;
   z-index: 50;
-  min-width: 230px;
+  min-width: min(230px, calc(100vw - 16px));
   width: max-content;
   max-width: min(420px, calc(100vw - 16px));
   padding: 4px;
@@ -106,8 +106,8 @@
 
 .header-submenu__flyout {
   top: -4px;
-  left: auto;
-  right: calc(100% - 2px);
+  left: calc(100% - 2px);
+  right: auto;
 }
 
 .header-submenu__panel-list {
