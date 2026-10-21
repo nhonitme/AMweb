@@ -17,11 +17,6 @@ import { getApiErrorMessage } from "@/api/apiTypes";
 import { getCostObjectOverview, syncCostObjects, type CostObjectRow } from "@/api/costObjectApi";
 
 type FilterStatus = "ALL" | "MISSING" | "REGISTERED";
-const STATUS_OPTIONS = [
-  { value: "ALL", text: "Tất cả" },
-  { value: "MISSING", text: "Chưa khai báo" },
-  { value: "REGISTERED", text: "Đã khai báo" },
-];
 const FINISHED_GOODS_ACCOUNT = "155";
 
 type CatalogType = "cost-center" | "inventory";
@@ -36,6 +31,11 @@ export default function CostObjectSetupPage() {
     translate?: (key: string, fallback?: string) => string;
   };
   const t = useCallback((key: string, fallback: string) => translate?.(key, fallback) ?? fallback, [translate]);
+  const statusOptions = useMemo(() => [
+    { value: "ALL", text: t("ALL", "Tất cả") },
+    { value: "MISSING", text: t("COST_OBJECT_MISSING", "Chưa khai báo") },
+    { value: "REGISTERED", text: t("COST_OBJECT_REGISTERED", "Đã khai báo") },
+  ], [t]);
   const queryClient = useQueryClient();
   const grid = useRef<dxDataGrid | null>(null);
   const gridOverlayTargetId = `cost-object-grid-${useId().replace(/:/g, "")}`;
@@ -152,7 +152,7 @@ export default function CostObjectSetupPage() {
                 </div>
                 <SelectBox
                   width={155}
-                  dataSource={STATUS_OPTIONS}
+                  dataSource={statusOptions}
                   valueExpr="value"
                   displayExpr="text"
                   value={selectedStatus}
@@ -207,7 +207,7 @@ export default function CostObjectSetupPage() {
 
         <div className="grid shrink-0 grid-cols-2 gap-2 xl:grid-cols-4">
           <div className="flex min-h-[42px] items-center justify-between gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-1.5 text-blue-700">
-            <span className="truncate text-xs font-medium">{t("TOTAL", "Tổng thành phẩm")}</span>
+            <span className="truncate text-xs font-medium">{t("COST_OBJECT_TOTAL_PRODUCTS", "Tổng thành phẩm")}</span>
             <strong className="shrink-0 text-base tabular-nums">{formatNumber(total)}</strong>
           </div>
           <div className="flex min-h-[42px] items-center justify-between gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-emerald-700">
@@ -257,9 +257,9 @@ export default function CostObjectSetupPage() {
                   e.event?.preventDefault();
                 }}
               >
-                <Column dataField="PRODUCT_CD" caption={t("PRODUCT_CD", "Mã thành phẩm")} width={150} />
-                <Column dataField="PRODUCT_NM_VIET" caption={t("PRODUCT_NM_VIET", "Tên thành phẩm")} minWidth={250} />
-                <Column dataField="DIVISION" caption={t("DIVISION_CD", "Tài khoản")} alignment="center" width={110} />
+                <Column dataField="PRODUCT_CD" caption={t("COST_OBJECT_PRODUCT_CODE", "Mã thành phẩm")} width={150} />
+                <Column dataField="PRODUCT_NM_VIET" caption={t("COST_OBJECT_PRODUCT_NAME", "Tên thành phẩm")} minWidth={250} />
+                <Column dataField="DIVISION" caption={t("COST_OBJECT_ACCOUNT", "Tài khoản")} alignment="center" width={110} />
                 <Column dataField="DEPARTMENT_CD" caption={t("COST_OBJECT_CD", "Mã đối tượng THCP")} width={170} />
                 <Column dataField="DEP_NAME_VIET" caption={t("COST_OBJECT_NAME", "Tên đối tượng THCP")} minWidth={220} />
                 <Column
