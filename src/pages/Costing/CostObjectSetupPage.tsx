@@ -1,7 +1,6 @@
 import { lazy, Suspense, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Column, Summary, TotalItem } from "devextreme-react/data-grid";
-import LoadPanel from "devextreme-react/load-panel";
 import Button from "devextreme-react/button";
 import Popup from "devextreme-react/popup";
 import SelectBox from "devextreme-react/select-box";
@@ -93,11 +92,14 @@ export default function CostObjectSetupPage() {
     }
   };
 
-  const applyStatusFilter = () => {
-    // Status choice is a draft until Execute requests fresh data.
-    setAppliedStatus(selectedStatus);
+  const applyStatusFilter = async () => {
+    // Keep the current rows in place during the request; apply the new
+    // filter only after the API has finished to avoid two grid redraws.
     grid.current?.clearSelection();
-    void refetch();
+    const result = await refetch();
+    if (!result.isError) {
+      setAppliedStatus(selectedStatus);
+    }
   };
 
   const startAllMissing = () => {
@@ -113,14 +115,6 @@ export default function CostObjectSetupPage() {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-2 overflow-hidden bg-gray-50 p-1 sm:p-2">
-      <LoadPanel
-        visible={busy || isLoading || isFetching}
-        shading
-        showPane
-        hideOnOutsideClick={false}
-        message={t("LOADING", "Đang tải dữ liệu...")}
-      />
-
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
         <div className="shrink-0 rounded-xl border border-red-100 bg-white shadow-sm">
           <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2 px-3 py-2">
@@ -143,8 +137,8 @@ export default function CostObjectSetupPage() {
                 text={t("EXECUTE", "Thực hiện")}
                 stylingMode="contained"
                 type="default"
-                onClick={applyStatusFilter}
-                disabled={busy}
+                onClick={() => void applyStatusFilter()}
+                disabled={busy || isFetching}
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -206,6 +200,14 @@ export default function CostObjectSetupPage() {
             <div className="text-sm font-semibold text-gray-900">
               {t("COST_OBJECT_SETUP", "Khai báo đối tượng tập hợp chi phí")}
             </div>
+            {/* Keep the loading label mounted so async refetch never alters the flex layout. */}
+            <span
+              className="shrink-0 text-xs text-gray-500"
+              aria-live="polite"
+              style={{ visibility: busy || isLoading || isFetching ? "visible" : "hidden" }}
+            >
+              {t("LOADING", "Đang tải dữ liệu...")}
+            </span>
             {/* <div className="hidden text-xs text-gray-500 lg:inline">
               {t("COST_OBJECT_RULE", "Một thành phẩm tương ứng một đối tượng; mã đối tượng = mã thành phẩm.")}
             </div> */}
