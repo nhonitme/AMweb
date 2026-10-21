@@ -15,6 +15,8 @@ import { LanguageContext } from "@/lib/i18nLoader";
 import { getCurrentCompanyCd } from "@/lib/login";
 import { getApiErrorMessage } from "@/api/apiTypes";
 import { getCostObjectOverview, syncCostObjects, type CostObjectRow } from "@/api/costObjectApi";
+import { getDataLanguageSuffix, type DataLanguageSuffix } from "@/utils/language";
+import type { MessageLanguageKey } from "@/types/languages";
 
 type FilterStatus = "ALL" | "MISSING" | "REGISTERED";
 const FINISHED_GOODS_ACCOUNT = "155";
@@ -26,11 +28,43 @@ function CatalogContent({ component: Component }: { component: ComponentType }) 
   return <Component />;
 }
 
+function readLocalizedName(
+  row: CostObjectRow,
+  base: "PRODUCT_NM" | "DEP_NAME",
+  suffix: DataLanguageSuffix,
+): string {
+  const values =
+    base === "PRODUCT_NM"
+      ? {
+          VIET: row.PRODUCT_NM_VIET,
+          ENG: row.PRODUCT_NM_ENG,
+          KOR: row.PRODUCT_NM_KOR,
+          CHN: row.PRODUCT_NM_CHINA,
+        }
+      : {
+          VIET: row.DEP_NAME_VIET,
+          ENG: row.DEP_NAME_ENG,
+          KOR: row.DEP_NAME_KOR,
+          CHN: row.DEP_NAME_CHINA,
+        };
+  const preferred = String(values[suffix] ?? "").trim();
+  if (preferred) return preferred;
+  return (
+    String(values.VIET ?? "").trim()
+    || String(values.ENG ?? "").trim()
+    || String(values.KOR ?? "").trim()
+    || String(values.CHN ?? "").trim()
+    || ""
+  );
+}
+
 export default function CostObjectSetupPage() {
-  const { translate } = useContext(LanguageContext) as {
+  const { translate, lang } = useContext(LanguageContext) as {
     translate?: (key: string, fallback?: string) => string;
+    lang: MessageLanguageKey;
   };
   const t = useCallback((key: string, fallback: string) => translate?.(key, fallback) ?? fallback, [translate]);
+  const dataLangSuffix = useMemo(() => getDataLanguageSuffix(lang), [lang]);
   const statusOptions = useMemo(() => [
     { value: "ALL", text: t("ALL", "Tất cả") },
     { value: "MISSING", text: t("COST_OBJECT_MISSING", "Chưa khai báo") },
@@ -141,9 +175,9 @@ export default function CostObjectSetupPage() {
   const completionRate = total > 0 ? String(Math.round(registered * 100 / total)) + "%" : "—";
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col gap-2 overflow-hidden bg-gray-50 p-1 sm:p-2">
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
-        <div className="shrink-0 rounded-xl border border-red-100 bg-white shadow-sm">
+    <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden bg-slate-50 p-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+        <div className="shrink-0 rounded-xl border border-slate-200 bg-white">
           <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2 px-3 py-2">
             <div className="flex flex-wrap items-end gap-2">
               <div className="min-w-[145px]">
@@ -224,9 +258,9 @@ export default function CostObjectSetupPage() {
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-red-100 bg-white shadow-sm">
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-3 py-2">
-            <div className="text-sm font-semibold text-gray-900">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2">
+            <div className="text-sm font-semibold text-slate-800">
               {t("COST_OBJECT_SETUP", "Khai báo đối tượng tập hợp chi phí")}
             </div>
             {/* <div className="hidden text-xs text-gray-500 lg:inline">
@@ -242,6 +276,7 @@ export default function CostObjectSetupPage() {
 
           <div id={gridOverlayTargetId} className="relative min-h-0 flex-1 overflow-hidden p-1.5 sm:p-2">
               <BaseDataGrid<CostObjectRow>
+                key={dataLangSuffix}
                 dataSource={rows}
                 keyExpr="PRODUCT_ID"
                 selectMode="multiple"
@@ -257,11 +292,21 @@ export default function CostObjectSetupPage() {
                   e.event?.preventDefault();
                 }}
               >
-                <Column dataField="PRODUCT_CD" caption={t("COST_OBJECT_PRODUCT_CODE", "Mã thành phẩm")} width={150} />
-                <Column dataField="PRODUCT_NM_VIET" caption={t("COST_OBJECT_PRODUCT_NAME", "Tên thành phẩm")} minWidth={250} />
-                <Column dataField="DIVISION" caption={t("COST_OBJECT_ACCOUNT", "Tài khoản")} alignment="center" width={200} />
-                <Column dataField="DEPARTMENT_CD" caption={t("COST_OBJECT_CD", "Mã đối tượng THCP")} width={170} />
-                <Column dataField="DEP_NAME_VIET" caption={t("COST_OBJECT_NAME", "Tên đối tượng THCP")} minWidth={220} />
+                <Column dataField="PRODUCT_CD" caption={t("COST_OBJECT_PRODUCT_CODE", "Mã thành phẩm")} width={200} />
+                <Column
+                  dataField="PRODUCT_NM_VIET"
+                  caption={t("COST_OBJECT_PRODUCT_NAME", "Tên thành phẩm")}
+                  minWidth={250}
+                  calculateCellValue={(row: CostObjectRow) => readLocalizedName(row, "PRODUCT_NM", dataLangSuffix)}
+                />
+                <Column dataField="DIVISION" caption={t("ACC_CD", "Tài khoản")} alignment="center" width={200} />
+                <Column dataField="DEPARTMENT_CD" caption={t("DEPARTMENT_CD", "Mã đối tượng THCP")} width={200} />
+                <Column
+                  dataField="DEP_NAME_VIET"
+                  caption={t("DEPARTMENT_NAME", "Tên đối tượng THCP")}
+                  minWidth={220}
+                  calculateCellValue={(row: CostObjectRow) => readLocalizedName(row, "DEP_NAME", dataLangSuffix)}
+                />
                 <Column
                   dataField="STATUS"
                   caption={t("STATUS", "Trạng thái")}
