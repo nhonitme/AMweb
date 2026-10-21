@@ -14,6 +14,7 @@ import {
   Eraser,
   Globe,
   HelpCircle,
+  KeyRound,
   Landmark,
   Layers,
   LogOut,
@@ -691,6 +692,11 @@ export default function Header({
     navigate(buildAppPath(currentCompanyCd, "/profile"));
   };
 
+  const handleLicenseClick = () => {
+    closeDropdowns();
+    navigate(buildAppPath(currentCompanyCd, "/system/license"));
+  };
+
   const handleHelpClick = () => {
     closeDropdowns();
     navigate(buildAppPath(currentCompanyCd, "/help-support"));
@@ -1261,6 +1267,15 @@ export default function Header({
                     >
                       <Settings size={16} className={`mr-3 ${mutedTextClass}`} />
                       {t("companyDetails", "Chi tiết công ty")}
+                    </button>
+
+                    <button
+                      onClick={handleLicenseClick}
+                      className={`flex w-full items-center px-4 py-2 text-sm transition-colors ${itemHoverClass} ${bodyTextClass}`}
+                      type="button"
+                    >
+                      <KeyRound size={16} className={`mr-3 ${mutedTextClass}`} />
+                      {t("LICENSE_INFORMATION", "Thông tin License")}
                     </button>
 
                     <button
