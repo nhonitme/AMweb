@@ -29,6 +29,7 @@ import {
     isOverviewPath,
 } from '@/api/menuApi';
 import { SHOW_DASHBOARD } from '@/lib/featureVisibility';
+import { getCurrentLicense } from '@/api/licenseInfoApi';
 import { collectDescendantIds as collectFinanceDescendantIds, findFinanceTopMenu, flattenFinanceMenuForSidebar } from '@/lib/financeMenu';
 import { collectDescendantIds as collectReportDescendantIds, findReportTopMenu, flattenReportMenuForSidebar } from '@/lib/reportMenu';
 import { flattenFlatModuleMenusForSidebar, remapActiveMenuForFlatModules } from '@/lib/flatModuleMenus';
@@ -229,7 +230,16 @@ function PublicLookupRoutes() {
     );
 }
 
-function AppContent({ onLogout }: { onLogout: () => void }) {
+// Disable the menu presentation per company without modifying the global menu table.
+function disableMenuNode(node: MenuTreeNode): MenuTreeNode {
+    return {
+        ...node,
+        isDisabled: true,
+        children: node.children?.map(disableMenuNode),
+    };
+}
+
+function AppContent({ onLogout, licenseExpired }: { onLogout: () => void; licenseExpired: boolean }) {
     const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
         if (typeof window === "undefined") {
             return true;
@@ -265,9 +275,13 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
     const location = useLocation();
     const currentCompanyCd = getCompanyCdFromPathname(location.pathname);
     const {
-        data: menuTree = [],
+        data: loadedMenuTree = [],
         isLoading: menuLoading,
     } = useMenuTreeQuery(currentCompanyCd ?? "");
+    const menuTree = useMemo(
+        () => licenseExpired ? loadedMenuTree.map(disableMenuNode) : loadedMenuTree,
+        [licenseExpired, loadedMenuTree],
+    );
     const loading = Boolean(currentCompanyCd) && menuLoading;
     const scopedPathname = stripCompanyPath(location.pathname);
 
@@ -464,6 +478,9 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
     };
 
     const handleMenuSelect = (menuItem: MenuTreeNode) => {
+        if (licenseExpired || menuItem.isDisabled) {
+            return;
+        }
         if (useHeaderTabs) {
             setShowHeaderMenuBar(true);
         }
@@ -481,6 +498,9 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
     };
 
     const handleSystemMenuSelect = (menuItem: MenuTreeNode) => {
+        if (licenseExpired || menuItem.isDisabled) {
+            return;
+        }
         const routePath = findFirstMenuRoutePath([menuItem]);
         if (!routePath) {
             return;
@@ -698,6 +718,68 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
         </div>
         </WorkspaceTabsProvider>
     );
+}
+
+/**
+ * Check once on login/company switch, again when the window regains focus,
+ * and periodically for a session that stays open past the license expiry date.
+ * Only an explicit EXPIRED status locks menus. No license record means unprovisioned,
+ * NOT expired; API failures also do not silently classify a valid company as expired.
+ */
+function LicenseAccessGate({ onLogout }: { onLogout: () => void }) {
+    const location = useLocation();
+    const { translate } = useContext(LanguageContext);
+    const companyCd = getCompanyCdFromPathname(location.pathname) || resolveDefaultCompanyCd();
+    const [licenseState, setLicenseState] = useState<"checking" | "ready" | "expired">("checking");
+
+    useEffect(() => {
+        if (!companyCd) {
+            setLicenseState("ready");
+            return;
+        }
+
+        let mounted = true;
+        setLicenseState("checking");
+        const checkLicense = async () => {
+            try {
+                const license = await getCurrentLicense();
+                if (mounted) {
+                    setLicenseState(license?.LICENSE_STATUS?.trim().toUpperCase() === "EXPIRED" ? "expired" : "ready");
+                }
+            } catch (error) {
+                // Avoid locking otherwise valid companies if License tables/API
+                // are not deployed yet. This is a UI gate, not server-side enforcement.
+                console.error("Failed to verify current company License", error);
+                if (mounted) setLicenseState("ready");
+            }
+        };
+
+        void checkLicense();
+        const intervalId = window.setInterval(() => { void checkLicense(); }, 5 * 60 * 1000);
+        const onFocus = () => { void checkLicense(); };
+        window.addEventListener("focus", onFocus);
+        return () => {
+            mounted = false;
+            window.clearInterval(intervalId);
+            window.removeEventListener("focus", onFocus);
+        };
+    }, [companyCd]);
+
+    if (licenseState === "checking") {
+        return (
+            <div role="status" className="flex h-screen items-center justify-center bg-gray-50 text-sm text-gray-600">
+                {translate?.("LICENSE_LOADING", "Đang tải thông tin License...") ?? "Đang tải thông tin License..."}
+            </div>
+        );
+    }
+
+    const routePath = stripCompanyPath(location.pathname);
+    const allowedExpiredPaths = ["/system/license", "/help-support", "/profile"];
+    if (licenseState === "expired" && !allowedExpiredPaths.includes(routePath)) {
+        return <Navigate to={buildAppPath(companyCd, "/system/license")} replace />;
+    }
+
+    return <AppContent onLogout={onLogout} licenseExpired={licenseState === "expired"} />;
 }
 
 function AppWorkspaceRoutes({
@@ -1194,7 +1276,7 @@ function AuthenticatedApp() {
     return (
         <Routes>
             {isLoggedIn ? (
-                <Route path="/*" element={<AppContent onLogout={handleLogoutSuccess} />} />
+                <Route path="/*" element={<LicenseAccessGate onLogout={handleLogoutSuccess} />} />
             ) : (
                 <>
                     <Route path="/login" element={<LoginPage onLogin={handleLoginSuccess} />} />
