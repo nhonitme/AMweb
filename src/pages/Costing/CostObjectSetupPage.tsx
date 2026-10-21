@@ -297,15 +297,15 @@ export default function CostObjectSetupPage() {
                 <Column
                   dataField="PRODUCT_NM_VIET"
                   caption={t("COST_OBJECT_PRODUCT_NAME", "Tên thành phẩm")}
-                  minWidth={250}
+                  minWidth={200}
                   calculateCellValue={(row: CostObjectRow) => readLocalizedName(row, "PRODUCT_NM", dataLangSuffix)}
                 />
                 <Column dataField="DIVISION" caption={t("ACC_CD", "Tài khoản")} alignment="center" width={200} />
-                <Column dataField="DEPARTMENT_CD" caption={t("DEPARTMENT_CD", "Mã đối tượng THCP")} width={200} />
+                <Column dataField="DEPARTMENT_CD" caption={t("DEPARTMENT_CD", "Mã đối tượng THCP")} width={300} />
                 <Column
                   dataField="DEP_NAME_VIET"
                   caption={t("DEPARTMENT_NAME", "Tên đối tượng THCP")}
-                  minWidth={220}
+                  minWidth={200}
                   calculateCellValue={(row: CostObjectRow) => readLocalizedName(row, "DEP_NAME", dataLangSuffix)}
                 />
                 <Column
