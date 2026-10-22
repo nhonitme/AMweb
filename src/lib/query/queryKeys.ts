@@ -17,9 +17,17 @@ export const STALE_TIME = {
   LABELS: 10 * 60_000,
   /** Grid column settings per user */
   GRID_SETTINGS: 5 * 60_000,
+  /** Shared License state for all screens within a company */
+  LICENSE: 60_000,
 } as const
 
 export const queryKeys = {
+  license: {
+    all: ["license"] as const,
+    status: (companyCd: string) => [...queryKeys.license.all, "status", companyCd.trim().toUpperCase()] as const,
+    current: (companyCd: string) => [...queryKeys.license.all, "current", companyCd.trim().toUpperCase()] as const,
+  },
+
   sysCodes: {
     all: ["sys-codes"] as const,
     byCompany: (companyCd: string) => [...queryKeys.sysCodes.all, companyCd] as const,
