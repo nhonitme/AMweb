@@ -269,6 +269,18 @@ function syncOutputMoneyColumnSettings<T extends { columnName: string; formatTyp
     return formatted.map((item) => ({ ...item, visibleIndex: indices.get(getField(item)) ?? item.visibleIndex }))
 }
 
+// Prefer the width configured for REVENUE_AMOUNT_TOTAL in sys_grid_column.
+// Legacy IO layouts may only define AMOUNT_TOTAL, which has the same "Tổng cộng" role.
+function getRevenueAmountTotalWidth(
+    items: readonly { columnName: string; width?: number | null }[],
+): number | undefined {
+    const getWidth = (field: string) => {
+        const width = items.find((item) => item.columnName.trim().toUpperCase() === field)?.width
+        return typeof width === "number" && Number.isFinite(width) && width > 0 ? width : undefined
+    }
+    return getWidth("REVENUE_AMOUNT_TOTAL") ?? getWidth("AMOUNT_TOTAL")
+}
+
 function cloneOutputLine(item: InventoryOutputLine): InventoryOutputLine {
     return { ...item }
 }
@@ -492,6 +504,10 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
         const columnSettingsWithAmountPrecision = useMemo(
             () => syncOutputMoneyColumnSettings(columnSettingState.cachedEditorItems, showRevenueAmounts),
             [columnSettingState.cachedEditorItems, showRevenueAmounts],
+        )
+        const revenueAmountTotalWidth = useMemo(
+            () => getRevenueAmountTotalWidth(columnSettingsWithAmountPrecision),
+            [columnSettingsWithAmountPrecision],
         )
         const hasConfiguredColumnWidths = columnSettingState.cachedEditorItems.some((item) => typeof item.width === "number")
         const runtimeForeignCurrencyColumnsVisible = useMemo(
@@ -926,9 +942,19 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
             }
 
             columnSettingState.syncEditorItemsToComponent(gridRef.current, columnSettingsWithAmountPrecision)
+            // Sync may run after React's Column width prop has been initialized.
+            // Apply the configured total width to the live DevExtreme column too.
+            if (showRevenueAmounts && revenueAmountTotalWidth !== undefined) {
+                const grid = gridRef.current
+                if (grid.columnOption("REVENUE_AMOUNT_TOTAL", "width") !== revenueAmountTotalWidth) {
+                    grid.columnOption("REVENUE_AMOUNT_TOTAL", "width", revenueAmountTotalWidth)
+                }
+            }
         }, [
             columnSettingState.cachedEditorItems,
             columnSettingsWithAmountPrecision,
+            revenueAmountTotalWidth,
+            showRevenueAmounts,
             columnSettingState.enabled,
             columnSettingState.syncEditorItemsToComponent,
             isVisible,
@@ -946,7 +972,12 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                     return
                 }
 
-                columnSettingState.syncEditorItemsToComponent(gridRef.current, syncOutputMoneyColumnSettings(items, showRevenueAmounts))
+                const settings = syncOutputMoneyColumnSettings(items, showRevenueAmounts)
+                columnSettingState.syncEditorItemsToComponent(gridRef.current, settings)
+                const width = showRevenueAmounts ? getRevenueAmountTotalWidth(settings) : undefined
+                if (width !== undefined && gridRef.current?.columnOption("REVENUE_AMOUNT_TOTAL", "width") !== width) {
+                    gridRef.current?.columnOption("REVENUE_AMOUNT_TOTAL", "width", width)
+                }
             })
 
             return () => {
@@ -1025,6 +1056,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                         dataField="REVENUE_AMOUNT_TOTAL"
                         caption={t("REVENUE_AMOUNT_TOTAL", "Tổng cộng")}
                         dataType="number"
+                        width={revenueAmountTotalWidth}
                         format={getFormat("REVENUE_AMOUNT_CC", "#,##0.00")}
                         customizeText={(cell) => {
                             const actualFormat = gridRef.current?.columnOption("REVENUE_AMOUNT_CC", "format")
@@ -1119,6 +1151,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
             costMode,
             showCostAmounts,
             showRevenueAmounts,
+            revenueAmountTotalWidth,
             t,
         ])
 
