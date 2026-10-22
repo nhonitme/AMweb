@@ -19,7 +19,7 @@ import type {
 import { createDateTimeBoxEditorOptions } from "@/components/forms/dateBoxEditorOptions"
 import { useInlineGridSearch } from "@/components/datagrid/gridSearch"
 import { useGridColumnSettingState, type GridColumnSettingState } from "@/components/datagrid/useGridColumnSettingState"
-import { applyGridColumnSettingsToChildren, applyRuntimeColumnVisibilityToChildren } from "@/components/datagrid/gridColumnSettingRender"
+import { applyGridColumnSettingsToChildren, applyRuntimeColumnVisibilityToChildren, applyRuntimeColumnVisibilityToComponent } from "@/components/datagrid/gridColumnSettingRender"
 import DeleteRowButton from "@/components/datagrid/DeleteRowButton"
 import VoucherSpreadsheetSummaryBar from "@/components/datagrid/VoucherSpreadsheetSummaryBar"
 import {
@@ -79,7 +79,7 @@ interface ChitInventoryOutputGridPopupProps {
     beforeGridSlot?: ReactNode
     alternateContent?: ReactNode
     costMode?: boolean
-    /** When true, AMOUNT_TOTAL shows on Giá vốn tab; when false, on Xuất kho tab. */
+    /** Selects the revenue money family on the Xuất kho tab when true. */
     isCogsVoucher?: boolean
 }
 
@@ -234,15 +234,17 @@ function normalizeOutputLine(
     }
 }
 
-// Keep AMOUNT_TOTAL in sync with the effective AMOUNT_CC precision even when
-// sys_grid_column.FORMAT_TYPE overrides column formats in the IO editor.
+// Total columns must follow the precision configured for their source amount.
 function syncAmountTotalColumnFormat<T extends { columnName: string; formatType?: string | null }>(items: T[]): T[] {
-    const amountCcFormat = items.find((item) => item.columnName.trim().toUpperCase() === "AMOUNT_CC")?.formatType ?? null
-    return items.map((item) =>
-        item.columnName.trim().toUpperCase() === "AMOUNT_TOTAL"
-            ? { ...item, formatType: amountCcFormat }
-            : item,
-    )
+    const formatByField = new Map(items.map((item) => [item.columnName.trim().toUpperCase(), item.formatType ?? null]))
+    return items.map((item) => {
+        const source = item.columnName.trim().toUpperCase() === "AMOUNT_TOTAL"
+            ? "AMOUNT_CC"
+            : item.columnName.trim().toUpperCase() === "REVENUE_AMOUNT_TOTAL"
+                ? "REVENUE_AMOUNT_CC"
+                : null
+        return source ? { ...item, formatType: formatByField.get(source) ?? null } : item
+    })
 }
 
 function cloneOutputLine(item: InventoryOutputLine): InventoryOutputLine {
@@ -302,7 +304,8 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
         costMode = false,
         isCogsVoucher = false,
     }, ref) {
-        const showAmountTotalColumn = adjustmentMode || Boolean(isCogsVoucher) === Boolean(costMode)
+        const showRevenueAmounts = !adjustmentMode && Boolean(isCogsVoucher) && !costMode
+        const showCostAmounts = !showRevenueAmounts
         const { translate } = useContext(LanguageContext) as {
             translate?: (key: string, fallback?: string) => string
         }
@@ -473,6 +476,23 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
             () => foreignCurrencyColumnsVisible || forceForeignCurrencyColumnsVisible || hasForeignCurrencyOutputAmounts(visibleRows),
             [forceForeignCurrencyColumnsVisible, foreignCurrencyColumnsVisible, visibleRows],
         )
+        // Apply the active money family after sys_grid_column restores grid settings.
+        const runtimeMoneyVisibility = useMemo(() => ({
+            controlledColumnVisibility: {
+                UNIT_PRICE_CC: showCostAmounts,
+                AMOUNT_CC: showCostAmounts,
+                AMOUNT_TOTAL: showCostAmounts,
+                UNIT_PRICE_FC: showCostAmounts && runtimeForeignCurrencyColumnsVisible,
+                AMOUNT_FC: showCostAmounts && runtimeForeignCurrencyColumnsVisible,
+                REVENUE_UNIT_PRICE_CC: showRevenueAmounts,
+                REVENUE_AMOUNT_CC: showRevenueAmounts,
+                REVENUE_AMOUNT_TOTAL: showRevenueAmounts,
+                REVENUE_UNIT_PRICE_FC: showRevenueAmounts && runtimeForeignCurrencyColumnsVisible,
+                REVENUE_AMOUNT_FC: showRevenueAmounts && runtimeForeignCurrencyColumnsVisible,
+                EXCHANGE_RATES: runtimeForeignCurrencyColumnsVisible,
+            },
+        }), [showCostAmounts, showRevenueAmounts, runtimeForeignCurrencyColumnsVisible])
+
         const softDeletedCount = useMemo(
             () => normalizedRows.reduce((count, item) => count + (item.ISDEL ? 1 : 0), 0),
             [normalizedRows],
@@ -484,8 +504,11 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
         )
 
         const totalAmount = useMemo(
-            () => normalizedRows.reduce((sum, row) => sum + toNumber(row.AMOUNT_CC), 0),
-            [normalizedRows],
+            () => normalizedRows.filter((row) => !row.ISDEL).reduce(
+                (sum, row) => sum + toNumber(showRevenueAmounts ? row.REVENUE_AMOUNT_CC : row.AMOUNT_CC),
+                0,
+            ),
+            [normalizedRows, showRevenueAmounts],
         )
 
         const summaryItems = useMemo(() => {
@@ -824,10 +847,17 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
         }, [columnSettingState.cachedEditorItems, columnSettingsWithAmountPrecision, columnSettingState.syncEditorItemsToComponent])
 
         const handleContentReady = useCallback(
-            (_event: ContentReadyEvent<InventoryOutputLine, string>) => {
+            (event: ContentReadyEvent<InventoryOutputLine, string>) => {
                 notifyGridContentReady()
+                const needsUpdate = Object.entries(runtimeMoneyVisibility.controlledColumnVisibility).some(([field, expected]) => {
+                    const column = event.component.columnOption(field)
+                    return column && column.visible !== expected
+                })
+                if (needsUpdate) {
+                    applyRuntimeColumnVisibilityToComponent(event.component, runtimeMoneyVisibility)
+                }
             },
-            [notifyGridContentReady],
+            [notifyGridContentReady, runtimeMoneyVisibility],
         )
 
         const handleDisposing = useCallback(() => {
@@ -964,35 +994,33 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                         }
                     />
                     <Column dataField="QUANTITY" setCellValue={setOutputQuantity} caption={t("QUANTITY", "Quantity")} dataType="number" format={getFormat("QUANTITY", "#,##0.###")} editorOptions={createNumberEditorOptions(getFormat("QUANTITY", "#,##0.###"))} />
-                    {costMode ? (
-                        <>
-                            <Column dataField="UNIT_PRICE_CC" setCellValue={setOutputUnitPrice} caption={t("INVENTORY_COGS_UNIT_PRICE", "Đơn giá vốn")} dataType="number" format={getFormat("UNIT_PRICE_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("UNIT_PRICE_CC", "#,##0.00"))} />
-                            <Column dataField="AMOUNT_CC" setCellValue={setOutputAmountCc} caption={t("INVENTORY_COGS_AMOUNT", "Thành tiền giá vốn")} dataType="number" format={getFormat("AMOUNT_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("AMOUNT_CC", "#,##0.00"))} allowHiding={false} />
-                            {showAmountTotalColumn ? (
-                                <Column
-                                    dataField="AMOUNT_TOTAL"
-                                    caption={t("AMOUNT_TOTAL", "Tổng cộng")}
-                                    dataType="number"
-                                    format={getFormat("AMOUNT_CC", "#,##0.00")}
-                                    allowEditing={false}
-                                />
-                            ) : null}
-                        </>
-                    ) : (
-                        <>
-                            <Column dataField="UNIT_PRICE_CC" setCellValue={setOutputUnitPrice} caption={t("UNIT_PRICE_CC", "Đơn giá")} dataType="number" format={getFormat("UNIT_PRICE_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("UNIT_PRICE_CC", "#,##0.00"))} />
-                            <Column dataField="AMOUNT_CC" setCellValue={setOutputAmountCc} caption={t("AMOUNT_CC", "Thành tiền")} dataType="number" format={getFormat("AMOUNT_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("AMOUNT_CC", "#,##0.00"))} allowHiding={false} />
-                            {showAmountTotalColumn ? (
-                                <Column
-                                    dataField="AMOUNT_TOTAL"
-                                    caption={t("AMOUNT_TOTAL", "Tổng cộng")}
-                                    dataType="number"
-                                    format={getFormat("AMOUNT_CC", "#,##0.00")}
-                                    allowEditing={false}
-                                />
-                            ) : null}
-                        </>
-                    )}
+                    <Column
+                        dataField="UNIT_PRICE_CC"
+                        setCellValue={setOutputUnitPrice}
+                        caption={costMode ? t("INVENTORY_COGS_UNIT_PRICE", "Đơn giá vốn") : t("UNIT_PRICE_CC", "Đơn giá")}
+                        dataType="number"
+                        format={getFormat("UNIT_PRICE_CC", "#,##0.00")}
+                        editorOptions={createNumberEditorOptions(getFormat("UNIT_PRICE_CC", "#,##0.00"))}
+                        visible={showCostAmounts}
+                    />
+                    <Column
+                        dataField="AMOUNT_CC"
+                        setCellValue={setOutputAmountCc}
+                        caption={costMode ? t("INVENTORY_COGS_AMOUNT", "Thành tiền giá vốn") : t("AMOUNT_CC", "Thành tiền")}
+                        dataType="number"
+                        format={getFormat("AMOUNT_CC", "#,##0.00")}
+                        editorOptions={createNumberEditorOptions(getFormat("AMOUNT_CC", "#,##0.00"))}
+                        allowHiding={false}
+                        visible={showCostAmounts}
+                    />
+                    <Column
+                        dataField="AMOUNT_TOTAL"
+                        caption={t("AMOUNT_TOTAL", "Tổng cộng")}
+                        dataType="number"
+                        format={getFormat("AMOUNT_CC", "#,##0.00")}
+                        allowEditing={false}
+                        visible={showCostAmounts}
+                    />
                     <Column
                         dataField="FC_TYPE"
                         caption={t("FC_TYPE", "Currency")}
@@ -1002,22 +1030,21 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                             renderLookupEditor(renderCurrencyEditor(cellInfo, consumeLookupAutoOpen(cellInfo, "FC_TYPE")))
                         }
                     />
-                    <Column dataField="UNIT_PRICE_FC" setCellValue={setOutputUnitPriceFc} caption={t("INVENTORY_COGS_UNIT_PRICE_FC", "Đơn giá vốn ngoại tệ")} dataType="number" format={getFormat("UNIT_PRICE_FC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("UNIT_PRICE_FC", "#,##0.00"))} visible={runtimeForeignCurrencyColumnsVisible} />
+                    <Column dataField="UNIT_PRICE_FC" setCellValue={setOutputUnitPriceFc} caption={t("INVENTORY_COGS_UNIT_PRICE_FC", "Đơn giá vốn ngoại tệ")} dataType="number" format={getFormat("UNIT_PRICE_FC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("UNIT_PRICE_FC", "#,##0.00"))} visible={showCostAmounts && runtimeForeignCurrencyColumnsVisible} />
                     <Column dataField="EXCHANGE_RATES" caption={t("FC_RATE", "Exchange rate")} dataType="number" format={getFormat("EXCHANGE_RATES", "#,##0.000000")} editorOptions={createNumberEditorOptions(getFormat("EXCHANGE_RATES", "#,##0.000000"))} visible={runtimeForeignCurrencyColumnsVisible} />
-                    <Column dataField="AMOUNT_FC" caption={t("INVENTORY_COGS_AMOUNT_FC", "Thành tiền vốn ngoại tệ")} dataType="number" format={getFormat("AMOUNT_FC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("AMOUNT_FC", "#,##0.00"))} visible={runtimeForeignCurrencyColumnsVisible} />
-                    {!costMode && !adjustmentMode ? <>
-                        <Column dataField="REVENUE_UNIT_PRICE_CC" setCellValue={setOutputRevenueUnitPrice} caption={t("REVENUE_UNIT_PRICE_CC", "Đơn giá doanh thu VND")} dataType="number" format={getFormat("REVENUE_UNIT_PRICE_CC", "#,##0.00")} />
-                        <Column dataField="REVENUE_AMOUNT_CC" setCellValue={setOutputRevenueAmountCc} caption={t("REVENUE_AMOUNT_CC", "Thành tiền doanh thu VND")} dataType="number" format={getFormat("REVENUE_AMOUNT_CC", "#,##0.00")} />
-                        <Column dataField="REVENUE_UNIT_PRICE_FC" setCellValue={setOutputRevenueUnitPriceFc} caption={t("REVENUE_UNIT_PRICE_FC", "Đơn giá doanh thu ngoại tệ")} dataType="number" format={getFormat("REVENUE_UNIT_PRICE_FC", "#,##0.00")} visible={runtimeForeignCurrencyColumnsVisible} />
-                        <Column dataField="REVENUE_AMOUNT_FC" caption={t("REVENUE_AMOUNT_FC", "Thành tiền doanh thu ngoại tệ")} dataType="number" format={getFormat("REVENUE_AMOUNT_FC", "#,##0.00")} visible={runtimeForeignCurrencyColumnsVisible} />
-                        <Column
-                            dataField="REVENUE_AMOUNT_TOTAL"
-                            caption={t("REVENUE_AMOUNT_TOTAL", "Tổng cộng")}
-                            dataType="number"
-                            format={getFormat("REVENUE_AMOUNT_TOTAL", "#,##0.00")}
-                            allowEditing={false}
-                        />
-                    </> : null}
+                    <Column dataField="AMOUNT_FC" caption={t("INVENTORY_COGS_AMOUNT_FC", "Thành tiền vốn ngoại tệ")} dataType="number" format={getFormat("AMOUNT_FC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("AMOUNT_FC", "#,##0.00"))} visible={showCostAmounts && runtimeForeignCurrencyColumnsVisible} />
+                    <Column dataField="REVENUE_UNIT_PRICE_CC" setCellValue={setOutputRevenueUnitPrice} caption={t("REVENUE_UNIT_PRICE_CC", "Đơn giá doanh thu VND")} dataType="number" format={getFormat("REVENUE_UNIT_PRICE_CC", "#,##0.00")} visible={showRevenueAmounts} />
+                    <Column dataField="REVENUE_AMOUNT_CC" setCellValue={setOutputRevenueAmountCc} caption={t("REVENUE_AMOUNT_CC", "Thành tiền doanh thu VND")} dataType="number" format={getFormat("REVENUE_AMOUNT_CC", "#,##0.00")} visible={showRevenueAmounts} />
+                    <Column dataField="REVENUE_UNIT_PRICE_FC" setCellValue={setOutputRevenueUnitPriceFc} caption={t("REVENUE_UNIT_PRICE_FC", "Đơn giá doanh thu ngoại tệ")} dataType="number" format={getFormat("REVENUE_UNIT_PRICE_FC", "#,##0.00")} visible={showRevenueAmounts && runtimeForeignCurrencyColumnsVisible} />
+                    <Column dataField="REVENUE_AMOUNT_FC" caption={t("REVENUE_AMOUNT_FC", "Thành tiền doanh thu ngoại tệ")} dataType="number" format={getFormat("REVENUE_AMOUNT_FC", "#,##0.00")} visible={showRevenueAmounts && runtimeForeignCurrencyColumnsVisible} />
+                    <Column
+                        dataField="REVENUE_AMOUNT_TOTAL"
+                        caption={t("REVENUE_AMOUNT_TOTAL", "Tổng cộng")}
+                        dataType="number"
+                        format={getFormat("REVENUE_AMOUNT_CC", "#,##0.00")}
+                        allowEditing={false}
+                        visible={showRevenueAmounts}
+                    />
                     {adjustmentMode ? (
                         <>
                             <Column
@@ -1060,7 +1087,8 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
             setOutputRevenueUnitPriceFc,
             setOutputUnitPriceFc,
             costMode,
-            showAmountTotalColumn,
+            showCostAmounts,
+            showRevenueAmounts,
             t,
         ])
 
@@ -1072,12 +1100,8 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                 columnSettingState.translateCaption,
                 { hideColumnsMissingFromSettings: usesSysGridCatalog },
             )
-            return applyRuntimeColumnVisibilityToChildren(settingsColumns, Column, {
-                controlledColumnVisibility: Object.fromEntries(
-                    RUNTIME_COLUMN_SETTING_EXCLUDED_NAMES.map((name) => [name, runtimeForeignCurrencyColumnsVisible]),
-                ),
-            })
-        }, [detailColumns, columnSettingsWithAmountPrecision, columnSettingState.translateCaption, usesSysGridCatalog, runtimeForeignCurrencyColumnsVisible])
+            return applyRuntimeColumnVisibilityToChildren(settingsColumns, Column, runtimeMoneyVisibility)
+        }, [detailColumns, columnSettingsWithAmountPrecision, columnSettingState.translateCaption, usesSysGridCatalog, runtimeMoneyVisibility])
 
         return (
             <div className="flex min-h-0 w-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white" style={rootStyle}>
