@@ -696,9 +696,9 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
 
         const setOutputQuantity = useCallback((newData: Partial<InventoryOutputLine>, value: number | null, current: InventoryOutputLine) => {
             newData.QUANTITY = value ?? 0
-            newData.AMOUNT_CC = (value ?? 0) * (current.UNIT_PRICE_CC ?? 0)
+            newData.AMOUNT_CC = (value ?? 0) * (newData.UNIT_PRICE_CC ?? current.UNIT_PRICE_CC ?? 0)
             newData.AMOUNT_TOTAL = newData.AMOUNT_CC
-            newData.REVENUE_AMOUNT_CC = (value ?? 0) * (current.REVENUE_UNIT_PRICE_CC ?? 0)
+            newData.REVENUE_AMOUNT_CC = (value ?? 0) * (newData.REVENUE_UNIT_PRICE_CC ?? current.REVENUE_UNIT_PRICE_CC ?? 0)
             newData.REVENUE_AMOUNT_TOTAL = newData.REVENUE_AMOUNT_CC
             newData.AMOUNT_FC = value === null ? 0 : value * toNumber(current.UNIT_PRICE_FC)
             newData.REVENUE_AMOUNT_FC = value === null ? 0 : value * toNumber(current.REVENUE_UNIT_PRICE_FC)
@@ -706,7 +706,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
 
         const setOutputUnitPrice = useCallback((newData: Partial<InventoryOutputLine>, value: number | null, current: InventoryOutputLine) => {
             newData.UNIT_PRICE_CC = value ?? 0
-            newData.AMOUNT_CC = (current.QUANTITY ?? 0) * (value ?? 0)
+            newData.AMOUNT_CC = (newData.QUANTITY ?? current.QUANTITY ?? 0) * (value ?? 0)
             newData.AMOUNT_TOTAL = newData.AMOUNT_CC
         }, [])
 
@@ -721,8 +721,8 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
         }, [])
 
         const setOutputRevenueUnitPrice = useCallback((newData: Partial<InventoryOutputLine>, value: number | null, current: InventoryOutputLine) => {
-            newData.REVENUE_UNIT_PRICE_CC = value
-            newData.REVENUE_AMOUNT_CC = (current.QUANTITY ?? 0) * (value ?? 0)
+            newData.REVENUE_UNIT_PRICE_CC = value ?? 0
+            newData.REVENUE_AMOUNT_CC = (newData.QUANTITY ?? current.QUANTITY ?? 0) * (value ?? 0)
             newData.REVENUE_AMOUNT_TOTAL = newData.REVENUE_AMOUNT_CC
         }, [])
 
