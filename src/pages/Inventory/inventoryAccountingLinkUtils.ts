@@ -104,7 +104,7 @@ export function getInventoryTypeForAccountingChitType(chitType: ChitType | strin
   if (normalized === "PO" || normalized === "PD" || normalized === "SR") {
     return "IR"
   }
-  if (normalized === "SO" || normalized === "SD" || normalized === "PR") {
+  if (normalized === "SO" || normalized === "SD" || normalized === "PR" || normalized === "OT") {
     return "IO"
   }
   return null

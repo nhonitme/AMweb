@@ -281,6 +281,7 @@ export const normalizeInventoryInput = (record: InventoryInputApi): InventoryInp
   UNIT_PRICE_FC: normalizeNumber(record.UNIT_PRICE_FC),
   EXCHANGE_RATES: normalizeNumber(record.EXCHANGE_RATES),
   AMOUNT_CC: normalizeNumber(record.AMOUNT_CC),
+  AMOUNT_TOTAL: normalizeNumber(record.AMOUNT_CC),
   AMOUNT_FC: normalizeNumber(record.AMOUNT_FC),
   SUMMARY: trimText(record.SUMMARY),
   INVENTORY_YMD: normalizeDateTime(record.INVENTORY_YMD),
@@ -331,10 +332,11 @@ export const normalizeInventoryOutput = (record: InventoryOutputApi): InventoryO
   REVENUE_UNIT_PRICE_FC: normalizeNumber(record.REVENUE_UNIT_PRICE_FC),
   EXCHANGE_RATES: normalizeNumber(record.EXCHANGE_RATES),
   AMOUNT_CC: normalizeNumber(record.AMOUNT_CC),
+  AMOUNT_TOTAL: normalizeNumber(record.AMOUNT_CC),
   REVENUE_AMOUNT_CC: normalizeNumber(record.REVENUE_AMOUNT_CC),
   AMOUNT_FC: normalizeNumber(record.AMOUNT_FC),
   REVENUE_AMOUNT_FC: normalizeNumber(record.REVENUE_AMOUNT_FC),
-  REVENUE_AMOUNT_TOTAL: normalizeNumber(record.REVENUE_AMOUNT_TOTAL),
+  REVENUE_AMOUNT_TOTAL: normalizeNumber(record.REVENUE_AMOUNT_CC),
   SUMMARY: trimText(record.SUMMARY),
   INVENTORY_YMD: normalizeDateTime(record.INVENTORY_YMD),
   INPUT_INVENTORY_YMD: normalizeDateTime(record.INPUT_INVENTORY_YMD),
@@ -664,6 +666,7 @@ export function buildInventorySourceInputLines(
     UNIT_PRICE_FC: 0,
     EXCHANGE_RATES: 0,
     AMOUNT_CC: normalizeNumber(detail.PRODUCT_AMOUNT) ?? normalizeNumber(detail.AMOUNT) ?? 0,
+    AMOUNT_TOTAL: normalizeNumber(detail.PRODUCT_AMOUNT) ?? normalizeNumber(detail.AMOUNT) ?? 0,
     AMOUNT_FC: 0,
     SUMMARY:
       trimText(detail.DETAIL_DESCRIPTION_VIET) ||
@@ -726,10 +729,11 @@ export function buildInventorySourceOutputLines(
     REVENUE_UNIT_PRICE_FC: 0,
     EXCHANGE_RATES: 0,
     AMOUNT_CC: isSalesSource ? 0 : normalizeNumber(detail.PRODUCT_AMOUNT) ?? normalizeNumber(detail.AMOUNT) ?? 0,
+    AMOUNT_TOTAL: isSalesSource ? 0 : normalizeNumber(detail.PRODUCT_AMOUNT) ?? normalizeNumber(detail.AMOUNT) ?? 0,
     REVENUE_AMOUNT_CC: isSalesSource ? normalizeNumber(detail.PRODUCT_AMOUNT) ?? normalizeNumber(detail.AMOUNT) ?? 0 : 0,
     AMOUNT_FC: 0,
     REVENUE_AMOUNT_FC: 0,
-    REVENUE_AMOUNT_TOTAL: 0,
+    REVENUE_AMOUNT_TOTAL: isSalesSource ? normalizeNumber(detail.PRODUCT_AMOUNT) ?? normalizeNumber(detail.AMOUNT) ?? 0 : 0,
     SUMMARY:
       trimText(detail.DETAIL_DESCRIPTION_VIET) ||
       trimText(detail.PRODUCT_NOTE) ||
@@ -812,7 +816,25 @@ export function isInventoryInputLinkedAccountingVoucherType(chitType?: ChitType 
 
 export function isInventoryOutputLinkedAccountingVoucherType(chitType?: ChitType | string | null): boolean {
   const normalized = String(chitType ?? "").trim().toUpperCase()
-  return normalized === "SO" || normalized === "SD" || normalized === "PR"
+  return normalized === "SO" || normalized === "SD" || normalized === "PR" || normalized === "OT"
+}
+
+/** OT detail uses COGS inventory link when debit is 632; otherwise normal issue link like SO. */
+export function isOtCogsInventoryLinkDetail(detail?: Pick<ChitDetail, "DEBIT"> | null): boolean {
+  return String(detail?.DEBIT ?? "").trim() === "632"
+}
+
+export function canLinkOtCogsInventoryDetail(
+  detail?: Pick<ChitDetail, "DEBIT" | "CREDIT" | "AMOUNT" | "FC_TYPE"> | null,
+): boolean {
+  if (!detail || !isOtCogsInventoryLinkDetail(detail)) {
+    return false
+  }
+  return (
+    String(detail.CREDIT ?? "").trim() === "156"
+    && Number(detail.AMOUNT) >= 0
+    && String(detail.FC_TYPE ?? "").trim().toUpperCase() === "VND"
+  )
 }
 
 export function isInventoryLinkedAccountingVoucherType(chitType?: ChitType | string | null): boolean {
@@ -1020,6 +1042,7 @@ export const mapInventoryInputToApiPayload = (record: InventoryInputLine): Inven
   UNIT_PRICE_FC: record.UNIT_PRICE_FC ?? 0,
   EXCHANGE_RATES: record.EXCHANGE_RATES ?? 0,
   AMOUNT_CC: record.AMOUNT_CC ?? 0,
+  AMOUNT_TOTAL: record.AMOUNT_CC ?? 0,
   AMOUNT_FC: record.AMOUNT_FC ?? 0,
   SUMMARY: trimText(record.SUMMARY),
   INVENTORY_YMD: normalizeDate(record.INVENTORY_YMD),
@@ -1057,10 +1080,11 @@ export const mapInventoryOutputToApiPayload = (record: InventoryOutputLine): Inv
   REVENUE_UNIT_PRICE_FC: record.REVENUE_UNIT_PRICE_FC ?? 0,
   EXCHANGE_RATES: record.EXCHANGE_RATES ?? 0,
   AMOUNT_CC: record.AMOUNT_CC ?? 0,
+  AMOUNT_TOTAL: record.AMOUNT_CC ?? 0,
   REVENUE_AMOUNT_CC: record.REVENUE_AMOUNT_CC ?? 0,
   AMOUNT_FC: record.AMOUNT_FC ?? 0,
   REVENUE_AMOUNT_FC: record.REVENUE_AMOUNT_FC ?? 0,
-  REVENUE_AMOUNT_TOTAL: record.REVENUE_AMOUNT_TOTAL ?? 0,
+  REVENUE_AMOUNT_TOTAL: record.REVENUE_AMOUNT_CC ?? 0,
   SUMMARY: trimText(record.SUMMARY),
   INVENTORY_YMD: normalizeDate(record.INVENTORY_YMD),
   INPUT_INVENTORY_YMD: normalizeDate(record.INPUT_INVENTORY_YMD),

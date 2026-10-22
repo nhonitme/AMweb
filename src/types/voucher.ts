@@ -59,6 +59,7 @@ export interface InventoryInputApi {
   UNIT_PRICE_FC?: number | null
   EXCHANGE_RATES?: number | null
   AMOUNT_CC?: number | null
+  AMOUNT_TOTAL?: number | null
   AMOUNT_FC?: number | null
   SUMMARY?: InventoryText
   INVENTORY_YMD?: InventoryDateValue
@@ -108,6 +109,7 @@ export interface InventoryOutputApi {
   REVENUE_UNIT_PRICE_FC?: number | null
   EXCHANGE_RATES?: number | null
   AMOUNT_CC?: number | null
+  AMOUNT_TOTAL?: number | null
   REVENUE_AMOUNT_CC?: number | null
   AMOUNT_FC?: number | null
   REVENUE_AMOUNT_FC?: number | null
@@ -156,6 +158,7 @@ export interface InventoryInputLine {
   UNIT_PRICE_FC: number | null
   EXCHANGE_RATES: number | null
   AMOUNT_CC: number | null
+  AMOUNT_TOTAL: number | null
   AMOUNT_FC: number | null
   SUMMARY: string
   INVENTORY_YMD: InventoryDateValue
@@ -206,6 +209,7 @@ export interface InventoryOutputLine {
   REVENUE_UNIT_PRICE_FC: number | null
   EXCHANGE_RATES: number | null
   AMOUNT_CC: number | null
+  AMOUNT_TOTAL: number | null
   REVENUE_AMOUNT_CC: number | null
   AMOUNT_FC: number | null
   REVENUE_AMOUNT_FC: number | null

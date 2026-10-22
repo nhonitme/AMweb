@@ -96,8 +96,9 @@ function normalizeInventoryLineRows(rows: InventoryInputLine[]): InventoryInputL
 }
 
 function toNumber(value: unknown) {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : 0
+    const parsed = Number(value ?? 0)
+    if (!Number.isFinite(parsed)) throw new Error("Giá trị số không hợp lệ.")
+    return parsed
 }
 
 function hasForeignCurrencyInputAmounts(rows: readonly InventoryInputLine[]): boolean {
@@ -119,14 +120,9 @@ function normalizeInputLine(
         inventoryYmd?: ChitDateValue
     },
 ): InventoryInputLine {
-    const quantity = row.QUANTITY == null ? null : toNumber(row.QUANTITY)
-    const unitPrice = row.UNIT_PRICE_CC == null ? null : toNumber(row.UNIT_PRICE_CC)
-    const amount =
-        row.AMOUNT_CC != null
-            ? toNumber(row.AMOUNT_CC)
-            : quantity != null && unitPrice != null
-                ? quantity * unitPrice
-                : null
+    const quantity = toNumber(row.QUANTITY)
+    const unitPrice = toNumber(row.UNIT_PRICE_CC)
+    const amount = toNumber(row.AMOUNT_CC)
 
     return {
         ROW_KEY: row.ROW_KEY || createRowKey(options.detailRowKey),
@@ -160,6 +156,7 @@ function normalizeInputLine(
         UNIT_PRICE_FC: row.UNIT_PRICE_FC == null ? 0 : toNumber(row.UNIT_PRICE_FC),
         EXCHANGE_RATES: row.EXCHANGE_RATES == null ? 0 : toNumber(row.EXCHANGE_RATES),
         AMOUNT_CC: amount,
+        AMOUNT_TOTAL: amount,
         AMOUNT_FC: row.AMOUNT_FC == null ? 0 : toNumber(row.AMOUNT_FC),
         SUMMARY: String(row.SUMMARY ?? ""),
         INVENTORY_YMD: row.INVENTORY_YMD ?? options.inventoryYmd ?? dayjs().toISOString(),
@@ -683,13 +680,20 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
         }
 
         const setInputQuantity = useCallback((newData: Partial<InventoryInputLine>, value: number | null, current: InventoryInputLine) => {
-            newData.QUANTITY = value
-            newData.AMOUNT_CC = value === null || current.UNIT_PRICE_CC === null ? null : value * current.UNIT_PRICE_CC
+            newData.QUANTITY = value ?? 0
+            newData.AMOUNT_CC = (value ?? 0) * (current.UNIT_PRICE_CC ?? 0)
+            newData.AMOUNT_TOTAL = newData.AMOUNT_CC
         }, [])
 
         const setInputUnitPrice = useCallback((newData: Partial<InventoryInputLine>, value: number | null, current: InventoryInputLine) => {
-            newData.UNIT_PRICE_CC = value
-            newData.AMOUNT_CC = value === null || current.QUANTITY === null ? null : current.QUANTITY * value
+            newData.UNIT_PRICE_CC = value ?? 0
+            newData.AMOUNT_CC = (current.QUANTITY ?? 0) * (value ?? 0)
+            newData.AMOUNT_TOTAL = newData.AMOUNT_CC
+        }, [])
+
+        const setInputAmountCc = useCallback((newData: Partial<InventoryInputLine>, value: number | null) => {
+            newData.AMOUNT_CC = value ?? 0
+            newData.AMOUNT_TOTAL = newData.AMOUNT_CC
         }, [])
 
         const handleEditorPreparing = useCallback((event: EditorPreparingEvent<InventoryInputLine, string>) => {
@@ -737,7 +741,8 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
                     />
                     <Column dataField="QUANTITY" setCellValue={setInputQuantity} caption={t("QUANTITY", "Quantity")} dataType="number" format={getFormat("QUANTITY", "#,##0.###")} editorOptions={createNumberEditorOptions(getFormat("QUANTITY", "#,##0.###"))} />
                     <Column dataField="UNIT_PRICE_CC" setCellValue={setInputUnitPrice} caption={t("UNIT_PRICE_CC", "Unit Price")} dataType="number" format={getFormat("UNIT_PRICE_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("UNIT_PRICE_CC", "#,##0.00"))} />
-                    <Column dataField="AMOUNT_CC" caption={t("AMOUNT_CC", "Amount")} dataType="number" format={getFormat("AMOUNT_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("AMOUNT_CC", "#,##0.00"))} allowHiding={false} />
+                    <Column dataField="AMOUNT_CC" setCellValue={setInputAmountCc} caption={t("AMOUNT_CC", "Amount")} dataType="number" format={getFormat("AMOUNT_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("AMOUNT_CC", "#,##0.00"))} allowHiding={false} />
+                    <Column dataField="AMOUNT_TOTAL" caption={t("AMOUNT_TOTAL", "Tổng cộng")} dataType="number" format={getFormat("AMOUNT_TOTAL", "#,##0.00")} allowEditing={false} />
                     <Column
                         dataField="FC_TYPE"
                         caption={t("FC_TYPE", "Currency")}
@@ -764,6 +769,7 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
             runtimeForeignCurrencyColumnsVisible,
             setInputQuantity,
             setInputUnitPrice,
+            setInputAmountCc,
             t,
         ])
 

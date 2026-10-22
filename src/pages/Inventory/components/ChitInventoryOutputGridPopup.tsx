@@ -19,6 +19,7 @@ import type {
 import { createDateTimeBoxEditorOptions } from "@/components/forms/dateBoxEditorOptions"
 import { useInlineGridSearch } from "@/components/datagrid/gridSearch"
 import { useGridColumnSettingState, type GridColumnSettingState } from "@/components/datagrid/useGridColumnSettingState"
+import { applyGridColumnSettingsToChildren, applyRuntimeColumnVisibilityToChildren } from "@/components/datagrid/gridColumnSettingRender"
 import DeleteRowButton from "@/components/datagrid/DeleteRowButton"
 import VoucherSpreadsheetSummaryBar from "@/components/datagrid/VoucherSpreadsheetSummaryBar"
 import {
@@ -78,6 +79,8 @@ interface ChitInventoryOutputGridPopupProps {
     beforeGridSlot?: ReactNode
     alternateContent?: ReactNode
     costMode?: boolean
+    /** When true, AMOUNT_TOTAL shows on Giá vốn tab; when false, on Xuất kho tab. */
+    isCogsVoucher?: boolean
 }
 
 const RUNTIME_COLUMN_SETTING_EXCLUDED_NAMES = ["UNIT_PRICE_FC", "EXCHANGE_RATES", "AMOUNT_FC", "REVENUE_UNIT_PRICE_FC", "REVENUE_AMOUNT_FC"] as const
@@ -169,14 +172,9 @@ function normalizeOutputLine(
         inventoryYmd?: ChitDateValue
     },
 ): InventoryOutputLine {
-    const quantity = row.QUANTITY == null ? null : toNumber(row.QUANTITY)
-    const unitPrice = row.UNIT_PRICE_CC == null ? null : toNumber(row.UNIT_PRICE_CC)
-    const amount =
-        row.AMOUNT_CC != null
-            ? toNumber(row.AMOUNT_CC)
-            : quantity != null && unitPrice != null
-                ? quantity * unitPrice
-                : null
+    const quantity = toNumber(row.QUANTITY)
+    const unitPrice = toNumber(row.UNIT_PRICE_CC)
+    const amount = toNumber(row.AMOUNT_CC)
 
     return {
         ROW_KEY: row.ROW_KEY || createRowKey(options.detailRowKey),
@@ -212,16 +210,17 @@ function normalizeOutputLine(
         UNIT_NM_CHINA: String(row.UNIT_NM_CHINA ?? ""),
         QUANTITY: quantity,
         UNIT_PRICE_CC: unitPrice,
-        REVENUE_UNIT_PRICE_CC: row.REVENUE_UNIT_PRICE_CC == null ? null : toNumber(row.REVENUE_UNIT_PRICE_CC),
+        REVENUE_UNIT_PRICE_CC: toNumber(row.REVENUE_UNIT_PRICE_CC),
         FC_TYPE: String(row.FC_TYPE ?? DEFAULT_CURRENCY_CODE).trim() || DEFAULT_CURRENCY_CODE,
         UNIT_PRICE_FC: row.UNIT_PRICE_FC == null ? 0 : toNumber(row.UNIT_PRICE_FC),
         REVENUE_UNIT_PRICE_FC: row.REVENUE_UNIT_PRICE_FC == null ? 0 : toNumber(row.REVENUE_UNIT_PRICE_FC),
         EXCHANGE_RATES: row.EXCHANGE_RATES == null ? 0 : toNumber(row.EXCHANGE_RATES),
         AMOUNT_CC: amount,
-        REVENUE_AMOUNT_CC: row.REVENUE_AMOUNT_CC == null ? null : toNumber(row.REVENUE_AMOUNT_CC),
+        AMOUNT_TOTAL: amount,
+        REVENUE_AMOUNT_CC: toNumber(row.REVENUE_AMOUNT_CC),
         AMOUNT_FC: row.AMOUNT_FC == null ? 0 : toNumber(row.AMOUNT_FC),
         REVENUE_AMOUNT_FC: row.REVENUE_AMOUNT_FC == null ? 0 : toNumber(row.REVENUE_AMOUNT_FC),
-        REVENUE_AMOUNT_TOTAL: row.REVENUE_AMOUNT_TOTAL == null ? 0 : toNumber(row.REVENUE_AMOUNT_TOTAL),
+        REVENUE_AMOUNT_TOTAL: toNumber(row.REVENUE_AMOUNT_CC),
         SUMMARY: String(row.SUMMARY ?? ""),
         INVENTORY_YMD: row.INVENTORY_YMD ?? options.inventoryYmd ?? dayjs().toISOString(),
         INPUT_INVENTORY_YMD: row.INPUT_INVENTORY_YMD ?? options.inventoryYmd ?? dayjs().toISOString(),
@@ -290,7 +289,9 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
         beforeGridSlot,
         alternateContent,
         costMode = false,
+        isCogsVoucher = false,
     }, ref) {
+        const showAmountTotalColumn = adjustmentMode || Boolean(isCogsVoucher) === Boolean(costMode)
         const { translate } = useContext(LanguageContext) as {
             translate?: (key: string, fallback?: string) => string
         }
@@ -656,16 +657,24 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
         const focusedDateEditInProgressRef = useRef(false)
 
         const setOutputQuantity = useCallback((newData: Partial<InventoryOutputLine>, value: number | null, current: InventoryOutputLine) => {
-            newData.QUANTITY = value
-            newData.AMOUNT_CC = value === null || current.UNIT_PRICE_CC === null ? null : value * current.UNIT_PRICE_CC
-            newData.REVENUE_AMOUNT_CC = value === null || current.REVENUE_UNIT_PRICE_CC === null ? null : value * current.REVENUE_UNIT_PRICE_CC
+            newData.QUANTITY = value ?? 0
+            newData.AMOUNT_CC = (value ?? 0) * (current.UNIT_PRICE_CC ?? 0)
+            newData.AMOUNT_TOTAL = newData.AMOUNT_CC
+            newData.REVENUE_AMOUNT_CC = (value ?? 0) * (current.REVENUE_UNIT_PRICE_CC ?? 0)
+            newData.REVENUE_AMOUNT_TOTAL = newData.REVENUE_AMOUNT_CC
             newData.AMOUNT_FC = value === null ? 0 : value * toNumber(current.UNIT_PRICE_FC)
             newData.REVENUE_AMOUNT_FC = value === null ? 0 : value * toNumber(current.REVENUE_UNIT_PRICE_FC)
         }, [])
 
         const setOutputUnitPrice = useCallback((newData: Partial<InventoryOutputLine>, value: number | null, current: InventoryOutputLine) => {
-            newData.UNIT_PRICE_CC = value
-            newData.AMOUNT_CC = value === null || current.QUANTITY === null ? null : current.QUANTITY * value
+            newData.UNIT_PRICE_CC = value ?? 0
+            newData.AMOUNT_CC = (current.QUANTITY ?? 0) * (value ?? 0)
+            newData.AMOUNT_TOTAL = newData.AMOUNT_CC
+        }, [])
+
+        const setOutputAmountCc = useCallback((newData: Partial<InventoryOutputLine>, value: number | null) => {
+            newData.AMOUNT_CC = value ?? 0
+            newData.AMOUNT_TOTAL = newData.AMOUNT_CC
         }, [])
 
         const setOutputUnitPriceFc = useCallback((newData: Partial<InventoryOutputLine>, value: number | null, current: InventoryOutputLine) => {
@@ -675,7 +684,13 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
 
         const setOutputRevenueUnitPrice = useCallback((newData: Partial<InventoryOutputLine>, value: number | null, current: InventoryOutputLine) => {
             newData.REVENUE_UNIT_PRICE_CC = value
-            newData.REVENUE_AMOUNT_CC = value === null || current.QUANTITY === null ? null : current.QUANTITY * value
+            newData.REVENUE_AMOUNT_CC = (current.QUANTITY ?? 0) * (value ?? 0)
+            newData.REVENUE_AMOUNT_TOTAL = newData.REVENUE_AMOUNT_CC
+        }, [])
+
+        const setOutputRevenueAmountCc = useCallback((newData: Partial<InventoryOutputLine>, value: number | null) => {
+            newData.REVENUE_AMOUNT_CC = value ?? 0
+            newData.REVENUE_AMOUNT_TOTAL = newData.REVENUE_AMOUNT_CC
         }, [])
 
         const setOutputRevenueUnitPriceFc = useCallback((newData: Partial<InventoryOutputLine>, value: number | null, current: InventoryOutputLine) => {
@@ -798,7 +813,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
         const handleInitNewRow = useCallback(
             (e: InitNewRowEvent<InventoryOutputLine>) => {
                 const nextRow = normalizeOutputLine(
-                    { SORT: normalizedRows.length + 1, QUANTITY: 1 },
+                    { SORT: normalizedRows.length + 1, QUANTITY: 0 },
                     { companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd },
                 )
 
@@ -927,12 +942,18 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                     {costMode ? (
                         <>
                             <Column dataField="UNIT_PRICE_CC" setCellValue={setOutputUnitPrice} caption={t("INVENTORY_COGS_UNIT_PRICE", "Đơn giá vốn")} dataType="number" format={getFormat("UNIT_PRICE_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("UNIT_PRICE_CC", "#,##0.00"))} />
-                            <Column dataField="AMOUNT_CC" caption={t("INVENTORY_COGS_AMOUNT", "Thành tiền giá vốn")} dataType="number" format={getFormat("AMOUNT_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("AMOUNT_CC", "#,##0.00"))} allowHiding={false} />
+                            <Column dataField="AMOUNT_CC" setCellValue={setOutputAmountCc} caption={t("INVENTORY_COGS_AMOUNT", "Thành tiền giá vốn")} dataType="number" format={getFormat("AMOUNT_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("AMOUNT_CC", "#,##0.00"))} allowHiding={false} />
+                            {showAmountTotalColumn ? (
+                                <Column dataField="AMOUNT_TOTAL" caption={t("AMOUNT_TOTAL", "Tổng cộng")} dataType="number" format={getFormat("AMOUNT_TOTAL", "#,##0.00")} allowEditing={false} />
+                            ) : null}
                         </>
                     ) : (
                         <>
-                            <Column dataField="UNIT_PRICE_CC" setCellValue={setOutputUnitPrice} caption={t("INVENTORY_COGS_UNIT_PRICE", "Đơn giá vốn")} dataType="number" format={getFormat("UNIT_PRICE_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("UNIT_PRICE_CC", "#,##0.00"))} />
-                            <Column dataField="AMOUNT_CC" caption={t("INVENTORY_COGS_AMOUNT", "Thành tiền giá vốn")} dataType="number" format={getFormat("AMOUNT_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("AMOUNT_CC", "#,##0.00"))} allowHiding={false} />
+                            <Column dataField="UNIT_PRICE_CC" setCellValue={setOutputUnitPrice} caption={t("UNIT_PRICE_CC", "Đơn giá")} dataType="number" format={getFormat("UNIT_PRICE_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("UNIT_PRICE_CC", "#,##0.00"))} />
+                            <Column dataField="AMOUNT_CC" setCellValue={setOutputAmountCc} caption={t("AMOUNT_CC", "Thành tiền")} dataType="number" format={getFormat("AMOUNT_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("AMOUNT_CC", "#,##0.00"))} allowHiding={false} />
+                            {showAmountTotalColumn ? (
+                                <Column dataField="AMOUNT_TOTAL" caption={t("AMOUNT_TOTAL", "Tổng cộng")} dataType="number" format={getFormat("AMOUNT_TOTAL", "#,##0.00")} allowEditing={false} />
+                            ) : null}
                         </>
                     )}
                     <Column
@@ -949,10 +970,10 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                     <Column dataField="AMOUNT_FC" caption={t("INVENTORY_COGS_AMOUNT_FC", "Thành tiền vốn ngoại tệ")} dataType="number" format={getFormat("AMOUNT_FC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("AMOUNT_FC", "#,##0.00"))} visible={runtimeForeignCurrencyColumnsVisible} />
                     {!costMode && !adjustmentMode ? <>
                         <Column dataField="REVENUE_UNIT_PRICE_CC" setCellValue={setOutputRevenueUnitPrice} caption={t("REVENUE_UNIT_PRICE_CC", "Đơn giá doanh thu VND")} dataType="number" format={getFormat("REVENUE_UNIT_PRICE_CC", "#,##0.00")} />
-                        <Column dataField="REVENUE_AMOUNT_CC" caption={t("REVENUE_AMOUNT_CC", "Thành tiền doanh thu VND")} dataType="number" format={getFormat("REVENUE_AMOUNT_CC", "#,##0.00")} />
+                        <Column dataField="REVENUE_AMOUNT_CC" setCellValue={setOutputRevenueAmountCc} caption={t("REVENUE_AMOUNT_CC", "Thành tiền doanh thu VND")} dataType="number" format={getFormat("REVENUE_AMOUNT_CC", "#,##0.00")} />
                         <Column dataField="REVENUE_UNIT_PRICE_FC" setCellValue={setOutputRevenueUnitPriceFc} caption={t("REVENUE_UNIT_PRICE_FC", "Đơn giá doanh thu ngoại tệ")} dataType="number" format={getFormat("REVENUE_UNIT_PRICE_FC", "#,##0.00")} visible={runtimeForeignCurrencyColumnsVisible} />
                         <Column dataField="REVENUE_AMOUNT_FC" caption={t("REVENUE_AMOUNT_FC", "Thành tiền doanh thu ngoại tệ")} dataType="number" format={getFormat("REVENUE_AMOUNT_FC", "#,##0.00")} visible={runtimeForeignCurrencyColumnsVisible} />
-                        <Column dataField="REVENUE_AMOUNT_TOTAL" caption={t("REVENUE_AMOUNT_TOTAL", "Tổng cộng")} dataType="number" format={getFormat("REVENUE_AMOUNT_TOTAL", "#,##0.00")} />
+                        <Column dataField="REVENUE_AMOUNT_TOTAL" caption={t("REVENUE_AMOUNT_TOTAL", "Tổng cộng")} dataType="number" format={getFormat("REVENUE_AMOUNT_TOTAL", "#,##0.00")} allowEditing={false} />
                     </> : null}
                     {adjustmentMode ? (
                         <>
@@ -990,12 +1011,30 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
             runtimeForeignCurrencyColumnsVisible,
             setOutputQuantity,
             setOutputUnitPrice,
+            setOutputAmountCc,
             setOutputRevenueUnitPrice,
+            setOutputRevenueAmountCc,
             setOutputRevenueUnitPriceFc,
             setOutputUnitPriceFc,
             costMode,
+            showAmountTotalColumn,
             t,
         ])
+
+        const renderedDetailColumns = useMemo(() => {
+            const settingsColumns = applyGridColumnSettingsToChildren(
+                detailColumns,
+                Column,
+                columnSettingState.cachedEditorItems,
+                columnSettingState.translateCaption,
+                { hideColumnsMissingFromSettings: usesSysGridCatalog },
+            )
+            return applyRuntimeColumnVisibilityToChildren(settingsColumns, Column, {
+                controlledColumnVisibility: Object.fromEntries(
+                    RUNTIME_COLUMN_SETTING_EXCLUDED_NAMES.map((name) => [name, runtimeForeignCurrencyColumnsVisible]),
+                ),
+            })
+        }, [detailColumns, columnSettingState.cachedEditorItems, columnSettingState.translateCaption, usesSysGridCatalog, runtimeForeignCurrencyColumnsVisible])
 
         return (
             <div className="flex min-h-0 w-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white" style={rootStyle}>
@@ -1118,7 +1157,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                         }}
                     />
 
-                    {detailColumns}
+                    {renderedDetailColumns}
                 </DataGrid>
             </div>
 

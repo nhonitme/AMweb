@@ -116,7 +116,7 @@ interface ChitManagementPageProps {
 
 type DetailGridRow = ChitDetail
 
-const voucherColumnSettingExcludedColumnNames = ["AMOUNT", "FC_AMOUNT", "FC_RATE"] as const
+const voucherColumnSettingExcludedColumnNames = ["FC_AMOUNT", "FC_RATE"] as const
 
 const formatDateToYmd = (value: Date | null): string | undefined => {
   if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
@@ -1453,7 +1453,7 @@ const openEditPopup = useCallback(
   }, [chitType, invalidateChits, linkPairs, t])
 
   const linkToolbarItems = useMemo(() => {
-    if (!isLinkableAccountingChitType(chitType)) {
+    if (!isLinkableAccountingChitType(chitType) || linkCounterpartOptions.length === 0) {
       return []
     }
     return [
@@ -1467,7 +1467,7 @@ const openEditPopup = useCallback(
         onClick: () => handleOpenLinkVouchers(),
       },
     ]
-  }, [chitType, handleOpenLinkVouchers, t])
+  }, [chitType, handleOpenLinkVouchers, linkCounterpartOptions.length, t])
 
   const handleRefresh = useCallback(() => {
     void refetchChits()

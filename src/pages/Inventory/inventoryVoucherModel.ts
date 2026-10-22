@@ -94,7 +94,7 @@ export function formatInventoryDateTime(value: ChitDateValue): ChitDateValue {
 
 export function calculateInventoryLineAmount(line: InventoryLine): number {
   const explicitAmount = Number(line.AMOUNT_CC ?? 0)
-  if (Number.isFinite(explicitAmount) && explicitAmount !== 0) {
+  if (line.AMOUNT_CC != null && Number.isFinite(explicitAmount)) {
     return explicitAmount
   }
 
@@ -152,6 +152,10 @@ export function hasInventoryLineContent(line: InventoryLine): boolean {
     line.QUANTITY,
     line.UNIT_PRICE_CC,
     line.AMOUNT_CC,
+    line.UNIT_PRICE_FC,
+    line.AMOUNT_FC,
+    line.EXCHANGE_RATES,
+    ...("REVENUE_AMOUNT_CC" in line ? [line.REVENUE_AMOUNT_CC, line.REVENUE_UNIT_PRICE_CC, line.REVENUE_AMOUNT_FC, line.REVENUE_UNIT_PRICE_FC, line.REVENUE_AMOUNT_TOTAL] : []),
     ...("TO_STORE_ID" in line ? [line.TO_STORE_ID] : []),
   ]
   return numericFields.some((value) => {
@@ -191,12 +195,13 @@ export function createDefaultInventoryInputLine(
     UNIT_NM_ENG: "",
     UNIT_NM_KOR: "",
     UNIT_NM_CHINA: "",
-    QUANTITY: null,
-    UNIT_PRICE_CC: null,
+    QUANTITY: 0,
+    UNIT_PRICE_CC: 0,
     FC_TYPE: DEFAULT_CURRENCY_CODE,
     UNIT_PRICE_FC: 0,
     EXCHANGE_RATES: 0,
-    AMOUNT_CC: null,
+    AMOUNT_CC: 0,
+    AMOUNT_TOTAL: 0,
     AMOUNT_FC: 0,
     SUMMARY: "",
     INVENTORY_YMD: headerDate ?? null,
@@ -245,15 +250,16 @@ export function createDefaultInventoryOutputLine(
     UNIT_NM_ENG: "",
     UNIT_NM_KOR: "",
     UNIT_NM_CHINA: "",
-    QUANTITY: 1,
-    UNIT_PRICE_CC: null,
-    REVENUE_UNIT_PRICE_CC: null,
+    QUANTITY: 0,
+    UNIT_PRICE_CC: 0,
+    REVENUE_UNIT_PRICE_CC: 0,
     FC_TYPE: DEFAULT_CURRENCY_CODE,
     UNIT_PRICE_FC: 0,
     REVENUE_UNIT_PRICE_FC: 0,
     EXCHANGE_RATES: 0,
-    AMOUNT_CC: null,
-    REVENUE_AMOUNT_CC: null,
+    AMOUNT_CC: 0,
+    AMOUNT_TOTAL: 0,
+    REVENUE_AMOUNT_CC: 0,
     AMOUNT_FC: 0,
     REVENUE_AMOUNT_FC: 0,
     REVENUE_AMOUNT_TOTAL: 0,
@@ -613,6 +619,7 @@ function createAdjustmentInputFromOutput(
     UNIT_PRICE_FC: output.UNIT_PRICE_FC,
     EXCHANGE_RATES: output.EXCHANGE_RATES,
     AMOUNT_CC: output.AMOUNT_CC,
+    AMOUNT_TOTAL: output.AMOUNT_CC,
     AMOUNT_FC: output.AMOUNT_FC,
     SUMMARY: output.SUMMARY,
     INVENTORY_YMD: inputDate,
@@ -624,7 +631,50 @@ function createAdjustmentInputFromOutput(
   }
 }
 
+const inventoryNumericFields = ["QUANTITY", "UNIT_PRICE_CC", "UNIT_PRICE_FC", "EXCHANGE_RATES", "AMOUNT_CC", "AMOUNT_TOTAL", "AMOUNT_FC", "REVENUE_UNIT_PRICE_CC", "REVENUE_UNIT_PRICE_FC", "REVENUE_AMOUNT_CC", "REVENUE_AMOUNT_FC", "REVENUE_AMOUNT_TOTAL"] as const
+
+function normalizeInventoryNumbers<T extends InventoryLine>(line: T): T {
+  const normalized = { ...line }
+  for (const field of inventoryNumericFields) {
+    if (!(field in normalized)) continue
+    const value = Number((line as unknown as Record<string, unknown>)[field] ?? 0)
+    if (!Number.isFinite(value)) throw new Error(`Giá trị số không hợp lệ: ${field}`)
+    ;(normalized as unknown as Record<string, unknown>)[field] = value
+  }
+  const amountCc = Number((normalized as unknown as Record<string, unknown>).AMOUNT_CC ?? 0)
+  // AMOUNT_TOTAL = AMOUNT_CC
+  if ("AMOUNT_TOTAL" in normalized) {
+    ;(normalized as unknown as Record<string, unknown>).AMOUNT_TOTAL = amountCc
+  }
+  // REVENUE_AMOUNT_TOTAL = REVENUE_AMOUNT_CC
+  if ("REVENUE_AMOUNT_TOTAL" in normalized) {
+    ;(normalized as unknown as Record<string, unknown>).REVENUE_AMOUNT_TOTAL = Number(
+      (normalized as unknown as Record<string, unknown>).REVENUE_AMOUNT_CC ?? 0,
+    )
+  }
+  return normalized
+}
+
+export function validateInventoryVoucherDetails(record: InventoryVoucher): void {
+  const lines = (record.CHIT_TYPE === "IR" ? record.INPUTS : record.OUTPUTS).filter(hasInventoryLineContent)
+  if (!lines.length) throw new Error("Phải nhập ít nhất một dòng mã hàng và mã kho.")
+  lines.forEach((line, index) => {
+    const prefix = `Dòng ${index + 1}: `
+    if (!trimText(line.PRODUCT_CD)) throw new Error(prefix + "Mã hàng bắt buộc nhập.")
+    if (!(Number(line.PRODUCT_ID) > 0)) throw new Error(prefix + "Mã hàng không hợp lệ.")
+    if (!trimText(line.STORE_CD)) throw new Error(prefix + "Mã kho bắt buộc nhập.")
+    if (!(Number(line.STORE_ID) > 0)) throw new Error(prefix + "Mã kho không hợp lệ.")
+    if (record.CHIT_TYPE === "IA" && "TO_STORE_CD" in line) {
+      if (!trimText(line.TO_STORE_CD)) throw new Error(prefix + "Mã kho đích bắt buộc nhập.")
+      if (!(Number(line.TO_STORE_ID) > 0)) throw new Error(prefix + "Mã kho đích không hợp lệ.")
+    }
+    normalizeInventoryNumbers(line)
+  })
+}
+
 export function mapInventoryVoucherToApiPayload(record: InventoryVoucher): InventoryVoucherApi {
+  validateInventoryVoucherDetails(record)
+  record = { ...record, INPUTS: record.INPUTS.filter(hasInventoryLineContent).map(normalizeInventoryNumbers), OUTPUTS: record.OUTPUTS.filter(hasInventoryLineContent).map(normalizeInventoryNumbers) }
   const adjustmentOutputs = record.CHIT_TYPE === "IA"
     ? record.OUTPUTS.filter(hasInventoryLineContent).map((line, index) => ({
       ...line,

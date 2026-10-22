@@ -1,4 +1,4 @@
-﻿import { forwardRef, useCallback, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, type ComponentType, type MutableRefObject, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react"
+import { forwardRef, useCallback, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, type ComponentType, type MutableRefObject, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react"
 import { Button } from "devextreme-react"
 import type { ReactNode } from "react"
 import DataGrid, { Column, Editing, ColumnFixing, Scrolling } from "devextreme-react/data-grid"
@@ -35,6 +35,7 @@ import {
 import { useVoucherSpreadsheetAddRow } from "@/components/datagrid/useVoucherSpreadsheetAddRow"
 import { isForeignCurrencyCode } from "@/lib/currency"
 import { getInventoryInputs, getInventoryOutputs } from "@/api/inventoryLinkApi"
+import { getInventoryIssueLinksByCogsVoucherId } from "@/api/inventoryVoucherApi"
 import {
     areLinkedInventoryMapsEqual,
     buildLinkedInventoryByDetailId,
@@ -263,7 +264,7 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
         )
         const visibleDetails = useMemo(() => getActiveChitDetails(details), [details])
         const showInventoryLinkActions = showInventoryLinkActionsProp ?? isInventoryLinkedAccountingVoucherType(chitType)
-        const detailActionsColumnWidth = renderDetailLink ? 250 : showInventoryLinkActions ? 190 : 60
+        const detailActionsColumnWidth = renderDetailLink && showInventoryLinkActions ? 250 : renderDetailLink || showInventoryLinkActions ? 190 : 60
         const usePercentHeight = height === "100%"
         const activeDetailIdsKey = useMemo(
             () =>
@@ -366,6 +367,30 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                     }
 
                     const nextMap = buildLinkedInventoryByDetailId(lines)
+
+                    // OT COGS links use CHITDETAIL_ID_COGS (not OUTPUTS.CHITDETAIL_ID); merge for one-button UX.
+                    if (chitType === "OT" && headerChitId > 0) {
+                        const cogsLinks = await getInventoryIssueLinksByCogsVoucherId(headerChitId)
+                        if (cancelled) {
+                            return
+                        }
+                        for (const [detailIdText, inventoryChitId] of Object.entries(cogsLinks)) {
+                            const detailId = Number(detailIdText)
+                            const chitId = Number(inventoryChitId)
+                            if (!(detailId > 0 && chitId > 0)) {
+                                continue
+                            }
+                            const existing = nextMap[detailId] ?? []
+                            if (existing.some((target) => target.chitId === chitId)) {
+                                continue
+                            }
+                            nextMap[detailId] = [
+                                ...existing,
+                                { chitId, chitType: "IO", chitNo: "" },
+                            ]
+                        }
+                    }
+
                     linkedInventoryLoadKeyRef.current = loadKey
                     linkedInventoryInFlightKeyRef.current = ""
                     if (areLinkedInventoryMapsEqual(linkedInventoryByDetailIdRef.current, nextMap)) {

@@ -7,7 +7,7 @@ import { applyAccountingDetailToInventoryLines, getInventoryTypeForAccountingChi
 import { createDefaultInventoryVoucher, formatInventoryDate, getInventoryLedger, mapInventoryVoucherToApiPayload, normalizeInventoryVoucherApi } from "@/pages/Inventory/inventoryVoucherModel"
 import type { ChitDetail, ChitInfo, ChitType, InventoryVoucher } from "@/types/voucher"
 import type { ChitDetailGridHandle } from "./ChitDetailGridPopup"
-import { createDefaultChit, createDefaultChitDetail } from "../chitUtils"
+import { canLinkOtCogsInventoryDetail, createDefaultChit, createDefaultChitDetail, isOtCogsInventoryLinkDetail } from "../chitUtils"
 
 export type AfterAccountingSave = (saved: ChitInfo, submitted: ChitInfo) => Promise<boolean | void>
 export type SaveAccountingWithInventory = (record: ChitInfo, afterSave?: AfterAccountingSave) => Promise<void>
@@ -48,7 +48,7 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
 
     const open = async (row: ChitDetail, target?: LinkedInventoryTarget) => {
         if (busyRef.current || (!target && readOnly)) return
-        const inventoryType = target?.chitType ?? (chitType === "OT" ? "IO" : getInventoryTypeForAccountingChitType(chitType))
+        const inventoryType = (target?.chitType as "IR" | "IO" | undefined) ?? getInventoryTypeForAccountingChitType(chitType)
         if (inventoryType !== "IR" && inventoryType !== "IO") return
         busyRef.current = true
         setLoading(true)
@@ -57,6 +57,15 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
             const rows = await gridRef.current?.savePendingChanges() ?? draftRef.current.DETAILS
             const currentRow = rows.find((item) => item.ROW_KEY === row.ROW_KEY)
             if (!currentRow || currentRow.ISDEL) return
+            const otCogs = chitType === "OT" && isOtCogsInventoryLinkDetail(currentRow)
+            if (!target && otCogs && !canLinkOtCogsInventoryDetail(currentRow)) {
+                notify(
+                    t("COGS_DETAIL_LINK_ACCOUNTS_REQUIRED", "Liên kết giá vốn yêu cầu dòng Nợ 632 / Có 156, tiền VND không âm"),
+                    "warning",
+                    3500,
+                )
+                return
+            }
             let value = pendingRef.current.get(row.ROW_KEY)
             if (target) {
                 const result = await getInventoryVouchers(getInventoryLedger(inventoryType), inventoryType, { chitId: target.chitId })
@@ -66,12 +75,21 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
                 const source = draftRef.current
                 value = createDefaultInventoryVoucher(inventoryType, source.COMPANY_CD)
                 value.CHIT_YMD = source.CHIT_YMD
-                if (chitType === "OT") { value.IS_COGS = true; value.COGS_AMOUNT = currentRow.AMOUNT; value.CHITDETAIL_ID_COGS = currentRow.CHITDETAIL_ID }
+                if (otCogs) {
+                    value.IS_COGS = true
+                    value.COGS_AMOUNT = currentRow.AMOUNT
+                    value.CHITDETAIL_ID_COGS = currentRow.CHITDETAIL_ID
+                }
                 value.PAYER_INFO = source.PAYER_INFO
                 value.DESCRIPTION_VIET = currentRow.DETAIL_DESCRIPTION_VIET || source.DESCRIPTION_VIET
                 value.DESCRIPTION_ENG = currentRow.DETAIL_DESCRIPTION_ENG || source.DESCRIPTION_ENG
                 value.DESCRIPTION_KOR = currentRow.DETAIL_DESCRIPTION_KOR || source.DESCRIPTION_KOR
-                const defaults = { INVENTORY_YMD: source.CHIT_YMD, AMOUNT_CC: currentRow.AMOUNT, CHITDETAIL_ID: chitType === "OT" ? null : currentRow.CHITDETAIL_ID, CHITDETAIL_CD: chitType === "OT" ? "" : currentRow.CHITDETAIL_CD }
+                const defaults = {
+                    INVENTORY_YMD: source.CHIT_YMD,
+                    AMOUNT_CC: currentRow.AMOUNT,
+                    CHITDETAIL_ID: otCogs ? null : currentRow.CHITDETAIL_ID,
+                    CHITDETAIL_CD: otCogs ? "" : currentRow.CHITDETAIL_CD,
+                }
                 value.INPUTS = value.INPUTS.map((line) => ({ ...line, ...defaults }))
                 value.OUTPUTS = value.OUTPUTS.map((line) => ({ ...line, ...defaults, OUTPUT_INVENTORY_YMD: source.CHIT_YMD }))
             }
@@ -86,13 +104,14 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
 
     const persist = async (value: InventoryVoucher, detail: ChitDetail, update: boolean) => {
         const type = value.CHIT_TYPE
+        const otCogs = chitType === "OT" && isOtCogsInventoryLinkDetail(detail)
         const linked = {
             ...value,
             CHIT_YMD: formatInventoryDate(value.CHIT_YMD),
-            CHITDETAIL_ID_COGS: chitType === "OT" ? detail.CHITDETAIL_ID : value.CHITDETAIL_ID_COGS,
-            IS_COGS: chitType === "OT" || value.IS_COGS,
+            CHITDETAIL_ID_COGS: otCogs ? detail.CHITDETAIL_ID : value.CHITDETAIL_ID_COGS,
+            IS_COGS: otCogs || value.IS_COGS,
             INPUTS: type === "IR" ? value.INPUTS.flatMap((line) => update && Number(line.CHITDETAIL_ID) > 0 ? [line] : applyAccountingDetailToInventoryLines([line], detail.CHITDETAIL_ID, detail.CHITDETAIL_CD)) : value.INPUTS,
-            OUTPUTS: type === "IO" && chitType !== "OT" ? value.OUTPUTS.flatMap((line) => update && Number(line.CHITDETAIL_ID) > 0 ? [line] : applyAccountingDetailToInventoryLines([line], detail.CHITDETAIL_ID, detail.CHITDETAIL_CD)) : value.OUTPUTS,
+            OUTPUTS: type === "IO" && !otCogs ? value.OUTPUTS.flatMap((line) => update && Number(line.CHITDETAIL_ID) > 0 ? [line] : applyAccountingDetailToInventoryLines([line], detail.CHITDETAIL_ID, detail.CHITDETAIL_CD)) : value.OUTPUTS,
         }
         const payload = mapInventoryVoucherToApiPayload(linked)
         const result = update

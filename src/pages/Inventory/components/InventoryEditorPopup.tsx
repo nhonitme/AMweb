@@ -1142,6 +1142,7 @@ export default function InventoryEditorPopup({
       visible={visible}
       onShown={(event) => {
         disableBuiltInPopupEscape(event.component)
+
       }}
       title={popupTitle}
       showTitle
@@ -1300,6 +1301,7 @@ export default function InventoryEditorPopup({
                     linkSlot={isAdjustmentVoucher ? undefined : accountingLinkSlot}
                     beforeGridSlot={inventoryTabs}
                     costMode={isCogsTab}
+                    isCogsVoucher={Boolean(draft.IS_COGS)}
                     adjustmentMode={isAdjustmentVoucher}
                   />
                 )}

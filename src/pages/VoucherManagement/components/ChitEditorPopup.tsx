@@ -1,4 +1,4 @@
-﻿import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 
 import type { ReactNode } from "react"
 import "./ChitEditorPopup.css"
@@ -25,8 +25,6 @@ import { getCurrentCompanyCd } from "@/lib/login"
 import { disableBuiltInPopupEscape, usePopupEscapeLayer } from "@/components/popup/popupEscapeStack"
 
 
-import { getInventoryIssueLinksByCogsVoucherId } from "@/api/inventoryVoucherApi"
-import { getApiErrorMessage } from "@/api/apiTypes"
 import { LanguageContext } from "@/lib/i18nLoader"
 import {
     createPopupShortcutWrapperAttr,
@@ -36,7 +34,8 @@ import {
 import { createShortcutBindings } from "@/lib/shortcuts/shortcutBindings"
 import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/shortcutDefinitions"
 import type { GridColumnSettingEditorItem } from "@/types/sysGridColumnSetting"
-import type { ChitInfo, ChitLedger, ChitType, VoucherOpenLocationState } from "@/types/voucher"
+import type { ChitInfo, ChitLedger, ChitType } from "@/types/voucher"
+import type { LinkedInventoryTarget } from "@/pages/Inventory/inventoryAccountingLinkUtils"
 import {
     createDateRequiredRule,
     createRequiredRule,
@@ -50,7 +49,6 @@ import {
     getVoucherEditorDetailGridId,
     isInventoryLinkedAccountingVoucherType,
     isPeriodLockVoucher,
-    getVoucherRouteByChitType,
 } from "../chitUtils"
 import { openVoucherReportViewer } from "../voucherReportViewer"
 import { VoucherInfoDescriptionFields } from "./VoucherInfoDescriptionFields"
@@ -125,11 +123,6 @@ export function ChitEditorPopup({
     const [detailLayoutVersion, setDetailLayoutVersion] = useState(0)
     const [columnSettingsVisible, setColumnSettingsVisible] = useState(false)
     const [columnSettingsTabs, setColumnSettingsTabs] = useState<GridColumnSettingsPopupTab[]>([])
-    const [linkedCogsIssues, setLinkedCogsIssues] = useState<Record<number, number>>({})
-    const [cogsSourceLookupLoading, setCogsSourceLookupLoading] = useState(false)
-    const [cogsSourceLookupError, setCogsSourceLookupError] = useState(false)
-    const cogsSourceLookupSeqRef = useRef(0)
-
     const detailGridRef = useRef<ChitDetailGridHandle | null>(null)
     const formRef = useRef<dxForm | null>(null)
     const ensureAccountingInventoryLinksForSaveRef = useRef<EnsureAccountingInventoryLinksForSave>(async (details) => details)
@@ -225,84 +218,14 @@ export function ChitEditorPopup({
     }, [setDraft])
 
     const rowInventory = useRowInventoryEditor({ visible, chitType, readOnly, draftRef, setDraft, gridRef: detailGridRef, onSave, onSaveAndNew, t })
-    const cogsDetailIdsKey = draft.DETAILS.filter(row => !row.ISDEL).map(row => Number(row.CHITDETAIL_ID)).filter(id => id > 0).sort((a, b) => a - b).join(",")
+    const inventoryRefreshVersion = rowInventory.refreshVersion + inventoryLinkRefreshVersion
 
-    const loadLinkedCogsIssue = useCallback(async () => {
-        const cogsVoucherId = Number(draftRef.current.CHIT_ID ?? 0)
-        if (chitType !== "OT" || !visible || !isUpdate || cogsVoucherId <= 0) {
-            setLinkedCogsIssues({})
-            setCogsSourceLookupError(false)
+    const handleOpenInventory = useCallback(async (row: ChitInfo["DETAILS"][number], target?: LinkedInventoryTarget) => {
+        if (target && onReturnToLinkedInventory?.(target.chitId)) {
             return
         }
-
-        const requestSeq = cogsSourceLookupSeqRef.current + 1
-        cogsSourceLookupSeqRef.current = requestSeq
-        setCogsSourceLookupLoading(true)
-        setCogsSourceLookupError(false)
-        setLinkedCogsIssues({})
-
-        try {
-            const links = await getInventoryIssueLinksByCogsVoucherId(cogsVoucherId)
-            if (cogsSourceLookupSeqRef.current === requestSeq) {
-                setLinkedCogsIssues(links)
-            }
-        } catch (error) {
-            if (cogsSourceLookupSeqRef.current === requestSeq) {
-                setCogsSourceLookupError(true)
-                notify(getApiErrorMessage(error, t("LOAD_FAILED", "Tải thất bại")), "error", 3500)
-            }
-        } finally {
-            if (cogsSourceLookupSeqRef.current === requestSeq) {
-                setCogsSourceLookupLoading(false)
-            }
-        }
-    }, [chitType, draftRef, isUpdate, t, visible])
-
-    useEffect(() => {
-        cogsSourceLookupSeqRef.current += 1
-        setLinkedCogsIssues({})
-        setCogsSourceLookupError(false)
-        setCogsSourceLookupLoading(false)
-        if (chitType === "OT" && visible && isUpdate && Number(draft.CHIT_ID ?? 0) > 0) {
-            void loadLinkedCogsIssue()
-        }
-    }, [chitType, draft.CHIT_ID, cogsDetailIdsKey, rowInventory.refreshVersion, inventoryLinkRefreshVersion, isUpdate, loadLinkedCogsIssue, visible])
-
-    const handleOpenLinkedCogsIssue = useCallback((linkedCogsIssueId: number | undefined) => {
-        if (!linkedCogsIssueId) {
-            if (cogsSourceLookupError) {
-                void loadLinkedCogsIssue()
-            }
-            return
-        }
-
-        if (onReturnToLinkedInventory?.(linkedCogsIssueId)) {
-            return
-        }
-
-        const route = getVoucherRouteByChitType("IO")
-        if (!route) {
-            return
-        }
-        const search = new URLSearchParams({
-            openChitId: String(linkedCogsIssueId),
-            openTab: "cogs",
-        })
-
-        navigate(
-            { pathname: route, search: `?${search.toString()}` },
-            {
-                replace: true,
-                state: {
-                    openChitId: linkedCogsIssueId,
-                    openMode: "edit",
-                    openTab: "cogs",
-                } satisfies VoucherOpenLocationState,
-            },
-        )
-    }, [cogsSourceLookupError, loadLinkedCogsIssue, navigate, onReturnToLinkedInventory])
-
-
+        await rowInventory.open(row, target)
+    }, [onReturnToLinkedInventory, rowInventory.open])
 
     const editorDraft = useChitEditorDraft({
         visible,
@@ -725,25 +648,11 @@ export function ChitEditorPopup({
                                 screenCd={screenCd}
                                 gridId={detailGridId}
                                 columnSettingStateRef={detailColumnSettingStateRef}
-                                onOpenInventory={rowInventory.open}
+                                onOpenInventory={handleOpenInventory}
                                 inventoryBusy={rowInventory.loading || loading || Boolean(rowInventory.editor)}
                                 pendingInventoryRowKeys={rowInventory.pendingKeys}
-                                inventoryRefreshVersion={rowInventory.refreshVersion}
+                                inventoryRefreshVersion={inventoryRefreshVersion}
                                 showInventoryLinkActions={showInventoryLinkActions}
-                                renderDetailLink={chitType === "OT" ? (row) => {
-                                    const issueId = linkedCogsIssues[Number(row.CHITDETAIL_ID)]
-                                    const canLink = row.DEBIT === "632" && row.CREDIT === "156" && Number(row.AMOUNT) >= 0 && row.FC_TYPE === "VND"
-                                    return <button
-                                        type="button"
-                                        className="inline-flex h-7 items-center rounded border border-emerald-200 bg-emerald-50 px-2 text-xs font-medium text-emerald-900 disabled:opacity-50"
-                                        disabled={loading || cogsSourceLookupLoading || rowInventory.loading || (!issueId && !cogsSourceLookupError && (readOnly || !canLink))}
-                                        title={issueId ? t("OPEN_LINKED_INVENTORY_ISSUE", "Mở phiếu xuất kho đã liên kết") : canLink ? t("LINK_VOUCHERS", "Liên kết phiếu") : t("COGS_DETAIL_LINK_ACCOUNTS_REQUIRED", "Liên kết giá vốn yêu cầu dòng Nợ 632 / Có 156, tiền VND không âm")}
-                                        onClick={() => {
-                                            if (issueId || cogsSourceLookupError) handleOpenLinkedCogsIssue(issueId)
-                                            else void rowInventory.open(row)
-                                        }}
-                                    >{t("INVENTORY_ROW_BUTTON", "Hàng tồn kho")}</button>
-                                } : undefined}
                             />
                         </div>
                     </div>
