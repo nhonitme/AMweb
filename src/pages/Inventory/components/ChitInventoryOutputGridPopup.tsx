@@ -700,7 +700,16 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
 
         const handleEditorPreparing = useCallback(
             (event: EditorPreparingEvent<InventoryOutputLine, string>) => {
-                if (event.parentType === "dataRow" && (event.dataField === "QUANTITY" || event.dataField === "UNIT_PRICE_CC" || event.dataField === "REVENUE_UNIT_PRICE_CC")) {
+                if (
+                    event.parentType === "dataRow"
+                    && (
+                        event.dataField === "QUANTITY"
+                        || event.dataField === "UNIT_PRICE_CC"
+                        || event.dataField === "AMOUNT_CC"
+                        || event.dataField === "REVENUE_UNIT_PRICE_CC"
+                        || event.dataField === "REVENUE_AMOUNT_CC"
+                    )
+                ) {
                     event.editorOptions = { ...event.editorOptions, valueChangeEvent: "input change" }
                     return
                 }
@@ -944,7 +953,14 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                             <Column dataField="UNIT_PRICE_CC" setCellValue={setOutputUnitPrice} caption={t("INVENTORY_COGS_UNIT_PRICE", "Đơn giá vốn")} dataType="number" format={getFormat("UNIT_PRICE_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("UNIT_PRICE_CC", "#,##0.00"))} />
                             <Column dataField="AMOUNT_CC" setCellValue={setOutputAmountCc} caption={t("INVENTORY_COGS_AMOUNT", "Thành tiền giá vốn")} dataType="number" format={getFormat("AMOUNT_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("AMOUNT_CC", "#,##0.00"))} allowHiding={false} />
                             {showAmountTotalColumn ? (
-                                <Column dataField="AMOUNT_TOTAL" caption={t("AMOUNT_TOTAL", "Tổng cộng")} dataType="number" format={getFormat("AMOUNT_TOTAL", "#,##0.00")} allowEditing={false} />
+                                <Column
+                                    dataField="AMOUNT_TOTAL"
+                                    caption={t("AMOUNT_TOTAL", "Tổng cộng")}
+                                    dataType="number"
+                                    format={getFormat("AMOUNT_TOTAL", "#,##0.00")}
+                                    allowEditing={false}
+                                    calculateCellValue={(row: InventoryOutputLine) => toNumber(row.AMOUNT_CC)}
+                                />
                             ) : null}
                         </>
                     ) : (
@@ -952,7 +968,14 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                             <Column dataField="UNIT_PRICE_CC" setCellValue={setOutputUnitPrice} caption={t("UNIT_PRICE_CC", "Đơn giá")} dataType="number" format={getFormat("UNIT_PRICE_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("UNIT_PRICE_CC", "#,##0.00"))} />
                             <Column dataField="AMOUNT_CC" setCellValue={setOutputAmountCc} caption={t("AMOUNT_CC", "Thành tiền")} dataType="number" format={getFormat("AMOUNT_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("AMOUNT_CC", "#,##0.00"))} allowHiding={false} />
                             {showAmountTotalColumn ? (
-                                <Column dataField="AMOUNT_TOTAL" caption={t("AMOUNT_TOTAL", "Tổng cộng")} dataType="number" format={getFormat("AMOUNT_TOTAL", "#,##0.00")} allowEditing={false} />
+                                <Column
+                                    dataField="AMOUNT_TOTAL"
+                                    caption={t("AMOUNT_TOTAL", "Tổng cộng")}
+                                    dataType="number"
+                                    format={getFormat("AMOUNT_TOTAL", "#,##0.00")}
+                                    allowEditing={false}
+                                    calculateCellValue={(row: InventoryOutputLine) => toNumber(row.AMOUNT_CC)}
+                                />
                             ) : null}
                         </>
                     )}
@@ -973,7 +996,14 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                         <Column dataField="REVENUE_AMOUNT_CC" setCellValue={setOutputRevenueAmountCc} caption={t("REVENUE_AMOUNT_CC", "Thành tiền doanh thu VND")} dataType="number" format={getFormat("REVENUE_AMOUNT_CC", "#,##0.00")} />
                         <Column dataField="REVENUE_UNIT_PRICE_FC" setCellValue={setOutputRevenueUnitPriceFc} caption={t("REVENUE_UNIT_PRICE_FC", "Đơn giá doanh thu ngoại tệ")} dataType="number" format={getFormat("REVENUE_UNIT_PRICE_FC", "#,##0.00")} visible={runtimeForeignCurrencyColumnsVisible} />
                         <Column dataField="REVENUE_AMOUNT_FC" caption={t("REVENUE_AMOUNT_FC", "Thành tiền doanh thu ngoại tệ")} dataType="number" format={getFormat("REVENUE_AMOUNT_FC", "#,##0.00")} visible={runtimeForeignCurrencyColumnsVisible} />
-                        <Column dataField="REVENUE_AMOUNT_TOTAL" caption={t("REVENUE_AMOUNT_TOTAL", "Tổng cộng")} dataType="number" format={getFormat("REVENUE_AMOUNT_TOTAL", "#,##0.00")} allowEditing={false} />
+                        <Column
+                            dataField="REVENUE_AMOUNT_TOTAL"
+                            caption={t("REVENUE_AMOUNT_TOTAL", "Tổng cộng")}
+                            dataType="number"
+                            format={getFormat("REVENUE_AMOUNT_TOTAL", "#,##0.00")}
+                            allowEditing={false}
+                            calculateCellValue={(row: InventoryOutputLine) => toNumber(row.REVENUE_AMOUNT_CC)}
+                        />
                     </> : null}
                     {adjustmentMode ? (
                         <>

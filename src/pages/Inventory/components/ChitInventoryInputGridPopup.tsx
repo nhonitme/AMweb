@@ -697,7 +697,10 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
         }, [])
 
         const handleEditorPreparing = useCallback((event: EditorPreparingEvent<InventoryInputLine, string>) => {
-            if (event.parentType === "dataRow" && (event.dataField === "QUANTITY" || event.dataField === "UNIT_PRICE_CC")) {
+            if (
+                event.parentType === "dataRow"
+                && (event.dataField === "QUANTITY" || event.dataField === "UNIT_PRICE_CC" || event.dataField === "AMOUNT_CC")
+            ) {
                 event.editorOptions = { ...event.editorOptions, valueChangeEvent: "input change" }
             }
         }, [])
@@ -742,7 +745,14 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
                     <Column dataField="QUANTITY" setCellValue={setInputQuantity} caption={t("QUANTITY", "Quantity")} dataType="number" format={getFormat("QUANTITY", "#,##0.###")} editorOptions={createNumberEditorOptions(getFormat("QUANTITY", "#,##0.###"))} />
                     <Column dataField="UNIT_PRICE_CC" setCellValue={setInputUnitPrice} caption={t("UNIT_PRICE_CC", "Unit Price")} dataType="number" format={getFormat("UNIT_PRICE_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("UNIT_PRICE_CC", "#,##0.00"))} />
                     <Column dataField="AMOUNT_CC" setCellValue={setInputAmountCc} caption={t("AMOUNT_CC", "Amount")} dataType="number" format={getFormat("AMOUNT_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("AMOUNT_CC", "#,##0.00"))} allowHiding={false} />
-                    <Column dataField="AMOUNT_TOTAL" caption={t("AMOUNT_TOTAL", "Tổng cộng")} dataType="number" format={getFormat("AMOUNT_TOTAL", "#,##0.00")} allowEditing={false} />
+                    <Column
+                        dataField="AMOUNT_TOTAL"
+                        caption={t("AMOUNT_TOTAL", "Tổng cộng")}
+                        dataType="number"
+                        format={getFormat("AMOUNT_TOTAL", "#,##0.00")}
+                        allowEditing={false}
+                        calculateCellValue={(row: InventoryInputLine) => toNumber(row.AMOUNT_CC)}
+                    />
                     <Column
                         dataField="FC_TYPE"
                         caption={t("FC_TYPE", "Currency")}
