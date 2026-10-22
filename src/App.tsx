@@ -29,7 +29,7 @@ import {
     isOverviewPath,
 } from '@/api/menuApi';
 import { SHOW_DASHBOARD } from '@/lib/featureVisibility';
-import { getCurrentLicense } from '@/api/licenseInfoApi';
+import { useLicenseDetailsQuery, useLicenseStatusQuery } from '@/hooks/queries/useLicenseQueries';
 import { collectDescendantIds as collectFinanceDescendantIds, findFinanceTopMenu, flattenFinanceMenuForSidebar } from '@/lib/financeMenu';
 import { collectDescendantIds as collectReportDescendantIds, findReportTopMenu, flattenReportMenuForSidebar } from '@/lib/reportMenu';
 import { flattenFlatModuleMenusForSidebar, remapActiveMenuForFlatModules } from '@/lib/flatModuleMenus';
@@ -721,59 +721,36 @@ function AppContent({ onLogout, licenseExpired }: { onLogout: () => void; licens
 }
 
 /**
- * Check once on login/company switch, again when the window regains focus,
- * and periodically for a session that stays open past the license expiry date.
- * Only an explicit EXPIRED status locks menus. No license record means unprovisioned,
- * NOT expired; API failures also do not silently classify a valid company as expired.
+ * License state is queried only in one place and keyed by company.
+ * Ordinary screens use the cached lightweight status endpoint. On the License
+ * page we use the detail query for the gate as well as the page itself, so an
+ * initial direct visit fetches /license/current only once.
+ *
+ * Query hooks manage focus refresh (stale after 60s), polling (5 minutes)
+ * and concurrency. A failed check retains the existing fail-open UI policy;
+ * backend API enforcement remains a separate concern.
  */
 function LicenseAccessGate({ onLogout }: { onLogout: () => void }) {
     const location = useLocation();
     const { translate } = useContext(LanguageContext);
     const companyCd = getCompanyCdFromPathname(location.pathname) || resolveDefaultCompanyCd();
-    const [access, setAccess] = useState<{
-        companyCd: string;
-        state: "checking" | "ready" | "expired";
-    }>({ companyCd: "", state: "checking" });
-    // A previous company's status must never be shown while switching companies.
-    const licenseState = access.companyCd === companyCd ? access.state : "checking";
+    const routePath = stripCompanyPath(location.pathname);
+    const isLicensePage = routePath === "/system/license";
 
-    useEffect(() => {
-        if (!companyCd) {
-            setAccess({ companyCd, state: "ready" });
-            return;
-        }
+    const statusQuery = useLicenseStatusQuery(companyCd, !isLicensePage);
+    const detailsQuery = useLicenseDetailsQuery(companyCd, {
+        enabled: isLicensePage,
+        poll: isLicensePage,
+    });
 
-        let mounted = true;
-        setAccess({ companyCd, state: "checking" });
-        const checkLicense = async () => {
-            try {
-                const license = await getCurrentLicense();
-                if (mounted) {
-                    setAccess({ companyCd, state: license?.LICENSE_STATUS?.trim().toUpperCase() === "EXPIRED" ? "expired" : "ready" });
-                }
-            } catch (error) {
-                // Avoid locking otherwise valid companies if License tables/API
-                // are not deployed yet. This is a UI gate, not server-side enforcement.
-                console.error("Failed to verify current company License", error);
-                if (mounted) setAccess((previous) => ({
-                    companyCd,
-                    state: previous.companyCd === companyCd && previous.state === "expired" ? "expired" : "ready",
-                }));
-            }
-        };
+    const currentQuery = isLicensePage ? detailsQuery : statusQuery;
+    const checking = Boolean(companyCd) && currentQuery.isPending && !currentQuery.isError;
+    const status = isLicensePage
+        ? detailsQuery.data?.LICENSE_STATUS
+        : statusQuery.data?.LICENSE_STATUS;
+    const expired = status?.trim().toUpperCase() === "EXPIRED";
 
-        void checkLicense();
-        const intervalId = window.setInterval(() => { void checkLicense(); }, 5 * 60 * 1000);
-        const onFocus = () => { void checkLicense(); };
-        window.addEventListener("focus", onFocus);
-        return () => {
-            mounted = false;
-            window.clearInterval(intervalId);
-            window.removeEventListener("focus", onFocus);
-        };
-    }, [companyCd]);
-
-    if (licenseState === "checking") {
+    if (checking) {
         return (
             <div role="status" className="flex h-screen items-center justify-center bg-gray-50 text-sm text-gray-600">
                 {translate?.("LICENSE_LOADING", "Đang tải thông tin License...") ?? "Đang tải thông tin License..."}
@@ -781,13 +758,12 @@ function LicenseAccessGate({ onLogout }: { onLogout: () => void }) {
         );
     }
 
-    const routePath = stripCompanyPath(location.pathname);
     const allowedExpiredPaths = ["/system/license", "/help-support", "/profile"];
-    if (licenseState === "expired" && !allowedExpiredPaths.includes(routePath)) {
+    if (expired && !allowedExpiredPaths.includes(routePath)) {
         return <Navigate to={buildAppPath(companyCd, "/system/license")} replace />;
     }
 
-    return <AppContent onLogout={onLogout} licenseExpired={licenseState === "expired"} />;
+    return <AppContent onLogout={onLogout} licenseExpired={expired} />;
 }
 
 function AppWorkspaceRoutes({
