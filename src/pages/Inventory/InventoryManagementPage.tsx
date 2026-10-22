@@ -247,6 +247,27 @@ export default function InventoryManagementPage({
   const excelEnabled = importConfig !== null
   const masterColumnsNode = useMemo(() => <ChitColumns />, [])
   const detailColumnsNode = useMemo(() => renderInventoryDetailColumns(chitType), [chitType])
+  // The outer IO detail grid displays issued amount unless COGS is enabled,
+  // in which case its Xuất kho view displays revenue amounts.
+  const selectedIssueUsesRevenue = chitType === "IO" && Boolean(selectedRow?.IS_COGS || selectedRow?.COGS)
+  const detailMoneyVisibility = useMemo(() => {
+    if (chitType !== "IO") return undefined
+
+    return {
+      forceVisibleColumnNames: selectedIssueUsesRevenue
+        ? ["REVENUE_UNIT_PRICE_CC", "REVENUE_AMOUNT_CC", "REVENUE_AMOUNT_TOTAL"]
+        : ["UNIT_PRICE_CC", "AMOUNT_CC", "AMOUNT_TOTAL"],
+      controlledColumnVisibility: selectedIssueUsesRevenue
+        ? {
+            UNIT_PRICE_CC: false, AMOUNT_CC: false, AMOUNT_TOTAL: false,
+            UNIT_PRICE_FC: false, AMOUNT_FC: false,
+          }
+        : {
+            REVENUE_UNIT_PRICE_CC: false, REVENUE_AMOUNT_CC: false, REVENUE_AMOUNT_TOTAL: false,
+            REVENUE_UNIT_PRICE_FC: false, REVENUE_AMOUNT_FC: false,
+          },
+    }
+  }, [chitType, selectedIssueUsesRevenue])
 
   const invalidateInventoryVouchers = useInventoryVoucherListInvalidate()
   const {
@@ -1162,6 +1183,7 @@ export default function InventoryManagementPage({
                 dataSource={selectedLines}
                 keyExpr="ROW_KEY"
                 height="100%"
+                runtimeColumnVisibility={detailMoneyVisibility}
                 onInitialized={handleDetailGridInitialized}
                 persistColumnSettings
                 screenCd={screenCd}
