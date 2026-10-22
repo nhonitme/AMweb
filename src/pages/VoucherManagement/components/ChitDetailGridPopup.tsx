@@ -92,6 +92,8 @@ interface ChitDetailGridProps {
     pendingInventoryRowKeys?: string[]
     inventoryRefreshVersion?: number
     showInventoryLinkActions?: boolean
+    canOpenInventoryRow?: (row: ChitDetail) => boolean
+    inventoryLinkType?: "IR" | "IO"
     renderDetailLink?: (row: ChitDetail) => ReactNode
   linkSlot?: ReactNode
 }
@@ -225,6 +227,8 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
             pendingInventoryRowKeys = [],
             inventoryRefreshVersion = 0,
             showInventoryLinkActions: showInventoryLinkActionsProp,
+            canOpenInventoryRow,
+            inventoryLinkType,
             renderDetailLink,
   linkSlot,
         },
@@ -251,11 +255,17 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
         const { searchText, searchVisible, showSearch, handleSearchTextChange, handleSearchEnter } =
             useInlineGridSearch(gridRef)
         const usesSysGridCatalog = persistColumnSettings && Boolean(gridId?.trim())
+        const excludedColumnNames = useMemo(
+            () => chitType === "PO" || chitType === "SO"
+                ? [...RUNTIME_COLUMN_SETTING_EXCLUDED_NAMES, "VAT_AMOUNT", "VAT_CHIT_NO"]
+                : RUNTIME_COLUMN_SETTING_EXCLUDED_NAMES,
+            [chitType],
+        )
         const columnSettingState = useGridColumnSettingState({
             enabled: persistColumnSettings,
             screenCd,
             gridId,
-            excludedColumnNames: RUNTIME_COLUMN_SETTING_EXCLUDED_NAMES,
+            excludedColumnNames,
             hideColumnsMissingFromSettings: usesSysGridCatalog,
         })
         const t = useCallback(
@@ -357,9 +367,9 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
 
             void (async () => {
                 try {
-                    const lines = isInventoryInputLinkedAccountingVoucherType(chitType)
+                    const lines = inventoryLinkType === "IR" || (!inventoryLinkType && isInventoryInputLinkedAccountingVoucherType(chitType))
                         ? await getInventoryInputs(detailIds)
-                        : isInventoryOutputLinkedAccountingVoucherType(chitType)
+                        : inventoryLinkType === "IO" || (!inventoryLinkType && isInventoryOutputLinkedAccountingVoucherType(chitType))
                           ? await getInventoryOutputs(detailIds)
                           : []
                     if (cancelled) {
@@ -417,7 +427,7 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                     linkedInventoryInFlightKeyRef.current = ""
                 }
             }
-        }, [activeDetailIdsKey, chitType, headerChitId, isVisible, showInventoryLinkActions, inventoryRefreshVersion, linkRetryVersion])
+        }, [activeDetailIdsKey, chitType, headerChitId, isVisible, showInventoryLinkActions, inventoryRefreshVersion, linkRetryVersion, inventoryLinkType])
 
         const handleOpenLinkedInventory = useCallback(
             (target: LinkedInventoryTarget) => {
@@ -962,7 +972,7 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                                             />
                                         </div>
                                         {cellInfo.data && renderDetailLink ? renderDetailLink(cellInfo.data) : null}
-                                        {showInventoryLinkActions ? (
+                                        {showInventoryLinkActions && (!canOpenInventoryRow || (cellInfo.data && canOpenInventoryRow(cellInfo.data))) ? (
                                             <OpenLinkedInventoryButton
                                                 targets={linkedTargets}
                                                 label={t("INVENTORY_ROW_BUTTON", "Hàng tồn kho")}

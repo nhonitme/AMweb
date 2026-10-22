@@ -62,6 +62,7 @@ function renderLookupEditor(children: JSX.Element) {
 }
 
 type Props = {
+  direction?: "input" | "output"
   rows: VatInvoiceInventoryJsonRow[]
   loading: boolean
   error?: string
@@ -93,6 +94,7 @@ export default function VatInvoiceInventoryJsonGrid({
   mappings,
   onMappingChange,
   readOnly = false,
+  direction = "output",
 }: Props) {
   const gridRows: VatInvoiceInventoryGridRow[] = rows.map((row) => {
     const mapping = mappings?.[row.key]
@@ -195,7 +197,7 @@ export default function VatInvoiceInventoryJsonGrid({
         />
         <Column
           dataField="STORE_CD"
-          caption="Kho xuất"
+          caption={direction === "input" ? "Kho nhập" : "Kho xuất"}
           minWidth={200}
           allowSorting={false}
           allowFiltering={false}
@@ -211,8 +213,8 @@ export default function VatInvoiceInventoryJsonGrid({
               warehouseIdField="STORE_ID"
               warehouseCdField="STORE_CD"
               warehouseNmField="STORE_NM_VIET"
-              placeholder="Chọn kho xuất"
-              popupTitle="Chọn kho xuất"
+              placeholder={direction === "input" ? "Chọn kho nhập" : "Chọn kho xuất"}
+              popupTitle={direction === "input" ? "Chọn kho nhập" : "Chọn kho xuất"}
               buttonHint="Mở danh sách kho"
               autoOpen={consumeLookupCellOpen(cellInfo, "STORE_CD") as LookupOpenMode | null}
             />,
@@ -231,7 +233,7 @@ export default function VatInvoiceInventoryJsonGrid({
       <Column dataField="discountAmount" caption="Tiền chiết khấu" width={140} alignment="right" customizeText={(cell) => formatNumber(cell.value)} />
       <Column dataField="discountRate" caption="Tỷ lệ CK" width={100} alignment="right" customizeText={(cell) => formatNumber(cell.value)} />
       {onMappingChange ? <Column
-        caption="Xuất kho"
+        caption={direction === "input" ? "Nhập kho" : "Xuất kho"}
         width={90}
         allowSorting={false}
         allowFiltering={false}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type Dispatch, type SetStateAction, type M
 import notify from "devextreme/ui/notify"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { createInventoryVoucher, getInventoryVouchers, updateInventoryVoucher } from "@/api/inventoryVoucherApi"
+import { getInventoryInputs, getInventoryOutputs } from "@/api/inventoryLinkApi"
 import { clearSysCodeSequencePreviewCache } from "@/api/sysCodeSequenceApi"
 import { applyAccountingDetailToInventoryLines, getInventoryTypeForAccountingChitType, type LinkedInventoryTarget } from "@/pages/Inventory/inventoryAccountingLinkUtils"
 import { createDefaultInventoryVoucher, formatInventoryDate, getInventoryLedger, mapInventoryVoucherToApiPayload, normalizeInventoryVoucherApi } from "@/pages/Inventory/inventoryVoucherModel"
@@ -11,8 +12,9 @@ import { canLinkOtCogsInventoryDetail, createDefaultChit, createDefaultChitDetai
 
 export type AfterAccountingSave = (saved: ChitInfo, submitted: ChitInfo) => Promise<boolean | void>
 export type SaveAccountingWithInventory = (record: ChitInfo, afterSave?: AfterAccountingSave) => Promise<void>
+export type InventoryDraftPreparation = (value: InventoryVoucher, row: ChitDetail, source: ChitInfo) => Promise<InventoryVoucher>
 
-export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, setDraft, gridRef, onSave, onSaveAndNew, t }: {
+export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, setDraft, gridRef, onSave, onSaveAndNew, inventoryDraftType, prepareInventoryDraft, validateInventoryDraft, t }: {
     visible: boolean
     chitType: ChitType
     readOnly: boolean
@@ -21,6 +23,9 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
     gridRef: MutableRefObject<ChitDetailGridHandle | null>
     onSave: SaveAccountingWithInventory
     onSaveAndNew?: SaveAccountingWithInventory
+    prepareInventoryDraft?: InventoryDraftPreparation
+    inventoryDraftType?: "IR" | "IO"
+    validateInventoryDraft?: (value: InventoryVoucher) => void
     t: (key: string, fallback: string) => string
 }) {
     const pendingRef = useRef(new Map<string, InventoryVoucher>())
@@ -48,7 +53,8 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
 
     const open = async (row: ChitDetail, target?: LinkedInventoryTarget) => {
         if (busyRef.current || (!target && readOnly)) return
-        const inventoryType = (target?.chitType as "IR" | "IO" | undefined) ?? getInventoryTypeForAccountingChitType(chitType)
+
+        const inventoryType = target?.chitType ?? inventoryDraftType ?? (chitType === "OT" ? "IO" : getInventoryTypeForAccountingChitType(chitType))
         if (inventoryType !== "IR" && inventoryType !== "IO") return
         busyRef.current = true
         setLoading(true)
@@ -92,6 +98,7 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
                 }
                 value.INPUTS = value.INPUTS.map((line) => ({ ...line, ...defaults }))
                 value.OUTPUTS = value.OUTPUTS.map((line) => ({ ...line, ...defaults, OUTPUT_INVENTORY_YMD: source.CHIT_YMD }))
+                if (prepareInventoryDraft) value = await prepareInventoryDraft(value, currentRow, source)
             }
             if (session === sessionRef.current) setEditor({ rowKey: row.ROW_KEY, value, isUpdate: Boolean(target) })
         } catch (error) {
@@ -114,6 +121,27 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
             OUTPUTS: type === "IO" && !otCogs ? value.OUTPUTS.flatMap((line) => update && Number(line.CHITDETAIL_ID) > 0 ? [line] : applyAccountingDetailToInventoryLines([line], detail.CHITDETAIL_ID, detail.CHITDETAIL_CD)) : value.OUTPUTS,
         }
         const payload = mapInventoryVoucherToApiPayload(linked)
+        if (prepareInventoryDraft && !update && Number(detail.CHITDETAIL_ID) > 0) {
+            // Reconcile a successful create whose response was lost before retrying.
+            const existing = type === "IR" ? await getInventoryInputs([Number(detail.CHITDETAIL_ID)]) : await getInventoryOutputs([Number(detail.CHITDETAIL_ID)])
+            const active = existing.filter((line) => line.ISDEL !== true && Number(line.ISDEL ?? 0) !== 1)
+            if (active.length) {
+                const expected = (type === "IR" ? linked.INPUTS : linked.OUTPUTS).filter((line) => !line.ISDEL)
+                const signature = (line: typeof active[number] | typeof expected[number]) => JSON.stringify([
+                    Number(line.PRODUCT_ID), Number(line.STORE_ID), line.UNIT_CD, Number(line.QUANTITY), String(line.FC_TYPE ?? "").toUpperCase(), Number(line.EXCHANGE_RATES),
+                    Number(line.AMOUNT_CC), Number(line.AMOUNT_FC),
+                    "REVENUE_AMOUNT_CC" in line ? Number(line.REVENUE_AMOUNT_CC) : 0,
+                    "REVENUE_AMOUNT_FC" in line ? Number(line.REVENUE_AMOUNT_FC) : 0,
+                ])
+                const ids = [...new Set(active.map((line) => Number(line.INVENTORY_ID)).filter((id) => id > 0))]
+                if (ids.length !== 1 || JSON.stringify(active.map(signature).sort()) !== JSON.stringify(expected.map(signature).sort())) {
+                    throw new Error("Dòng tiền hàng đã có liên kết kho khác dữ liệu bản nháp. Vui lòng mở lại chứng từ để kiểm tra trước khi lưu.")
+                }
+                const found = await getInventoryVouchers(getInventoryLedger(type), type, { chitId: ids[0] })
+                if (!found.data[0]) throw new Error("Không đọc được phiếu kho đã liên kết để xác nhận lần lưu trước.")
+                return normalizeInventoryVoucherApi(found.data[0], type, value.COMPANY_CD)
+            }
+        }
         const result = update
             ? await updateInventoryVoucher(getInventoryLedger(type), type, payload)
             : await createInventoryVoucher(getInventoryLedger(type), type, payload)
@@ -125,6 +153,7 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
 
     const saveInventory = async (value: InventoryVoucher) => {
         if (!editor || readOnly || busyRef.current) return
+        validateInventoryDraft?.(value)
         busyRef.current = true
         setLoading(true)
         try {
@@ -202,6 +231,12 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
         if (busyRef.current || editor) return
         const activeKeys = new Set(record.DETAILS.filter((row) => !row.ISDEL).map((row) => row.ROW_KEY))
         for (const key of pendingRef.current.keys()) if (!activeKeys.has(key)) pendingRef.current.delete(key)
+        try {
+            for (const value of pendingRef.current.values()) validateInventoryDraft?.(value)
+        } catch (error) {
+            notify(getApiErrorMessage(error, "Thông tin phiếu kho chưa đầy đủ."), "warning", 5000)
+            return
+        }
         if (pendingRef.current.size === 0) {
             await save(record)
             return

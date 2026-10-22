@@ -69,7 +69,7 @@ import {
 import { useChitEditorReference } from "./useChitEditorReference"
 import { useLinkedCogsVoucherPopup } from "../hooks/useLinkedCogsVoucherPopup"
 import InventoryEditorPopup from "@/pages/Inventory/components/InventoryEditorPopup"
-import { useRowInventoryEditor, type SaveAccountingWithInventory } from "./useRowInventoryEditor"
+import { useRowInventoryEditor, type SaveAccountingWithInventory, type InventoryDraftPreparation } from "./useRowInventoryEditor"
 
 interface ChitEditorPopupProps {
     visible: boolean
@@ -88,8 +88,13 @@ interface ChitEditorPopupProps {
     printReportCode?: string | null
     screenCd?: string
     showInventoryLinkActions?: boolean
+    prepareInventoryDraft?: InventoryDraftPreparation
+    inventoryDraftType?: "IR" | "IO"
+    validateInventoryDraft?: (value: import("@/types/voucher").InventoryVoucher) => void
+    canOpenInventoryRow?: (row: ChitInfo["DETAILS"][number]) => boolean
     quickCreateCustomer?: boolean
     headerContent?: ReactNode | ((hasEdits: boolean) => ReactNode)
+    additionalDetailTab?: { label: string; content: ReactNode }
 }
 
 type DetailRow = ChitEditorDetailRow
@@ -111,12 +116,20 @@ export function ChitEditorPopup({
     printReportCode,
     screenCd: screenCdProp,
     showInventoryLinkActions,
+    prepareInventoryDraft,
+    inventoryDraftType,
+    validateInventoryDraft,
+    canOpenInventoryRow,
     quickCreateCustomer = false,
     headerContent,
+    additionalDetailTab,
 }: ChitEditorPopupProps) {
 
 
     const location = useLocation()
+    const [additionalTabActive, setAdditionalTabActive] = useState(false)
+    const hasAdditionalDetailTab = Boolean(additionalDetailTab)
+    useEffect(() => { if (!visible || !hasAdditionalDetailTab) setAdditionalTabActive(false) }, [visible, hasAdditionalDetailTab])
     const navigate = useNavigate()
     const [draft, setDraft, draftRef] = useStateRef<ChitInfo>(() => normalizeDraftForEditor(cloneChit(value), chitType))
     const [hasManualChanges, setHasManualChanges] = useState(false)
@@ -217,7 +230,7 @@ export function ChitEditorPopup({
         }))
     }, [setDraft])
 
-    const rowInventory = useRowInventoryEditor({ visible, chitType, readOnly, draftRef, setDraft, gridRef: detailGridRef, onSave, onSaveAndNew, t })
+    const rowInventory = useRowInventoryEditor({ visible, chitType, readOnly, draftRef, setDraft, gridRef: detailGridRef, onSave, onSaveAndNew, inventoryDraftType, prepareInventoryDraft, validateInventoryDraft, t })
     const inventoryRefreshVersion = rowInventory.refreshVersion + inventoryLinkRefreshVersion
 
     const handleOpenInventory = useCallback(async (row: ChitInfo["DETAILS"][number], target?: LinkedInventoryTarget) => {
@@ -632,7 +645,11 @@ export function ChitEditorPopup({
                     </div>
 
                     <div className="min-h-0 flex-1 px-4 pb-3">
-                        <div className="flex h-full min-h-0 flex-col">
+                        {additionalDetailTab ? <div role="tablist" className="flex h-9 gap-1 border-b border-slate-200">
+                            <button type="button" role="tab" aria-selected={!additionalTabActive} disabled={loading} className={`px-3 text-sm ${!additionalTabActive ? "border-b-2 border-sky-600 font-semibold text-sky-700" : "text-slate-600"}`} onClick={() => setAdditionalTabActive(false)}>{t("lblDetail", "Hạch toán")}</button>
+                            <button type="button" role="tab" aria-selected={additionalTabActive} disabled={loading} className={`px-3 text-sm ${additionalTabActive ? "border-b-2 border-sky-600 font-semibold text-sky-700" : "text-slate-600"}`} onClick={() => setAdditionalTabActive(true)}>{additionalDetailTab.label}</button>
+                        </div> : null}
+                        <div style={{ height: additionalDetailTab ? "calc(100% - 2.25rem)" : "100%", display: additionalTabActive ? "none" : "flex" }} className="min-h-0 flex-col">
                             <ChitDocumentEditorPanel
                                 gridRef={detailGridRef}
                                 companyCd={draft.COMPANY_CD}
@@ -649,12 +666,15 @@ export function ChitEditorPopup({
                                 gridId={detailGridId}
                                 columnSettingStateRef={detailColumnSettingStateRef}
                                 onOpenInventory={handleOpenInventory}
+                                canOpenInventoryRow={canOpenInventoryRow}
+                                inventoryLinkType={inventoryDraftType}
                                 inventoryBusy={rowInventory.loading || loading || Boolean(rowInventory.editor)}
                                 pendingInventoryRowKeys={rowInventory.pendingKeys}
                                 inventoryRefreshVersion={inventoryRefreshVersion}
                                 showInventoryLinkActions={showInventoryLinkActions}
                             />
                         </div>
+                        {additionalDetailTab ? <div role="tabpanel" style={{ height: "calc(100% - 2.25rem)", display: additionalTabActive ? "block" : "none" }}>{additionalDetailTab.content}</div> : null}
                     </div>
 
                     <div className="chit-editor-footer flex flex-shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-white px-4 py-3">

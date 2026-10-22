@@ -3,6 +3,7 @@ import { Column } from "devextreme-react/data-grid"
 import LoadPanel from "devextreme-react/load-panel"
 import SelectBox from "devextreme-react/select-box"
 import notify from "devextreme/ui/notify"
+import { fetchCustomerLookup } from "@/api/lookupApi"
 import type dxDataGrid from "devextreme/ui/data_grid"
 import type { OptionChangedEvent, SelectionChangedEvent } from "devextreme/ui/data_grid"
 
@@ -27,15 +28,16 @@ import { normalizeReportLanguage } from "@/pages/Reports/reportLanguage"
 import { buildMasterGridReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
 import ChitEditorPopup from "@/pages/VoucherManagement/components/ChitEditorPopup"
 import { normalizeChitRows } from "@/pages/VoucherManagement/chitUtils"
+import ChitManagementPage from "@/pages/VoucherManagement/ChitManagementPage"
+import type { VatVoucherSource } from "./useVatVoucherSource"
 import type { ColumnConfig } from "@/types/table"
 import type { ChitInfo, ChitLedger, ChitType } from "@/types/voucher"
 import { getCurrentLang } from "@/utils/language"
 
 import { VAT_INVOICE_COLUMNS } from "./vatInOutColumns"
-import type { VatInvoiceRow } from "./vatInvoiceVoucherDraft"
+import { applyInvoiceCustomerMatch, buildVatVoucherDraft, type VatInvoiceRow } from "./vatInvoiceVoucherDraft"
 import VatInOutBatchVoucherPopupContent from "./VatInOutBatchVoucherPopup"
 import VatInOutCreateModePopupContent, { type VatVoucherCreationMode } from "./VatInOutCreateModePopup"
-import VatInOutMergedVoucherPopupContent from "./VatInOutMergedVoucherPopup"
 import VatInOutQuickBatchCreatePopup from "./VatInOutQuickBatchCreatePopup"
 
 type InvoiceType = "BUY" | "SELL"
@@ -49,7 +51,6 @@ function skipHiddenPopupUpdate(previous: { visible: boolean }, next: { visible: 
 const FetchGdtVatPopup = memo(FetchGdtVatPopupContent, skipHiddenPopupUpdate)
 const VatInOutBatchVoucherPopup = memo(VatInOutBatchVoucherPopupContent, skipHiddenPopupUpdate)
 const VatInOutCreateModePopup = memo(VatInOutCreateModePopupContent, skipHiddenPopupUpdate)
-const VatInOutMergedVoucherPopup = memo(VatInOutMergedVoucherPopupContent, skipHiddenPopupUpdate)
 
 const TOOLBAR_FIELD = "page-toolbar__field"
 const LOAD_INVENTORY_DETAIL_SETTING = "VAT_INOUT_LOAD_INVENTORY_DETAIL"
@@ -115,7 +116,7 @@ export default function VatInOutListPage() {
   const [createModePopupVisible, setCreateModePopupVisible] = useState(false)
   const [loadInventoryDetail, setLoadInventoryDetail] = useState(false)
   const [inventorySettingLoading, setInventorySettingLoading] = useState(false)
-  const [mergedVoucherPopupVisible, setMergedVoucherPopupVisible] = useState(false)
+  const [mergedSource, setMergedSource] = useState<VatVoucherSource | null>(null)
   const [batchPopupVisible, setBatchPopupVisible] = useState(false)
   const [quickBatchKind, setQuickBatchKind] = useState<"customer" | "product" | null>(null)
   const [linkedVoucher, setLinkedVoucher] = useState<{ record: ChitInfo; ledger: ChitLedger; chitType: ChitType } | null>(null)
@@ -278,11 +279,6 @@ export default function VatInOutListPage() {
     gridRef.current?.clearSelection()
   }, [])
 
-  const closeMergedVoucherPopup = useCallback(() => {
-    setMergedVoucherPopupVisible(false)
-    setSelectedInvoices([])
-    gridRef.current?.clearSelection()
-  }, [])
 
   const handleOpenLinkedVoucher = useCallback(async (row: VatInvoiceRow) => {
     const chitId = row.__CHIT_ID
@@ -407,7 +403,7 @@ export default function VatInOutListPage() {
       notify(t("UNABLE_TO_OPEN_REPORT_VIEWER", "Không mở được trình xem báo cáo"), "error", 3000)
     }
   }, [fromDate, toDate, invoiceType, invoiceStatus, lang, t])
-  const chooseVoucherCreationMode = useCallback((mode: VatVoucherCreationMode) => {
+  const chooseVoucherCreationMode = useCallback(async (mode: VatVoucherCreationMode) => {
     if (mode === "MERGED") {
       const currencies = new Set(selectedInvoices.map((invoice) => (invoice.dvtte ?? "VND").trim().toUpperCase() || "VND"))
       if (currencies.size > 1) {
@@ -416,9 +412,21 @@ export default function VatInOutListPage() {
       }
     }
     setCreateModePopupVisible(false)
-    if (mode === "MERGED") setMergedVoucherPopupVisible(true)
-    else setBatchPopupVisible(true)
-  }, [selectedInvoices, loadInventoryDetail, t])
+    if (mode !== "MERGED") {
+      setBatchPopupVisible(true)
+      return
+    }
+    setLoading(true)
+    try {
+      const customers = await fetchCustomerLookup()
+      const record = applyInvoiceCustomerMatch(buildVatVoucherDraft(selectedInvoices, invoiceType), selectedInvoices, invoiceType, customers)
+      setMergedSource({ record, invoices: selectedInvoices, invoiceType, loadInventoryDetail })
+    } catch (error) {
+      notify(getApiErrorMessage(error, "Không mở được màn hình chứng từ."), "error", 4500)
+    } finally {
+      setLoading(false)
+    }
+  }, [selectedInvoices, invoiceType, loadInventoryDetail, t])
 
   const columns = useMemo(() => {
     const invoiceColumns = VAT_INVOICE_COLUMNS.map((column) => {
@@ -563,14 +571,19 @@ export default function VatInOutListPage() {
             onClose={() => setCreateModePopupVisible(false)}
           />
 
-          <VatInOutMergedVoucherPopup
-            visible={mergedVoucherPopupVisible}
-            invoiceType={invoiceType}
-            invoices={selectedInvoices}
-            loadInventoryDetail={loadInventoryDetail}
-            onClose={closeMergedVoucherPopup}
-            onSaved={() => loadInvoices(true)}
-          />
+
+          {mergedSource ? <ChitManagementPage
+            editorOnly
+            ledger={mergedSource.invoiceType === "BUY" ? "AP" : "AR"}
+            chitType={mergedSource.record.CHIT_TYPE}
+            vatSource={mergedSource}
+            onEditorClose={() => {
+              setMergedSource(null)
+              setSelectedInvoices([])
+              gridRef.current?.clearSelection()
+            }}
+            onEditorSaved={() => loadInvoices(true)}
+          /> : null}
 
           <FetchGdtVatPopup
             visible={gdtPopupVisible}

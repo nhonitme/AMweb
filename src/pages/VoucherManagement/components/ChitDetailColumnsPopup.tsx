@@ -588,14 +588,6 @@ export function PurchaseVoucherDetailColumns({ quickCreateCustomer = false }: Vo
         editorOptions={createNumberEditorOptions(getFormat("AMOUNT", "#,##0.00"))}
         allowHiding={false}
       />
-      <Column
-        dataField="VAT_AMOUNT"
-        caption={t("VAT_AMOUNT", "VAT amount")}
-        dataType="number"
-        format={getFormat("VAT_AMOUNT", "#,##0.00")}
-        editorOptions={createNumberEditorOptions(getFormat("VAT_AMOUNT", "#,##0.00"))}
-      />
-      <Column dataField="VAT_CHIT_NO" caption={t("VAT_CHIT_NO", "Invoice no")} />
       <DetailDescriptionColumns t={t} caption={t("DESCRIPTION2", "Purchase description")} />
     </Fragment>
   )
@@ -630,7 +622,10 @@ export function PurchaseServiceVoucherDetailColumns({ quickCreateCustomer = fals
   )
 }
 
-export function SalesVoucherDetailColumns({ quickCreateCustomer = false }: VoucherDetailColumnsProps) {
+export function SalesVoucherDetailColumns({
+  quickCreateCustomer = false,
+  showInvoiceNo = false,
+}: VoucherDetailColumnsProps & { showInvoiceNo?: boolean }) {
   const { t, createAccEditor, renderCustomerEditor } = useVoucherDetailEditors(quickCreateCustomer)
   const { getFormat, formatVersion } = useDecimalColumnFormats()
 
@@ -646,7 +641,7 @@ export function SalesVoucherDetailColumns({ quickCreateCustomer = false }: Vouch
         editorOptions={createNumberEditorOptions(getFormat("AMOUNT", "#,##0.00"))}
         allowHiding={false}
       />
-      <Column dataField="VAT_CHIT_NO" caption={t("VAT_CHIT_NO", "Sales invoice no")} />
+      {showInvoiceNo && <Column dataField="VAT_CHIT_NO" caption={t("VAT_CHIT_NO", "Sales invoice no")} />}
       <DetailDescriptionColumns t={t} caption={t("DESCRIPTION2", "Sales description")} />
     </Fragment>
   )
@@ -730,6 +725,10 @@ export function OtherVoucherDetailColumns({
 
 const InventoryVoucherDetailColumns: VoucherDetailColumnsComponent = () => null
 
+const SalesAdjustmentVoucherDetailColumns: VoucherDetailColumnsComponent = (props) => (
+  <SalesVoucherDetailColumns {...props} showInvoiceNo />
+)
+
 const detailColumnsMap: Record<ChitType, VoucherDetailColumnsComponent> = {
   RC: CashVoucherDetailColumns,
   PM: CashVoucherDetailColumns,
@@ -742,8 +741,8 @@ const detailColumnsMap: Record<ChitType, VoucherDetailColumnsComponent> = {
   PD: PurchaseServiceVoucherDetailColumns,
   PR: PurchaseServiceVoucherDetailColumns,
   SO: SalesVoucherDetailColumns,
-  SD: SalesVoucherDetailColumns,
-  SR: SalesVoucherDetailColumns,
+  SD: SalesAdjustmentVoucherDetailColumns,
+  SR: SalesAdjustmentVoucherDetailColumns,
   IO: InventoryVoucherDetailColumns,
   CO: OffsetVoucherDetailColumns,
   OT: OtherVoucherDetailColumns,

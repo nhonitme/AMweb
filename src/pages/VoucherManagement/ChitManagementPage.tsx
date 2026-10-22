@@ -106,8 +106,13 @@ import { buildReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
 import { useChitListInvalidate, useChitListQuery } from "@/hooks/queries/useChitListQuery"
 import { useLinkedAccountingVoucherPopup } from "./hooks/useLinkedAccountingVoucherPopup"
 import { useLinkedCogsIssuePopup } from "./hooks/useLinkedCogsIssuePopup"
+import { useVatVoucherSource, type VatVoucherSource } from "@/pages/Tax/useVatVoucherSource"
 
 interface ChitManagementPageProps {
+  editorOnly?: boolean
+  vatSource?: VatVoucherSource
+  onEditorClose?: () => void
+  onEditorSaved?: () => void | Promise<void>
   ledger: ChitLedger
   chitType: ChitType
   titleFallback?: string
@@ -328,6 +333,10 @@ export function ChitManagementPage({
   chitType,
   titleFallback,
   titleKey,
+  editorOnly = false,
+  vatSource,
+  onEditorClose,
+  onEditorSaved,
 }: ChitManagementPageProps) {
 
 
@@ -341,11 +350,14 @@ export function ChitManagementPage({
   const sourceCreateFromIntentRef = useRef<VoucherCreateFromSourceState | null>(null)
   const pendingRouteCleanupRef = useRef<{ clearNavigationState: boolean } | null>(null)
   const location = useLocation()
+  const voucherLocation = useMemo(() => editorOnly ? { ...location, search: "", state: null } : location, [editorOnly, location])
   const navigate = useNavigate()
-  const navigationState = location.state as VoucherOpenLocationState | null
+  const navigationState = editorOnly ? null : location.state as VoucherOpenLocationState | null
+  const vatContext = useVatVoucherSource(vatSource ?? null)
   const [loading, setLoading] = useState(true)
   const [popupLoading, setPopupLoading] = useState(false)
-  const [popupVisible, setPopupVisible] = useState(false)
+  const persistBusyRef = useRef(false)
+  const [popupVisible, setPopupVisible] = useState(Boolean(editorOnly && vatSource))
 
   const [editorReadOnly, setEditorReadOnly] = useState(false)
   const [isUpdate, setIsUpdate] = useState(false)
@@ -376,6 +388,7 @@ export function ChitManagementPage({
   const [listQueryToYmd, setListQueryToYmd] = useState("")
   const [listFetchEnabled, setListFetchEnabled] = useState(false)
   const [editingRow, setEditingRow] = useState<ChitInfo>(() => {
+    if (editorOnly && vatSource) return cloneChit(vatSource.record)
     const companyCd = getCurrentCompanyCd()
     const userId = getCurrentUserId()
 
@@ -448,6 +461,7 @@ export function ChitManagementPage({
   const excelEnabled = importConfig !== null
   const detailGridKeyExpr = "CHITDETAIL_ID"
   const hasPendingRouteIntent = useMemo(() => {
+    if (editorOnly) return false
     if (navigationState?.createFromSource != null) {
       return true
     }
@@ -469,7 +483,7 @@ export function ChitManagementPage({
     }
 
     return pendingQueryIntent
-  }, [location.search, navigationState])
+  }, [location.search, navigationState, editorOnly])
   const detailColumnsNode = useChitNoteDetailColumns()
   const detailGridRuntimeForeignCurrencyColumnsVisible = useMemo(
     () => hasVoucherForeignCurrencyRows(selectedRowDetails),
@@ -692,7 +706,7 @@ export function ChitManagementPage({
   )
 
   const openChitRoute = useVoucherOpenChitIdRoute({
-    location,
+    location: voucherLocation,
     navigate,
     routeScopeKey: `${ledger}:${chitType}`,
     loadList: useCallback(async () => {
@@ -725,7 +739,7 @@ export function ChitManagementPage({
   }, [executeRouteCleanup, popupVisible])
 
   useEffect(() => {
-    if (initialLoadTriggeredRef.current || hasPendingRouteIntent || openChitRoute.shouldDeferInitialListLoad()) {
+    if (editorOnly || initialLoadTriggeredRef.current || hasPendingRouteIntent || openChitRoute.shouldDeferInitialListLoad()) {
       return
     }
 
@@ -733,7 +747,7 @@ export function ChitManagementPage({
     initialPagingEventsSuppressedRef.current = true
     applyListQuery(fromDate, toDate, 1, DEFAULT_PAGE_SIZE)
     openChitRoute.markListLoaded()
-  }, [applyListQuery, fromDate, hasPendingRouteIntent, location.search, openChitRoute, toDate])
+  }, [applyListQuery, fromDate, hasPendingRouteIntent, location.search, openChitRoute, toDate, editorOnly])
 
   const routeIntentDepsRef = useRef({
     search: location.search,
@@ -1123,6 +1137,7 @@ const openEditPopup = useCallback(
 
   const persistChit = useCallback(
     async (record: ChitInfo, reopenNew = false, afterSave?: import("./components/useRowInventoryEditor").AfterAccountingSave) => {
+      if (persistBusyRef.current) return
       if (isPeriodLockVoucher(record)) {
         notify(
           t("PERIOD_LOCK_VOUCHER_READONLY", "Chứng từ khóa sổ tự động chỉ được xem, không thể sửa."),
@@ -1132,12 +1147,24 @@ const openEditPopup = useCallback(
         return
       }
 
+      persistBusyRef.current = true
       setPopupLoading(true)
       let persistedChit: ChitInfo | null = null
       let keepEditorOpen = false
 
       try {
-        const payload = mapChitToApiPayload(record)
+        vatContext.validate(record)
+        let submitted = record
+        if (vatSource && isUpdate && vatContext.inventoryEnabled) {
+          const currentResult = await getChits(ledger, chitType, { chitId: Number(record.CHIT_ID), INCLUDE_DETAILS: true, pageNumber: 1, pageSize: 1 })
+          const current = normalizeChitRows(currentResult.data, chitType)[0]
+          if (!current) throw new Error("Không đọc được chứng từ đã lưu để kiểm tra liên kết kho.")
+          submitted = { ...record, DETAILS: record.DETAILS.map((detail) => {
+            const saved = current.DETAILS.find((row) => Number(row.CHITDETAIL_ID) === Number(detail.CHITDETAIL_ID))
+            return { ...detail, INVENTORY_INPUTS: saved?.INVENTORY_INPUTS ?? detail.INVENTORY_INPUTS, INVENTORY_OUTPUTS: saved?.INVENTORY_OUTPUTS ?? detail.INVENTORY_OUTPUTS }
+          }) }
+        }
+        const payload = mapChitToApiPayload(submitted)
         let result
         if (isUpdate) {
           result = await updateChit(ledger, payload, chitType)
@@ -1158,15 +1185,29 @@ const openEditPopup = useCallback(
             ROW_KEY: record.DETAILS.find((row) => Number(row.SORT) === Number(detail.SORT))?.ROW_KEY ?? detail.ROW_KEY,
           }))
           selectedChitIdRef.current = savedChit.CHIT_ID ?? null
+          await vatContext.link(savedChit)
           if (afterSave) {
             keepEditorOpen = (await afterSave(savedChit, record)) === true
           }
 
           notifySourceVoucherLinked(savedChit)
-        } else if (afterSave) {
+        } else if (afterSave || vatSource) {
           throw new Error("Không nhận được phiếu nguồn sau khi lưu để liên kết kho")
         }
 
+        if (editorOnly) {
+          if (savedChit) {
+            setEditingRow(savedChit)
+            setIsUpdate(true)
+          }
+          await invalidateChits()
+          await onEditorSaved?.()
+          if (!keepEditorOpen) {
+            setPopupVisible(false)
+            onEditorClose?.()
+          }
+          return
+        }
         if (keepEditorOpen && savedChit) {
           setEditingRow(savedChit)
           setIsUpdate(true)
@@ -1189,10 +1230,11 @@ const openEditPopup = useCallback(
         console.error("Save chit note error", error)
         notify(getApiErrorMessage(error, t("SAVE_FAILED", "Lưu thất bại")), "error", 4000)
       } finally {
+        persistBusyRef.current = false
         setPopupLoading(false)
       }
     },
-    [chitType, invalidateChits, isUpdate, ledger, openChitRoute, openCreatePopup, t],
+    [chitType, invalidateChits, isUpdate, ledger, openChitRoute, openCreatePopup, t, vatSource, vatContext, editorOnly, onEditorSaved, onEditorClose],
   )
 
   const handleSave = useCallback(
@@ -1676,6 +1718,88 @@ const openEditPopup = useCallback(
     [handleAddPaymentShortcut, handleNewReceiptShortcut],
   )
 
+  const editorPopup = (
+    <>
+      {popupVisible ? (
+        <ChitEditorPopup
+          visible={popupVisible}
+          value={editingRow}
+          ledger={ledger}
+          chitType={chitType}
+          voucherLabel={title}
+          isUpdate={isUpdate}
+          readOnly={editorReadOnly}
+          loading={popupLoading}
+          onReturnToLinkedInventory={chitType === "OT" ? linkedCogsIssuePopup.open : undefined}
+          inventoryLinkRefreshVersion={linkedCogsIssuePopup.refreshVersion}
+          screenCd={editorOnly ? `/app/${getCurrentCompanyCd()}${getVoucherRouteByChitType(chitType)}` : undefined}
+          showInventoryLinkActions={vatSource ? vatContext.inventoryEnabled : undefined}
+          canOpenInventoryRow={vatContext.inventoryEnabled ? vatContext.canOpenInventoryRow : undefined}
+          prepareInventoryDraft={vatContext.inventoryEnabled ? vatContext.prepareInventoryDraft : undefined}
+          inventoryDraftType={vatContext.inventoryEnabled ? (vatSource?.invoiceType === "BUY" ? "IR" : "IO") : undefined}
+          validateInventoryDraft={vatContext.inventoryEnabled ? vatContext.validateInventoryDraft : undefined}
+          onClose={() => {
+            if (editorOnly) {
+              if (!popupLoading) onEditorClose?.()
+              return
+            }
+            if (chitType === "SO" || chitType === "OT") {
+              const closeParams = new URLSearchParams(location.search)
+
+            }
+
+            if (popupLoading) {
+              return
+            }
+
+            const routeParams = new URLSearchParams(location.search)
+            const returnPath = routeParams.get("returnPath")
+            const returnChitType = routeParams.get("returnChitType")
+            const returnChitId = Number(routeParams.get("returnChitId") ?? 0)
+            const expectedReturnPath = returnChitType === "IO"
+              ? "/inventory/issue"
+              : returnChitType === "IR"
+                ? "/inventory/receipt"
+                : null
+            if (
+              expectedReturnPath !== null
+              && returnPath === expectedReturnPath
+              && Number.isSafeInteger(returnChitId)
+              && returnChitId > 0
+            ) {
+              const returnSearch = new URLSearchParams({ openChitId: String(returnChitId) })
+              const returnOpenTab = routeParams.get("returnOpenTab")
+              const openTab = returnOpenTab === "cogs" || returnOpenTab === "output" ? returnOpenTab : undefined
+              if (returnChitType === "IO" && openTab) {
+                returnSearch.set("openTab", openTab)
+              }
+
+              navigate({ pathname: returnPath, search: `?${returnSearch.toString()}` }, {
+                replace: true,
+                state: {
+                  openChitId: returnChitId,
+                  openMode: "edit",
+                  ...(returnChitType === "IO" && openTab ? { openTab } : {}),
+                } satisfies VoucherOpenLocationState,
+              })
+              return
+            }
+
+            setPopupVisible(false)
+            void openChitRoute.completeDirectOpenOnPopupClose().then(() => {
+              initialLoadTriggeredRef.current = true
+            })
+          }}
+          onSave={handleSave}
+          onSaveAndNew={editorOnly ? undefined : handleSaveAndNew}
+          printReportCode={pdfReportCode}
+        />
+      ) : null}
+    </>
+  )
+
+  if (editorOnly) return editorPopup
+
   return (
     <DxPage>
       <div className="flex h-full min-h-0 flex-col gap-1 overflow-hidden">
@@ -1803,71 +1927,7 @@ const openEditPopup = useCallback(
         </div>
       </div>
 
-      {popupVisible ? (
-        <ChitEditorPopup
-          visible={popupVisible}
-          value={editingRow}
-          ledger={ledger}
-          chitType={chitType}
-          voucherLabel={title}
-          isUpdate={isUpdate}
-          readOnly={editorReadOnly}
-          loading={popupLoading}
-          onReturnToLinkedInventory={chitType === "OT" ? linkedCogsIssuePopup.open : undefined}
-          inventoryLinkRefreshVersion={linkedCogsIssuePopup.refreshVersion}
-          onClose={() => {
-            if (chitType === "SO" || chitType === "OT") {
-              const closeParams = new URLSearchParams(location.search)
-
-            }
-
-            if (popupLoading) {
-              return
-            }
-
-            const routeParams = new URLSearchParams(location.search)
-            const returnPath = routeParams.get("returnPath")
-            const returnChitType = routeParams.get("returnChitType")
-            const returnChitId = Number(routeParams.get("returnChitId") ?? 0)
-            const expectedReturnPath = returnChitType === "IO"
-              ? "/inventory/issue"
-              : returnChitType === "IR"
-                ? "/inventory/receipt"
-                : null
-            if (
-              expectedReturnPath !== null
-              && returnPath === expectedReturnPath
-              && Number.isSafeInteger(returnChitId)
-              && returnChitId > 0
-            ) {
-              const returnSearch = new URLSearchParams({ openChitId: String(returnChitId) })
-              const returnOpenTab = routeParams.get("returnOpenTab")
-              const openTab = returnOpenTab === "cogs" || returnOpenTab === "output" ? returnOpenTab : undefined
-              if (returnChitType === "IO" && openTab) {
-                returnSearch.set("openTab", openTab)
-              }
-
-              navigate({ pathname: returnPath, search: `?${returnSearch.toString()}` }, {
-                replace: true,
-                state: {
-                  openChitId: returnChitId,
-                  openMode: "edit",
-                  ...(returnChitType === "IO" && openTab ? { openTab } : {}),
-                } satisfies VoucherOpenLocationState,
-              })
-              return
-            }
-
-            setPopupVisible(false)
-            void openChitRoute.completeDirectOpenOnPopupClose().then(() => {
-              initialLoadTriggeredRef.current = true
-            })
-          }}
-          onSave={handleSave}
-          onSaveAndNew={handleSaveAndNew}
-          printReportCode={pdfReportCode}
-        />
-      ) : null}
+      {editorPopup}
       {chitType === "OT" && linkedCogsIssuePopup.voucher ? (
         <InventoryEditorPopup
           visible
