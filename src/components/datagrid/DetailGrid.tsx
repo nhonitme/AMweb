@@ -21,6 +21,7 @@ import {
   applyGridColumnSettingsToChildren,
   applyRuntimeColumnVisibilityToChildren,
   applyRuntimeColumnVisibilityToComponent,
+  applyRuntimeColumnFormatAliasesToComponent,
   type RuntimeColumnVisibilityOptions,
 } from "./gridColumnSettingRender"
 import { useCompanyLangRevision } from "@/lib/companyLang"
@@ -44,6 +45,7 @@ interface DetailGridProps<TData> {
   columnSettingStateRef?: React.MutableRefObject<GridColumnSettingState | null>
   columnSettingExcludedColumnNames?: readonly string[]
   runtimeColumnVisibility?: RuntimeColumnVisibilityOptions
+  runtimeColumnFormatAliases?: Readonly<Record<string, string>>
 }
 
 export function DetailGrid<TData>({
@@ -62,6 +64,7 @@ export function DetailGrid<TData>({
   columnSettingStateRef,
   columnSettingExcludedColumnNames = [],
   runtimeColumnVisibility,
+  runtimeColumnFormatAliases,
 }: DetailGridProps<TData>) {
   const gridRef = useRef<dxDataGrid<TData, string | number> | null>(null)
   const { translate } = useContext(LanguageContext) as {
@@ -212,6 +215,7 @@ export function DetailGrid<TData>({
         if (needsVisibilityUpdate) {
           applyRuntimeColumnVisibilityToComponent(event.component, runtimeColumnVisibility)
         }
+        applyRuntimeColumnFormatAliasesToComponent(event.component, runtimeColumnFormatAliases)
       }}
       onCellPrepared={(event) => {
         applyHeaderFieldNameTooltip(event)
