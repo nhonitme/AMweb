@@ -749,7 +749,7 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
                         dataField="AMOUNT_TOTAL"
                         caption={t("AMOUNT_TOTAL", "Tổng cộng")}
                         dataType="number"
-                        format={getFormat("AMOUNT_TOTAL", "#,##0.00")}
+                        format={getFormat("AMOUNT_CC", "#,##0.00")}
                         allowEditing={false}
                         calculateCellValue={(row: InventoryInputLine) => toNumber(row.AMOUNT_CC)}
                     />
