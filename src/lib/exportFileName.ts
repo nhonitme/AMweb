@@ -1,4 +1,5 @@
 import type { MenuTreeNode } from "@/types/menu"
+import { resolveMenuCaption } from "@/utils/resolveConfigCaption"
 
 export type ExportNameTranslator = (key: string, fallback?: string) => string
 
@@ -25,9 +26,8 @@ export function resolveMenuExportLabel(
 ): string {
   const menu = findMenuByCode(tree, menuCode)
   if (!menu) return ""
-  const labelText = menu.labelText?.trim()
-  if (!labelText) return ""
-  return translate(labelText, labelText).trim()
+  // Same chain as sidebar titles: LABEL_TEXT → MENU_CODE → CAPTION/MENU_NAME.
+  return resolveMenuCaption(menu, (key, fallback) => translate(key, fallback)).trim()
 }
 
 function cleanNamePart(value: string): string {

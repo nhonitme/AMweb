@@ -15,7 +15,7 @@ import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import DxPage from "@/dx/DxPage"
 import { exportToExcel } from "@/lib/excelUtils"
-import { useMenuExportName } from "@/hooks/useMenuExportName"
+import { useCurrentMenuExportName } from "@/hooks/useCurrentMenuExportName"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { getCurrentCompanyCd } from "@/lib/login"
 import { useVatInOutListQuery, useVatInOutListInvalidate } from "@/hooks/queries/useVatInOutListQuery"
@@ -83,7 +83,7 @@ function resolveDateDisplay(value: unknown): string {
 }
 
 export default function VatInOutListPage() {
-  const exportName = useMenuExportName(VAT_INOUT_MENU_CODE)
+  const exportName = useCurrentMenuExportName()
   const { lang, translate } = useContext(LanguageContext) as {
     lang?: string
     translate?: (key: string, fallback?: string) => string
@@ -362,13 +362,18 @@ export default function VatInOutListPage() {
     }
 
     try {
-      if (!listQuery) return
+      if (!listQuery) {
+        return
+      }
       setExporting(true)
       const data = await getVatInOutExportData(listQuery)
       const exportRows = data.map((row) => ({ ...row, ROW_KEY: row.mhdon }))
-      await exportToExcel(exportRows, exportColumns, exportName.fileName("xlsx"), exportName.sheetName())
+      const fileName = exportName.fileName("xlsx")
+      const sheetName = exportName.sheetName()
+      await exportToExcel(exportRows, exportColumns, fileName, sheetName)
     } catch (error) {
-      notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Không xuất được Excel.")), "error", 4000)
+      const message = getApiErrorMessage(error, t("EXPORT_FAILED", "Không xuất được Excel."))
+      notify(message, "error", 4000)
     } finally {
       setExporting(false)
     }

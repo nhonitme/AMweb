@@ -74,6 +74,6 @@ export async function exportToExcel(
 export async function deleteStoreInfos(
   storeIds: number[],
 ): Promise<ApiResponseEnvelope<unknown>> {
-  await deleteMasterRecords(BASE_URL, storeIds, "StoreIds", "DeleteMany");
+  await deleteMasterRecords(BASE_URL, storeIds, "StoreIds");
   return { Success: true, Data: { deleted: storeIds.length } };
 }

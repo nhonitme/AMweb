@@ -1,3 +1,4 @@
+import { MobileDeviceNotice } from "@/lib/mobileDevicePolicy";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
@@ -52,6 +53,7 @@ const app = (
           <LanguageProvider>
             <SysGridColumnSettingProvider>
               <SysCodeProvider>
+                <MobileDeviceNotice />
                 <App />
                 <DownloadQueuePanel />
               </SysCodeProvider>

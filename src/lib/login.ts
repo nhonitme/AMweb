@@ -1,3 +1,4 @@
+import { handleMobileDeviceError, isMobileDeviceError, isMobileDeviceBlocked } from "@/lib/mobileDevicePolicy";
 import axios from "axios";
 import { isPublicAppPath } from "@/lib/publicRoutes";
 
@@ -81,7 +82,10 @@ attachClientPublicIpInterceptor(authHttp);
 
 authHttp.interceptors.response.use(
   (response) => response,
-  (error: unknown) => Promise.reject(normalizeApiError(error)),
+  (error: unknown) => {
+    if (handleMobileDeviceError(error)) return Promise.reject(error);
+    return Promise.reject(normalizeApiError(error));
+  },
 );
 
 function readStoredSession(): AuthSession | null {
@@ -327,6 +331,7 @@ async function performRefresh(): Promise<boolean> {
     setSessionCache(session);
     return true;
   } catch (error) {
+    if (isMobileDeviceError(error)) return false;
     if (revision !== sessionRevision) return Boolean(sessionCache);
     expireAuthSession();
     return false;
@@ -334,6 +339,7 @@ async function performRefresh(): Promise<boolean> {
 }
 
 export function refreshToken(): Promise<boolean> {
+  if (isMobileDeviceBlocked()) return Promise.resolve(false);
   if (!pendingRefresh) {
     const run = () => performRefresh();
     pendingRefresh = (typeof navigator !== "undefined" && navigator.locks
@@ -353,6 +359,8 @@ export async function getSession(forceRefresh = false): Promise<AuthSession | nu
   if (session) {
     return session;
   }
+
+  if (isMobileDeviceBlocked()) return null;
 
   if (!canRestoreSession()) {
     sessionResolved = true;

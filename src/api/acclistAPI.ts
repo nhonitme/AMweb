@@ -67,6 +67,6 @@ export async function exportToExcel(
 export async function deleteAcclistInfos(
   acclistIds: number[],
 ): Promise<ApiResponseEnvelope<unknown>> {
-  await deleteMasterRecords(BASE_URL, acclistIds, "AcclistIds", "DeleteMany");
+  await deleteMasterRecords(BASE_URL, acclistIds, "AcclistIds");
   return { Success: true, Data: { deleted: acclistIds.length } };
 }

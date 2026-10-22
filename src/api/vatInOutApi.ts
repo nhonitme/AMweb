@@ -14,6 +14,7 @@ export type VatInOutQuery = {
 
 // Matches the explicit SQL aliases and C# DTO; no report preview wrapper.
 export type VatInOutInvoice = {
+  COMPANY_CD: string
   mhdon: string
   tthai: string | null
   tthai_ten: string | null

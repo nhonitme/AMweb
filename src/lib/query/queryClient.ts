@@ -1,3 +1,4 @@
+import { isMobileDeviceError } from "@/lib/mobileDevicePolicy"
 import { QueryClient } from "@tanstack/react-query"
 
 /** QueryClient dùng chung toàn app. */
@@ -6,7 +7,7 @@ export const queryClient = new QueryClient({
     queries: {
       staleTime: 30_000,
       gcTime: 5 * 60_000,
-      retry: 1,
+      retry: (failureCount, error) => !isMobileDeviceError(error) && failureCount < 1,
       refetchOnWindowFocus: false,
     },
   },

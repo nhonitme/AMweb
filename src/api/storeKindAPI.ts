@@ -52,7 +52,7 @@ export async function updateStoreKindInfo(
 export async function deleteStoreKindInfos(
   storeKindIds: number[],
 ): Promise<ApiResponseEnvelope<unknown>> {
-  await deleteMasterRecords(BASE_URL, storeKindIds, "StoreKindIds", "DeleteMany");
+  await deleteMasterRecords(BASE_URL, storeKindIds, "StoreKindIds");
   return { Success: true, Data: { deleted: storeKindIds.length } };
 }
 

@@ -1,3 +1,4 @@
+import { handleMobileDeviceError, isMobileDeviceBlocked } from "@/lib/mobileDevicePolicy";
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import API_BASE_URL from "../config/apiConfig";
 import { API_REQUEST_TIMEOUT_MS } from "../config/httpConfig";
@@ -139,6 +140,7 @@ function redirectToLoginIfNeeded() {
 axios.interceptors.response.use(
   (response) => response,
   async (error: AxiosError<unknown, RetriableRequestConfig>) => {
+    if (handleMobileDeviceError(error)) return Promise.reject(error);
     const normalizedError = normalizeApiError(error)
     const originalRequest = error.config;
     if (!originalRequest) {
@@ -171,6 +173,7 @@ axios.interceptors.response.use(
       }
 
       const refreshed = await refreshPromise;
+      if (isMobileDeviceBlocked()) return Promise.reject(normalizedError);
       if (refreshed) {
         return axios(originalRequest);
       }

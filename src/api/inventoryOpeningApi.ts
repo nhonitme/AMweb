@@ -35,7 +35,7 @@ export async function updateInventoryOpening(
 export async function deleteInventoryOpenings(
   inputIds: number[],
 ): Promise<ApiResponseEnvelope<unknown>> {
-  await deleteMasterRecords(BASE_URL, inputIds, "InputIds", "DeleteMany")
+  await deleteMasterRecords(BASE_URL, inputIds, "InputIds")
   return { Success: true, Data: { deleted: inputIds.length } }
 }
 
