@@ -1,6 +1,5 @@
 import { useContext } from "react"
 import { Column } from "devextreme-react/data-grid"
-import { formatNumber } from "devextreme/localization"
 
 import { createDateTimeBoxEditorOptions } from "@/components/forms/dateBoxEditorOptions"
 import { useDecimalColumnFormats } from "@/hooks/useDecimalColumnFormats"
@@ -83,17 +82,15 @@ export function ChitInventoryOutputDetailColumns() {
         caption={t("AMOUNT_TOTAL", "Tổng cộng")}
         dataType="number"
         format={getFormat("AMOUNT_CC", "#,##0.00")}
-        customizeText={(cell) => formatNumber(Number(cell.value ?? 0), getFormat("AMOUNT_CC", "#,##0.00"))}
         allowEditing={false}
       />
       <Column dataField="REVENUE_UNIT_PRICE_CC" caption={t("REVENUE_UNIT_PRICE_CC", "Đơn giá doanh thu VND")} dataType="number" format={getFormat("REVENUE_UNIT_PRICE_CC", "#,##0.00")} />
-      <Column dataField="REVENUE_AMOUNT_CC" caption={t("REVENUE_AMOUNT_CC", "Thành tiền doanh thu VND")} dataType="number" format={getFormat("REVENUE_AMOUNT_CC", "#,##0.00")} />
+      <Column dataField="REVENUE_AMOUNT_CC" caption={t("REVENUE_AMOUNT_CC", "Thành tiền doanh thu VND")} dataType="number" format={getFormat("AMOUNT_CC", "#,##0.00")} />
       <Column
         dataField="REVENUE_AMOUNT_TOTAL"
         caption={t("REVENUE_AMOUNT_TOTAL", "Tổng cộng")}
         dataType="number"
-        format={getFormat("REVENUE_AMOUNT_CC", "#,##0.00")}
-        customizeText={(cell) => formatNumber(Number(cell.value ?? 0), getFormat("REVENUE_AMOUNT_CC", "#,##0.00"))}
+        format={getFormat("AMOUNT_CC", "#,##0.00")}
         allowEditing={false}
       />
       <Column dataField="REVENUE_UNIT_PRICE_FC" caption={t("REVENUE_UNIT_PRICE_FC", "Đơn giá doanh thu ngoại tệ")} dataType="number" format={getFormat("REVENUE_UNIT_PRICE_FC", "#,##0.00")} />
