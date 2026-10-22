@@ -20,7 +20,7 @@ import type {
 import { createDateTimeBoxEditorOptions } from "@/components/forms/dateBoxEditorOptions"
 import { useInlineGridSearch } from "@/components/datagrid/gridSearch"
 import { useGridColumnSettingState, type GridColumnSettingState } from "@/components/datagrid/useGridColumnSettingState"
-import { applyGridColumnSettingsToChildren, applyRuntimeColumnVisibilityToChildren, applyRuntimeColumnVisibilityToComponent } from "@/components/datagrid/gridColumnSettingRender"
+import { applyGridColumnSettingsToChildren, applyRuntimeColumnVisibilityToChildren, applyRuntimeColumnVisibilityToComponent, applyRuntimeColumnFormatAliasesToComponent } from "@/components/datagrid/gridColumnSettingRender"
 import DeleteRowButton from "@/components/datagrid/DeleteRowButton"
 import VoucherSpreadsheetSummaryBar from "@/components/datagrid/VoucherSpreadsheetSummaryBar"
 import {
@@ -244,11 +244,10 @@ function syncOutputMoneyColumnSettings<T extends { columnName: string; formatTyp
     const getField = (item: T) => item.columnName.trim().toUpperCase()
     const sourceFormats = new Map(items.map((item) => [getField(item), item.formatType ?? null]))
     const formatted = items.map((item) => {
-        const source = getField(item) === "AMOUNT_TOTAL"
+        const field = getField(item)
+        const source = field === "AMOUNT_TOTAL" || field === "REVENUE_AMOUNT_CC" || field === "REVENUE_AMOUNT_TOTAL"
             ? "AMOUNT_CC"
-            : getField(item) === "REVENUE_AMOUNT_TOTAL"
-                ? "REVENUE_AMOUNT_CC"
-                : null
+            : null
         return source ? { ...item, formatType: sourceFormats.get(source) ?? null } : item
     })
     if (!showRevenueAmounts) return formatted
@@ -499,6 +498,13 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
             [forceForeignCurrencyColumnsVisible, foreignCurrencyColumnsVisible, visibleRows],
         )
         // Apply the active money family after sys_grid_column restores grid settings.
+        // Revenue amounts must render with exactly the same FORMAT_TYPE as AMOUNT_CC.
+        const amountFormatAliases = useMemo(() => ({
+            REVENUE_AMOUNT_CC: "AMOUNT_CC",
+            REVENUE_AMOUNT_TOTAL: "AMOUNT_CC",
+            AMOUNT_TOTAL: "AMOUNT_CC",
+        }), [])
+
         const runtimeMoneyVisibility = useMemo(() => ({
             controlledColumnVisibility: {
                 UNIT_PRICE_CC: showCostAmounts,
@@ -878,8 +884,9 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                 if (needsUpdate) {
                     applyRuntimeColumnVisibilityToComponent(event.component, runtimeMoneyVisibility)
                 }
+                applyRuntimeColumnFormatAliasesToComponent(event.component, amountFormatAliases)
             },
-            [notifyGridContentReady, runtimeMoneyVisibility],
+            [notifyGridContentReady, runtimeMoneyVisibility, amountFormatAliases],
         )
 
         const handleDisposing = useCallback(() => {
@@ -1020,19 +1027,27 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                     />
                     <Column dataField="QUANTITY" setCellValue={setOutputQuantity} caption={t("QUANTITY", "Quantity")} dataType="number" format={getFormat("QUANTITY", "#,##0.###")} editorOptions={createNumberEditorOptions(getFormat("QUANTITY", "#,##0.###"))} />
                     <Column dataField="REVENUE_UNIT_PRICE_CC" setCellValue={setOutputRevenueUnitPrice} caption={t("REVENUE_UNIT_PRICE_CC", "Đơn giá doanh thu VND")} dataType="number" format={getFormat("REVENUE_UNIT_PRICE_CC", "#,##0.00")} visible={showRevenueAmounts} />
-                    <Column dataField="REVENUE_AMOUNT_CC" setCellValue={setOutputRevenueAmountCc} caption={t("REVENUE_AMOUNT_CC", "Thành tiền doanh thu VND")} dataType="number" format={getFormat("REVENUE_AMOUNT_CC", "#,##0.00")} visible={showRevenueAmounts} />
+                    <Column
+                        dataField="REVENUE_AMOUNT_CC"
+                        setCellValue={setOutputRevenueAmountCc}
+                        caption={t("REVENUE_AMOUNT_CC", "Thành tiền doanh thu VND")}
+                        dataType="number"
+                        format={getFormat("AMOUNT_CC", "#,##0.00")}
+                        editorOptions={createNumberEditorOptions(getFormat("AMOUNT_CC", "#,##0.00"))}
+                        visible={showRevenueAmounts}
+                    />
                     <Column dataField="REVENUE_UNIT_PRICE_FC" setCellValue={setOutputRevenueUnitPriceFc} caption={t("REVENUE_UNIT_PRICE_FC", "Đơn giá doanh thu ngoại tệ")} dataType="number" format={getFormat("REVENUE_UNIT_PRICE_FC", "#,##0.00")} visible={showRevenueAmounts && runtimeForeignCurrencyColumnsVisible} />
                     <Column dataField="REVENUE_AMOUNT_FC" caption={t("REVENUE_AMOUNT_FC", "Thành tiền doanh thu ngoại tệ")} dataType="number" format={getFormat("REVENUE_AMOUNT_FC", "#,##0.00")} visible={showRevenueAmounts && runtimeForeignCurrencyColumnsVisible} />
                     <Column
                         dataField="REVENUE_AMOUNT_TOTAL"
                         caption={t("REVENUE_AMOUNT_TOTAL", "Tổng cộng")}
                         dataType="number"
-                        format={getFormat("REVENUE_AMOUNT_CC", "#,##0.00")}
+                        format={getFormat("AMOUNT_CC", "#,##0.00")}
                         customizeText={(cell) => {
-                            const actualFormat = gridRef.current?.columnOption("REVENUE_AMOUNT_CC", "format")
+                            const actualFormat = gridRef.current?.columnOption("AMOUNT_CC", "format")
                             const decimalFormat = typeof actualFormat === "string" || (actualFormat && typeof actualFormat === "object")
                                 ? actualFormat as ReturnType<typeof getFormat>
-                                : getFormat("REVENUE_AMOUNT_CC", "#,##0.00")
+                                : getFormat("AMOUNT_CC", "#,##0.00")
                             return formatNumber(toNumber(cell.value), decimalFormat)
                         }}
                         allowEditing={false}
