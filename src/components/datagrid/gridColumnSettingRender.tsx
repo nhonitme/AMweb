@@ -594,6 +594,47 @@ export function applyRuntimeColumnVisibilityToComponent(
   return true
 }
 
+/**
+ * Mirror the effective source-column format after sys_grid_column has been
+ * applied. Other column options (including width and visibleIndex) remain
+ * managed by the user's grid layout.
+ */
+export function applyRuntimeColumnFormatAliasesToComponent(
+  component: GridColumnSettingsComponent | null | undefined,
+  aliases: Readonly<Record<string, string>> | null | undefined,
+): boolean {
+  if (!aliases || !isGridComponentReady(component) || typeof component?.columnOption !== "function") {
+    return false
+  }
+
+  const changes: Array<{ target: string; format: unknown }> = []
+  Object.entries(aliases).forEach(([target, source]) => {
+    const sourceColumn = component.columnOption?.(source)
+    const targetColumn = component.columnOption?.(target)
+    if (!sourceColumn || !targetColumn || typeof sourceColumn !== "object" || typeof targetColumn !== "object") {
+      return
+    }
+
+    const sourceFormat = (sourceColumn as Record<string, unknown>).format
+    const targetFormat = (targetColumn as Record<string, unknown>).format
+    if (sourceFormat == null) return
+
+    const sameFormat = typeof sourceFormat === "object" || typeof targetFormat === "object"
+      ? JSON.stringify(sourceFormat) === JSON.stringify(targetFormat)
+      : sourceFormat === targetFormat
+    if (!sameFormat) changes.push({ target, format: sourceFormat })
+  })
+
+  if (!changes.length) return false
+  component.beginUpdate?.()
+  try {
+    changes.forEach(({ target, format }) => component.columnOption?.(target, "format", format))
+  } finally {
+    component.endUpdate?.()
+  }
+  return true
+}
+
 export function applyGridColumnSettingsToComponent(
   component: GridColumnSettingsComponent | null | undefined,
   items: GridColumnSettingEditorItem[] | null | undefined,
