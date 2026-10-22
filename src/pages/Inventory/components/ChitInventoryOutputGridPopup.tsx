@@ -234,6 +234,17 @@ function normalizeOutputLine(
     }
 }
 
+// Keep AMOUNT_TOTAL in sync with the effective AMOUNT_CC precision even when
+// sys_grid_column.FORMAT_TYPE overrides column formats in the IO editor.
+function syncAmountTotalColumnFormat<T extends { columnName: string; formatType?: string | null }>(items: T[]): T[] {
+    const amountCcFormat = items.find((item) => item.columnName.trim().toUpperCase() === "AMOUNT_CC")?.formatType ?? null
+    return items.map((item) =>
+        item.columnName.trim().toUpperCase() === "AMOUNT_TOTAL"
+            ? { ...item, formatType: amountCcFormat }
+            : item,
+    )
+}
+
 function cloneOutputLine(item: InventoryOutputLine): InventoryOutputLine {
     return { ...item }
 }
@@ -453,6 +464,10 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
             isVisible,
             layoutVersion,
         })
+        const columnSettingsWithAmountPrecision = useMemo(
+            () => syncAmountTotalColumnFormat(columnSettingState.cachedEditorItems),
+            [columnSettingState.cachedEditorItems],
+        )
         const hasConfiguredColumnWidths = columnSettingState.cachedEditorItems.some((item) => typeof item.width === "number")
         const runtimeForeignCurrencyColumnsVisible = useMemo(
             () => foreignCurrencyColumnsVisible || forceForeignCurrencyColumnsVisible || hasForeignCurrencyOutputAmounts(visibleRows),
@@ -804,9 +819,9 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
         const handleInitialized = useCallback((event: InitializedEvent<InventoryOutputLine, string>) => {
             gridRef.current = event.component ?? null
             if (columnSettingState.cachedEditorItems.length) {
-                columnSettingState.syncEditorItemsToComponent(event.component, columnSettingState.cachedEditorItems)
+                columnSettingState.syncEditorItemsToComponent(event.component, columnSettingsWithAmountPrecision)
             }
-        }, [columnSettingState.cachedEditorItems, columnSettingState.syncEditorItemsToComponent])
+        }, [columnSettingState.cachedEditorItems, columnSettingsWithAmountPrecision, columnSettingState.syncEditorItemsToComponent])
 
         const handleContentReady = useCallback(
             (_event: ContentReadyEvent<InventoryOutputLine, string>) => {
@@ -858,9 +873,10 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                 return
             }
 
-            columnSettingState.syncEditorItemsToComponent(gridRef.current, columnSettingState.cachedEditorItems)
+            columnSettingState.syncEditorItemsToComponent(gridRef.current, columnSettingsWithAmountPrecision)
         }, [
             columnSettingState.cachedEditorItems,
+            columnSettingsWithAmountPrecision,
             columnSettingState.enabled,
             columnSettingState.syncEditorItemsToComponent,
             isVisible,
@@ -878,7 +894,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                     return
                 }
 
-                columnSettingState.syncEditorItemsToComponent(gridRef.current, items)
+                columnSettingState.syncEditorItemsToComponent(gridRef.current, syncAmountTotalColumnFormat(items))
             })
 
             return () => {
@@ -959,7 +975,6 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                                     dataType="number"
                                     format={getFormat("AMOUNT_CC", "#,##0.00")}
                                     allowEditing={false}
-                                    calculateCellValue={(row: InventoryOutputLine) => toNumber(row.AMOUNT_CC)}
                                 />
                             ) : null}
                         </>
@@ -974,7 +989,6 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                                     dataType="number"
                                     format={getFormat("AMOUNT_CC", "#,##0.00")}
                                     allowEditing={false}
-                                    calculateCellValue={(row: InventoryOutputLine) => toNumber(row.AMOUNT_CC)}
                                 />
                             ) : null}
                         </>
@@ -1002,7 +1016,6 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                             dataType="number"
                             format={getFormat("REVENUE_AMOUNT_TOTAL", "#,##0.00")}
                             allowEditing={false}
-                            calculateCellValue={(row: InventoryOutputLine) => toNumber(row.REVENUE_AMOUNT_CC)}
                         />
                     </> : null}
                     {adjustmentMode ? (
@@ -1055,7 +1068,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
             const settingsColumns = applyGridColumnSettingsToChildren(
                 detailColumns,
                 Column,
-                columnSettingState.cachedEditorItems,
+                columnSettingsWithAmountPrecision,
                 columnSettingState.translateCaption,
                 { hideColumnsMissingFromSettings: usesSysGridCatalog },
             )
@@ -1064,7 +1077,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                     RUNTIME_COLUMN_SETTING_EXCLUDED_NAMES.map((name) => [name, runtimeForeignCurrencyColumnsVisible]),
                 ),
             })
-        }, [detailColumns, columnSettingState.cachedEditorItems, columnSettingState.translateCaption, usesSysGridCatalog, runtimeForeignCurrencyColumnsVisible])
+        }, [detailColumns, columnSettingsWithAmountPrecision, columnSettingState.translateCaption, usesSysGridCatalog, runtimeForeignCurrencyColumnsVisible])
 
         return (
             <div className="flex min-h-0 w-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white" style={rootStyle}>
