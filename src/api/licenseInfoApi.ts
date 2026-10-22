@@ -3,6 +3,14 @@ import API_BASE_URL from "../config/apiConfig";
 
 export type LicenseStatus = "ACTIVE" | "EXPIRING" | "EXPIRED" | "SUSPENDED" | string;
 
+export type LicenseState = LicenseStatus | "UNCONFIGURED";
+
+export interface LicenseStatusInfo {
+  COMPANY_CD: string;
+  LICENSE_STATUS: LicenseState;
+  END_DATE: string | null;
+}
+
 export interface LicenseRenewalHistory {
   ID: number;
   RENEWED_AT: string;
@@ -36,4 +44,16 @@ export async function getCurrentLicense(): Promise<LicenseInfo | null> {
     throw new Error(envelope.Message ?? envelope.message ?? "Không thể tải thông tin License");
   }
   return envelope.Data ?? envelope.data ?? null;
+}
+
+/** Lightweight lookup used by the global License Access Gate. */
+export async function getLicenseStatus(): Promise<LicenseStatusInfo> {
+  const response = await axios.get<Envelope<LicenseStatusInfo>>(`${API_BASE_URL}/license/status`);
+  const envelope = response.data;
+  if (envelope.Success === false || envelope.success === false) {
+    throw new Error(envelope.Message ?? envelope.message ?? "Không thể kiểm tra License");
+  }
+  const data = envelope.Data ?? envelope.data;
+  if (!data) throw new Error("License status response is empty");
+  return data;
 }
