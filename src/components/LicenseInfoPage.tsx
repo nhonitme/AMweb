@@ -1,7 +1,7 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useState } from "react";
 import { CalendarDays, CheckCircle2, Clock3, Headphones, KeyRound, RefreshCw, UsersRound, AlertTriangle } from "lucide-react";
 import { getApiErrorMessage } from "@/api/apiTypes";
-import { getCurrentLicense, type LicenseInfo } from "@/api/licenseInfoApi";
+import { useLicenseDetailsQuery } from "@/hooks/queries/useLicenseQueries";
 import { LanguageContext } from "@/lib/i18nLoader";
 import { getCurrentCompanyCd } from "@/lib/login";
 
@@ -54,26 +54,15 @@ function localizeType(value: string | null | undefined, t: Translate): string {
 export default function LicenseInfoPage() {
   const { translate: t } = useContext(LanguageContext);
   const companyCd = getCurrentCompanyCd();
-  const [data, setData] = useState<LicenseInfo | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Shares exactly the same React Query key as the LicenseAccessGate.
+  // A direct visit to this page therefore reuses the gate's in-flight request.
+  const { data: license, isPending, error: queryError, refetch } = useLicenseDetailsQuery(companyCd);
+  const data = license ?? null;
+  const loading = Boolean(companyCd) && isPending && !queryError;
+  const error = queryError && !data
+    ? getApiErrorMessage(queryError, t("LICENSE_LOAD_FAILED", "Không thể tải thông tin License."))
+    : null;
   const [tab, setTab] = useState<"general" | "history">("general");
-  const [revision, setRevision] = useState(0);
-
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError(null);
-    setData(null);
-    getCurrentLicense().then((result) => {
-      if (active) setData(result);
-    }).catch((err: unknown) => {
-      if (active) setError(getApiErrorMessage(err, t("LICENSE_LOAD_FAILED", "Không thể tải thông tin License.")));
-    }).finally(() => {
-      if (active) setLoading(false);
-    });
-    return () => { active = false; };
-  }, [companyCd, revision, t]);
 
   const badge = data?.LICENSE_STATUS ?? "";
   const canShowUserLimit = data?.MAX_USERS !== null && data?.MAX_USERS !== undefined;
@@ -87,7 +76,7 @@ export default function LicenseInfoPage() {
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{t("LICENSE_INFORMATION", "Thông tin License")}</h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">AMnote Web · {companyCd}</p>
       </div>
-      <button type="button" onClick={() => setRevision(v => v + 1)} disabled={loading}
+      <button type="button" onClick={() => { void refetch(); }} disabled={loading}
         className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
         <RefreshCw size={15}/> {t("LICENSE_REFRESH", "Tải lại")}
       </button>
@@ -96,7 +85,7 @@ export default function LicenseInfoPage() {
     {loading && <div role="status" className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800">{t("LICENSE_LOADING", "Đang tải thông tin License...")}</div>}
     {!loading && error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
       <div className="mb-3 flex items-center gap-2"><AlertTriangle size={18}/>{error}</div>
-      <button type="button" onClick={() => setRevision(v => v + 1)} className="rounded-md border border-red-200 bg-white px-3 py-1.5">{t("LICENSE_RETRY", "Thử lại")}</button>
+      <button type="button" onClick={() => { void refetch(); }} className="rounded-md border border-red-200 bg-white px-3 py-1.5">{t("LICENSE_RETRY", "Thử lại")}</button>
     </div>}
     {!loading && !error && !data && <div className="rounded-xl border border-gray-200 bg-white p-8 dark:border-gray-700 dark:bg-gray-800">
       <div className="flex items-center gap-2 text-gray-800 dark:text-gray-100"><KeyRound size={20}/><strong>{t("LICENSE_NOT_CONFIGURED", "Chưa có thông tin License")}</strong></div>
