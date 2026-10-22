@@ -1,5 +1,6 @@
 import { useContext } from "react"
 import { Column } from "devextreme-react/data-grid"
+import { formatNumber } from "devextreme/localization"
 
 import { createDateTimeBoxEditorOptions } from "@/components/forms/dateBoxEditorOptions"
 import { useDecimalColumnFormats } from "@/hooks/useDecimalColumnFormats"
@@ -77,6 +78,26 @@ export function ChitInventoryOutputDetailColumns() {
       <Column dataField="QUANTITY" caption={t("QUANTITY", "Quantity")} dataType="number" format={getFormat("QUANTITY", "#,##0.###")} editorOptions={createNumberEditorOptions(getFormat("QUANTITY", "#,##0.###"))} />
       <Column dataField="UNIT_PRICE_CC" caption={t("UNIT_PRICE_CC", "Unit Price")} dataType="number" format={getFormat("UNIT_PRICE_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("UNIT_PRICE_CC", "#,##0.00"))} />
       <Column dataField="AMOUNT_CC" caption={t("AMOUNT_CC", "Amount")} dataType="number" format={getFormat("AMOUNT_CC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("AMOUNT_CC", "#,##0.00"))} allowHiding={false} />
+      <Column
+        dataField="AMOUNT_TOTAL"
+        caption={t("AMOUNT_TOTAL", "Tổng cộng")}
+        dataType="number"
+        format={getFormat("AMOUNT_CC", "#,##0.00")}
+        customizeText={(cell) => formatNumber(Number(cell.value ?? 0), getFormat("AMOUNT_CC", "#,##0.00"))}
+        allowEditing={false}
+      />
+      <Column dataField="REVENUE_UNIT_PRICE_CC" caption={t("REVENUE_UNIT_PRICE_CC", "Đơn giá doanh thu VND")} dataType="number" format={getFormat("REVENUE_UNIT_PRICE_CC", "#,##0.00")} />
+      <Column dataField="REVENUE_AMOUNT_CC" caption={t("REVENUE_AMOUNT_CC", "Thành tiền doanh thu VND")} dataType="number" format={getFormat("REVENUE_AMOUNT_CC", "#,##0.00")} />
+      <Column
+        dataField="REVENUE_AMOUNT_TOTAL"
+        caption={t("REVENUE_AMOUNT_TOTAL", "Tổng cộng")}
+        dataType="number"
+        format={getFormat("REVENUE_AMOUNT_CC", "#,##0.00")}
+        customizeText={(cell) => formatNumber(Number(cell.value ?? 0), getFormat("REVENUE_AMOUNT_CC", "#,##0.00"))}
+        allowEditing={false}
+      />
+      <Column dataField="REVENUE_UNIT_PRICE_FC" caption={t("REVENUE_UNIT_PRICE_FC", "Đơn giá doanh thu ngoại tệ")} dataType="number" format={getFormat("REVENUE_UNIT_PRICE_FC", "#,##0.00")} />
+      <Column dataField="REVENUE_AMOUNT_FC" caption={t("REVENUE_AMOUNT_FC", "Thành tiền doanh thu ngoại tệ")} dataType="number" format={getFormat("REVENUE_AMOUNT_FC", "#,##0.00")} />
       <Column dataField="FC_TYPE" caption={t("FC_TYPE", "Currency")} />
       <Column dataField="UNIT_PRICE_FC" caption={t("UNIT_PRICE_FC", "Unit Price FC")} dataType="number" format={getFormat("UNIT_PRICE_FC", "#,##0.00")} editorOptions={createNumberEditorOptions(getFormat("UNIT_PRICE_FC", "#,##0.00"))} />
       <Column dataField="EXCHANGE_RATES" caption={t("FC_RATE", "Exchange rate")} dataType="number" format={getFormat("EXCHANGE_RATES", "#,##0.000000")} editorOptions={createNumberEditorOptions(getFormat("EXCHANGE_RATES", "#,##0.000000"))} />
