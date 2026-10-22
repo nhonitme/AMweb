@@ -1080,10 +1080,20 @@ export default function InventoryEditorPopup({
     return `${actionLabel} ${voucherLabel}`
   }, [isUpdate, t, voucherLabel])
 
+  const handleSelectIssueTab = useCallback(async (nextTab: "output" | "cogs") => {
+    if (nextTab === activeInventoryIssueTab || loading) return
+    try {
+      // Batch-mode changes must be committed to the shared OUTPUTS draft before switching money families.
+      const rows = await outputGridRef.current?.savePendingChanges()
+      if (rows) handleOutputsChange(rows)
+      setActiveInventoryIssueTab(nextTab)
+    } catch (error) {
+      notify(getApiErrorMessage(error, t("SAVE_FAILED", "Không thể cập nhật chi tiết xuất kho")), "error", 3000)
+    }
+  }, [activeInventoryIssueTab, handleOutputsChange, loading, t])
+
   const inventoryTabItems = [
-    ...(!(visible && initialIssueTab === "cogs" && draft.IS_COGS)
-      ? [{ id: "output" as const, text: t("INVENTORY_OUTPUT", "Xuất kho") }]
-      : []),
+    { id: "output" as const, text: t("INVENTORY_OUTPUT", "Xuất kho") },
     ...(draft.IS_COGS
       ? [{ id: "cogs" as const, text: t("INVENTORY_COGS", "Giá vốn") }]
       : []),
@@ -1098,7 +1108,9 @@ export default function InventoryEditorPopup({
         keyExpr="id"
         selectedIndex={inventoryTabItems.findIndex((item) => item.id === activeInventoryIssueTab)}
         onItemClick={(event) => {
-          if (event.itemData) setActiveInventoryIssueTab(event.itemData.id)
+          if (event.itemData?.id === "output" || event.itemData?.id === "cogs") {
+            void handleSelectIssueTab(event.itemData.id)
+          }
         }}
       />
     </div>
