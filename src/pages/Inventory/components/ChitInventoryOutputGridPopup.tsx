@@ -234,37 +234,82 @@ function normalizeOutputLine(
     }
 }
 
-// Match the source amount's decimal precision, and keep the revenue money
-// columns adjacent to QUANTITY even when a saved column layout is loaded.
-function syncOutputMoneyColumnSettings<T extends { columnName: string; formatType?: string | null; visibleIndex?: number | null }>(
+// Keep the saved sys_grid_column width/caption/format, but derive one stable,
+// contiguous visible-column order before DevExtreme applies the COGS revenue view.
+// Changing visibility *after* applying the stored visibleIndex leaves the grid
+// with displaced columns (notably FX rate, revenue total and SUMMARY).
+function syncOutputMoneyColumnSettings<T extends {
+    columnName: string
+    isVisible: boolean
+    formatType?: string | null
+    visibleIndex?: number | null
+}>(
     items: T[],
     showRevenueAmounts: boolean,
+    showForeignCurrency: boolean,
 ): T[] {
-    const getField = (item: T) => item.columnName.trim().toUpperCase()
-    const sourceFormats = new Map(items.map((item) => [getField(item), item.formatType ?? null]))
+    const field = (item: T) => item.columnName.trim().toUpperCase()
+    const sourceFormats = new Map(items.map((item) => [field(item), item.formatType ?? null]))
     const formatted = items.map((item) => {
-        const field = getField(item)
-        const source = field === "AMOUNT_TOTAL" || field === "REVENUE_AMOUNT_CC" || field === "REVENUE_AMOUNT_TOTAL"
+        const name = field(item)
+        const source = name === "AMOUNT_TOTAL" || name === "REVENUE_AMOUNT_CC" || name === "REVENUE_AMOUNT_TOTAL"
             ? "AMOUNT_CC"
             : null
         return source ? { ...item, formatType: sourceFormats.get(source) ?? null } : item
     })
     if (!showRevenueAmounts) return formatted
 
-    const ordered = [...formatted].sort(
-        (a, b) => (a.visibleIndex ?? Number.MAX_SAFE_INTEGER) - (b.visibleIndex ?? Number.MAX_SAFE_INTEGER),
-    )
-    const revenueFields = ["REVENUE_UNIT_PRICE_CC", "REVENUE_AMOUNT_CC", "REVENUE_AMOUNT_TOTAL"]
-    const revenueSet = new Set(revenueFields)
-    const revenueColumns = revenueFields
-        .map((field) => ordered.find((item) => getField(item) === field))
+    // IS_VISIBLE=0 for the revenue columns in the default (non-COGS) layout.
+    // Activate only the corresponding revenue family for the Xuất kho tab;
+    // do not change the saved sys_grid_column preferences.
+    const revenueVisibility = new Map<string, boolean>([
+        ["UNIT_PRICE_CC", false],
+        ["AMOUNT_CC", false],
+        ["AMOUNT_TOTAL", false],
+        ["UNIT_PRICE_FC", false],
+        ["AMOUNT_FC", false],
+        ["REVENUE_UNIT_PRICE_CC", true],
+        ["REVENUE_AMOUNT_CC", true],
+        ["REVENUE_AMOUNT_TOTAL", true],
+        ["REVENUE_UNIT_PRICE_FC", showForeignCurrency],
+        ["REVENUE_AMOUNT_FC", showForeignCurrency],
+        ["EXCHANGE_RATES", showForeignCurrency],
+    ])
+    const activeSettings = formatted.map((item) => {
+        const override = revenueVisibility.get(field(item))
+        return override === undefined ? item : { ...item, isVisible: override }
+    })
+    const bySavedPosition = [...activeSettings].sort((a, b) => (
+        (a.visibleIndex ?? Number.MAX_SAFE_INTEGER) - (b.visibleIndex ?? Number.MAX_SAFE_INTEGER)
+    ))
+    const visible = bySavedPosition.filter((item) => item.isVisible)
+    const hidden = bySavedPosition.filter((item) => !item.isVisible)
+    const positionAfter = (items: T[], anchor: string) => items.findIndex((item) => field(item) === anchor) + 1
+
+    // The configured fields already carry their own COLUMN_WIDTH values. Only
+    // relocate the money fields; never use JSX order or width defaults as layout.
+    const revenueCcFields = ["REVENUE_UNIT_PRICE_CC", "REVENUE_AMOUNT_CC", "REVENUE_AMOUNT_TOTAL"]
+    const revenueFcFields = ["REVENUE_UNIT_PRICE_FC", "REVENUE_AMOUNT_FC"]
+    const movedFields = new Set([...revenueCcFields, ...revenueFcFields])
+    const inFieldOrder = (names: string[]) => names
+        .map((name) => visible.find((item) => field(item) === name))
         .filter((item): item is T => item !== undefined)
-    const others = ordered.filter((item) => !revenueSet.has(getField(item)))
-    const quantityIndex = others.findIndex((item) => getField(item) === "QUANTITY")
-    if (quantityIndex < 0 || !revenueColumns.length) return formatted
-    others.splice(quantityIndex + 1, 0, ...revenueColumns)
-    const indices = new Map(others.map((item, index) => [getField(item), index]))
-    return formatted.map((item) => ({ ...item, visibleIndex: indices.get(getField(item)) ?? item.visibleIndex }))
+    const ordered = visible.filter((item) => !movedFields.has(field(item)))
+    const afterQuantity = positionAfter(ordered, "QUANTITY")
+    if (afterQuantity > 0) ordered.splice(afterQuantity, 0, ...inFieldOrder(revenueCcFields))
+    else ordered.push(...inFieldOrder(revenueCcFields))
+    const afterExchangeRate = positionAfter(ordered, "EXCHANGE_RATES")
+    const afterRevenueTotal = positionAfter(ordered, "REVENUE_AMOUNT_TOTAL")
+    ordered.splice(afterExchangeRate || afterRevenueTotal || ordered.length, 0, ...inFieldOrder(revenueFcFields))
+
+    // Assign distinct indices for visible *and* hidden configured fields. This
+    // prevents DevExtreme from inserting hidden AMOUNT_* columns between revenue
+    // columns when it normalizes visibleIndex during checkbox/tab switching.
+    const effectiveIndices = new Map([...ordered, ...hidden].map((item, index) => [field(item), index + 1]))
+    return activeSettings.map((item) => ({
+        ...item,
+        visibleIndex: effectiveIndices.get(field(item)) ?? item.visibleIndex,
+    }))
 }
 
 function cloneOutputLine(item: InventoryOutputLine): InventoryOutputLine {
@@ -486,13 +531,17 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
             isVisible,
             layoutVersion,
         })
-        const columnSettingsWithAmountPrecision = useMemo(
-            () => syncOutputMoneyColumnSettings(columnSettingState.cachedEditorItems, showRevenueAmounts),
-            [columnSettingState.cachedEditorItems, showRevenueAmounts],
-        )
         const runtimeForeignCurrencyColumnsVisible = useMemo(
             () => foreignCurrencyColumnsVisible || forceForeignCurrencyColumnsVisible || hasForeignCurrencyOutputAmounts(visibleRows),
             [forceForeignCurrencyColumnsVisible, foreignCurrencyColumnsVisible, visibleRows],
+        )
+        const columnSettingsWithAmountPrecision = useMemo(
+            () => syncOutputMoneyColumnSettings(
+                columnSettingState.cachedEditorItems,
+                showRevenueAmounts,
+                runtimeForeignCurrencyColumnsVisible,
+            ),
+            [columnSettingState.cachedEditorItems, showRevenueAmounts, runtimeForeignCurrencyColumnsVisible],
         )
         // Apply the active money family after sys_grid_column restores grid settings.
         // Revenue amounts must render with exactly the same FORMAT_TYPE as AMOUNT_CC.
@@ -509,7 +558,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                 columnSettingsWithAmountPrecision.map((item) => item.columnName.trim().toUpperCase()),
             )
             const isConfigured = (field: string) =>
-                !usesSysGridCatalog || configuredFields.size === 0 || configuredFields.has(field)
+                !usesSysGridCatalog || configuredFields.has(field)
 
             return {
                 controlledColumnVisibility: {
@@ -962,7 +1011,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                     return
                 }
 
-                const settings = syncOutputMoneyColumnSettings(items, showRevenueAmounts)
+                const settings = syncOutputMoneyColumnSettings(items, showRevenueAmounts, runtimeForeignCurrencyColumnsVisible)
                 columnSettingState.syncEditorItemsToComponent(gridRef.current, settings)
             })
 
@@ -974,6 +1023,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
             columnSettingState.loadEditorItems,
             columnSettingState.syncEditorItemsToComponent,
             showRevenueAmounts,
+            runtimeForeignCurrencyColumnsVisible,
             isVisible,
         ])
 
