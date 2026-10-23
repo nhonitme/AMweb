@@ -1262,7 +1262,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
 
                     <Column
                         name="DETAIL_ACTIONS"
-                        allowResizing={false}
+                        width={60}
                         fixed={true}
                         fixedPosition="left"
                         visibleIndex={0}
