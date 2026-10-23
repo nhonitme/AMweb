@@ -301,7 +301,6 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
             layoutVersion,
         })
         const resolvedDataGridHeight = usePercentHeight ? "100%" : gridHeight
-        const hasConfiguredColumnWidths = columnSettingState.cachedEditorItems.some((item) => typeof item.width === "number")
         const foreignCurrencyColumnsVisible = forceForeignCurrencyColumnsVisible || hasForeignCurrencyDetails(visibleDetails)
         const softDeletedCount = useMemo(
             () => details.reduce((count, item) => count + (item.ISDEL ? 1 : 0), 0),
@@ -899,7 +898,7 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                         width="100%"
                         height={resolvedDataGridHeight}
                         showBorders
-                        columnAutoWidth={!hasConfiguredColumnWidths}
+                        columnAutoWidth={false}
                         rowAlternationEnabled
                         allowColumnResizing
                         allowColumnReordering

@@ -344,7 +344,6 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
             isVisible,
             layoutVersion,
         })
-        const hasConfiguredColumnWidths = columnSettingState.cachedEditorItems.some((item) => typeof item.width === "number")
         const runtimeForeignCurrencyColumnsVisible = useMemo(
             () => foreignCurrencyColumnsVisible || forceForeignCurrencyColumnsVisible || hasForeignCurrencyInputAmounts(visibleRows),
             [forceForeignCurrencyColumnsVisible, foreignCurrencyColumnsVisible, visibleRows],
@@ -842,7 +841,7 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
                             width="100%"
                             height={gridHeight}
                             showBorders
-                            columnAutoWidth={!hasConfiguredColumnWidths}
+                            columnAutoWidth={false}
                             rowAlternationEnabled
                             allowColumnResizing
                             allowColumnReordering

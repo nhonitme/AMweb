@@ -492,7 +492,6 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
             () => syncOutputMoneyColumnSettings(columnSettingState.cachedEditorItems, showRevenueAmounts),
             [columnSettingState.cachedEditorItems, showRevenueAmounts],
         )
-        const hasConfiguredColumnWidths = columnSettingState.cachedEditorItems.some((item) => typeof item.width === "number")
         const runtimeForeignCurrencyColumnsVisible = useMemo(
             () => foreignCurrencyColumnsVisible || forceForeignCurrencyColumnsVisible || hasForeignCurrencyOutputAmounts(visibleRows),
             [forceForeignCurrencyColumnsVisible, foreignCurrencyColumnsVisible, visibleRows],
@@ -1212,7 +1211,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                             width="100%"
                             height={gridHeight}
                             showBorders
-                            columnAutoWidth={!hasConfiguredColumnWidths}
+                            columnAutoWidth={false}
                             rowAlternationEnabled
                             allowColumnResizing
                             allowColumnReordering
@@ -1253,6 +1252,8 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
 
                     <Column
                         name="DETAIL_ACTIONS"
+                        width={60}
+                        allowResizing={false}
                         fixed={true}
                         fixedPosition="left"
                         visibleIndex={0}
