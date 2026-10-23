@@ -502,21 +502,31 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
             AMOUNT_TOTAL: "AMOUNT_CC",
         }), [])
 
-        const runtimeMoneyVisibility = useMemo(() => ({
-            controlledColumnVisibility: {
-                UNIT_PRICE_CC: showCostAmounts,
-                AMOUNT_CC: showCostAmounts,
-                AMOUNT_TOTAL: showCostAmounts,
-                UNIT_PRICE_FC: showCostAmounts && runtimeForeignCurrencyColumnsVisible,
-                AMOUNT_FC: showCostAmounts && runtimeForeignCurrencyColumnsVisible,
-                REVENUE_UNIT_PRICE_CC: showRevenueAmounts,
-                REVENUE_AMOUNT_CC: showRevenueAmounts,
-                REVENUE_AMOUNT_TOTAL: showRevenueAmounts,
-                REVENUE_UNIT_PRICE_FC: showRevenueAmounts && runtimeForeignCurrencyColumnsVisible,
-                REVENUE_AMOUNT_FC: showRevenueAmounts && runtimeForeignCurrencyColumnsVisible,
-                EXCHANGE_RATES: runtimeForeignCurrencyColumnsVisible,
-            },
-        }), [showCostAmounts, showRevenueAmounts, runtimeForeignCurrencyColumnsVisible])
+        const runtimeMoneyVisibility = useMemo(() => {
+            // The money family switches by IS_COGS, but sys_grid_column remains
+            // the source of truth for which FIELD_NAME exists in the IO grid.
+            const configuredFields = new Set(
+                columnSettingsWithAmountPrecision.map((item) => item.columnName.trim().toUpperCase()),
+            )
+            const isConfigured = (field: string) =>
+                !usesSysGridCatalog || configuredFields.size === 0 || configuredFields.has(field)
+
+            return {
+                controlledColumnVisibility: {
+                    UNIT_PRICE_CC: showCostAmounts && isConfigured("UNIT_PRICE_CC"),
+                    AMOUNT_CC: showCostAmounts && isConfigured("AMOUNT_CC"),
+                    AMOUNT_TOTAL: showCostAmounts && isConfigured("AMOUNT_TOTAL"),
+                    UNIT_PRICE_FC: showCostAmounts && runtimeForeignCurrencyColumnsVisible && isConfigured("UNIT_PRICE_FC"),
+                    AMOUNT_FC: showCostAmounts && runtimeForeignCurrencyColumnsVisible && isConfigured("AMOUNT_FC"),
+                    REVENUE_UNIT_PRICE_CC: showRevenueAmounts && isConfigured("REVENUE_UNIT_PRICE_CC"),
+                    REVENUE_AMOUNT_CC: showRevenueAmounts && isConfigured("REVENUE_AMOUNT_CC"),
+                    REVENUE_AMOUNT_TOTAL: showRevenueAmounts && isConfigured("REVENUE_AMOUNT_TOTAL"),
+                    REVENUE_UNIT_PRICE_FC: showRevenueAmounts && runtimeForeignCurrencyColumnsVisible && isConfigured("REVENUE_UNIT_PRICE_FC"),
+                    REVENUE_AMOUNT_FC: showRevenueAmounts && runtimeForeignCurrencyColumnsVisible && isConfigured("REVENUE_AMOUNT_FC"),
+                    EXCHANGE_RATES: runtimeForeignCurrencyColumnsVisible && isConfigured("EXCHANGE_RATES"),
+                },
+            }
+        }, [columnSettingsWithAmountPrecision, showCostAmounts, showRevenueAmounts, runtimeForeignCurrencyColumnsVisible, usesSysGridCatalog])
 
         const softDeletedCount = useMemo(
             () => normalizedRows.reduce((count, item) => count + (item.ISDEL ? 1 : 0), 0),
@@ -1210,7 +1220,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                             width="100%"
                             height={gridHeight}
                             showBorders
-                            columnAutoWidth={true}
+                            columnAutoWidth={false}
                             columnResizingMode="widget"
                             rowAlternationEnabled
                             allowColumnResizing
