@@ -84,7 +84,6 @@ interface ChitInventoryOutputGridPopupProps {
     isCogsVoucher?: boolean
 }
 
-const RUNTIME_COLUMN_SETTING_EXCLUDED_NAMES = ["UNIT_PRICE_FC", "EXCHANGE_RATES", "AMOUNT_FC", "REVENUE_UNIT_PRICE_FC", "REVENUE_AMOUNT_FC"] as const
 const MAX_DETAIL_GRID_HEIGHT = 420
 
 function createRowKey(detailRowKey?: string | null) {
@@ -340,7 +339,6 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
             enabled: persistColumnSettings,
             screenCd,
             gridId,
-            excludedColumnNames: RUNTIME_COLUMN_SETTING_EXCLUDED_NAMES,
             hideColumnsMissingFromSettings: usesSysGridCatalog,
         })
         const { searchText, searchVisible, showSearch, handleSearchTextChange, handleSearchEnter } =
@@ -948,7 +946,8 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
 
             let cancelled = false
 
-            void columnSettingState.loadEditorItems(gridRef.current).then((items) => {
+            // Read the saved sys_grid_column widths, not live widths squeezed before FC columns appear.
+            void columnSettingState.loadEditorItems().then((items) => {
                 if (cancelled || !gridRef.current || items.length === 0) {
                     return
                 }
@@ -1211,7 +1210,8 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                             width="100%"
                             height={gridHeight}
                             showBorders
-                            columnAutoWidth={false}
+                            columnAutoWidth={true}
+                            columnResizingMode="widget"
                             rowAlternationEnabled
                             allowColumnResizing
                             allowColumnReordering
@@ -1252,7 +1252,6 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
 
                     <Column
                         name="DETAIL_ACTIONS"
-                        width={60}
                         allowResizing={false}
                         fixed={true}
                         fixedPosition="left"
