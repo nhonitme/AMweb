@@ -234,10 +234,10 @@ function normalizeOutputLine(
     }
 }
 
-// Keep the saved sys_grid_column width/caption/format, but derive one stable,
-// contiguous visible-column order before DevExtreme applies the COGS revenue view.
-// Changing visibility *after* applying the stored visibleIndex leaves the grid
-// with displaced columns (notably FX rate, revenue total and SUMMARY).
+// Keep saved sys_grid_column widths, captions and formats. With Tính giá vốn
+// enabled, the Xuất kho tab swaps its AMOUNT_* fields for REVENUE_* fields in
+// the *same positions*. In particular FX rate/FC amounts must stay BEFORE the
+// VND unit price, just as they do when Tính giá vốn is unchecked.
 function syncOutputMoneyColumnSettings<T extends {
     columnName: string
     isVisible: boolean
@@ -249,19 +249,18 @@ function syncOutputMoneyColumnSettings<T extends {
     showForeignCurrency: boolean,
 ): T[] {
     const field = (item: T) => item.columnName.trim().toUpperCase()
-    const sourceFormats = new Map(items.map((item) => [field(item), item.formatType ?? null]))
+    const savedSettings = new Map(items.map((item) => [field(item), item]))
+    const sourceFormat = savedSettings.get("AMOUNT_CC")?.formatType ?? null
     const formatted = items.map((item) => {
         const name = field(item)
-        const source = name === "AMOUNT_TOTAL" || name === "REVENUE_AMOUNT_CC" || name === "REVENUE_AMOUNT_TOTAL"
-            ? "AMOUNT_CC"
-            : null
-        return source ? { ...item, formatType: sourceFormats.get(source) ?? null } : item
+        return name === "AMOUNT_TOTAL" || name === "REVENUE_AMOUNT_CC" || name === "REVENUE_AMOUNT_TOTAL"
+            ? { ...item, formatType: sourceFormat }
+            : item
     })
     if (!showRevenueAmounts) return formatted
 
-    // IS_VISIBLE=0 for the revenue columns in the default (non-COGS) layout.
-    // Activate only the corresponding revenue family for the Xuất kho tab;
-    // do not change the saved sys_grid_column preferences.
+    // Default catalog has IS_VISIBLE=0 for REVENUE_* while IS_COGS=false.
+    // The revenue family is active only on the output tab when IS_COGS=true.
     const revenueVisibility = new Map<string, boolean>([
         ["UNIT_PRICE_CC", false],
         ["AMOUNT_CC", false],
@@ -279,37 +278,30 @@ function syncOutputMoneyColumnSettings<T extends {
         const override = revenueVisibility.get(field(item))
         return override === undefined ? item : { ...item, isVisible: override }
     })
-    const bySavedPosition = [...activeSettings].sort((a, b) => (
-        (a.visibleIndex ?? Number.MAX_SAFE_INTEGER) - (b.visibleIndex ?? Number.MAX_SAFE_INTEGER)
-    ))
-    const visible = bySavedPosition.filter((item) => item.isVisible)
-    const hidden = bySavedPosition.filter((item) => !item.isVisible)
-    const positionAfter = (items: T[], anchor: string) => items.findIndex((item) => field(item) === anchor) + 1
 
-    // The configured fields already carry their own COLUMN_WIDTH values. Only
-    // relocate the money fields; never use JSX order or width defaults as layout.
-    const revenueCcFields = ["REVENUE_UNIT_PRICE_CC", "REVENUE_AMOUNT_CC", "REVENUE_AMOUNT_TOTAL"]
-    const revenueFcFields = ["REVENUE_UNIT_PRICE_FC", "REVENUE_AMOUNT_FC"]
-    const movedFields = new Set([...revenueCcFields, ...revenueFcFields])
-    const inFieldOrder = (names: string[]) => names
-        .map((name) => visible.find((item) => field(item) === name))
-        .filter((item): item is T => item !== undefined)
-    const ordered = visible.filter((item) => !movedFields.has(field(item)))
-    const afterQuantity = positionAfter(ordered, "QUANTITY")
-    if (afterQuantity > 0) ordered.splice(afterQuantity, 0, ...inFieldOrder(revenueCcFields))
-    else ordered.push(...inFieldOrder(revenueCcFields))
-    const afterExchangeRate = positionAfter(ordered, "EXCHANGE_RATES")
-    const afterRevenueTotal = positionAfter(ordered, "REVENUE_AMOUNT_TOTAL")
-    ordered.splice(afterExchangeRate || afterRevenueTotal || ordered.length, 0, ...inFieldOrder(revenueFcFields))
+    // Each revenue field takes the VISIBLE_INDEX of its matching standard field.
+    // Do not position revenue VND amounts immediately after QUANTITY: doing so
+    // incorrectly moves them ahead of EXCHANGE_RATES and the FC amount columns.
+    const sourcePositions = new Map<string, string>([
+        ["REVENUE_UNIT_PRICE_FC", "UNIT_PRICE_FC"],
+        ["REVENUE_AMOUNT_FC", "AMOUNT_FC"],
+        ["REVENUE_UNIT_PRICE_CC", "UNIT_PRICE_CC"],
+        ["REVENUE_AMOUNT_CC", "AMOUNT_CC"],
+        ["REVENUE_AMOUNT_TOTAL", "AMOUNT_TOTAL"],
+    ])
+    const getPosition = (item: T) => {
+        const name = field(item)
+        const baseIndex = savedSettings.get(sourcePositions.get(name) ?? name)?.visibleIndex
+        return typeof baseIndex === "number" ? baseIndex : item.visibleIndex ?? Number.MAX_SAFE_INTEGER
+    }
+    const byPosition = (a: T, b: T) => getPosition(a) - getPosition(b)
+    const visible = activeSettings.filter((item) => item.isVisible).sort(byPosition)
+    const hidden = activeSettings.filter((item) => !item.isVisible).sort(byPosition)
 
-    // Assign distinct indices for visible *and* hidden configured fields. This
-    // prevents DevExtreme from inserting hidden AMOUNT_* columns between revenue
-    // columns when it normalizes visibleIndex during checkbox/tab switching.
-    const effectiveIndices = new Map([...ordered, ...hidden].map((item, index) => [field(item), index + 1]))
-    return activeSettings.map((item) => ({
-        ...item,
-        visibleIndex: effectiveIndices.get(field(item)) ?? item.visibleIndex,
-    }))
+    // Assign unique sequential positions, including hidden columns, and apply
+    // settings in this order. DevExtreme otherwise shifts previously assigned
+    // visibleIndex values as columns become visible/hidden on checkbox changes.
+    return [...visible, ...hidden].map((item, index) => ({ ...item, visibleIndex: index + 1 }))
 }
 
 function cloneOutputLine(item: InventoryOutputLine): InventoryOutputLine {
