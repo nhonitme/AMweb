@@ -304,6 +304,49 @@ function syncOutputMoneyColumnSettings<T extends {
     return [...visible, ...hidden].map((item, index) => ({ ...item, visibleIndex: index + 1 }))
 }
 
+// DevExtreme adjusts other visibleIndex values whenever a single column's
+// index is set. On initial mount, saved settings and runtime money-family
+// visibility are applied at different times, so the final live order can differ
+// from the configured order. Reconcile the rendered order only after visibility
+// has been applied; do not touch widths or saved sys_grid_column settings.
+function reconcileOutputVisibleColumnOrder(
+    grid: dxDataGrid<InventoryOutputLine, string>,
+    items: ReadonlyArray<{ columnName: string; isVisible: boolean; visibleIndex?: number | null }>,
+    visibility: Readonly<Record<string, boolean>>,
+): boolean {
+    if (!items.length) return false
+
+    const field = (name: string) => name.trim().toUpperCase()
+    const desired = items
+        .filter((item) => visibility[field(item.columnName)] ?? item.isVisible)
+        .sort((a, b) => (a.visibleIndex ?? Number.MAX_SAFE_INTEGER) - (b.visibleIndex ?? Number.MAX_SAFE_INTEGER))
+        .map((item) => field(item.columnName))
+
+    const desiredSet = new Set(desired)
+    const visible = grid.getVisibleColumns()
+        .map((column) => field(String(column.dataField ?? column.name ?? "")))
+        .filter((name) => desiredSet.has(name))
+
+    // The grid can fire onContentReady before it has finished hydrating the
+    // sys_grid_column layout. Wait for the full active set before reordering.
+    if (visible.length !== desired.length || desired.some((name) => !visible.includes(name))) return false
+    if (visible.every((name, index) => name === desired[index])) return false
+
+    grid.beginUpdate()
+    try {
+        // DETAIL_ACTIONS is fixed at visibleIndex 0. Move the remaining visible
+        // columns from left to right so each subsequent insert uses final order.
+        desired.forEach((name, index) => {
+            if (grid.columnOption(name, "visibleIndex") !== index + 1) {
+                grid.columnOption(name, "visibleIndex", index + 1)
+            }
+        })
+    } finally {
+        grid.endUpdate()
+    }
+    return true
+}
+
 function cloneOutputLine(item: InventoryOutputLine): InventoryOutputLine {
     return { ...item }
 }
@@ -922,9 +965,12 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
             }
         }, [columnSettingState.cachedEditorItems, columnSettingsWithAmountPrecision, columnSettingState.syncEditorItemsToComponent])
 
+        const reconcilingColumnOrderRef = useRef(false)
         const handleContentReady = useCallback(
             (event: ContentReadyEvent<InventoryOutputLine, string>) => {
                 notifyGridContentReady()
+                if (reconcilingColumnOrderRef.current) return
+
                 const needsUpdate = Object.entries(runtimeMoneyVisibility.controlledColumnVisibility).some(([field, expected]) => {
                     const column = event.component.columnOption(field)
                     return column && column.visible !== expected
@@ -933,8 +979,21 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                     applyRuntimeColumnVisibilityToComponent(event.component, runtimeMoneyVisibility)
                 }
                 applyRuntimeColumnFormatAliasesToComponent(event.component, amountFormatAliases)
+
+                if (columnSettingsWithAmountPrecision.length) {
+                    reconcilingColumnOrderRef.current = true
+                    try {
+                        reconcileOutputVisibleColumnOrder(
+                            event.component,
+                            columnSettingsWithAmountPrecision,
+                            runtimeMoneyVisibility.controlledColumnVisibility,
+                        )
+                    } finally {
+                        reconcilingColumnOrderRef.current = false
+                    }
+                }
             },
-            [notifyGridContentReady, runtimeMoneyVisibility, amountFormatAliases],
+            [notifyGridContentReady, runtimeMoneyVisibility, amountFormatAliases, columnSettingsWithAmountPrecision],
         )
 
         const handleDisposing = useCallback(() => {
@@ -981,7 +1040,13 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
             }
 
             columnSettingState.syncEditorItemsToComponent(gridRef.current, columnSettingsWithAmountPrecision)
+            reconcileOutputVisibleColumnOrder(
+                gridRef.current,
+                columnSettingsWithAmountPrecision,
+                runtimeMoneyVisibility.controlledColumnVisibility,
+            )
         }, [
+            runtimeMoneyVisibility,
             columnSettingState.cachedEditorItems,
             columnSettingsWithAmountPrecision,
             showRevenueAmounts,
@@ -1004,7 +1069,13 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                 }
 
                 const settings = syncOutputMoneyColumnSettings(items, showRevenueAmounts, runtimeForeignCurrencyColumnsVisible)
-                columnSettingState.syncEditorItemsToComponent(gridRef.current, settings)
+                const grid = gridRef.current
+                columnSettingState.syncEditorItemsToComponent(grid, settings)
+                reconcileOutputVisibleColumnOrder(
+                    grid,
+                    settings,
+                    runtimeMoneyVisibility.controlledColumnVisibility,
+                )
             })
 
             return () => {
@@ -1016,6 +1087,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
             columnSettingState.syncEditorItemsToComponent,
             showRevenueAmounts,
             runtimeForeignCurrencyColumnsVisible,
+            runtimeMoneyVisibility,
             isVisible,
         ])
 
