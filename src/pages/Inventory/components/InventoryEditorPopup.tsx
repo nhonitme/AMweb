@@ -56,6 +56,7 @@ import {
 } from "../inventoryAccountingLinkUtils"
 import {
   calculateInventoryAmount,
+  calculateInventoryIssueAmount,
   ensureInventoryDefaultLine,
   type InventoryLine,
   type InventoryVoucherType,
@@ -381,7 +382,7 @@ export default function InventoryEditorPopup({
               : {}),
             INPUTS: [],
             OUTPUTS: nextOutputs,
-            AMOUNT: calculateInventoryAmount(nextOutputs),
+            AMOUNT: calculateInventoryIssueAmount(nextOutputs, current.IS_COGS),
           }
         })
       } catch (error) {
@@ -414,7 +415,7 @@ export default function InventoryEditorPopup({
           ...current,
           INPUTS: [],
           OUTPUTS: nextOutputs,
-          AMOUNT: calculateInventoryAmount(nextOutputs),
+          AMOUNT: calculateInventoryIssueAmount(nextOutputs, current.IS_COGS),
         }
       }
 
@@ -435,7 +436,15 @@ export default function InventoryEditorPopup({
       return
     }
 
-    setDraft((current) => ({ ...current, IS_COGS: false, COGS: null, CHITDETAIL_ID_COGS: null, COGS_AMOUNT: null, CLEAR_COGS_LINK: true }))
+    setDraft((current) => ({
+      ...current,
+      IS_COGS: false,
+      COGS: null,
+      CHITDETAIL_ID_COGS: null,
+      COGS_AMOUNT: null,
+      CLEAR_COGS_LINK: true,
+      AMOUNT: calculateInventoryIssueAmount(current.OUTPUTS, false),
+    }))
     setLinkedCogsSourceId(null)
     setLinkedCogsVoucherNo("")
     notify(t("INVENTORY_COGS_UNLINK_PENDING", "Đã chọn bỏ liên kết giá vốn. Lưu phiếu xuất kho để hoàn tất."), "info", 3000)
@@ -708,6 +717,7 @@ export default function InventoryEditorPopup({
       setDraft((current) => ({
         ...current,
         IS_COGS: enabled,
+        AMOUNT: calculateInventoryIssueAmount(current.OUTPUTS, enabled),
       }))
       return
     }
@@ -732,7 +742,9 @@ export default function InventoryEditorPopup({
       ...current,
       INPUTS: chitType === "IA" ? current.INPUTS : [],
       OUTPUTS: rows,
-      AMOUNT: calculateInventoryAmount(rows),
+      AMOUNT: chitType === "IO"
+        ? calculateInventoryIssueAmount(rows, current.IS_COGS)
+        : calculateInventoryAmount(rows),
     }))
   }, [chitType])
 
@@ -758,7 +770,7 @@ export default function InventoryEditorPopup({
           ...draftRef.current,
           INPUTS: [],
           OUTPUTS: rows,
-          AMOUNT: calculateInventoryAmount(rows),
+          AMOUNT: calculateInventoryIssueAmount(rows, draftRef.current.IS_COGS),
         }
         setDraft(nextDraft)
         return nextDraft
