@@ -48,6 +48,8 @@ interface DetailGridProps<TData> {
   runtimeColumnFormatAliases?: Readonly<Record<string, string>>
   /** Contextual visibility is AND-ed with sys_grid_column, never force-shown. */
   contextualColumnVisibility?: { enabled: boolean; columnNames: readonly string[] }
+  /** Screen-specific captions that win after DevExtreme reapplies persisted layout. */
+  columnCaptionOverrides?: Readonly<Record<string, string>>
 }
 
 export function DetailGrid<TData>({
@@ -68,6 +70,7 @@ export function DetailGrid<TData>({
   runtimeColumnVisibility,
   runtimeColumnFormatAliases,
   contextualColumnVisibility,
+  columnCaptionOverrides,
 }: DetailGridProps<TData>) {
   const gridRef = useRef<dxDataGrid<TData, string | number> | null>(null)
   const { translate } = useContext(LanguageContext) as {
@@ -97,9 +100,8 @@ export function DetailGrid<TData>({
     columnSettingStateRef.current = columnSettingState
   }
 
-  // For conditional columns (e.g. foreign currency in an IO detail list),
-  // restore visibility from sys_grid_column whenever the condition is true.
-  // An IS_VISIBLE=0 setting always wins over the runtime condition.
+  // Contextual visibility applies to catalog-registered columns only.
+  // For foreign-currency vouchers it overrides stored IS_VISIBLE temporarily.
   const effectiveRuntimeColumnVisibility = useMemo<RuntimeColumnVisibilityOptions | undefined>(() => {
     if (!contextualColumnVisibility) return runtimeColumnVisibility
 
@@ -112,7 +114,7 @@ export function DetailGrid<TData>({
     for (const columnName of contextualColumnVisibility.columnNames) {
       const config = configuredColumns.get(columnName.toUpperCase())
       controlledColumnVisibility[columnName] = contextualColumnVisibility.enabled
-        && (config?.isVisible ?? !usesSysGridCatalog)
+        && (Boolean(config) || !usesSysGridCatalog)
     }
     return { ...runtimeColumnVisibility, controlledColumnVisibility }
   }, [
@@ -146,6 +148,21 @@ export function DetailGrid<TData>({
     })
     return columnSettingState.customSave({ ...state, columns: restoreColumns(state.columns) })
   }, [columnSettingState.cachedEditorItems, columnSettingState.customSave, contextualColumnVisibility])
+
+  const applyCaptionOverrides = useCallback((grid: dxDataGrid<TData, string | number> | null | undefined) => {
+    if (!grid || !columnCaptionOverrides) return
+    for (const [field, caption] of Object.entries(columnCaptionOverrides)) {
+      if (!caption || !grid.columnOption(field)) continue
+      if (grid.columnOption(field, "caption") !== caption) {
+        grid.columnOption(field, "caption", caption)
+      }
+    }
+  }, [columnCaptionOverrides])
+
+  // Language or catalog sync can reapply older captions to the instance.
+  useEffect(() => {
+    applyCaptionOverrides(gridRef.current)
+  }, [applyCaptionOverrides, columnSettingState.cachedEditorItems])
 
   const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
   const isEmpty = dataSource.length === 0
@@ -183,9 +200,10 @@ export function DetailGrid<TData>({
       if (columnSettingState.cachedEditorItems.length) {
         columnSettingState.syncEditorItemsToComponent(event.component, columnSettingState.cachedEditorItems)
       }
+      applyCaptionOverrides(event.component)
       onInitialized?.(event)
     },
-    [columnSettingState.bindGridComponent, columnSettingState.cachedEditorItems, columnSettingState.syncEditorItemsToComponent, onInitialized],
+    [applyCaptionOverrides, columnSettingState.bindGridComponent, columnSettingState.cachedEditorItems, columnSettingState.syncEditorItemsToComponent, onInitialized],
   )
 
   useEffect(() => {
@@ -269,6 +287,7 @@ export function DetailGrid<TData>({
           applyRuntimeColumnVisibilityToComponent(event.component, effectiveRuntimeColumnVisibility)
         }
         applyRuntimeColumnFormatAliasesToComponent(event.component, runtimeColumnFormatAliases)
+        applyCaptionOverrides(event.component)
       }}
       onCellPrepared={(event) => {
         applyHeaderFieldNameTooltip(event)
