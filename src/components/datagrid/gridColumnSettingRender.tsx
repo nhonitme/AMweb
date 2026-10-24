@@ -472,10 +472,12 @@ function applyGridColumnSettingsToChildrenUnsafe(
 
     const columnCandidateKeys = getColumnCandidateKeys(childProps)
     const technicalIdColumn = columnCandidateKeys.some((columnKey) => isTechnicalIdColumnName(columnKey))
-    const lockedHiddenColumn =
-      technicalIdColumn ||
-      isLockedHiddenColumnProps(childProps)
     const setting = resolveSetting(settingsMap, childProps)
+    // The grid catalog is authoritative. A column hidden before settings load
+    // may still have allowHiding=false/showInColumnChooser=false; that must
+    // not prevent a later IS_VISIBLE=1 (including contextual foreign currency).
+    const lockedHiddenColumn = technicalIdColumn ||
+      (isLockedHiddenColumnProps(childProps) && !setting?.isVisible)
     const nextProps: Record<string, unknown> = lockedHiddenColumn
       ? {
           allowHiding: false,
@@ -740,9 +742,10 @@ export function applyGridColumnSettingsToComponent(
 
       const technicalIdColumn = isTechnicalIdColumnName(columnKey)
       const columnProps = currentColumn as Record<string, unknown>
-      const lockedHiddenColumn =
-        technicalIdColumn ||
-        isLockedHiddenColumnProps(columnProps)
+      // Persisted/previous runtime chooser flags cannot override an
+      // explicit visible column in the current sys_grid_column layout.
+      const lockedHiddenColumn = technicalIdColumn ||
+        (isLockedHiddenColumnProps(columnProps) && !item.isVisible)
       const fixed = item.fixedPosition !== "none"
       const sortOrder = item.sortOrder === "asc" || item.sortOrder === "desc" ? item.sortOrder : undefined
       const visibleIndex = typeof item.visibleIndex === "number" ? item.visibleIndex : undefined
