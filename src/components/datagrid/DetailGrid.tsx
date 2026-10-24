@@ -100,29 +100,18 @@ export function DetailGrid<TData>({
     columnSettingStateRef.current = columnSettingState
   }
 
-  // Contextual visibility applies to catalog-registered columns only.
-  // For foreign-currency vouchers it overrides stored IS_VISIBLE temporarily.
+  // Foreign-currency voucher type overrides column visibility temporarily.
+  // This never becomes a user's persisted sys_grid_column layout.
   const effectiveRuntimeColumnVisibility = useMemo<RuntimeColumnVisibilityOptions | undefined>(() => {
     if (!contextualColumnVisibility) return runtimeColumnVisibility
-
-    const configuredColumns = new Map(
-      columnSettingState.cachedEditorItems.map((item) => [item.columnName.toUpperCase(), item] as const),
-    )
     const controlledColumnVisibility = {
       ...runtimeColumnVisibility?.controlledColumnVisibility,
     }
     for (const columnName of contextualColumnVisibility.columnNames) {
-      const config = configuredColumns.get(columnName.toUpperCase())
       controlledColumnVisibility[columnName] = contextualColumnVisibility.enabled
-        && (Boolean(config) || !usesSysGridCatalog)
     }
     return { ...runtimeColumnVisibility, controlledColumnVisibility }
-  }, [
-    contextualColumnVisibility,
-    columnSettingState.cachedEditorItems,
-    runtimeColumnVisibility,
-    usesSysGridCatalog,
-  ])
+  }, [contextualColumnVisibility, runtimeColumnVisibility])
 
   // Contextual hide is temporary. Persist the catalog visibility instead of
   // accidentally saving hidden currency columns into a user grid template.
@@ -135,16 +124,19 @@ export function DetailGrid<TData>({
       columnSettingState.cachedEditorItems.map((item) => [item.columnName.toUpperCase(), item] as const),
     )
     type StateColumn = NonNullable<typeof state.columns>[number]
-    const restoreColumns = (columns: StateColumn[]): StateColumn[] => columns.map((column) => {
+    const restoreColumns = (columns: StateColumn[]): StateColumn[] => columns.flatMap((column) => {
       const name = String(column.dataField ?? column.name ?? "").toUpperCase()
       const config = conditionalFields.has(name) ? configuredColumns.get(name) : undefined
-      return {
+      // A field absent from sys_grid_column may show temporarily for FC_TYPE,
+      // but must never be inserted into a persisted user template.
+      if (conditionalFields.has(name) && !config) return []
+      return [{
         ...column,
         ...(config
           ? { visible: config.isVisible, allowHiding: config.allowHiding, showInColumnChooser: config.allowHiding }
           : {}),
         ...(Array.isArray(column.columns) ? { columns: restoreColumns(column.columns) } : {}),
-      }
+      }]
     })
     return columnSettingState.customSave({ ...state, columns: restoreColumns(state.columns) })
   }, [columnSettingState.cachedEditorItems, columnSettingState.customSave, contextualColumnVisibility])
