@@ -11,8 +11,6 @@ type GridCaptionTranslator = (key: string, fallback: string) => string
 export type RuntimeColumnVisibilityOptions = {
   forceVisibleColumnNames?: readonly string[]
   controlledColumnVisibility?: Record<string, boolean>
-  /** Do not modify column-chooser metadata for temporary runtime visibility. */
-  preserveColumnSettings?: boolean
 }
 
 export type ApplyGridColumnSettingsOptions = {
@@ -569,24 +567,8 @@ export function applyRuntimeColumnVisibilityToChildren(
 
     if (typeof controlledVisible === "boolean") {
       nextProps.visible = controlledVisible
-      if (!options.preserveColumnSettings) {
-        nextProps.allowHiding = false
-        nextProps.showInColumnChooser = false
-      }
-    }
-
-    // A band parent may have been marked invisible because all its children
-    // are hidden in sys_grid_column. When FC_TYPE temporarily reveals a leaf,
-    // its parent must become visible too.
-    const isBandColumn = !normalizeText(childProps.dataField)
-      && React.Children.toArray(currentChildren).some(
-        (nested) => React.isValidElement(nested) && nested.type === columnComponent,
-      )
-    if (isBandColumn) {
-      const leafFields = collectColumnFieldNames(currentChildren, columnComponent)
-      if (leafFields.some((field) => runtimeVisibilityMap.get(field) === true)) {
-        nextProps.visible = true
-      }
+      nextProps.allowHiding = false
+      nextProps.showInColumnChooser = false
     }
 
     if (nextChildren !== currentChildren) {
@@ -618,32 +600,16 @@ export function applyRuntimeColumnVisibilityToComponent(
   component.beginUpdate?.()
 
   try {
-    // columnCount() can omit hidden and nested band leaves. Resolve every
-    // runtime-controlled field by its dataField/name, including hidden columns,
-    // so selecting a foreign-currency voucher can reveal the FC columns.
-    const controlledNames = new Set([...forceVisibleColumnNames, ...runtimeVisibilityMap.keys()])
-    controlledNames.forEach((columnKey) => {
-      const existingColumn = component.columnOption?.(columnKey)
-      const reference = existingColumn && typeof existingColumn === "object"
-        ? { identifier: columnKey, index: -1 }
-        : columnReferenceMap.get(columnKey)
-      if (!reference) return
-
-      const controlledVisible = runtimeVisibilityMap.get(columnKey)
-      const visible = typeof controlledVisible === "boolean"
-        ? controlledVisible
-        : forceVisibleColumnNames.has(columnKey)
-      if (component.columnOption?.(reference.identifier, "visible") !== visible) {
-        writeComponentColumnOption(component, reference, "visible", visible)
+    columnReferenceMap.forEach((columnReference, columnKey) => {
+      if (forceVisibleColumnNames.has(columnKey)) {
+        writeComponentColumnOption(component, columnReference, "visible", true)
+        writeComponentColumnOption(component, columnReference, "allowHiding", false)
       }
-      if (!options.preserveColumnSettings) {
-        if (component.columnOption?.(reference.identifier, "allowHiding") !== false) {
-          writeComponentColumnOption(component, reference, "allowHiding", false)
-        }
-        if (typeof controlledVisible === "boolean"
-            && component.columnOption?.(reference.identifier, "showInColumnChooser") !== false) {
-          writeComponentColumnOption(component, reference, "showInColumnChooser", false)
-        }
+
+      if (runtimeVisibilityMap.has(columnKey)) {
+        writeComponentColumnOption(component, columnReference, "visible", runtimeVisibilityMap.get(columnKey))
+        writeComponentColumnOption(component, columnReference, "allowHiding", false)
+        writeComponentColumnOption(component, columnReference, "showInColumnChooser", false)
       }
     })
   } finally {
