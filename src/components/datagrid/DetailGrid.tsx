@@ -28,6 +28,24 @@ import { useCompanyLangRevision } from "@/lib/companyLang"
 import { GridEmptyAddButton } from "./GridEmptyAddButton"
 import { useInlineGridSearch } from "./gridSearch"
 import { useGridColumnSettingState, type GridColumnSettingState } from "./useGridColumnSettingState"
+import type { GridColumnSettingEditorItem } from "@/types/sysGridColumnSetting"
+
+type ContextualColumnVisibility = { enabled: boolean; columnNames: readonly string[] }
+
+/**
+ * Use ONE effective catalog both for JSX columns and DevExtreme hydration.
+ * The original catalog (including LABEL_TEXT and user layouts) is untouched.
+ */
+function applyContextualVisibility(
+  items: GridColumnSettingEditorItem[],
+  rule?: ContextualColumnVisibility,
+): GridColumnSettingEditorItem[] {
+  if (!rule) return items
+  const targets = new Set(rule.columnNames.map((name) => name.toUpperCase()))
+  return items.map((item) => targets.has(item.columnName.toUpperCase())
+    ? { ...item, isVisible: rule.enabled }
+    : item)
+}
 
 interface DetailGridProps<TData> {
   dataSource: TData[]
@@ -47,7 +65,7 @@ interface DetailGridProps<TData> {
   runtimeColumnVisibility?: RuntimeColumnVisibilityOptions
   runtimeColumnFormatAliases?: Readonly<Record<string, string>>
   /** Temporary visibility of the IO list foreign-currency columns. */
-  contextualColumnVisibility?: { enabled: boolean; columnNames: readonly string[] }
+  contextualColumnVisibility?: ContextualColumnVisibility
 }
 
 export function DetailGrid<TData>({
@@ -97,25 +115,12 @@ export function DetailGrid<TData>({
     columnSettingStateRef.current = columnSettingState
   }
 
-  // One stable FX controller. Voucher selection must not rerun the asynchronous
-  // sys_grid_column hydration or overwrite any column's chooser properties.
-  const foreignCurrencyVisibilityRef = useRef(contextualColumnVisibility)
-  foreignCurrencyVisibilityRef.current = contextualColumnVisibility
-  const applyForeignCurrencyVisibility = useCallback((grid: dxDataGrid<TData, string | number> | null | undefined) => {
-    const rule = foreignCurrencyVisibilityRef.current
-    if (!grid || !rule) return
-    for (const field of rule.columnNames) {
-      if (!grid.columnOption(field)) continue
-      if (grid.columnOption(field, "visible") !== rule.enabled) {
-        grid.columnOption(field, "visible", rule.enabled)
-      }
-    }
-  }, [])
-
-  // Only five visible flags change when the selected voucher's FC_TYPE changes.
-  useEffect(() => {
-    applyForeignCurrencyVisibility(gridRef.current)
-  }, [applyForeignCurrencyVisibility, contextualColumnVisibility])
+  const effectiveEditorItems = useMemo(
+    () => applyContextualVisibility(columnSettingState.cachedEditorItems, contextualColumnVisibility),
+    [columnSettingState.cachedEditorItems, contextualColumnVisibility],
+  )
+  const effectiveVisibilityRef = useRef(contextualColumnVisibility)
+  effectiveVisibilityRef.current = contextualColumnVisibility
 
   // Never persist a temporary FX hide/show into the user's column template.
   const saveColumnState = useCallback((state: Parameters<typeof columnSettingState.customSave>[0]) => {
@@ -146,7 +151,7 @@ export function DetailGrid<TData>({
   const isSearchControlled = typeof controlledSearchVisible === "boolean"
   const effectiveSearchVisible = controlledSearchVisible ?? searchVisible
   const shouldRenderSearchToolbar = effectiveSearchVisible || showSearchButton
-  const hasConfiguredColumnWidths = columnSettingState.cachedEditorItems.some((item) => typeof item.width === "number")
+  const hasConfiguredColumnWidths = effectiveEditorItems.some((item) => typeof item.width === "number")
   const columnSettingsTargetKey = useMemo(
     () => columnSettingState.targetIdentity || [(menuCode ?? screenCd)?.trim() ?? "", gridId?.trim() ?? ""].join("::"),
     [columnSettingState.targetIdentity, gridId, menuCode, screenCd],
@@ -157,7 +162,7 @@ export function DetailGrid<TData>({
       const settingsChildren = applyGridColumnSettingsToChildren(
         children,
         Column,
-        columnSettingState.cachedEditorItems,
+        effectiveEditorItems,
         columnSettingState.translateCaption,
         { hideColumnsMissingFromSettings: usesSysGridCatalog },
       )
@@ -166,32 +171,29 @@ export function DetailGrid<TData>({
         ? applyRuntimeColumnVisibilityToChildren(settingsChildren, Column, runtimeColumnVisibility)
         : settingsChildren
     },
-    [children, columnSettingState.cachedEditorItems, columnSettingState.translateCaption, companyLangRevision, runtimeColumnVisibility, usesSysGridCatalog],
+    [children, effectiveEditorItems, columnSettingState.translateCaption, companyLangRevision, runtimeColumnVisibility, usesSysGridCatalog],
   )
 
   const handleInitialized = useCallback(
     (event: InitializedEvent<TData, string | number>) => {
       gridRef.current = event.component ?? null
       columnSettingState.bindGridComponent(event.component ?? null)
-      if (columnSettingState.cachedEditorItems.length) {
-        columnSettingState.syncEditorItemsToComponent(event.component, columnSettingState.cachedEditorItems)
+      if (effectiveEditorItems.length) {
+        columnSettingState.syncEditorItemsToComponent(event.component, effectiveEditorItems)
       }
-      applyForeignCurrencyVisibility(event.component)
       onInitialized?.(event)
     },
-    [applyForeignCurrencyVisibility, columnSettingState.bindGridComponent, columnSettingState.cachedEditorItems, columnSettingState.syncEditorItemsToComponent, onInitialized],
+    [columnSettingState.bindGridComponent, effectiveEditorItems, columnSettingState.syncEditorItemsToComponent, onInitialized],
   )
 
   useEffect(() => {
-    if (!columnSettingState.enabled || !gridRef.current || !columnSettingState.cachedEditorItems.length) {
+    if (!columnSettingState.enabled || !gridRef.current || !effectiveEditorItems.length) {
       return
     }
 
-    columnSettingState.syncEditorItemsToComponent(gridRef.current, columnSettingState.cachedEditorItems)
-    applyForeignCurrencyVisibility(gridRef.current)
+    columnSettingState.syncEditorItemsToComponent(gridRef.current, effectiveEditorItems)
   }, [
-    applyForeignCurrencyVisibility,
-    columnSettingState.cachedEditorItems,
+    effectiveEditorItems,
     columnSettingState.enabled,
     columnSettingState.syncEditorItemsToComponent,
   ])
@@ -208,8 +210,10 @@ export function DetailGrid<TData>({
         return
       }
 
-      columnSettingState.syncEditorItemsToComponent(gridRef.current, items)
-      applyForeignCurrencyVisibility(gridRef.current)
+      columnSettingState.syncEditorItemsToComponent(
+        gridRef.current,
+        applyContextualVisibility(items, effectiveVisibilityRef.current),
+      )
     })
 
     return () => {
@@ -219,7 +223,6 @@ export function DetailGrid<TData>({
     columnSettingState.enabled,
     columnSettingState.loadEditorItems,
     columnSettingState.syncEditorItemsToComponent,
-    applyForeignCurrencyVisibility,
   ])
 
   useEffect(() => {
@@ -267,7 +270,6 @@ export function DetailGrid<TData>({
           applyRuntimeColumnVisibilityToComponent(event.component, runtimeColumnVisibility)
         }
         applyRuntimeColumnFormatAliasesToComponent(event.component, runtimeColumnFormatAliases)
-        applyForeignCurrencyVisibility(event.component)
       }}
       onCellPrepared={(event) => {
         applyHeaderFieldNameTooltip(event)
