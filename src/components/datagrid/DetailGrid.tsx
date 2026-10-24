@@ -97,17 +97,25 @@ export function DetailGrid<TData>({
     columnSettingStateRef.current = columnSettingState
   }
 
-  // The only runtime FX controller. Do not change chooser options or call the
-  // generic column-settings renderer: this only changes visible for five leaves.
+  // One stable FX controller. Voucher selection must not rerun the asynchronous
+  // sys_grid_column hydration or overwrite any column's chooser properties.
+  const foreignCurrencyVisibilityRef = useRef(contextualColumnVisibility)
+  foreignCurrencyVisibilityRef.current = contextualColumnVisibility
   const applyForeignCurrencyVisibility = useCallback((grid: dxDataGrid<TData, string | number> | null | undefined) => {
-    if (!grid || !contextualColumnVisibility) return
-    for (const field of contextualColumnVisibility.columnNames) {
+    const rule = foreignCurrencyVisibilityRef.current
+    if (!grid || !rule) return
+    for (const field of rule.columnNames) {
       if (!grid.columnOption(field)) continue
-      if (grid.columnOption(field, "visible") !== contextualColumnVisibility.enabled) {
-        grid.columnOption(field, "visible", contextualColumnVisibility.enabled)
+      if (grid.columnOption(field, "visible") !== rule.enabled) {
+        grid.columnOption(field, "visible", rule.enabled)
       }
     }
-  }, [contextualColumnVisibility])
+  }, [])
+
+  // Only five visible flags change when the selected voucher's FC_TYPE changes.
+  useEffect(() => {
+    applyForeignCurrencyVisibility(gridRef.current)
+  }, [applyForeignCurrencyVisibility, contextualColumnVisibility])
 
   // Never persist a temporary FX hide/show into the user's column template.
   const saveColumnState = useCallback((state: Parameters<typeof columnSettingState.customSave>[0]) => {
