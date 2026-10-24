@@ -1,6 +1,7 @@
 import type React from "react"
 import type { ReactNode } from "react"
 import type {
+  ContentReadyEvent,
   EditorPreparingEvent,
   FocusedRowChangedEvent,
   InitializedEvent,
@@ -32,6 +33,7 @@ interface PageGridProps<TData> {
   gridId?: string
   persistColumnSettings?: boolean
   onInitialized?: (event: InitializedEvent<TData, string | number>) => void
+  onContentReady?: (event: ContentReadyEvent) => void
   onRowDblClick?: (event: RowDblClickEvent<TData, string | number>) => void
   onSelectionChanged?: (event: SelectionChangedEvent<TData, string | number>) => void
   onFocusedRowChanged?: (event: FocusedRowChangedEvent<TData, string | number>) => void
@@ -79,6 +81,7 @@ export function PageGrid<TData>({
   gridId,
   persistColumnSettings,
   onInitialized,
+  onContentReady,
   onRowDblClick,
   onRowPrepared,
   onRowInserting,
@@ -125,6 +128,7 @@ export function PageGrid<TData>({
       gridId={gridId}
       persistColumnSettings={persistColumnSettings}
       onInitialized={onInitialized}
+      onContentReady={onContentReady}
       onRowDblClick={onRowDblClick}
       onRowPrepared={onRowPrepared}
       onRowInserting={onRowInserting}
