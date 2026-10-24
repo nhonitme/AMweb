@@ -120,6 +120,14 @@ export function calculateInventoryIssueAmount(
   }, 0)
 }
 
+export function calculateInventoryRevenueAmount(lines: readonly InventoryOutputLine[]): number {
+  return lines.reduce((total, line) => {
+    if (line.ISDEL) return total
+    const amount = Number(line.REVENUE_AMOUNT_TOTAL ?? 0)
+    return total + (Number.isFinite(amount) ? amount : 0)
+  }, 0)
+}
+
 function getInventoryVoucherAmount(record: InventoryVoucher): number {
   if (record.CHIT_TYPE === "IR") {
     return calculateInventoryAmount(record.INPUTS)
@@ -309,6 +317,7 @@ export function createDefaultInventoryVoucher(
     COGS_AMOUNT: null,
     CLEAR_COGS_LINK: false,
     AMOUNT: 0,
+    REVENUE_AMOUNT: chitType === "IO" ? 0 : undefined,
     TOTAL_QTY: 0,
     REMARK: "",
     CUSTOMER_ID: null,
@@ -441,6 +450,7 @@ export function createInventoryVoucherCopy(
     CHIT_TYPE: chitType,
     CLEAR_COGS_LINK: false,
     AMOUNT: chitType === "IO" ? calculateInventoryIssueAmount(outputs, false) : calculateInventoryAmount(activeLines),
+    REVENUE_AMOUNT: chitType === "IO" ? calculateInventoryRevenueAmount(outputs) : undefined,
     ISDEL: false,
     IS_LOCK: false,
     ISEXCEL: false,
@@ -514,6 +524,9 @@ export function normalizeInventoryVoucherApi(
     AMOUNT: chitType === "IO" && normalizedOutputs.length > 0
       ? calculateInventoryIssueAmount(normalizedOutputs, toBool(item.IS_COGS))
       : item.AMOUNT ?? (chitType === "IR" ? calculateInventoryAmount(inputs) : calculateInventoryAmount(normalizedOutputs)),
+    REVENUE_AMOUNT: chitType === "IO"
+      ? item.REVENUE_AMOUNT ?? calculateInventoryRevenueAmount(normalizedOutputs)
+      : undefined,
     TOTAL_QTY: item.TOTAL_QTY ?? normalizedOutputs.reduce((sum, line) => sum + (line.ISDEL ? 0 : Number(line.QUANTITY ?? 0)), 0),
     REMARK: trimText(item.REMARK) || trimText(item.NOTE),
     CUSTOMER_ID: item.CUSTOMER_ID ?? null,
@@ -736,6 +749,7 @@ export function mapInventoryVoucherToApiPayload(record: InventoryVoucher): Inven
     COGS_AMOUNT: record.COGS_AMOUNT ?? null,
     CLEAR_COGS_LINK: record.CLEAR_COGS_LINK ?? false,
     AMOUNT: totalAmount,
+    ...(record.CHIT_TYPE === "IO" ? { REVENUE_AMOUNT: calculateInventoryRevenueAmount(activeOutputs) } : {}),
     TOTAL_QTY: totalQty,
     REMARK: trimText(record.REMARK) || trimText(record.NOTE),
     CUSTOMER_ID: record.CUSTOMER_ID,
