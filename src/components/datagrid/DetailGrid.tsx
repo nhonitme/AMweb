@@ -46,7 +46,7 @@ interface DetailGridProps<TData> {
   columnSettingExcludedColumnNames?: readonly string[]
   runtimeColumnVisibility?: RuntimeColumnVisibilityOptions
   runtimeColumnFormatAliases?: Readonly<Record<string, string>>
-  /** Temporary per-voucher visibility (e.g., FC_TYPE); never persisted into column settings. */
+  /** Temporary visibility of the IO list foreign-currency columns. */
   contextualColumnVisibility?: { enabled: boolean; columnNames: readonly string[] }
 }
 
@@ -97,51 +97,39 @@ export function DetailGrid<TData>({
     columnSettingStateRef.current = columnSettingState
   }
 
-  // Foreign-currency voucher type overrides column visibility temporarily.
-  // This never becomes a user's persisted sys_grid_column layout.
-  const effectiveRuntimeColumnVisibility = useMemo<RuntimeColumnVisibilityOptions | undefined>(() => {
-    if (!contextualColumnVisibility) return runtimeColumnVisibility
-    const controlledColumnVisibility = {
-      ...runtimeColumnVisibility?.controlledColumnVisibility,
+  // The only runtime FX controller. Do not change chooser options or call the
+  // generic column-settings renderer: this only changes visible for five leaves.
+  const applyForeignCurrencyVisibility = useCallback((grid: dxDataGrid<TData, string | number> | null | undefined) => {
+    if (!grid || !contextualColumnVisibility) return
+    for (const field of contextualColumnVisibility.columnNames) {
+      if (!grid.columnOption(field)) continue
+      if (grid.columnOption(field, "visible") !== contextualColumnVisibility.enabled) {
+        grid.columnOption(field, "visible", contextualColumnVisibility.enabled)
+      }
     }
-    for (const columnName of contextualColumnVisibility.columnNames) {
-      controlledColumnVisibility[columnName] = contextualColumnVisibility.enabled
-    }
-    return {
-      ...runtimeColumnVisibility,
-      controlledColumnVisibility,
-      // Contextual FX visibility must not mark a column as permanently
-      // locked/hidden; the catalog owns allowHiding and column chooser state.
-      preserveColumnSettings: true,
-    }
-  }, [contextualColumnVisibility, runtimeColumnVisibility])
+  }, [contextualColumnVisibility])
 
-  // Contextual hide is temporary. Persist the catalog visibility instead of
-  // accidentally saving hidden currency columns into a user grid template.
+  // Never persist a temporary FX hide/show into the user's column template.
   const saveColumnState = useCallback((state: Parameters<typeof columnSettingState.customSave>[0]) => {
     if (!contextualColumnVisibility || !Array.isArray(state.columns)) {
       return columnSettingState.customSave(state)
     }
-    const conditionalFields = new Set(contextualColumnVisibility.columnNames.map((name) => name.toUpperCase()))
-    const configuredColumns = new Map(
+    const conditionalFields = new Set(contextualColumnVisibility.columnNames.map((field) => field.toUpperCase()))
+    const defaults = new Map(
       columnSettingState.cachedEditorItems.map((item) => [item.columnName.toUpperCase(), item] as const),
     )
     type StateColumn = NonNullable<typeof state.columns>[number]
-    const restoreColumns = (columns: StateColumn[]): StateColumn[] => columns.flatMap((column) => {
-      const name = String(column.dataField ?? column.name ?? "").toUpperCase()
-      const config = conditionalFields.has(name) ? configuredColumns.get(name) : undefined
-      // A field absent from sys_grid_column may show temporarily for FC_TYPE,
-      // but must never be inserted into a persisted user template.
-      if (conditionalFields.has(name) && !config) return []
+    const restore = (columns: StateColumn[]): StateColumn[] => columns.flatMap((col) => {
+      const name = String(col.dataField ?? col.name ?? "").toUpperCase()
+      const original = conditionalFields.has(name) ? defaults.get(name) : undefined
+      if (conditionalFields.has(name) && !original) return []
       return [{
-        ...column,
-        ...(config
-          ? { visible: config.isVisible, allowHiding: config.allowHiding, showInColumnChooser: config.allowHiding }
-          : {}),
-        ...(Array.isArray(column.columns) ? { columns: restoreColumns(column.columns) } : {}),
+        ...col,
+        ...(original ? { visible: original.isVisible, allowHiding: original.allowHiding } : {}),
+        ...(Array.isArray(col.columns) ? { columns: restore(col.columns) } : {}),
       }]
     })
-    return columnSettingState.customSave({ ...state, columns: restoreColumns(state.columns) })
+    return columnSettingState.customSave({ ...state, columns: restore(state.columns) })
   }, [columnSettingState.cachedEditorItems, columnSettingState.customSave, contextualColumnVisibility])
 
   const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
@@ -166,11 +154,11 @@ export function DetailGrid<TData>({
         { hideColumnsMissingFromSettings: usesSysGridCatalog },
       )
 
-      return effectiveRuntimeColumnVisibility
-        ? applyRuntimeColumnVisibilityToChildren(settingsChildren, Column, effectiveRuntimeColumnVisibility)
+      return runtimeColumnVisibility
+        ? applyRuntimeColumnVisibilityToChildren(settingsChildren, Column, runtimeColumnVisibility)
         : settingsChildren
     },
-    [children, columnSettingState.cachedEditorItems, columnSettingState.translateCaption, companyLangRevision, effectiveRuntimeColumnVisibility, usesSysGridCatalog],
+    [children, columnSettingState.cachedEditorItems, columnSettingState.translateCaption, companyLangRevision, runtimeColumnVisibility, usesSysGridCatalog],
   )
 
   const handleInitialized = useCallback(
@@ -180,9 +168,10 @@ export function DetailGrid<TData>({
       if (columnSettingState.cachedEditorItems.length) {
         columnSettingState.syncEditorItemsToComponent(event.component, columnSettingState.cachedEditorItems)
       }
+      applyForeignCurrencyVisibility(event.component)
       onInitialized?.(event)
     },
-    [columnSettingState.bindGridComponent, columnSettingState.cachedEditorItems, columnSettingState.syncEditorItemsToComponent, onInitialized],
+    [applyForeignCurrencyVisibility, columnSettingState.bindGridComponent, columnSettingState.cachedEditorItems, columnSettingState.syncEditorItemsToComponent, onInitialized],
   )
 
   useEffect(() => {
@@ -191,9 +180,9 @@ export function DetailGrid<TData>({
     }
 
     columnSettingState.syncEditorItemsToComponent(gridRef.current, columnSettingState.cachedEditorItems)
-    applyRuntimeColumnVisibilityToComponent(gridRef.current, effectiveRuntimeColumnVisibility)
+    applyForeignCurrencyVisibility(gridRef.current)
   }, [
-    effectiveRuntimeColumnVisibility,
+    applyForeignCurrencyVisibility,
     columnSettingState.cachedEditorItems,
     columnSettingState.enabled,
     columnSettingState.syncEditorItemsToComponent,
@@ -212,7 +201,7 @@ export function DetailGrid<TData>({
       }
 
       columnSettingState.syncEditorItemsToComponent(gridRef.current, items)
-      applyRuntimeColumnVisibilityToComponent(gridRef.current, effectiveRuntimeColumnVisibility)
+      applyForeignCurrencyVisibility(gridRef.current)
     })
 
     return () => {
@@ -222,7 +211,7 @@ export function DetailGrid<TData>({
     columnSettingState.enabled,
     columnSettingState.loadEditorItems,
     columnSettingState.syncEditorItemsToComponent,
-    effectiveRuntimeColumnVisibility,
+    applyForeignCurrencyVisibility,
   ])
 
   useEffect(() => {
@@ -259,18 +248,18 @@ export function DetailGrid<TData>({
       paging={{ enabled: false }}
       onInitialized={handleInitialized}
       onContentReady={(event) => {
-        const preservesColumnSettings = effectiveRuntimeColumnVisibility?.preserveColumnSettings === true
-        const needsVisibilityUpdate = effectiveRuntimeColumnVisibility?.forceVisibleColumnNames?.some(
+        const needsVisibilityUpdate = runtimeColumnVisibility?.forceVisibleColumnNames?.some(
           (name) => event.component.columnOption(name, "visible") !== true
-            || (!preservesColumnSettings && event.component.columnOption(name, "allowHiding") !== false),
-        ) || Object.entries(effectiveRuntimeColumnVisibility?.controlledColumnVisibility ?? {}).some(
+            || event.component.columnOption(name, "allowHiding") !== false,
+        ) || Object.entries(runtimeColumnVisibility?.controlledColumnVisibility ?? {}).some(
           ([name, visible]) => event.component.columnOption(name, "visible") !== visible
-            || (!preservesColumnSettings && event.component.columnOption(name, "allowHiding") !== false),
+            || event.component.columnOption(name, "allowHiding") !== false,
         )
         if (needsVisibilityUpdate) {
-          applyRuntimeColumnVisibilityToComponent(event.component, effectiveRuntimeColumnVisibility)
+          applyRuntimeColumnVisibilityToComponent(event.component, runtimeColumnVisibility)
         }
         applyRuntimeColumnFormatAliasesToComponent(event.component, runtimeColumnFormatAliases)
+        applyForeignCurrencyVisibility(event.component)
       }}
       onCellPrepared={(event) => {
         applyHeaderFieldNameTooltip(event)
