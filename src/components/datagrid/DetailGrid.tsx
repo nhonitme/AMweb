@@ -204,7 +204,11 @@ export function DetailGrid<TData>({
     }
 
     columnSettingState.syncEditorItemsToComponent(gridRef.current, columnSettingState.cachedEditorItems)
+    applyRuntimeColumnVisibilityToComponent(gridRef.current, effectiveRuntimeColumnVisibility)
+    applyCaptionOverrides(gridRef.current)
   }, [
+    applyCaptionOverrides,
+    effectiveRuntimeColumnVisibility,
     columnSettingState.cachedEditorItems,
     columnSettingState.enabled,
     columnSettingState.syncEditorItemsToComponent,
@@ -223,6 +227,8 @@ export function DetailGrid<TData>({
       }
 
       columnSettingState.syncEditorItemsToComponent(gridRef.current, items)
+      applyRuntimeColumnVisibilityToComponent(gridRef.current, effectiveRuntimeColumnVisibility)
+      applyCaptionOverrides(gridRef.current)
     })
 
     return () => {
@@ -232,6 +238,8 @@ export function DetailGrid<TData>({
     columnSettingState.enabled,
     columnSettingState.loadEditorItems,
     columnSettingState.syncEditorItemsToComponent,
+    effectiveRuntimeColumnVisibility,
+    applyCaptionOverrides,
   ])
 
   useEffect(() => {
