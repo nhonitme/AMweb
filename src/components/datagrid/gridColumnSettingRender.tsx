@@ -600,16 +600,30 @@ export function applyRuntimeColumnVisibilityToComponent(
   component.beginUpdate?.()
 
   try {
-    columnReferenceMap.forEach((columnReference, columnKey) => {
-      if (forceVisibleColumnNames.has(columnKey)) {
-        writeComponentColumnOption(component, columnReference, "visible", true)
-        writeComponentColumnOption(component, columnReference, "allowHiding", false)
-      }
+    // columnCount() can omit hidden and nested band leaves. Resolve every
+    // runtime-controlled field by its dataField/name, including hidden columns,
+    // so selecting a foreign-currency voucher can reveal the FC columns.
+    const controlledNames = new Set([...forceVisibleColumnNames, ...runtimeVisibilityMap.keys()])
+    controlledNames.forEach((columnKey) => {
+      const existingColumn = component.columnOption?.(columnKey)
+      const reference = existingColumn && typeof existingColumn === "object"
+        ? { identifier: columnKey, index: -1 }
+        : columnReferenceMap.get(columnKey)
+      if (!reference) return
 
-      if (runtimeVisibilityMap.has(columnKey)) {
-        writeComponentColumnOption(component, columnReference, "visible", runtimeVisibilityMap.get(columnKey))
-        writeComponentColumnOption(component, columnReference, "allowHiding", false)
-        writeComponentColumnOption(component, columnReference, "showInColumnChooser", false)
+      const controlledVisible = runtimeVisibilityMap.get(columnKey)
+      const visible = typeof controlledVisible === "boolean"
+        ? controlledVisible
+        : forceVisibleColumnNames.has(columnKey)
+      if (component.columnOption?.(reference.identifier, "visible") !== visible) {
+        writeComponentColumnOption(component, reference, "visible", visible)
+      }
+      if (component.columnOption?.(reference.identifier, "allowHiding") !== false) {
+        writeComponentColumnOption(component, reference, "allowHiding", false)
+      }
+      if (typeof controlledVisible === "boolean"
+          && component.columnOption?.(reference.identifier, "showInColumnChooser") !== false) {
+        writeComponentColumnOption(component, reference, "showInColumnChooser", false)
       }
     })
   } finally {
