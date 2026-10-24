@@ -1,0 +1,22 @@
+/* Inventory issue LIST detail only: distinguish data groups without coloring cells.
+   The leaf-column visibility, width and formatting remain controlled by sys_grid_column. */
+.dx-datagrid-headers .dx-header-row > td.am-io-band-info {
+  background: #e9eff7;
+  color: #263b57;
+  font-weight: 600;
+  text-align: center;
+}
+
+.dx-datagrid-headers .dx-header-row > td.am-io-band-issue {
+  background: #fae9e9;
+  color: #943838;
+  font-weight: 600;
+  text-align: center;
+}
+
+.dx-datagrid-headers .dx-header-row > td.am-io-band-revenue {
+  background: #e5f4ec;
+  color: #206b4c;
+  font-weight: 600;
+  text-align: center;
+}
