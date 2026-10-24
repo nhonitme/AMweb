@@ -7,7 +7,7 @@ import { LanguageContext } from "@/lib/i18nLoader"
 import type { ChitType } from "@/types/voucher"
 import { getChitTypeLabel } from "../chitUtils"
 
-export function ChitNoteColumns() {
+export function ChitNoteColumns({ showRevenueAmount = false }: { showRevenueAmount?: boolean } = {}) {
   const { getFormat } = useDecimalColumnFormats()
   const { translate } = useContext(LanguageContext) as {
     translate?: (key: string, fallback?: string) => string
@@ -38,6 +38,15 @@ export function ChitNoteColumns() {
         format={amountFormat}
         editorOptions={createNumberEditorOptions(amountFormat)}
       />
+      {showRevenueAmount ? (
+        <Column
+          dataField="REVENUE_AMOUNT"
+          caption={t("REVENUE_AMOUNT", "Tổng doanh thu")}
+          dataType="number"
+          format={amountFormat}
+          editorOptions={createNumberEditorOptions(amountFormat)}
+        />
+      ) : null}
       <Column dataField="PAYER_INFO" caption={t("lblPayer", "Doi tuong lien quan")} />
     </>
   )
