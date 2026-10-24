@@ -152,10 +152,10 @@ function getInventoryDetailGridTitleKey(chitType: InventoryVoucherType): string 
 
 function getInventoryDetailGridTitleFallback(chitType: InventoryVoucherType): string {
   if (chitType === "IR") {
-    return "Inventory receipt detail"
+    return "Chi tiết nhập kho"
   }
 
-  return chitType === "IO" ? "Inventory issue detail" : "Inventory adjustment detail"
+  return chitType === "IO" ? "Chi tiết xuất kho" : "Chi tiết điều chỉnh kho"
 }
 
 // IO amount/total columns share AMOUNT_CC's effective numeric formatting,
