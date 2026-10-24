@@ -112,11 +112,12 @@ function tryTranslateLabel(
 }
 
 /**
- * Grid column title priority:
- * 1) translate(setting.LABEL_TEXT)
- * 2) translate(sys_grid_column.LABEL_TEXT)
- * 3) translate(sys_grid_column.FIELD_NAME)
- * 4) sys_grid_column.CAPTION
+ * A data column's name is owned by sys_grid_column.LABEL_TEXT.
+ * The LABEL_TEXT value is normally a translation key in t_message_info;
+ * literal captions are accepted as a fallback.
+ *
+ * A saved user/template LABEL_TEXT is only used if the catalog has no label.
+ * This is shared by all grids: no screen- or language-specific caption maps.
  */
 export function resolveSysGridColumnDisplayCaption(
   settingLabelText: string | null | undefined,
@@ -129,10 +130,12 @@ export function resolveSysGridColumnDisplayCaption(
   const columnLabel = normalizeCaptionText(columnLabelText)
   const field = normalizeCaptionText(fieldName)
   const cap = normalizeCaptionText(caption)
+  const translateOrLiteral = (label: string): string =>
+    tryTranslateLabel(label, translate) || label
 
   return (
-    tryTranslateLabel(settingLabel, translate) ||
-    tryTranslateLabel(columnLabel, translate) ||
+    (columnLabel && translateOrLiteral(columnLabel)) ||
+    (settingLabel && translateOrLiteral(settingLabel)) ||
     tryTranslateLabel(field, translate) ||
     cap ||
     field
