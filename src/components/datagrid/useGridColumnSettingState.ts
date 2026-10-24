@@ -212,8 +212,11 @@ function toEditorItemsFromColumns(columns: GridStateColumn[]): GridColumnSetting
         normalizeText(column.type).length > 0 ||
         normalizeText(column.command).length > 0 ||
         (!dataField && (isReservedColumnName(fallbackName) || (column.allowHiding === false && column.showInColumnChooser === false)))
+      // Nested DevExtreme band headers are structural and must never become
+      // sys_grid_column_setting FIELD_NAME rows. Keep only actual data leaves.
+      const isBandColumn = !dataField && Array.isArray(column.columns) && column.columns.length > 0
 
-      if (!columnName || isCommandColumn) {
+      if (!columnName || isCommandColumn || isBandColumn) {
         return null
       }
 
