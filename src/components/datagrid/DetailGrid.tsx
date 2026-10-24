@@ -46,9 +46,8 @@ interface DetailGridProps<TData> {
   columnSettingExcludedColumnNames?: readonly string[]
   runtimeColumnVisibility?: RuntimeColumnVisibilityOptions
   runtimeColumnFormatAliases?: Readonly<Record<string, string>>
-  /** Contextual visibility is AND-ed with sys_grid_column, never force-shown. */
+  /** Temporary per-voucher visibility (e.g., FC_TYPE); never persisted into column settings. */
   contextualColumnVisibility?: { enabled: boolean; columnNames: readonly string[] }
-  /** Screen-specific captions that win after DevExtreme reapplies persisted layout. */
 }
 
 export function DetailGrid<TData>({
