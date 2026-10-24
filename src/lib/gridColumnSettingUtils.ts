@@ -113,12 +113,10 @@ function tryTranslateLabel(
 
 /**
  * Grid column title priority:
- * 1) custom setting.LABEL_TEXT (translation key or literal caption)
- * 2) custom sys_grid_column.LABEL_TEXT (translation key or literal caption)
- * 3) FIELD_NAME translation, then sys_grid_column.CAPTION.
- *
- * A saved setting with LABEL_TEXT = FIELD_NAME is the standard/default value,
- * not a user override. It must not hide a customized sys_grid_column.LABEL_TEXT.
+ * 1) translate(setting.LABEL_TEXT)
+ * 2) translate(sys_grid_column.LABEL_TEXT)
+ * 3) translate(sys_grid_column.FIELD_NAME)
+ * 4) sys_grid_column.CAPTION
  */
 export function resolveSysGridColumnDisplayCaption(
   settingLabelText: string | null | undefined,
@@ -131,18 +129,10 @@ export function resolveSysGridColumnDisplayCaption(
   const columnLabel = normalizeCaptionText(columnLabelText)
   const field = normalizeCaptionText(fieldName)
   const cap = normalizeCaptionText(caption)
-  const isDefaultLabel = (label: string) =>
-    Boolean(field) && label.toUpperCase() === field.toUpperCase()
-  const displayLabel = (label: string) => tryTranslateLabel(label, translate) || label
-
-  if (settingLabel && !isDefaultLabel(settingLabel)) {
-    return displayLabel(settingLabel)
-  }
-  if (columnLabel && !isDefaultLabel(columnLabel)) {
-    return displayLabel(columnLabel)
-  }
 
   return (
+    tryTranslateLabel(settingLabel, translate) ||
+    tryTranslateLabel(columnLabel, translate) ||
     tryTranslateLabel(field, translate) ||
     cap ||
     field
