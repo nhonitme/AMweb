@@ -370,6 +370,7 @@ export interface InventoryVoucherApi {
   COGS_AMOUNT?: number | null
   CLEAR_COGS_LINK?: boolean | null
   AMOUNT?: number | null
+  REVENUE_AMOUNT?: number | null
   TOTAL_QTY?: number | null
   REMARK?: ChitText
   CUSTOMER_ID?: number | null
@@ -521,6 +522,7 @@ export interface InventoryVoucher {
   COGS_AMOUNT?: number | null
   CLEAR_COGS_LINK?: boolean
   AMOUNT: number | null
+  REVENUE_AMOUNT?: number | null
   TOTAL_QTY: number | null
   REMARK: string
   CUSTOMER_ID: number | null
