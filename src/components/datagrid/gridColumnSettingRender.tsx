@@ -11,6 +11,8 @@ type GridCaptionTranslator = (key: string, fallback: string) => string
 export type RuntimeColumnVisibilityOptions = {
   forceVisibleColumnNames?: readonly string[]
   controlledColumnVisibility?: Record<string, boolean>
+  /** Do not modify column-chooser metadata for temporary runtime visibility. */
+  preserveColumnSettings?: boolean
 }
 
 export type ApplyGridColumnSettingsOptions = {
@@ -567,8 +569,10 @@ export function applyRuntimeColumnVisibilityToChildren(
 
     if (typeof controlledVisible === "boolean") {
       nextProps.visible = controlledVisible
-      nextProps.allowHiding = false
-      nextProps.showInColumnChooser = false
+      if (!options.preserveColumnSettings) {
+        nextProps.allowHiding = false
+        nextProps.showInColumnChooser = false
+      }
     }
 
     if (nextChildren !== currentChildren) {
@@ -618,12 +622,14 @@ export function applyRuntimeColumnVisibilityToComponent(
       if (component.columnOption?.(reference.identifier, "visible") !== visible) {
         writeComponentColumnOption(component, reference, "visible", visible)
       }
-      if (component.columnOption?.(reference.identifier, "allowHiding") !== false) {
-        writeComponentColumnOption(component, reference, "allowHiding", false)
-      }
-      if (typeof controlledVisible === "boolean"
-          && component.columnOption?.(reference.identifier, "showInColumnChooser") !== false) {
-        writeComponentColumnOption(component, reference, "showInColumnChooser", false)
+      if (!options.preserveColumnSettings) {
+        if (component.columnOption?.(reference.identifier, "allowHiding") !== false) {
+          writeComponentColumnOption(component, reference, "allowHiding", false)
+        }
+        if (typeof controlledVisible === "boolean"
+            && component.columnOption?.(reference.identifier, "showInColumnChooser") !== false) {
+          writeComponentColumnOption(component, reference, "showInColumnChooser", false)
+        }
       }
     })
   } finally {
