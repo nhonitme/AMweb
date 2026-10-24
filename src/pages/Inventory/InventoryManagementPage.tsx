@@ -145,71 +145,6 @@ function hasForeignCurrencyInventoryLines(lines: readonly InventoryLine[]): bool
   })
 }
 
-// Dedicated IO LIST captions avoid reusing generic voucher labels, whose
-// cached translation/fallback can differ between languages after a switch.
-const IO_DETAIL_CAPTIONS: Record<string, Record<string, string>> = {
-  VIET: {
-    IO_DETAIL_INFO_BAND: "Thông tin chung",
-    IO_DETAIL_ISSUE_BAND: "Giá trị xuất kho",
-    IO_DETAIL_REVENUE_BAND: "Giá trị doanh thu",
-    REVENUE_UNIT_PRICE_FC: "Đơn giá doanh thu NT",
-    REVENUE_AMOUNT_FC: "Thành tiền doanh thu NT",
-    REVENUE_UNIT_PRICE_CC: "Đơn giá doanh thu",
-    REVENUE_AMOUNT_CC: "Thành tiền doanh thu",
-    REVENUE_AMOUNT_TOTAL: "Tổng tiền doanh thu",
-  },
-  ENG: {
-    IO_DETAIL_INFO_BAND: "General information",
-    IO_DETAIL_ISSUE_BAND: "Inventory issue value",
-    IO_DETAIL_REVENUE_BAND: "Revenue value",
-    REVENUE_UNIT_PRICE_FC: "Revenue unit price (FC)",
-    REVENUE_AMOUNT_FC: "Revenue amount (FC)",
-    REVENUE_UNIT_PRICE_CC: "Revenue unit price",
-    REVENUE_AMOUNT_CC: "Revenue amount",
-    REVENUE_AMOUNT_TOTAL: "Total revenue amount",
-  },
-  KOR: {
-    IO_DETAIL_INFO_BAND: "일반 정보",
-    IO_DETAIL_ISSUE_BAND: "출고 금액",
-    IO_DETAIL_REVENUE_BAND: "매출 금액",
-    REVENUE_UNIT_PRICE_FC: "외화 매출 단가",
-    REVENUE_AMOUNT_FC: "외화 매출 금액",
-    REVENUE_UNIT_PRICE_CC: "매출 단가",
-    REVENUE_AMOUNT_CC: "매출 금액",
-    REVENUE_AMOUNT_TOTAL: "총 매출 금액",
-  },
-  JPN: {
-    IO_DETAIL_INFO_BAND: "基本情報",
-    IO_DETAIL_ISSUE_BAND: "出庫金額",
-    IO_DETAIL_REVENUE_BAND: "売上金額",
-    REVENUE_UNIT_PRICE_FC: "外貨売上単価",
-    REVENUE_AMOUNT_FC: "外貨売上金額",
-    REVENUE_UNIT_PRICE_CC: "売上単価",
-    REVENUE_AMOUNT_CC: "売上金額",
-    REVENUE_AMOUNT_TOTAL: "売上合計",
-  },
-  THA: {
-    IO_DETAIL_INFO_BAND: "ข้อมูลทั่วไป",
-    IO_DETAIL_ISSUE_BAND: "มูลค่าเบิกสินค้า",
-    IO_DETAIL_REVENUE_BAND: "มูลค่ารายได้",
-    REVENUE_UNIT_PRICE_FC: "ราคาขายต่อหน่วย (สกุลต่างประเทศ)",
-    REVENUE_AMOUNT_FC: "มูลค่ารายได้ (สกุลต่างประเทศ)",
-    REVENUE_UNIT_PRICE_CC: "ราคาขายต่อหน่วย",
-    REVENUE_AMOUNT_CC: "มูลค่ารายได้",
-    REVENUE_AMOUNT_TOTAL: "รายได้รวม",
-  },
-  CHN: {
-    IO_DETAIL_INFO_BAND: "基本信息",
-    IO_DETAIL_ISSUE_BAND: "出库金额",
-    IO_DETAIL_REVENUE_BAND: "收入金额",
-    REVENUE_UNIT_PRICE_FC: "外币收入单价",
-    REVENUE_AMOUNT_FC: "外币收入金额",
-    REVENUE_UNIT_PRICE_CC: "收入单价",
-    REVENUE_AMOUNT_CC: "收入金额",
-    REVENUE_AMOUNT_TOTAL: "收入合计",
-  },
-}
-
 function getInventoryMasterGridId(chitType: InventoryVoucherType): string {
   if (chitType === "IR") {
     return "inventory-receipt-master-grid"
@@ -299,7 +234,7 @@ export default function InventoryManagementPage({
   const [editingRow, setEditingRow] = useState<InventoryVoucher>(() =>
     createDefaultInventoryVoucher(chitType, getCurrentCompanyCd(), getCurrentUserId()),
   )
-  const { lang, translate } = useContext(LanguageContext)
+  const { translate } = useContext(LanguageContext)
   const { sysCodeMap } = useSysCodes()
   const t = useCallback((key: string, fallback: string) => translate(key, fallback), [translate])
   const linkedCogsPopup = useLinkedCogsVoucherPopup(t)
@@ -337,14 +272,6 @@ export default function InventoryManagementPage({
       : undefined,
     [chitType, selectedLines],
   )
-  const ioDetailCaptionOverrides = useMemo(() => {
-    if (chitType !== "IO") return undefined
-    const defaults = IO_DETAIL_CAPTIONS[lang] ?? IO_DETAIL_CAPTIONS.ENG
-    return Object.fromEntries(Object.entries(defaults).map(([field, fallback]) => [
-      field,
-      translate(`IO_LIST_${field}`, fallback),
-    ]))
-  }, [chitType, lang, translate])
   const invalidateInventoryVouchers = useInventoryVoucherListInvalidate()
   const {
     data: listResponse,
@@ -1296,7 +1223,6 @@ export default function InventoryManagementPage({
                 gridId={detailGridId}
                 columnSettingStateRef={detailColumnSettingStateRef}
                 contextualColumnVisibility={ioCurrencyColumnVisibility}
-                columnCaptionOverrides={ioDetailCaptionOverrides}
                 searchVisible={isMasterSearchActive}
                 showSearchButton={false}
                 noDataText={t("NO_DETAIL_DATA", "No detail data")}
