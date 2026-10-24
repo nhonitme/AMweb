@@ -127,6 +127,24 @@ function getInventoryDetailLines(record: InventoryVoucher | null, chitType: Inve
   return record.OUTPUTS
 }
 
+// IO list detail: treat empty FC_TYPE as local currency. Show the
+// currency columns if at least one active detail line is in foreign currency.
+const IO_FOREIGN_CURRENCY_COLUMNS = [
+  "EXCHANGE_RATES",
+  "UNIT_PRICE_FC",
+  "AMOUNT_FC",
+  "REVENUE_UNIT_PRICE_FC",
+  "REVENUE_AMOUNT_FC",
+] as const
+
+function hasForeignCurrencyInventoryLines(lines: readonly InventoryLine[]): boolean {
+  return lines.some((line) => {
+    if (line.ISDEL) return false
+    const currency = String(line.FC_TYPE ?? "").trim().toUpperCase()
+    return currency !== "" && currency !== "VND" && currency !== "VNĐ"
+  })
+}
+
 function getInventoryMasterGridId(chitType: InventoryVoucherType): string {
   if (chitType === "IR") {
     return "inventory-receipt-master-grid"
@@ -248,6 +266,12 @@ export default function InventoryManagementPage({
   const excelEnabled = importConfig !== null
   const masterColumnsNode = useMemo(() => <ChitColumns showRevenueAmount={chitType === "IO"} />, [chitType])
   const detailColumnsNode = useMemo(() => renderInventoryDetailColumns(chitType), [chitType])
+  const ioCurrencyColumnVisibility = useMemo(
+    () => chitType === "IO"
+      ? { enabled: hasForeignCurrencyInventoryLines(selectedLines), columnNames: IO_FOREIGN_CURRENCY_COLUMNS }
+      : undefined,
+    [chitType, selectedLines],
+  )
   const invalidateInventoryVouchers = useInventoryVoucherListInvalidate()
   const {
     data: listResponse,
@@ -1198,6 +1222,7 @@ export default function InventoryManagementPage({
                 screenCd={screenCd}
                 gridId={detailGridId}
                 columnSettingStateRef={detailColumnSettingStateRef}
+                contextualColumnVisibility={ioCurrencyColumnVisibility}
                 searchVisible={isMasterSearchActive}
                 showSearchButton={false}
                 noDataText={t("NO_DETAIL_DATA", "No detail data")}
