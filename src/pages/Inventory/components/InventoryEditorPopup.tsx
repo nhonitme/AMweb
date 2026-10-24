@@ -388,7 +388,7 @@ export default function InventoryEditorPopup({
               : {}),
             INPUTS: [],
             OUTPUTS: nextOutputs,
-            AMOUNT: calculateInventoryIssueAmount(nextOutputs, current.IS_COGS),
+            AMOUNT: calculateInventoryIssueAmount(nextOutputs),
           }
         })
       } catch (error) {
@@ -421,7 +421,7 @@ export default function InventoryEditorPopup({
           ...current,
           INPUTS: [],
           OUTPUTS: nextOutputs,
-          AMOUNT: calculateInventoryIssueAmount(nextOutputs, current.IS_COGS),
+          AMOUNT: calculateInventoryIssueAmount(nextOutputs),
         }
       }
 
@@ -449,7 +449,7 @@ export default function InventoryEditorPopup({
       CHITDETAIL_ID_COGS: null,
       COGS_AMOUNT: null,
       CLEAR_COGS_LINK: true,
-      AMOUNT: calculateInventoryIssueAmount(current.OUTPUTS, false),
+      AMOUNT: calculateInventoryIssueAmount(current.OUTPUTS),
     }))
     setLinkedCogsSourceId(null)
     setLinkedCogsVoucherNo("")
@@ -723,7 +723,7 @@ export default function InventoryEditorPopup({
       setDraft((current) => ({
         ...current,
         IS_COGS: enabled,
-        AMOUNT: calculateInventoryIssueAmount(current.OUTPUTS, enabled),
+        AMOUNT: calculateInventoryIssueAmount(current.OUTPUTS),
       }))
       return
     }
@@ -749,7 +749,7 @@ export default function InventoryEditorPopup({
       INPUTS: chitType === "IA" ? current.INPUTS : [],
       OUTPUTS: rows,
       AMOUNT: chitType === "IO"
-        ? calculateInventoryIssueAmount(rows, current.IS_COGS)
+        ? calculateInventoryIssueAmount(rows)
         : calculateInventoryAmount(rows),
     }))
   }, [chitType])
@@ -776,7 +776,7 @@ export default function InventoryEditorPopup({
           ...draftRef.current,
           INPUTS: [],
           OUTPUTS: rows,
-          AMOUNT: calculateInventoryIssueAmount(rows, draftRef.current.IS_COGS),
+          AMOUNT: calculateInventoryIssueAmount(rows),
         }
         setDraft(nextDraft)
         return nextDraft
