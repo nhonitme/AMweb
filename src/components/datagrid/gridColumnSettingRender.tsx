@@ -99,6 +99,12 @@ function resolveGridColumnCaption(
     item.caption,
     translate,
   )
+  // A catalog LABEL_TEXT is authoritative even while language messages load.
+  // Falling back to the widget's live caption here reuses the previous
+  // language after a VIET -> ENG -> VIET switch.
+  if (normalizeText(item.columnLabelText) || normalizeText(item.labelText)) {
+    return resolved
+  }
   if (!isTechnicalColumnCaption(resolved, item.columnName)) {
     return resolved
   }
@@ -501,7 +507,8 @@ function applyGridColumnSettingsToChildrenUnsafe(
       }
 
       const caption = resolveGridColumnCaption(setting, childProps.caption, translate)
-      if (!lockedHiddenColumn && !isTechnicalColumnCaption(caption, setting.columnName)) {
+      const hasCatalogLabel = Boolean(normalizeText(setting.columnLabelText) || normalizeText(setting.labelText))
+      if (!lockedHiddenColumn && (hasCatalogLabel || !isTechnicalColumnCaption(caption, setting.columnName))) {
         nextProps.caption = caption
       }
 
@@ -785,7 +792,8 @@ export function applyGridColumnSettingsToComponent(
         columnProps.caption,
         translate,
       )
-      if (!lockedHiddenColumn && !isTechnicalColumnCaption(caption, item.columnName)) {
+      const hasCatalogLabel = Boolean(normalizeText(item.columnLabelText) || normalizeText(item.labelText))
+      if (!lockedHiddenColumn && (hasCatalogLabel || !isTechnicalColumnCaption(caption, item.columnName))) {
         writeComponentColumnOption(component, columnReference, "caption", caption)
       }
       if (!lockedHiddenColumn && item.alignment) {
