@@ -57,6 +57,7 @@ import {
 import {
   calculateInventoryAmount,
   calculateInventoryIssueAmount,
+  calculateInventoryRevenueAmount,
   ensureInventoryDefaultLine,
   type InventoryLine,
   type InventoryVoucherType,
@@ -133,6 +134,11 @@ export default function InventoryEditorPopup({
   const { getFormat } = useDecimalColumnFormats()
   const screenCd = location.pathname
   const activeLines = chitType === "IR" ? draft.INPUTS : draft.OUTPUTS
+  // Revenue is always sourced from the Xuất kho detail, independent of the
+  // Giá vốn tab and IS_COGS checkbox. Keep the read-only Info field live.
+  const infoFormData = useMemo(() => chitType === "IO"
+    ? { ...draft, REVENUE_AMOUNT: calculateInventoryRevenueAmount(draft.OUTPUTS) }
+    : draft, [chitType, draft])
   const foreignCurrencyColumnsVisible = useMemo(() => hasForeignCurrencyRows(activeLines), [activeLines])
   const [columnSettingsVisible, setColumnSettingsVisible] = useState(false)
   const [columnSettingsTabs, setColumnSettingsTabs] = useState<GridColumnSettingsPopupTab[]>([])
@@ -1226,13 +1232,21 @@ export default function InventoryEditorPopup({
       <LookupPopupProvider>
         <div className="relative flex h-full flex-col overflow-hidden bg-[#f3f4f6]">
           <div className="inventory-voucher-fields-panel flex-shrink-0 px-4 pt-3 pb-3">
-            <Form formData={draft} readOnly={readOnly} labelLocation="top" colCount={3} onFieldDataChanged={handleFieldDataChanged}>
+            <Form formData={infoFormData} readOnly={readOnly} labelLocation="top" colCount={3} onFieldDataChanged={handleFieldDataChanged}>
               <Item
                 dataField="AMOUNT"
                 editorType="dxNumberBox"
                 label={{ text: t("AMOUNT", "Amount") }}
                 editorOptions={createVoucherEditorOptions({ readOnly: true, format: "#,##0.00" })}
               />
+              {chitType === "IO" ? (
+                <Item
+                  dataField="REVENUE_AMOUNT"
+                  editorType="dxNumberBox"
+                  label={{ text: t("REVENUE_AMOUNT", "Tổng doanh thu") }}
+                  editorOptions={createVoucherEditorOptions({ readOnly: true, format: "#,##0.00" })}
+                />
+              ) : null}
               <Item
                 dataField="PAYER_INFO"
                 editorType="dxTextBox"
