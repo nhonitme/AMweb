@@ -259,12 +259,13 @@ export function DetailGrid<TData>({
       paging={{ enabled: false }}
       onInitialized={handleInitialized}
       onContentReady={(event) => {
+        const preservesColumnSettings = effectiveRuntimeColumnVisibility?.preserveColumnSettings === true
         const needsVisibilityUpdate = effectiveRuntimeColumnVisibility?.forceVisibleColumnNames?.some(
           (name) => event.component.columnOption(name, "visible") !== true
-            || event.component.columnOption(name, "allowHiding") !== false,
+            || (!preservesColumnSettings && event.component.columnOption(name, "allowHiding") !== false),
         ) || Object.entries(effectiveRuntimeColumnVisibility?.controlledColumnVisibility ?? {}).some(
           ([name, visible]) => event.component.columnOption(name, "visible") !== visible
-            || event.component.columnOption(name, "allowHiding") !== false,
+            || (!preservesColumnSettings && event.component.columnOption(name, "allowHiding") !== false),
         )
         if (needsVisibilityUpdate) {
           applyRuntimeColumnVisibilityToComponent(event.component, effectiveRuntimeColumnVisibility)
