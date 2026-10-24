@@ -294,6 +294,10 @@ export function BaseDataGrid<T>({
                 item.visibleIndex ?? "",
                 item.width ?? "",
                 item.fixedPosition,
+                item.caption ?? "",
+                item.labelText ?? "",
+                item.columnLabelText ?? "",
+                item.formatType ?? "",
             ].join(":"))
             .join("|"),
         [columnSettingState.cachedEditorItems],
