@@ -107,15 +107,12 @@ export function calculateInventoryAmount(lines: readonly InventoryLine[]): numbe
   return lines.reduce((total, line) => total + (line.ISDEL ? 0 : calculateInventoryLineAmount(line)), 0)
 }
 
-// The IO header always represents the Xuất kho tab, never the Giá vốn tab.
-// Keep the cost amount calculation separate for COGS accounting entries.
-export function calculateInventoryIssueAmount(
-  lines: readonly InventoryOutputLine[],
-  isCogs: boolean,
-): number {
+// IO header AMOUNT always totals the standard issue amount, independently
+// of IS_COGS. Revenue is tracked separately in REVENUE_AMOUNT.
+export function calculateInventoryIssueAmount(lines: readonly InventoryOutputLine[]): number {
   return lines.reduce((total, line) => {
     if (line.ISDEL) return total
-    const amount = Number((isCogs ? line.REVENUE_AMOUNT_TOTAL : line.AMOUNT_TOTAL) ?? 0)
+    const amount = Number(line.AMOUNT_TOTAL ?? 0)
     return total + (Number.isFinite(amount) ? amount : 0)
   }, 0)
 }
@@ -134,7 +131,7 @@ function getInventoryVoucherAmount(record: InventoryVoucher): number {
   }
 
   if (record.CHIT_TYPE === "IO") {
-    return calculateInventoryIssueAmount(record.OUTPUTS, record.IS_COGS)
+    return calculateInventoryIssueAmount(record.OUTPUTS)
   }
 
   return Math.max(calculateInventoryAmount(record.INPUTS), calculateInventoryAmount(record.OUTPUTS))
@@ -449,7 +446,7 @@ export function createInventoryVoucherCopy(
     CHIT_YMD: headerDate,
     CHIT_TYPE: chitType,
     CLEAR_COGS_LINK: false,
-    AMOUNT: chitType === "IO" ? calculateInventoryIssueAmount(outputs, false) : calculateInventoryAmount(activeLines),
+    AMOUNT: chitType === "IO" ? calculateInventoryIssueAmount(outputs) : calculateInventoryAmount(activeLines),
     REVENUE_AMOUNT: chitType === "IO" ? calculateInventoryRevenueAmount(outputs) : undefined,
     ISDEL: false,
     IS_LOCK: false,
@@ -522,7 +519,7 @@ export function normalizeInventoryVoucherApi(
     CHIT_YMD: item.CHIT_YMD ?? null,
     CHIT_TYPE: chitType,
     AMOUNT: chitType === "IO" && normalizedOutputs.length > 0
-      ? calculateInventoryIssueAmount(normalizedOutputs, toBool(item.IS_COGS))
+      ? calculateInventoryIssueAmount(normalizedOutputs)
       : item.AMOUNT ?? (chitType === "IR" ? calculateInventoryAmount(inputs) : calculateInventoryAmount(normalizedOutputs)),
     REVENUE_AMOUNT: chitType === "IO"
       ? item.REVENUE_AMOUNT ?? calculateInventoryRevenueAmount(normalizedOutputs)
@@ -732,7 +729,7 @@ export function mapInventoryVoucherToApiPayload(record: InventoryVoucher): Inven
   const totalAmount = record.CHIT_TYPE === "IR"
     ? calculateInventoryAmount(activeInputs)
     : record.CHIT_TYPE === "IO"
-      ? calculateInventoryIssueAmount(activeOutputs, record.IS_COGS)
+      ? calculateInventoryIssueAmount(activeOutputs)
       : Math.max(calculateInventoryAmount(activeInputs), calculateInventoryAmount(activeOutputs))
   const quantityLines = record.CHIT_TYPE === "IR" ? activeInputs : activeOutputs
   const totalQty = quantityLines.reduce((sum, line) => sum + Number(line.QUANTITY ?? 0), 0)
