@@ -107,7 +107,13 @@ export function DetailGrid<TData>({
     for (const columnName of contextualColumnVisibility.columnNames) {
       controlledColumnVisibility[columnName] = contextualColumnVisibility.enabled
     }
-    return { ...runtimeColumnVisibility, controlledColumnVisibility }
+    return {
+      ...runtimeColumnVisibility,
+      controlledColumnVisibility,
+      // Contextual FX visibility must not mark a column as permanently
+      // locked/hidden; the catalog owns allowHiding and column chooser state.
+      preserveColumnSettings: true,
+    }
   }, [contextualColumnVisibility, runtimeColumnVisibility])
 
   // Contextual hide is temporary. Persist the catalog visibility instead of
