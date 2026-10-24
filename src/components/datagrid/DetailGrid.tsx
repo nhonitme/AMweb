@@ -46,6 +46,8 @@ interface DetailGridProps<TData> {
   columnSettingExcludedColumnNames?: readonly string[]
   runtimeColumnVisibility?: RuntimeColumnVisibilityOptions
   runtimeColumnFormatAliases?: Readonly<Record<string, string>>
+  /** Contextual visibility is AND-ed with sys_grid_column, never force-shown. */
+  contextualColumnVisibility?: { enabled: boolean; columnNames: readonly string[] }
 }
 
 export function DetailGrid<TData>({
@@ -65,6 +67,7 @@ export function DetailGrid<TData>({
   columnSettingExcludedColumnNames = [],
   runtimeColumnVisibility,
   runtimeColumnFormatAliases,
+  contextualColumnVisibility,
 }: DetailGridProps<TData>) {
   const gridRef = useRef<dxDataGrid<TData, string | number> | null>(null)
   const { translate } = useContext(LanguageContext) as {
@@ -94,6 +97,56 @@ export function DetailGrid<TData>({
     columnSettingStateRef.current = columnSettingState
   }
 
+  // For conditional columns (e.g. foreign currency in an IO detail list),
+  // restore visibility from sys_grid_column whenever the condition is true.
+  // An IS_VISIBLE=0 setting always wins over the runtime condition.
+  const effectiveRuntimeColumnVisibility = useMemo<RuntimeColumnVisibilityOptions | undefined>(() => {
+    if (!contextualColumnVisibility) return runtimeColumnVisibility
+
+    const configuredColumns = new Map(
+      columnSettingState.cachedEditorItems.map((item) => [item.columnName.toUpperCase(), item] as const),
+    )
+    const controlledColumnVisibility = {
+      ...runtimeColumnVisibility?.controlledColumnVisibility,
+    }
+    for (const columnName of contextualColumnVisibility.columnNames) {
+      const config = configuredColumns.get(columnName.toUpperCase())
+      controlledColumnVisibility[columnName] = contextualColumnVisibility.enabled
+        && (config?.isVisible ?? !usesSysGridCatalog)
+    }
+    return { ...runtimeColumnVisibility, controlledColumnVisibility }
+  }, [
+    contextualColumnVisibility,
+    columnSettingState.cachedEditorItems,
+    runtimeColumnVisibility,
+    usesSysGridCatalog,
+  ])
+
+  // Contextual hide is temporary. Persist the catalog visibility instead of
+  // accidentally saving hidden currency columns into a user grid template.
+  const saveColumnState = useCallback((state: Parameters<typeof columnSettingState.customSave>[0]) => {
+    if (!contextualColumnVisibility || !Array.isArray(state.columns)) {
+      return columnSettingState.customSave(state)
+    }
+    const conditionalFields = new Set(contextualColumnVisibility.columnNames.map((name) => name.toUpperCase()))
+    const configuredColumns = new Map(
+      columnSettingState.cachedEditorItems.map((item) => [item.columnName.toUpperCase(), item] as const),
+    )
+    type StateColumn = NonNullable<typeof state.columns>[number]
+    const restoreColumns = (columns: StateColumn[]): StateColumn[] => columns.map((column) => {
+      const name = String(column.dataField ?? column.name ?? "").toUpperCase()
+      const config = conditionalFields.has(name) ? configuredColumns.get(name) : undefined
+      return {
+        ...column,
+        ...(config
+          ? { visible: config.isVisible, allowHiding: config.allowHiding, showInColumnChooser: config.allowHiding }
+          : {}),
+        ...(Array.isArray(column.columns) ? { columns: restoreColumns(column.columns) } : {}),
+      }
+    })
+    return columnSettingState.customSave({ ...state, columns: restoreColumns(state.columns) })
+  }, [columnSettingState.cachedEditorItems, columnSettingState.customSave, contextualColumnVisibility])
+
   const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
   const isEmpty = dataSource.length === 0
   const emptyStateText = noDataText ?? t("NO_DETAIL_DATA", "Không có dữ liệu chi tiết")
@@ -116,11 +169,11 @@ export function DetailGrid<TData>({
         { hideColumnsMissingFromSettings: usesSysGridCatalog },
       )
 
-      return runtimeColumnVisibility
-        ? applyRuntimeColumnVisibilityToChildren(settingsChildren, Column, runtimeColumnVisibility)
+      return effectiveRuntimeColumnVisibility
+        ? applyRuntimeColumnVisibilityToChildren(settingsChildren, Column, effectiveRuntimeColumnVisibility)
         : settingsChildren
     },
-    [children, columnSettingState.cachedEditorItems, columnSettingState.translateCaption, companyLangRevision, runtimeColumnVisibility, usesSysGridCatalog],
+    [children, columnSettingState.cachedEditorItems, columnSettingState.translateCaption, companyLangRevision, effectiveRuntimeColumnVisibility, usesSysGridCatalog],
   )
 
   const handleInitialized = useCallback(
@@ -205,15 +258,15 @@ export function DetailGrid<TData>({
       paging={{ enabled: false }}
       onInitialized={handleInitialized}
       onContentReady={(event) => {
-        const needsVisibilityUpdate = runtimeColumnVisibility?.forceVisibleColumnNames?.some(
+        const needsVisibilityUpdate = effectiveRuntimeColumnVisibility?.forceVisibleColumnNames?.some(
           (name) => event.component.columnOption(name, "visible") !== true
             || event.component.columnOption(name, "allowHiding") !== false,
-        ) || Object.entries(runtimeColumnVisibility?.controlledColumnVisibility ?? {}).some(
+        ) || Object.entries(effectiveRuntimeColumnVisibility?.controlledColumnVisibility ?? {}).some(
           ([name, visible]) => event.component.columnOption(name, "visible") !== visible
             || event.component.columnOption(name, "allowHiding") !== false,
         )
         if (needsVisibilityUpdate) {
-          applyRuntimeColumnVisibilityToComponent(event.component, runtimeColumnVisibility)
+          applyRuntimeColumnVisibilityToComponent(event.component, effectiveRuntimeColumnVisibility)
         }
         applyRuntimeColumnFormatAliasesToComponent(event.component, runtimeColumnFormatAliases)
       }}
@@ -230,7 +283,7 @@ export function DetailGrid<TData>({
           enabled={true}
           type="custom"
           customLoad={columnSettingState.customLoad}
-          customSave={columnSettingState.customSave}
+          customSave={saveColumnState}
           savingTimeout={500}
         />
       ) : null}
