@@ -173,6 +173,13 @@ function isLockedHiddenColumnProps(props: Record<string, unknown>): boolean {
   return props.showInColumnChooser === false && props.allowHiding === false
 }
 
+// Band columns are structural headers, not fields in sys_grid_column.
+function isBandColumnConfig(column: unknown): boolean {
+  if (!column || typeof column !== "object") return false
+  const config = column as Record<string, unknown>
+  return config.isBand === true || (Array.isArray(config.columns) && config.columns.length > 0)
+}
+
 function isCommandColumn(props: Record<string, unknown>): boolean {
   const columnType = normalizeText(props.type)
   const command = normalizeText(props.command)
@@ -445,6 +452,24 @@ function applyGridColumnSettingsToChildrenUnsafe(
       return nextChildren !== currentChildren ? React.cloneElement(child, undefined, nextChildren) : child
     }
 
+    // Keep a real DevExtreme band even though there is no corresponding
+    // FIELD_NAME in sys_grid_column. Its leaf columns are still controlled
+    // individually by the catalog. Hide the band if all its leaves are hidden.
+    const isBandColumn = !normalizeText(childProps.dataField)
+      && React.Children.toArray(currentChildren).some(
+        (nested) => React.isValidElement(nested) && nested.type === columnComponent,
+      )
+    if (isBandColumn) {
+      const leafFields = collectColumnFieldNames(currentChildren, columnComponent)
+      const bandVisible = !hideColumnsMissingFromSettings || normalizedItems.length === 0
+        || leafFields.some((field) => settingsMap.get(field)?.isVisible)
+      return React.cloneElement(child, {
+        visible: bandVisible,
+        allowHiding: false,
+        showInColumnChooser: false,
+      }, nextChildren)
+    }
+
     const columnCandidateKeys = getColumnCandidateKeys(childProps)
     const technicalIdColumn = columnCandidateKeys.some((columnKey) => isTechnicalIdColumnName(columnKey))
     const lockedHiddenColumn =
@@ -660,6 +685,13 @@ export function applyGridColumnSettingsToComponent(
         const field = normalizeText(item.columnName)
         const key = field.toUpperCase()
         if (!field || columnReferenceMap.has(key) || isTechnicalIdColumnName(field) || isSystemFixedColumnName(field)) continue
+        // DevExtreme may expose nested band children by dataField rather than
+        // columnCount index. Do not create duplicate root columns for them.
+        const nestedColumn = component.columnOption?.(field)
+        if (nestedColumn && typeof nestedColumn === "object") {
+          columnReferenceMap.set(key, { identifier: field, index: -1 })
+          continue
+        }
         const editableInPopupForm = editingFormItemKeys.has(key)
         component.addColumn({
           name: field,
@@ -694,6 +726,7 @@ export function applyGridColumnSettingsToComponent(
       }
 
       const columnReference = columnReferenceMap.get(columnKey.toUpperCase())
+        ?? (component.columnOption?.(columnKey) ? { identifier: columnKey, index: -1 } : undefined)
       if (!columnReference) {
         return
       }
@@ -776,6 +809,11 @@ export function applyGridColumnSettingsToComponent(
         return
       }
 
+      // No catalog entry is required for a band parent. Never hide its header
+      // as an unconfigured field; child visibility determines whether it shows.
+      if (isBandColumnConfig(readComponentColumn(component, columnReference))) {
+        return
+      }
       if (!hideColumnsMissingFromSettings || configuredColumnKeys.has(columnKey) || processedColumnReferences.has(columnReference)) {
         return
       }
