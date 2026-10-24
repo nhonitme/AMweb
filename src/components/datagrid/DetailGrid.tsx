@@ -49,7 +49,6 @@ interface DetailGridProps<TData> {
   /** Contextual visibility is AND-ed with sys_grid_column, never force-shown. */
   contextualColumnVisibility?: { enabled: boolean; columnNames: readonly string[] }
   /** Screen-specific captions that win after DevExtreme reapplies persisted layout. */
-  columnCaptionOverrides?: Readonly<Record<string, string>>
 }
 
 export function DetailGrid<TData>({
@@ -70,7 +69,6 @@ export function DetailGrid<TData>({
   runtimeColumnVisibility,
   runtimeColumnFormatAliases,
   contextualColumnVisibility,
-  columnCaptionOverrides,
 }: DetailGridProps<TData>) {
   const gridRef = useRef<dxDataGrid<TData, string | number> | null>(null)
   const { translate } = useContext(LanguageContext) as {
@@ -141,21 +139,6 @@ export function DetailGrid<TData>({
     return columnSettingState.customSave({ ...state, columns: restoreColumns(state.columns) })
   }, [columnSettingState.cachedEditorItems, columnSettingState.customSave, contextualColumnVisibility])
 
-  const applyCaptionOverrides = useCallback((grid: dxDataGrid<TData, string | number> | null | undefined) => {
-    if (!grid || !columnCaptionOverrides) return
-    for (const [field, caption] of Object.entries(columnCaptionOverrides)) {
-      if (!caption || !grid.columnOption(field)) continue
-      if (grid.columnOption(field, "caption") !== caption) {
-        grid.columnOption(field, "caption", caption)
-      }
-    }
-  }, [columnCaptionOverrides])
-
-  // Language or catalog sync can reapply older captions to the instance.
-  useEffect(() => {
-    applyCaptionOverrides(gridRef.current)
-  }, [applyCaptionOverrides, columnSettingState.cachedEditorItems])
-
   const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
   const isEmpty = dataSource.length === 0
   const emptyStateText = noDataText ?? t("NO_DETAIL_DATA", "Không có dữ liệu chi tiết")
@@ -192,10 +175,9 @@ export function DetailGrid<TData>({
       if (columnSettingState.cachedEditorItems.length) {
         columnSettingState.syncEditorItemsToComponent(event.component, columnSettingState.cachedEditorItems)
       }
-      applyCaptionOverrides(event.component)
       onInitialized?.(event)
     },
-    [applyCaptionOverrides, columnSettingState.bindGridComponent, columnSettingState.cachedEditorItems, columnSettingState.syncEditorItemsToComponent, onInitialized],
+    [columnSettingState.bindGridComponent, columnSettingState.cachedEditorItems, columnSettingState.syncEditorItemsToComponent, onInitialized],
   )
 
   useEffect(() => {
@@ -205,9 +187,7 @@ export function DetailGrid<TData>({
 
     columnSettingState.syncEditorItemsToComponent(gridRef.current, columnSettingState.cachedEditorItems)
     applyRuntimeColumnVisibilityToComponent(gridRef.current, effectiveRuntimeColumnVisibility)
-    applyCaptionOverrides(gridRef.current)
   }, [
-    applyCaptionOverrides,
     effectiveRuntimeColumnVisibility,
     columnSettingState.cachedEditorItems,
     columnSettingState.enabled,
@@ -228,7 +208,6 @@ export function DetailGrid<TData>({
 
       columnSettingState.syncEditorItemsToComponent(gridRef.current, items)
       applyRuntimeColumnVisibilityToComponent(gridRef.current, effectiveRuntimeColumnVisibility)
-      applyCaptionOverrides(gridRef.current)
     })
 
     return () => {
@@ -239,7 +218,6 @@ export function DetailGrid<TData>({
     columnSettingState.loadEditorItems,
     columnSettingState.syncEditorItemsToComponent,
     effectiveRuntimeColumnVisibility,
-    applyCaptionOverrides,
   ])
 
   useEffect(() => {
@@ -287,7 +265,6 @@ export function DetailGrid<TData>({
           applyRuntimeColumnVisibilityToComponent(event.component, effectiveRuntimeColumnVisibility)
         }
         applyRuntimeColumnFormatAliasesToComponent(event.component, runtimeColumnFormatAliases)
-        applyCaptionOverrides(event.component)
       }}
       onCellPrepared={(event) => {
         applyHeaderFieldNameTooltip(event)
