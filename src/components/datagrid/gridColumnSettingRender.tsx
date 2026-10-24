@@ -575,6 +575,20 @@ export function applyRuntimeColumnVisibilityToChildren(
       }
     }
 
+    // A band parent may have been marked invisible because all its children
+    // are hidden in sys_grid_column. When FC_TYPE temporarily reveals a leaf,
+    // its parent must become visible too.
+    const isBandColumn = !normalizeText(childProps.dataField)
+      && React.Children.toArray(currentChildren).some(
+        (nested) => React.isValidElement(nested) && nested.type === columnComponent,
+      )
+    if (isBandColumn) {
+      const leafFields = collectColumnFieldNames(currentChildren, columnComponent)
+      if (leafFields.some((field) => runtimeVisibilityMap.get(field) === true)) {
+        nextProps.visible = true
+      }
+    }
+
     if (nextChildren !== currentChildren) {
       nextProps.children = nextChildren
     }
