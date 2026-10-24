@@ -158,14 +158,6 @@ function getInventoryDetailGridTitleFallback(chitType: InventoryVoucherType): st
   return chitType === "IO" ? "Chi tiết xuất kho" : "Chi tiết điều chỉnh kho"
 }
 
-// IO amount/total columns share AMOUNT_CC's effective numeric formatting,
-// including the FORMAT_TYPE applied by sys_grid_column.
-const INVENTORY_OUTPUT_AMOUNT_FORMAT_ALIASES = {
-  AMOUNT_TOTAL: "AMOUNT_CC",
-  REVENUE_AMOUNT_CC: "AMOUNT_CC",
-  REVENUE_AMOUNT_TOTAL: "AMOUNT_CC",
-} as const
-
 function renderInventoryDetailColumns(chitType: InventoryVoucherType) {
   if (chitType === "IR") {
     return <ChitInventoryInputDetailColumns />
@@ -1169,7 +1161,6 @@ export default function InventoryManagementPage({
                 dataSource={selectedLines}
                 keyExpr="ROW_KEY"
                 height="100%"
-                runtimeColumnFormatAliases={chitType === "IO" ? INVENTORY_OUTPUT_AMOUNT_FORMAT_ALIASES : undefined}
                 onInitialized={handleDetailGridInitialized}
                 persistColumnSettings
                 screenCd={screenCd}
