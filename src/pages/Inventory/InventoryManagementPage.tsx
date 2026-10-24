@@ -3,6 +3,7 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "r
 import { useLocation, useNavigate } from "react-router-dom"
 import type dxDataGrid from "devextreme/ui/data_grid"
 import type {
+  ContentReadyEvent,
   InitializedEvent,
   OptionChangedEvent,
   RowDblClickEvent,
@@ -435,6 +436,36 @@ export default function InventoryManagementPage({
   const handleGridInitialized = useCallback((event: InitializedEvent<InventoryVoucher, string | number>) => {
     gridRef.current = event.component ?? null
   }, [])
+
+  // Only the IO master/Info grid needs this caption safeguard.
+  // Grid settings are synchronized asynchronously after initial rendering;
+  // without reapplying its catalog LABEL_TEXT, that step can restore "Số tiền".
+  const handleMasterContentReady = useCallback((event: ContentReadyEvent) => {
+    if (chitType !== "IO") return
+
+    const amountColumn = event.component.columnOption("AMOUNT")
+    if (!amountColumn) return
+
+    const amountSetting = masterColumnSettingStateRef.current?.cachedEditorItems.find(
+      (item) => item.columnName.trim().toUpperCase() === "AMOUNT",
+    )
+
+    // For this grid the sys_grid_column label takes priority over an older
+    // template/user setting. LABEL_TEXT can be a translation key or literal.
+    const catalogLabel = amountSetting?.columnLabelText?.trim() ?? ""
+    const templateLabel = amountSetting?.labelText?.trim() ?? ""
+    const customLabel = (label: string) => label && label.toUpperCase() !== "AMOUNT"
+    const preferredLabel = customLabel(catalogLabel)
+      ? catalogLabel
+      : customLabel(templateLabel)
+        ? templateLabel
+        : "INVENTORY_ISSUE_AMOUNT"
+    const caption = translate(preferredLabel, preferredLabel === "INVENTORY_ISSUE_AMOUNT" ? "Giá trị xuất kho" : preferredLabel)
+
+    if (event.component.columnOption("AMOUNT", "caption") !== caption) {
+      event.component.columnOption("AMOUNT", "caption", caption)
+    }
+  }, [chitType, translate])
 
   const handleDetailGridInitialized = useCallback((event: InitializedEvent<InventoryLine, string | number>) => {
     detailGridRef.current = event.component ?? null
@@ -1138,6 +1169,7 @@ export default function InventoryManagementPage({
               gridId={masterGridId}
               persistColumnSettings
               onInitialized={handleGridInitialized}
+              onContentReady={handleMasterContentReady}
               onSelectionChanged={handleSelectionChanged}
               onRowDblClick={handleRowDblClick}
               onContextMenuUpdate={handleContextMenuUpdate}
