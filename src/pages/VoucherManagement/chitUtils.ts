@@ -1054,6 +1054,7 @@ export const mapInventoryInputToApiPayload = (record: InventoryInputLine): Inven
 })
 
 export const mapInventoryOutputToApiPayload = (record: InventoryOutputLine): InventoryOutputApi => ({
+  CLIENT_ROW_KEY: record.ROW_KEY,
   OUTPUT_ID: record.OUTPUT_ID,
   OUTPUT_CD: trimText(record.OUTPUT_CD),
   INVENTORY_ID: record.INVENTORY_ID,
