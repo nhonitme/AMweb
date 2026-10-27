@@ -136,6 +136,9 @@ export default function InventoryEditorPopup({
   const t = useCallback((key: string, fallback: string) => translate(key, fallback), [translate])
   const { getFormat } = useDecimalColumnFormats()
   const screenCd = location.pathname
+  // Xuất NVL theo định mức belongs to the OT material-issue workflow only.
+  // This popup is reused by ordinary inventory/issue and other accounting screens.
+  const showBomAllocation = chitType === "IO" && /\\/cost\\/issue-material\\/?$/.test(location.pathname)
   const activeLines = chitType === "IR" ? draft.INPUTS : draft.OUTPUTS
   // Revenue is always sourced from the Xuất kho detail, independent of the
   // Giá vốn tab and IS_COGS checkbox. Keep the read-only Info field live.
@@ -764,7 +767,7 @@ export default function InventoryEditorPopup({
   // The BOM grids are an immutable calculation snapshot; IO remains the posting
   // source. Correlate with ROW_KEY until OUTPUT_ID is assigned inside the DB transaction.
   const handleOpenBom = useCallback(async () => {
-    if (chitType !== "IO" || loading || bomLoading) return
+    if (!showBomAllocation || loading || bomLoading) return
     setBomLoading(true)
     try {
       const rows = await outputGridRef.current?.savePendingChanges()
@@ -779,7 +782,7 @@ export default function InventoryEditorPopup({
     } catch (error) {
       notify(getApiErrorMessage(error, t("BOM_OPEN_FAILED", "Không mở được bảng phân bổ NVL")), "error", 4000)
     } finally { setBomLoading(false) }
-  }, [bomLoading, chitType, draftRef, handleOutputsChange, loading, setDraft, t])
+  }, [bomLoading, showBomAllocation, draftRef, handleOutputsChange, loading, setDraft, t])
 
   const handleConfirmBom = useCallback((snapshot: InventoryBomSnapshot) => {
     const previous = draftRef.current
@@ -1410,7 +1413,7 @@ export default function InventoryEditorPopup({
                     linkSlot={isAdjustmentVoucher ? undefined : (
                       <div className="flex flex-wrap items-center gap-2">
                         {accountingLinkSlot}
-                        {!isCogsTab ? (
+                        {showBomAllocation && !isCogsTab ? (
                           <Button icon="formula" stylingMode="outlined"
                             text={t("BOM_ALLOCATION", "Xuất NVL theo định mức")}
                             disabled={loading || bomLoading} onClick={() => void handleOpenBom()} />
@@ -1447,7 +1450,7 @@ export default function InventoryEditorPopup({
 
           <LoadPanel visible={loading} shading={false} showIndicator />
         </div>
-        {chitType === "IO" ? (
+        {showBomAllocation ? (
           <InventoryBomAllocationPopup
             companyCd={draft.COMPANY_CD}
             visible={bomVisible}
