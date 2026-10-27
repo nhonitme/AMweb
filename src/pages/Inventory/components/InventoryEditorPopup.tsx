@@ -1449,6 +1449,7 @@ export default function InventoryEditorPopup({
         </div>
         {chitType === "IO" ? (
           <InventoryBomAllocationPopup
+            companyCd={draft.COMPANY_CD}
             visible={bomVisible}
             disabled={readOnly || loading}
             initial={bomSnapshot}
