@@ -207,6 +207,8 @@ export default function InventoryBomAllocationPopup({
               searchEnabled value={selectedStoreId}
               onValueChanged={e => setSelectedStoreId(e.value ?? null)} disabled={busy || disabled} />
           </div>
+          <Button text={t("BOM_EDIT_DEFINITION", "Cập nhật định mức")} icon="edit"
+            onClick={() => window.open("/app/0001/cost/material-product", "_blank", "noopener,noreferrer")} />
           <Button text={t("CALCULATE", "Tính lại")} icon="refresh" onClick={() => void calculate()} disabled={busy || disabled} />
           <Button text={t("EXPORT_TEMPLATE", "File mẫu")} icon="xlsxfile" onClick={downloadTemplate} />
           <label className="cursor-pointer rounded-md border border-gray-300 px-3 py-2 text-sm">
