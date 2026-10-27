@@ -1,6 +1,7 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from "react"
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import Popup from "devextreme-react/popup"
 import DataGrid, { Column, Editing, Lookup, Selection } from "devextreme-react/data-grid"
+import type dxDataGrid from "devextreme/ui/data_grid"
 import SelectBox from "devextreme-react/select-box"
 import NumberBox from "devextreme-react/number-box"
 import Button from "devextreme-react/button"
@@ -33,6 +34,8 @@ export default function InventoryBomAllocationPopup({
 }: Props) {
   const { translate } = useContext(LanguageContext)
   const t = useCallback((key: string, fallback: string) => translate(key, fallback), [translate])
+  const finishedGridRef = useRef<dxDataGrid | null>(null)
+  const materialGridRef = useRef<dxDataGrid | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [stores, setStores] = useState<StoreInfo[]>([])
   const [materialProducts, setMaterialProducts] = useState<Product[]>([])
@@ -160,18 +163,23 @@ export default function InventoryBomAllocationPopup({
     finally { setBusy(false) }
   }
 
-  const confirmAllocation = () => {
+  const confirmAllocation = async () => {
+    // Commit any active DevExtreme cell editor before reading the snapshot.
+    await finishedGridRef.current?.saveEditData()
+    await materialGridRef.current?.saveEditData()
+    const finalFinished = (finishedGridRef.current?.getDataSource()?.items() ?? finished) as InventoryBomFinishedRow[]
+    const finalMaterials = (materialGridRef.current?.getDataSource()?.items() ?? materials) as InventoryBomMaterialRow[]
     if (requiresRecalculation) return notify(t("BOM_RECALCULATE", "Danh sách đã thay đổi, cần Tính lại trước khi xác nhận"), "warning", 4000)
-    if (!finished.length || !materials.length) return notify(t("BOM_EMPTY", "Chưa có kết quả định mức"), "warning", 2500)
-    if (materials.some(m => !finished.some(f => f.CLIENT_KEY === m.FINISHED_CLIENT_KEY)))
+    if (!finalFinished.length || !finalMaterials.length) return notify(t("BOM_EMPTY", "Chưa có kết quả định mức"), "warning", 2500)
+    if (finalMaterials.some(m => !finalFinished.some(f => f.CLIENT_KEY === m.FINISHED_CLIENT_KEY)))
       return notify("Dòng nguyên vật liệu không có thành phẩm tương ứng", "error", 3000)
-    const confirmed = materials.filter(m => qty(m.CONFIRMED_QUANTITY) > 0)
+    const confirmed = finalMaterials.filter(m => qty(m.CONFIRMED_QUANTITY) > 0)
     if (!confirmed.length) return notify("Không có nguyên vật liệu có số lượng xuất hợp lệ", "warning", 3000)
     if (confirmed.some(m => !(qty(m.STORE_ID) > 0) || !storesById.has(Number(m.STORE_ID))))
       return notify("Vui lòng chọn kho xuất cho mọi dòng NVL cần xuất", "warning", 4000)
     onConfirm({
-      FINISHED: finished.map((row, i) => ({ ...row, SORT: i + 1 })),
-      MATERIALS: materials.map((row, i) => {
+      FINISHED: finalFinished.map((row, i) => ({ ...row, SORT: i + 1 })),
+      MATERIALS: finalMaterials.map((row, i) => {
         const store = storesById.get(Number(row.STORE_ID))
         const materialProduct = materialProductsById.get(row.MATERIAL_PRODUCT_ID)
         return { ...row, STORE_CD: store?.STORE_CD ?? "", STORE_NM_VIET: store?.STORE_NM_VIET ?? "",
@@ -230,6 +238,7 @@ export default function InventoryBomAllocationPopup({
               }} />
           </div>
           <DataGrid dataSource={finished} keyExpr="CLIENT_KEY" height="100%" showBorders
+            onInitialized={e => { finishedGridRef.current = e.component }}
             selectedRowKeys={selectedFinishedKeys} onSelectionChanged={e => setSelectedFinishedKeys(e.selectedRowKeys.map(String))}
             onRowUpdated={e => {
               setFinished(rows => rows.map(row => row.CLIENT_KEY === e.key ? { ...e.data } : row))
@@ -248,6 +257,7 @@ export default function InventoryBomAllocationPopup({
         </div>
         <div className="min-h-0 flex-[3]">
           <DataGrid dataSource={materials} keyExpr="CLIENT_KEY" height="100%" showBorders
+            onInitialized={e => { materialGridRef.current = e.component }}
             onRowUpdating={e => {
               if ("BOM_QUANTITY" in e.newData) {
                 const parent = finished.find(f => f.CLIENT_KEY === e.oldData.FINISHED_CLIENT_KEY)
@@ -274,7 +284,7 @@ export default function InventoryBomAllocationPopup({
         <div className="flex justify-end gap-2 border-t pt-3">
           <Button text={t("CANCEL", "Hủy")} onClick={onClose} />
           <Button text={t("CONFIRM", "Xác nhận")} type="default" icon="check"
-            disabled={busy || disabled || requiresRecalculation} onClick={confirmAllocation} />
+            disabled={busy || disabled || requiresRecalculation} onClick={() => { void confirmAllocation() }} />
         </div>
       </div>
     </Popup>
