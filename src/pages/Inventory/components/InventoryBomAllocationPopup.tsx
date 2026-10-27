@@ -16,6 +16,7 @@ import type { StoreInfo } from "@/types/store"
 import type { InventoryBomFinishedRow, InventoryBomMaterialRow, InventoryBomSnapshot, InventoryOutputLine } from "@/types/voucher"
 
 interface Props {
+  companyCd: string
   visible: boolean
   disabled?: boolean
   initial?: InventoryBomSnapshot | null
@@ -28,7 +29,7 @@ const newKey = (prefix: string): string => `${prefix}-${Date.now()}-${Math.rando
 const qty = (value: unknown): number => Number(value ?? 0)
 
 export default function InventoryBomAllocationPopup({
-  visible, disabled = false, initial, currentOutputs, onClose, onConfirm,
+  companyCd, visible, disabled = false, initial, currentOutputs, onClose, onConfirm,
 }: Props) {
   const { translate } = useContext(LanguageContext)
   const t = useCallback((key: string, fallback: string) => translate(key, fallback), [translate])
@@ -208,7 +209,7 @@ export default function InventoryBomAllocationPopup({
               onValueChanged={e => setSelectedStoreId(e.value ?? null)} disabled={busy || disabled} />
           </div>
           <Button text={t("BOM_EDIT_DEFINITION", "Cập nhật định mức")} icon="edit"
-            onClick={() => window.open("/app/0001/cost/material-product", "_blank", "noopener,noreferrer")} />
+            onClick={() => window.open(`/app/${encodeURIComponent(companyCd)}/cost/material-product`, "_blank", "noopener,noreferrer")} />
           <Button text={t("CALCULATE", "Tính lại")} icon="refresh" onClick={() => void calculate()} disabled={busy || disabled} />
           <Button text={t("EXPORT_TEMPLATE", "File mẫu")} icon="xlsxfile" onClick={downloadTemplate} />
           <label className="cursor-pointer rounded-md border border-gray-300 px-3 py-2 text-sm">
