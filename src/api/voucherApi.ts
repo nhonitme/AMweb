@@ -31,13 +31,15 @@ type ApiEnvelope<T> = {
   HasNext?: boolean
 }
 
-type GetChitsParams = {
+export type GetChitsParams = {
   fromYmd?: string | null
   toYmd?: string | null
   chitId?: number | null
   INCLUDE_DETAILS?: boolean
   pageNumber?: number
   pageSize?: number
+  /** Chỉ /cost/issue-material: MATERIAL_ISSUE → API lọc theo MATERIAL_ISSUE_ACCOUNT_PAIRS */
+  accountPairFilter?: string | null
 }
 
 type ExportChitsParams = GetChitsParams
@@ -281,6 +283,7 @@ export async function getChits(
   if (filters.INCLUDE_DETAILS) params.INCLUDE_DETAILS = filters.INCLUDE_DETAILS
   if (filters.pageNumber && filters.pageNumber > 0) params.PAGE_NUMBER = filters.pageNumber
   if (filters.pageSize && filters.pageSize > 0) params.PAGE_SIZE = filters.pageSize
+  if (filters.accountPairFilter) params.ACCOUNT_PAIR_FILTER = filters.accountPairFilter
 
   const baseUrl = `${getBaseUrl(ledger, chitType)}/Get`
   const normalizedParams = Object.keys(params).length > 0 ? params : undefined
@@ -309,6 +312,7 @@ export async function exportChitExcel(
   if (filters.chitId && filters.chitId > 0) params.CHIT_ID = filters.chitId
   if (filters.fromYmd) params.FROM_YMD = filters.fromYmd
   if (filters.toYmd) params.TO_YMD = filters.toYmd
+  if (filters.accountPairFilter) params.ACCOUNT_PAIR_FILTER = filters.accountPairFilter
 
   const response = await axios.get(`${getBaseUrl(ledger, chitType)}/ExportExcel`, {
     params: Object.keys(params).length > 0 ? params : undefined,

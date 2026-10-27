@@ -117,6 +117,8 @@ interface ChitManagementPageProps {
   chitType: ChitType
   titleFallback?: string
   titleKey?: string
+  /** Chỉ dùng trên /cost/issue-material: "MATERIAL_ISSUE" */
+  accountPairFilter?: string
 }
 
 type DetailGridRow = ChitDetail
@@ -337,6 +339,7 @@ export function ChitManagementPage({
   vatSource,
   onEditorClose,
   onEditorSaved,
+  accountPairFilter,
 }: ChitManagementPageProps) {
 
 
@@ -557,6 +560,7 @@ export function ChitManagementPage({
       pageNumber,
       pageSize,
       includeDetails: true,
+      accountPairFilter,
     },
     listFetchEnabled,
   )
@@ -1550,13 +1554,14 @@ const openEditPopup = useCallback(
         chitId: Number.isFinite(selectedChitId) && (selectedChitId ?? 0) > 0 ? selectedChitId : null,
         fromYmd: formatDateToYmd(fromDate),
         toYmd: formatDateToYmd(toDate),
+        accountPairFilter,
       }, signal)
       await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
     } catch (error) {
       console.error("Export chit note error", error)
       notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất thất bại")), "error", 4000)
     }
-  }, [exportName, fromDate, ledger, chitType, t, title, toDate])
+  }, [accountPairFilter, exportName, fromDate, ledger, chitType, t, title, toDate])
 
   const handleExportPdf = useCallback(() => {
     if (!pdfReportCode) {

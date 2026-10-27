@@ -15,6 +15,7 @@ export type ChitListQueryParams = {
   pageNumber: number
   pageSize: number
   includeDetails?: boolean
+  accountPairFilter?: string | null
 }
 
 export function useChitListQuery(params: ChitListQueryParams, enabled = true) {
@@ -30,6 +31,7 @@ export function useChitListQuery(params: ChitListQueryParams, enabled = true) {
       params.toYmd,
       params.pageNumber,
       params.pageSize,
+      params.accountPairFilter,
     ),
     queryFn: () => {
       const filters: GetChitsParams = {
@@ -38,6 +40,7 @@ export function useChitListQuery(params: ChitListQueryParams, enabled = true) {
         pageNumber: resolvePageNumber(params.pageNumber),
         pageSize: resolvePageSize(params.pageSize),
         INCLUDE_DETAILS: params.includeDetails ?? true,
+        accountPairFilter: params.accountPairFilter,
       }
       return getChits(params.ledger, params.chitType, filters)
     },

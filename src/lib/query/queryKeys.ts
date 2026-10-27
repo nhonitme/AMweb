@@ -120,6 +120,7 @@ export const queryKeys = {
       toYmd: string,
       pageNumber: number,
       pageSize: number,
+      accountPairFilter?: string | null,
     ) =>
       [
         ...queryKeys.transaction.chitsRoot(companyCd),
@@ -129,6 +130,7 @@ export const queryKeys = {
         toYmd,
         pageNumber,
         pageSize,
+        accountPairFilter ?? "",
       ] as const,
     inventoryRoot: (companyCd: string) => [...queryKeys.transaction.all, "inventory", companyCd] as const,
     inventory: (
