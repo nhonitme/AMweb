@@ -377,8 +377,11 @@ export interface InventoryBomMaterialRow {
   MATERIAL_PRODUCT_ID: number
   MATERIAL_PRODUCT_CD?: string | null
   MATERIAL_PRODUCT_NM?: string | null
+  UNIT_ID?: number | null // UI-only; not saved in either BOM table
   UNIT_CD?: string | null
   STORE_ID?: number | null
+  STORE_CD?: string | null
+  STORE_NM_VIET?: string | null
   BOM_QUANTITY: number
   CALCULATED_QUANTITY: number
   CONFIRMED_QUANTITY: number
