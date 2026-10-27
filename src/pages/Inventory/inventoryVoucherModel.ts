@@ -435,6 +435,7 @@ export function createInventoryVoucherCopy(
     ...base,
     ...source,
     COGS: null,
+    BOM: undefined,
     CHITDETAIL_ID_COGS: null,
     IS_COGS: false,
     COGS_AMOUNT: null,
@@ -509,6 +510,7 @@ export function normalizeInventoryVoucherApi(
     : outputs
   const normalizedRecord: InventoryVoucher = {
     IS_COGS: toBool(item.IS_COGS),
+    BOM: item.BOM,
     COGS: item.COGS,
     CHITDETAIL_ID_COGS: Number(item.CHITDETAIL_ID_COGS) > 0 ? Number(item.CHITDETAIL_ID_COGS) : null,
     CHIT_ID: item.CHIT_ID ?? null,
@@ -768,5 +770,6 @@ export function mapInventoryVoucherToApiPayload(record: InventoryVoucher): Inven
     DESCRIPTION_KOR: trimText(record.DESCRIPTION_KOR),
     INPUTS: activeInputs.map(mapInventoryInputToApiPayload),
     OUTPUTS: activeOutputs.map(mapInventoryOutputToApiPayload),
+    ...(record.CHIT_TYPE === "IO" && record.BOM !== undefined ? { BOM: record.BOM } : {}),
   }
 }
