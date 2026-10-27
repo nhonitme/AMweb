@@ -34,6 +34,7 @@ export default function InventoryBomAllocationPopup({
   const t = useCallback((key: string, fallback: string) => translate(key, fallback), [translate])
   const [products, setProducts] = useState<Product[]>([])
   const [stores, setStores] = useState<StoreInfo[]>([])
+  const [materialProducts, setMaterialProducts] = useState<Product[]>([])
   const [finished, setFinished] = useState<InventoryBomFinishedRow[]>([])
   const [materials, setMaterials] = useState<InventoryBomMaterialRow[]>([])
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
@@ -53,9 +54,9 @@ export default function InventoryBomAllocationPopup({
       ?? currentOutputs.find(row => !row.ISDEL && Number(row.STORE_ID) > 0)?.STORE_ID
     setSelectedStoreId(storeId ?? null)
     let cancelled = false
-    void Promise.all([getProducts("155"), getStoreInfos()])
-      .then(([list, result]) => {
-        if (!cancelled) { setProducts(list); setStores(result.data) }
+    void Promise.all([getProducts("155"), getProducts("152"), getStoreInfos()])
+      .then(([list, rawMaterials, result]) => {
+        if (!cancelled) { setProducts(list); setMaterialProducts(rawMaterials); setStores(result.data) }
       })
       .catch(error => { if (!cancelled) notify(getApiErrorMessage(error, "Không đọc được danh mục thành phẩm/kho"), "error", 4500) })
     return () => { cancelled = true }
@@ -63,6 +64,7 @@ export default function InventoryBomAllocationPopup({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, initial])
 
+  const materialProductsById = useMemo(() => new Map(materialProducts.map(p => [p.PRODUCT_ID, p])), [materialProducts])
   const productsById = useMemo(() => new Map(products.map(p => [p.PRODUCT_ID, p])), [products])
   const productsByCode = useMemo(() => new Map(products.map(p => [p.PRODUCT_CD.trim().toUpperCase(), p])), [products])
   const storesById = useMemo(() => new Map(stores.map(s => [s.STORE_ID, s])), [stores])
@@ -142,7 +144,7 @@ export default function InventoryBomAllocationPopup({
             MATERIAL_PRODUCT_ID: def.MATERIAL_PRODUCT_ID,
             MATERIAL_PRODUCT_CD: def.MATERIAL_PRODUCT_CD,
             MATERIAL_PRODUCT_NM: def.MATERIAL_PRODUCT_NM,
-            UNIT_CD: def.UNIT_NM ?? "",
+            UNIT_CD: materialProductsById.get(def.MATERIAL_PRODUCT_ID)?.UNIT_CD ?? "",
             STORE_ID: selectedStoreId,
             BOM_QUANTITY: qty(def.QUANTITY), CALCULATED_QUANTITY: total,
             CONFIRMED_QUANTITY: total, OUTPUT_ID: null, OUTPUT_CLIENT_KEY: "",
@@ -170,7 +172,9 @@ export default function InventoryBomAllocationPopup({
       FINISHED: finished.map((row, i) => ({ ...row, SORT: i + 1 })),
       MATERIALS: materials.map((row, i) => {
         const store = storesById.get(Number(row.STORE_ID))
-        return { ...row, STORE_CD: store?.STORE_CD ?? "", STORE_NM_VIET: store?.STORE_NM_VIET ?? "", SORT: i + 1 }
+        const materialProduct = materialProductsById.get(row.MATERIAL_PRODUCT_ID)
+        return { ...row, STORE_CD: store?.STORE_CD ?? "", STORE_NM_VIET: store?.STORE_NM_VIET ?? "",
+          UNIT_ID: materialProduct?.UNIT_ID ?? null, UNIT_CD: materialProduct?.UNIT_CD ?? row.UNIT_CD, SORT: i + 1 }
       }),
     })
   }
