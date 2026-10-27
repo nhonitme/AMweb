@@ -510,7 +510,8 @@ export function normalizeInventoryVoucherApi(
     : outputs
   const normalizedRecord: InventoryVoucher = {
     IS_COGS: toBool(item.IS_COGS),
-    BOM: item.BOM,
+    // Get does not hydrate BOM; keep undefined so openers know to call GetBomSnapshot.
+    BOM: item.BOM ?? undefined,
     COGS: item.COGS,
     CHITDETAIL_ID_COGS: Number(item.CHITDETAIL_ID_COGS) > 0 ? Number(item.CHITDETAIL_ID_COGS) : null,
     CHIT_ID: item.CHIT_ID ?? null,

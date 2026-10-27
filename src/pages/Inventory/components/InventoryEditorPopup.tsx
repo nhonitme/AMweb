@@ -766,18 +766,25 @@ export default function InventoryEditorPopup({
 
   // The BOM grids are an immutable calculation snapshot; IO remains the posting
   // source. Correlate with ROW_KEY until OUTPUT_ID is assigned inside the DB transaction.
+  // Get inventory returns BOM: null (not hydrated); only GetBomSnapshot has saved rows.
   const handleOpenBom = useCallback(async () => {
     if (!showBomAllocation || loading || bomLoading) return
     setBomLoading(true)
     try {
       const rows = await outputGridRef.current?.savePendingChanges()
       if (rows) handleOutputsChange(rows)
-      const snapshot = draftRef.current.BOM !== undefined
-        ? draftRef.current.BOM
-        : Number(draftRef.current.CHIT_ID) > 0
-          ? await getInventoryBomSnapshot(Number(draftRef.current.CHIT_ID))
+      const draftBom = draftRef.current.BOM
+      const chitId = Number(draftRef.current.CHIT_ID)
+      const snapshot = draftBom != null
+        ? draftBom
+        : chitId > 0
+          ? await getInventoryBomSnapshot(chitId)
           : null
-      setBomSnapshot(snapshot ?? null)
+      // Keep draft in sync so reopen / save reuse the loaded snapshot.
+      if (snapshot != null && draftRef.current.BOM == null) {
+        setDraft(current => ({ ...current, BOM: snapshot }))
+      }
+      setBomSnapshot(snapshot)
       setBomVisible(true)
     } catch (error) {
       notify(getApiErrorMessage(error, t("BOM_OPEN_FAILED", "Không mở được bảng phân bổ NVL")), "error", 4000)
@@ -817,13 +824,15 @@ export default function InventoryEditorPopup({
       generated.push(line)
       return { ...item, OUTPUT_ID: null, OUTPUT_CLIENT_KEY: line.ROW_KEY }
     })
+    const nextBom: InventoryBomSnapshot = { FINISHED: snapshot.FINISHED, MATERIALS: nextMaterials }
     const outputs = [...retained, ...generated].map((row, index) => ({ ...row, SORT: index + 1 }))
     setDraft(current => ({
       ...current,
       OUTPUTS: outputs,
-      BOM: { FINISHED: snapshot.FINISHED, MATERIALS: nextMaterials },
+      BOM: nextBom,
       AMOUNT: calculateInventoryIssueAmount(outputs),
     }))
+    setBomSnapshot(nextBom)
     setBomVisible(false)
     notify(t("BOM_APPLIED", "Đã chuyển nguyên vật liệu vào lưới IO. Lưu phiếu để ghi database."), "success", 3500)
   }, [bomSnapshot, draftRef, setDraft, t])
