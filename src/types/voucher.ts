@@ -71,6 +71,7 @@ export interface InventoryInputApi {
 }
 
 export interface InventoryOutputApi {
+  CLIENT_ROW_KEY?: string | null
   OUTPUT_ID?: number | null
   OUTPUT_CD?: InventoryText
   INVENTORY_ID?: number | null
@@ -356,7 +357,42 @@ export interface InventoryCogs {
   }>
 }
 
+export interface InventoryBomFinishedRow {
+  FINISHED_LINE_ID?: number | null
+  CLIENT_KEY: string
+  FINISHED_PRODUCT_ID: number
+  PRODUCT_CD?: string | null
+  PRODUCT_NM_VIET?: string | null
+  UNIT_CD?: string | null
+  FINISHED_QUANTITY: number
+  SORT: number
+}
+
+export interface InventoryBomMaterialRow {
+  BOM_MATERIAL_ID?: number | null
+  CLIENT_KEY: string
+  FINISHED_CLIENT_KEY: string
+  OUTPUT_CLIENT_KEY: string
+  FINISHED_LINE_ID?: number | null
+  MATERIAL_PRODUCT_ID: number
+  MATERIAL_PRODUCT_CD?: string | null
+  MATERIAL_PRODUCT_NM?: string | null
+  UNIT_CD?: string | null
+  STORE_ID?: number | null
+  BOM_QUANTITY: number
+  CALCULATED_QUANTITY: number
+  CONFIRMED_QUANTITY: number
+  OUTPUT_ID?: number | null
+  SORT: number
+}
+
+export interface InventoryBomSnapshot {
+  FINISHED: InventoryBomFinishedRow[]
+  MATERIALS: InventoryBomMaterialRow[]
+}
+
 export interface InventoryVoucherApi {
+  BOM?: InventoryBomSnapshot | null
   CHITDETAIL_ID_COGS?: number | null
   COGS?: InventoryCogs | null
   CHIT_ID?: number | null
@@ -509,6 +545,7 @@ export interface ChitInfo {
 }
 
 export interface InventoryVoucher {
+  BOM?: InventoryBomSnapshot | null
   CHITDETAIL_ID_COGS?: number | null
   COGS?: InventoryCogs | null
   CHIT_ID: number | null
