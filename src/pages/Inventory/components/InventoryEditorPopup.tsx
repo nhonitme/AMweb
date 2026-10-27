@@ -20,6 +20,7 @@ import { useLocation, useNavigate } from "react-router-dom"
 
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { getInventorySourceVoucher } from "@/api/inventoryLinkApi"
+import { getInventoryBomSnapshot } from "@/api/inventoryVoucherApi"
 import { getChits } from "@/api/voucherApi"
 import GridColumnSettingsPopup, {
   type GridColumnSettingsPopupTab,
@@ -39,7 +40,7 @@ import { SHORTCUT_ACTIONS, type ShortcutActionCode } from "@/lib/shortcuts/short
 import { createPopupShortcutWrapperAttr, isPopupShortcutScopeTopMost, usePopupShortcutScopeId } from "@/lib/popupShortcutScope"
 import useShortcutBindings from "@/hooks/useShortcutBindings"
 import useStateRef from "@/hooks/useStateRef"
-import type { ChitInfo, ChitType, InventoryInputLine, InventoryOutputLine, InventoryVoucher } from "@/types/voucher"
+import type { ChitInfo, ChitType, InventoryBomSnapshot, InventoryInputLine, InventoryOutputLine, InventoryVoucher } from "@/types/voucher"
 import type { CustomerExt } from "@/types/customerExt"
 import { getVoucherRouteByChitType, normalizeChitRows } from "@/pages/VoucherManagement/chitUtils"
 import {
@@ -57,6 +58,7 @@ import {
 import {
   calculateInventoryAmount,
   calculateInventoryIssueAmount,
+  createDefaultInventoryOutputLine,
   calculateInventoryRevenueAmount,
   ensureInventoryDefaultLine,
   type InventoryLine,
@@ -71,6 +73,7 @@ import {
 import { openVoucherReportViewer } from "@/pages/VoucherManagement/voucherReportViewer"
 import ChitInventoryInputGridPopup, { type ChitInventoryInputGridPopupHandle } from "./ChitInventoryInputGridPopup"
 import ChitInventoryOutputGridPopup, { type ChitInventoryOutputGridPopupHandle } from "./ChitInventoryOutputGridPopup"
+import InventoryBomAllocationPopup from "./InventoryBomAllocationPopup"
 
 interface InventoryEditorPopupProps {
   visible: boolean
@@ -143,6 +146,8 @@ export default function InventoryEditorPopup({
   const [columnSettingsVisible, setColumnSettingsVisible] = useState(false)
   const [columnSettingsTabs, setColumnSettingsTabs] = useState<GridColumnSettingsPopupTab[]>([])
   const [activeInventoryIssueTab, setActiveInventoryIssueTab] = useState<"output" | "cogs">("output")
+  const [bomVisible, setBomVisible] = useState(false)
+  const [bomLoading, setBomLoading] = useState(false)
   const isInputVoucher = chitType === "IR"
   const isAdjustmentVoucher = chitType === "IA"
   const isCogsTab = chitType === "IO" && Boolean(draft.IS_COGS) && activeInventoryIssueTab === "cogs"
@@ -754,6 +759,68 @@ export default function InventoryEditorPopup({
     }))
   }, [chitType])
 
+  // The BOM grids are an immutable calculation snapshot; IO remains the posting
+  // source. Correlate with ROW_KEY until OUTPUT_ID is assigned inside the DB transaction.
+  const handleOpenBom = useCallback(async () => {
+    if (chitType !== "IO" || loading || bomLoading) return
+    setBomLoading(true)
+    try {
+      const rows = await outputGridRef.current?.savePendingChanges()
+      if (rows) handleOutputsChange(rows)
+      if (Number(draftRef.current.CHIT_ID) > 0 && draftRef.current.BOM === undefined) {
+        const snapshot = await getInventoryBomSnapshot(Number(draftRef.current.CHIT_ID))
+        setDraft(current => ({ ...current, BOM: snapshot }))
+      }
+      setBomVisible(true)
+    } catch (error) {
+      notify(getApiErrorMessage(error, t("BOM_OPEN_FAILED", "Không mở được bảng phân bổ NVL")), "error", 4000)
+    } finally { setBomLoading(false) }
+  }, [bomLoading, chitType, draftRef, handleOutputsChange, loading, setDraft, t])
+
+  const handleConfirmBom = useCallback((snapshot: InventoryBomSnapshot) => {
+    const previous = draftRef.current
+    const oldOutputIds = new Set((previous.BOM?.MATERIALS ?? [])
+      .map(row => Number(row.OUTPUT_ID)).filter(id => id > 0))
+    const oldOutputKeys = new Set((previous.BOM?.MATERIALS ?? [])
+      .map(row => row.OUTPUT_CLIENT_KEY).filter(Boolean))
+    // A saved BOM's output is replaced, never silently added twice. Manual IO
+    // lines and other accounting links are preserved unchanged.
+    const retained = previous.OUTPUTS.filter(row =>
+      !oldOutputIds.has(Number(row.OUTPUT_ID)) && !oldOutputKeys.has(row.ROW_KEY)
+      && (row.ISDEL || Number(row.PRODUCT_ID) > 0),
+    )
+    const generated: InventoryOutputLine[] = []
+    const nextMaterials = snapshot.MATERIALS.map(item => {
+      if (!(Number(item.CONFIRMED_QUANTITY) > 0)) {
+        return { ...item, OUTPUT_ID: null, OUTPUT_CLIENT_KEY: "" }
+      }
+      const line: InventoryOutputLine = {
+        ...createDefaultInventoryOutputLine(previous.COMPANY_CD, previous.CHIT_YMD, retained.length + generated.length + 1),
+        PRODUCT_ID: item.MATERIAL_PRODUCT_ID,
+        PRODUCT_CD: String(item.MATERIAL_PRODUCT_CD ?? ""),
+        PRODUCT_NM_VIET: String(item.MATERIAL_PRODUCT_NM ?? ""),
+        STORE_ID: item.STORE_ID ?? null,
+        STORE_CD: String(item.STORE_CD ?? ""),
+        STORE_NM_VIET: String(item.STORE_NM_VIET ?? ""),
+        UNIT_ID: item.UNIT_ID ?? null,
+        UNIT_CD: String(item.UNIT_CD ?? ""),
+        QUANTITY: Number(item.CONFIRMED_QUANTITY),
+        SUMMARY: "BOM",
+      }
+      generated.push(line)
+      return { ...item, OUTPUT_ID: null, OUTPUT_CLIENT_KEY: line.ROW_KEY }
+    })
+    const outputs = [...retained, ...generated].map((row, index) => ({ ...row, SORT: index + 1 }))
+    setDraft(current => ({
+      ...current,
+      OUTPUTS: outputs,
+      BOM: { FINISHED: snapshot.FINISHED, MATERIALS: nextMaterials },
+      AMOUNT: calculateInventoryIssueAmount(outputs),
+    }))
+    setBomVisible(false)
+    notify(t("BOM_APPLIED", "Đã chuyển nguyên vật liệu vào lưới IO. Lưu phiếu để ghi database."), "success", 3500)
+  }, [draftRef, setDraft, t])
+
   const syncGridRows = useCallback(async () => {
     if (chitType === "IR") {
       const rows = await inputGridRef.current?.savePendingChanges()
@@ -1336,7 +1403,16 @@ export default function InventoryEditorPopup({
                     showDetailContext={false}
                     foreignCurrencyColumnsVisible={foreignCurrencyColumnsVisible}
                     columnSettingStateRef={outputColumnSettingStateRef}
-                    linkSlot={isAdjustmentVoucher ? undefined : accountingLinkSlot}
+                    linkSlot={isAdjustmentVoucher ? undefined : (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {accountingLinkSlot}
+                        {!isCogsTab ? (
+                          <Button icon="formula" stylingMode="outlined"
+                            text={t("BOM_ALLOCATION", "Xuất NVL theo định mức")}
+                            disabled={loading || bomLoading} onClick={() => void handleOpenBom()} />
+                        ) : null}
+                      </div>
+                    )}
                     beforeGridSlot={inventoryTabs}
                     costMode={isCogsTab}
                     isCogsVoucher={Boolean(draft.IS_COGS)}
@@ -1367,6 +1443,16 @@ export default function InventoryEditorPopup({
 
           <LoadPanel visible={loading} shading={false} showIndicator />
         </div>
+        {chitType === "IO" ? (
+          <InventoryBomAllocationPopup
+            visible={bomVisible}
+            disabled={readOnly || loading}
+            initial={draft.BOM}
+            currentOutputs={draft.OUTPUTS}
+            onClose={() => setBomVisible(false)}
+            onConfirm={handleConfirmBom}
+          />
+        ) : null}
         <GridColumnSettingsPopup
           visible={columnSettingsVisible}
           title={t("AUDIT_SETTING_SHOW_HIDE", "Column Settings")}
