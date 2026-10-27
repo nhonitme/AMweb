@@ -1,0 +1,26 @@
+.inventory-bom-allocation-popup .dx-popup-content {
+  padding: 0;
+}
+
+.inventory-bom-allocation-popup > .dx-overlay-content > .dx-popup-title {
+  border-bottom: 1px solid #dce0e5;
+}
+
+.inventory-bom-allocation-footer {
+  border-color: #dce0e5 !important;
+}
+
+.inventory-bom-allocation-confirm-btn.dx-button {
+  background: #c83239 !important;
+  border-color: #c83239 !important;
+  border-radius: 5px !important;
+  box-shadow: none;
+}
+
+.inventory-bom-allocation-confirm-btn.dx-button .dx-button-content {
+  color: #fff;
+}
+
+.inventory-bom-allocation-confirm-btn.dx-button.dx-state-disabled {
+  opacity: 0.55;
+}

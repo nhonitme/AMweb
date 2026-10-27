@@ -12,9 +12,11 @@ import { getStoreInfos } from "@/api/storeAPI"
 import { getProductMaterials } from "@/api/productMaterialApi"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { POPUP_FADE_ANIMATION } from "@/pages/VoucherManagement/components/chitEditorConstants"
 import type { Product } from "@/types/product"
 import type { StoreInfo } from "@/types/store"
 import type { InventoryBomFinishedRow, InventoryBomMaterialRow, InventoryBomSnapshot, InventoryOutputLine } from "@/types/voucher"
+import "./InventoryBomAllocationPopup.css"
 
 interface Props {
   companyCd: string
@@ -36,6 +38,7 @@ export default function InventoryBomAllocationPopup({
   const t = useCallback((key: string, fallback: string) => translate(key, fallback), [translate])
   const finishedGridRef = useRef<dxDataGrid | null>(null)
   const materialGridRef = useRef<dxDataGrid | null>(null)
+  const importInputRef = useRef<HTMLInputElement | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [stores, setStores] = useState<StoreInfo[]>([])
   const [materialProducts, setMaterialProducts] = useState<Product[]>([])
@@ -72,6 +75,7 @@ export default function InventoryBomAllocationPopup({
   const productsById = useMemo(() => new Map(products.map(p => [p.PRODUCT_ID, p])), [products])
   const productsByCode = useMemo(() => new Map(products.map(p => [p.PRODUCT_CD.trim().toUpperCase(), p])), [products])
   const storesById = useMemo(() => new Map(stores.map(s => [s.STORE_ID, s])), [stores])
+  const controlsDisabled = busy || disabled
 
   const addFinished = useCallback((product: Product, amount: number) => {
     if (!(amount > 0) || !Number.isFinite(amount)) throw new Error("Số lượng thành phẩm phải lớn hơn 0.")
@@ -125,6 +129,13 @@ export default function InventoryBomAllocationPopup({
     const book = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(book, sheet, "Finished")
     XLSX.writeFile(book, "BOM_Finished_Template.xlsx")
+  }
+
+  const deleteSelectedFinished = () => {
+    const keys = new Set(selectedFinishedKeys)
+    setFinished(rows => rows.filter(row => !keys.has(row.CLIENT_KEY)))
+    setSelectedFinishedKeys([])
+    setRequiresRecalculation(true)
   }
 
   const calculate = async () => {
@@ -192,99 +203,222 @@ export default function InventoryBomAllocationPopup({
     <Popup
       visible={visible}
       title={t("BOM_ALLOCATION", "Phân bổ nguyên vật liệu theo thành phẩm")}
-      showTitle showCloseButton onHiding={onClose} hideOnOutsideClick={false}
-      width="92vw" height="88vh" maxWidth="1500px" container="body"
+      showTitle
+      showCloseButton
+      onHiding={onClose}
+      hideOnOutsideClick={false}
+      dragEnabled
+      width="92vw"
+      height="88vh"
+      maxWidth="1500px"
+      container="body"
+      animation={POPUP_FADE_ANIMATION}
+      wrapperAttr={{ class: "inventory-bom-allocation-popup" }}
     >
-      <div className="flex h-full min-h-0 flex-col gap-3 p-3">
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="min-w-48 flex-1">
-            <div className="mb-1 text-xs font-medium">{t("FINISHED_PRODUCT", "Thành phẩm")}</div>
-            <SelectBox dataSource={products} searchEnabled searchExpr={["PRODUCT_CD", "PRODUCT_NM_VIET"]}
-              valueExpr="PRODUCT_ID" displayExpr={(item: Product) => item ? `${item.PRODUCT_CD} - ${item.PRODUCT_NM_VIET}` : ""}
-              value={selectedProductId} onValueChanged={e => setSelectedProductId(e.value ?? null)}
-              disabled={busy || disabled} />
+      <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#f3f4f6]">
+        <div className="flex flex-shrink-0 flex-col gap-3 border-b border-[#dce0e5] bg-white px-4 py-3">
+          <div className="flex flex-wrap items-end gap-2">
+            <SelectBox
+              dataSource={products}
+              searchEnabled
+              searchExpr={["PRODUCT_CD", "PRODUCT_NM_VIET"]}
+              valueExpr="PRODUCT_ID"
+              displayExpr={(item: Product) => item ? `${item.PRODUCT_CD} - ${item.PRODUCT_NM_VIET}` : ""}
+              value={selectedProductId}
+              onValueChanged={e => setSelectedProductId(e.value ?? null)}
+              disabled={controlsDisabled}
+              label={t("FINISHED_PRODUCT", "Thành phẩm")}
+              labelMode="floating"
+              stylingMode="outlined"
+              width={320}
+            />
+            <NumberBox
+              value={finishedQuantity}
+              min={0.000001}
+              showSpinButtons
+              onValueChanged={e => setFinishedQuantity(Number(e.value ?? 0))}
+              disabled={controlsDisabled}
+              label={t("QUANTITY", "Số lượng")}
+              labelMode="floating"
+              stylingMode="outlined"
+              width={140}
+            />
+            <Button
+              text={t("ADD", "Thêm")}
+              icon="plus"
+              type="default"
+              stylingMode="contained"
+              onClick={addSelected}
+              disabled={controlsDisabled}
+            />
+            <SelectBox
+              dataSource={stores}
+              valueExpr="STORE_ID"
+              displayExpr="STORE_CD"
+              searchEnabled
+              value={selectedStoreId}
+              onValueChanged={e => setSelectedStoreId(e.value ?? null)}
+              disabled={controlsDisabled}
+              label={t("STORE_CD", "Kho xuất NVL")}
+              labelMode="floating"
+              stylingMode="outlined"
+              width={180}
+            />
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <Button
+                text={t("BOM_EDIT_DEFINITION", "Cập nhật định mức")}
+                icon="edit"
+                stylingMode="outlined"
+                onClick={() => window.open(`/app/${encodeURIComponent(companyCd)}/cost/material-product`, "_blank", "noopener,noreferrer")}
+              />
+              <Button
+                text={t("CALCULATE", "Tính lại")}
+                icon="refresh"
+                type="default"
+                stylingMode="outlined"
+                onClick={() => void calculate()}
+                disabled={controlsDisabled}
+              />
+              <Button
+                text={t("EXPORT_TEMPLATE", "File mẫu")}
+                icon="xlsxfile"
+                stylingMode="outlined"
+                onClick={downloadTemplate}
+              />
+              <Button
+                text={t("IMPORT_EXCEL", "Tải Excel")}
+                icon="upload"
+                stylingMode="outlined"
+                disabled={controlsDisabled}
+                onClick={() => importInputRef.current?.click()}
+              />
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                disabled={controlsDisabled}
+                onChange={e => {
+                  const file = e.target.files?.[0]
+                  if (file) void importExcel(file)
+                  e.target.value = ""
+                }}
+              />
+            </div>
           </div>
-          <div className="w-36">
-            <div className="mb-1 text-xs font-medium">{t("QUANTITY", "Số lượng")}</div>
-            <NumberBox value={finishedQuantity} min={0.000001} showSpinButtons
-              onValueChanged={e => setFinishedQuantity(Number(e.value ?? 0))} disabled={busy || disabled} />
+        </div>
+
+        <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
+          <div className="flex min-h-0 flex-[2] flex-col overflow-hidden rounded border border-slate-200 bg-white">
+            <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2">
+              <div className="text-sm font-semibold text-slate-700">
+                {t("BOM_FINISHED_GRID", "Grid 1 – Thành phẩm")}
+                <span className="ml-2 font-normal text-slate-500">({finished.length})</span>
+              </div>
+              <div className="ml-auto">
+                <Button
+                  text={t("DELETE_SELECTED", "Xóa đã chọn")}
+                  icon="trash"
+                  stylingMode="outlined"
+                  disabled={controlsDisabled || !selectedFinishedKeys.length}
+                  onClick={deleteSelectedFinished}
+                />
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 p-2">
+              <DataGrid
+                dataSource={finished}
+                keyExpr="CLIENT_KEY"
+                height="100%"
+                showBorders
+                columnAutoWidth
+                onInitialized={e => { finishedGridRef.current = e.component }}
+                selectedRowKeys={selectedFinishedKeys}
+                onSelectionChanged={e => setSelectedFinishedKeys(e.selectedRowKeys.map(String))}
+                onRowUpdated={e => {
+                  setFinished(rows => rows.map(row => row.CLIENT_KEY === e.key ? { ...e.data } : row))
+                  setRequiresRecalculation(true)
+                }}
+              >
+                <Selection mode="multiple" showCheckBoxesMode="always" />
+                <Editing mode="cell" allowUpdating={!controlsDisabled} />
+                <Column dataField="PRODUCT_CD" caption={t("PRODUCT_CD", "Mã thành phẩm")} allowEditing={false} />
+                <Column dataField="PRODUCT_NM_VIET" caption={t("PRODUCT_NM", "Tên thành phẩm")} allowEditing={false} />
+                <Column dataField="UNIT_CD" caption={t("UNIT_CD", "ĐVT")} allowEditing={false} width={90} />
+                <Column dataField="FINISHED_QUANTITY" caption={t("QUANTITY", "Số lượng")} dataType="number" width={140} />
+              </DataGrid>
+            </div>
           </div>
-          <Button text={t("ADD", "Thêm")} icon="plus" onClick={addSelected} disabled={busy || disabled} />
-          <div className="w-40">
-            <div className="mb-1 text-xs font-medium">{t("STORE_CD", "Kho xuất NVL")}</div>
-            <SelectBox dataSource={stores} valueExpr="STORE_ID" displayExpr="STORE_CD"
-              searchEnabled value={selectedStoreId}
-              onValueChanged={e => setSelectedStoreId(e.value ?? null)} disabled={busy || disabled} />
+
+          <div className="flex min-h-0 flex-[3] flex-col overflow-hidden rounded border border-slate-200 bg-white">
+            <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2">
+              <div className="text-sm font-semibold text-slate-700">
+                {t("BOM_MATERIAL_GRID", "Grid 2 – Định mức nguyên vật liệu")}
+                <span className="ml-2 font-normal text-slate-500">({materials.length})</span>
+              </div>
+              {requiresRecalculation ? (
+                <span className="rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
+                  {t("BOM_RECALCULATE", "Cần Tính lại")}
+                </span>
+              ) : null}
+            </div>
+            <div className="min-h-0 flex-1 p-2">
+              <DataGrid
+                dataSource={materials}
+                keyExpr="CLIENT_KEY"
+                height="100%"
+                showBorders
+                columnAutoWidth
+                onInitialized={e => { materialGridRef.current = e.component }}
+                onRowUpdating={e => {
+                  if ("BOM_QUANTITY" in e.newData) {
+                    const parent = finished.find(f => f.CLIENT_KEY === e.oldData.FINISHED_CLIENT_KEY)
+                    const calculated = Number((qty(parent?.FINISHED_QUANTITY) * qty(e.newData.BOM_QUANTITY)).toFixed(6))
+                    e.newData.CALCULATED_QUANTITY = calculated
+                    e.newData.CONFIRMED_QUANTITY = calculated
+                  }
+                }}
+                onRowUpdated={e => setMaterials(rows => rows.map(row => row.CLIENT_KEY === e.key ? { ...e.data } : row))}
+              >
+                <Editing mode="cell" allowUpdating={!controlsDisabled} />
+                <Column
+                  dataField="FINISHED_CLIENT_KEY"
+                  caption={t("FINISHED_PRODUCT", "Thành phẩm")}
+                  calculateDisplayValue={(row: InventoryBomMaterialRow) => finished.find(f => f.CLIENT_KEY === row.FINISHED_CLIENT_KEY)?.PRODUCT_CD ?? ""}
+                  allowEditing={false}
+                  width={140}
+                />
+                <Column dataField="MATERIAL_PRODUCT_CD" caption={t("MATERIAL_PRODUCT_CD", "Mã NVL")} allowEditing={false} width={140} />
+                <Column dataField="MATERIAL_PRODUCT_NM" caption={t("MATERIAL_PRODUCT_NM", "Tên NVL")} allowEditing={false} />
+                <Column dataField="UNIT_CD" caption={t("UNIT_CD", "ĐVT")} allowEditing={false} width={90} />
+                <Column dataField="STORE_ID" caption={t("STORE_CD", "Kho xuất")} width={120}>
+                  <Lookup dataSource={stores} valueExpr="STORE_ID" displayExpr="STORE_CD" />
+                </Column>
+                <Column dataField="BOM_QUANTITY" caption={t("BOM_QUANTITY", "Định mức / TP")} dataType="number" width={130} />
+                <Column dataField="CALCULATED_QUANTITY" caption={t("CALCULATED_QUANTITY", "Số lượng tính")} dataType="number" allowEditing={false} width={130} />
+                <Column dataField="CONFIRMED_QUANTITY" caption={t("CONFIRMED_QUANTITY", "Số lượng xác nhận")} dataType="number" width={150} />
+              </DataGrid>
+            </div>
           </div>
-          <Button text={t("BOM_EDIT_DEFINITION", "Cập nhật định mức")} icon="edit"
-            onClick={() => window.open(`/app/${encodeURIComponent(companyCd)}/cost/material-product`, "_blank", "noopener,noreferrer")} />
-          <Button text={t("CALCULATE", "Tính lại")} icon="refresh" onClick={() => void calculate()} disabled={busy || disabled} />
-          <Button text={t("EXPORT_TEMPLATE", "File mẫu")} icon="xlsxfile" onClick={downloadTemplate} />
-          <label className="cursor-pointer rounded-md border border-gray-300 px-3 py-2 text-sm">
-            {t("IMPORT_EXCEL", "Tải Excel")}
-            <input type="file" accept=".xlsx,.xls,.csv" className="hidden" disabled={busy || disabled}
-              onChange={e => { const file = e.target.files?.[0]; if (file) void importExcel(file); e.target.value = "" }} />
-          </label>
         </div>
-        <div className="text-sm font-semibold">{t("BOM_FINISHED_GRID", "Grid 1 – Thành phẩm")} ({finished.length})</div>
-        <div className="flex min-h-0 flex-[2] flex-col">
-          <div className="mb-1 flex gap-2">
-            <Button text={t("DELETE_SELECTED", "Xóa thành phẩm đã chọn")} icon="trash"
-              disabled={busy || disabled || !selectedFinishedKeys.length} onClick={() => {
-                const keys = new Set(selectedFinishedKeys)
-                setFinished(rows => rows.filter(row => !keys.has(row.CLIENT_KEY)))
-                setSelectedFinishedKeys([])
-                setRequiresRecalculation(true)
-              }} />
-          </div>
-          <DataGrid dataSource={finished} keyExpr="CLIENT_KEY" height="100%" showBorders
-            onInitialized={e => { finishedGridRef.current = e.component }}
-            selectedRowKeys={selectedFinishedKeys} onSelectionChanged={e => setSelectedFinishedKeys(e.selectedRowKeys.map(String))}
-            onRowUpdated={e => {
-              setFinished(rows => rows.map(row => row.CLIENT_KEY === e.key ? { ...e.data } : row))
-              setRequiresRecalculation(true)
-            }}>
-            <Selection mode="multiple" showCheckBoxesMode="always" />
-            <Editing mode="cell" allowUpdating={!busy && !disabled} />
-            <Column dataField="PRODUCT_CD" caption={t("PRODUCT_CD", "Mã thành phẩm")} allowEditing={false} />
-            <Column dataField="PRODUCT_NM_VIET" caption={t("PRODUCT_NM", "Tên thành phẩm")} allowEditing={false} />
-            <Column dataField="UNIT_CD" caption={t("UNIT_CD", "ĐVT")} allowEditing={false} />
-            <Column dataField="FINISHED_QUANTITY" caption={t("QUANTITY", "Số lượng")} dataType="number" />
-          </DataGrid>
-        </div>
-        <div className="text-sm font-semibold">{t("BOM_MATERIAL_GRID", "Grid 2 – Định mức nguyên vật liệu")} ({materials.length})
-          {requiresRecalculation ? <span className="ml-2 text-orange-600">{t("BOM_RECALCULATE", "Cần Tính lại")}</span> : null}
-        </div>
-        <div className="min-h-0 flex-[3]">
-          <DataGrid dataSource={materials} keyExpr="CLIENT_KEY" height="100%" showBorders
-            onInitialized={e => { materialGridRef.current = e.component }}
-            onRowUpdating={e => {
-              if ("BOM_QUANTITY" in e.newData) {
-                const parent = finished.find(f => f.CLIENT_KEY === e.oldData.FINISHED_CLIENT_KEY)
-                const calculated = Number((qty(parent?.FINISHED_QUANTITY) * qty(e.newData.BOM_QUANTITY)).toFixed(6))
-                e.newData.CALCULATED_QUANTITY = calculated
-                e.newData.CONFIRMED_QUANTITY = calculated
-              }
-            }}
-            onRowUpdated={e => setMaterials(rows => rows.map(row => row.CLIENT_KEY === e.key ? { ...e.data } : row))}>
-            <Editing mode="cell" allowUpdating={!busy && !disabled} />
-            <Column dataField="FINISHED_CLIENT_KEY" caption={t("FINISHED_PRODUCT", "Thành phẩm")}
-              calculateDisplayValue={(row: InventoryBomMaterialRow) => finished.find(f => f.CLIENT_KEY === row.FINISHED_CLIENT_KEY)?.PRODUCT_CD ?? ""} allowEditing={false} />
-            <Column dataField="MATERIAL_PRODUCT_CD" caption={t("MATERIAL_PRODUCT_CD", "Mã NVL")} allowEditing={false} />
-            <Column dataField="MATERIAL_PRODUCT_NM" caption={t("MATERIAL_PRODUCT_NM", "Tên NVL")} allowEditing={false} />
-            <Column dataField="UNIT_CD" caption={t("UNIT_CD", "ĐVT")} allowEditing={false} />
-            <Column dataField="STORE_ID" caption={t("STORE_CD", "Kho xuất")}>
-              <Lookup dataSource={stores} valueExpr="STORE_ID" displayExpr="STORE_CD" />
-            </Column>
-            <Column dataField="BOM_QUANTITY" caption={t("BOM_QUANTITY", "Định mức / TP")} dataType="number" />
-            <Column dataField="CALCULATED_QUANTITY" caption={t("CALCULATED_QUANTITY", "Số lượng tính")} dataType="number" allowEditing={false} />
-            <Column dataField="CONFIRMED_QUANTITY" caption={t("CONFIRMED_QUANTITY", "Số lượng xác nhận")} dataType="number" />
-          </DataGrid>
-        </div>
-        <div className="flex justify-end gap-2 border-t pt-3">
-          <Button text={t("CANCEL", "Hủy")} onClick={onClose} />
-          <Button text={t("CONFIRM", "Xác nhận")} type="default" icon="check"
-            disabled={busy || disabled || requiresRecalculation} onClick={() => { void confirmAllocation() }} />
+
+        <div className="inventory-bom-allocation-footer flex flex-shrink-0 items-center justify-end gap-3 border-t bg-white px-4 py-3">
+          <Button
+            text={t("CANCEL", "Hủy")}
+            icon="close"
+            stylingMode="outlined"
+            onClick={onClose}
+            disabled={busy}
+          />
+          <Button
+            text={t("CONFIRM", "Xác nhận")}
+            icon="check"
+            type="default"
+            stylingMode="contained"
+            elementAttr={{ class: "inventory-bom-allocation-confirm-btn" }}
+            disabled={controlsDisabled || requiresRecalculation}
+            onClick={() => { void confirmAllocation() }}
+          />
         </div>
       </div>
     </Popup>
