@@ -138,7 +138,7 @@ export default function InventoryEditorPopup({
   const screenCd = location.pathname
   // Xuất NVL theo định mức belongs to the OT material-issue workflow only.
   // This popup is reused by ordinary inventory/issue and other accounting screens.
-  const showBomAllocation = chitType === "IO" && /\\/cost\\/issue-material\\/?$/.test(location.pathname)
+  const showBomAllocation = chitType === "IO" && location.pathname.endsWith("/cost/issue-material")
   const activeLines = chitType === "IR" ? draft.INPUTS : draft.OUTPUTS
   // Revenue is always sourced from the Xuất kho detail, independent of the
   // Giá vốn tab and IS_COGS checkbox. Keep the read-only Info field live.
