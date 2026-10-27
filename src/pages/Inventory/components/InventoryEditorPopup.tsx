@@ -147,6 +147,7 @@ export default function InventoryEditorPopup({
   const [columnSettingsTabs, setColumnSettingsTabs] = useState<GridColumnSettingsPopupTab[]>([])
   const [activeInventoryIssueTab, setActiveInventoryIssueTab] = useState<"output" | "cogs">("output")
   const [bomVisible, setBomVisible] = useState(false)
+  const [bomSnapshot, setBomSnapshot] = useState<InventoryBomSnapshot | null>(null)
   const [bomLoading, setBomLoading] = useState(false)
   const isInputVoucher = chitType === "IR"
   const isAdjustmentVoucher = chitType === "IA"
@@ -767,10 +768,12 @@ export default function InventoryEditorPopup({
     try {
       const rows = await outputGridRef.current?.savePendingChanges()
       if (rows) handleOutputsChange(rows)
-      if (Number(draftRef.current.CHIT_ID) > 0 && draftRef.current.BOM === undefined) {
-        const snapshot = await getInventoryBomSnapshot(Number(draftRef.current.CHIT_ID))
-        setDraft(current => ({ ...current, BOM: snapshot }))
-      }
+      const snapshot = draftRef.current.BOM !== undefined
+        ? draftRef.current.BOM
+        : Number(draftRef.current.CHIT_ID) > 0
+          ? await getInventoryBomSnapshot(Number(draftRef.current.CHIT_ID))
+          : null
+      setBomSnapshot(snapshot ?? null)
       setBomVisible(true)
     } catch (error) {
       notify(getApiErrorMessage(error, t("BOM_OPEN_FAILED", "Không mở được bảng phân bổ NVL")), "error", 4000)
@@ -779,9 +782,9 @@ export default function InventoryEditorPopup({
 
   const handleConfirmBom = useCallback((snapshot: InventoryBomSnapshot) => {
     const previous = draftRef.current
-    const oldOutputIds = new Set((previous.BOM?.MATERIALS ?? [])
+    const oldOutputIds = new Set(((previous.BOM ?? bomSnapshot)?.MATERIALS ?? [])
       .map(row => Number(row.OUTPUT_ID)).filter(id => id > 0))
-    const oldOutputKeys = new Set((previous.BOM?.MATERIALS ?? [])
+    const oldOutputKeys = new Set(((previous.BOM ?? bomSnapshot)?.MATERIALS ?? [])
       .map(row => row.OUTPUT_CLIENT_KEY).filter(Boolean))
     // A saved BOM's output is replaced, never silently added twice. Manual IO
     // lines and other accounting links are preserved unchanged.
@@ -819,7 +822,7 @@ export default function InventoryEditorPopup({
     }))
     setBomVisible(false)
     notify(t("BOM_APPLIED", "Đã chuyển nguyên vật liệu vào lưới IO. Lưu phiếu để ghi database."), "success", 3500)
-  }, [draftRef, setDraft, t])
+  }, [bomSnapshot, draftRef, setDraft, t])
 
   const syncGridRows = useCallback(async () => {
     if (chitType === "IR") {
@@ -1447,7 +1450,7 @@ export default function InventoryEditorPopup({
           <InventoryBomAllocationPopup
             visible={bomVisible}
             disabled={readOnly || loading}
-            initial={draft.BOM}
+            initial={bomSnapshot}
             currentOutputs={draft.OUTPUTS}
             onClose={() => setBomVisible(false)}
             onConfirm={handleConfirmBom}
