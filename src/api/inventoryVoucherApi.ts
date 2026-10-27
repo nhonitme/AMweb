@@ -2,7 +2,7 @@ import type { AxiosResponse } from "axios"
 
 import { DEFAULT_PAGE_SIZE, normalizePagedResult, resolvePageNumber, resolvePageSize } from "@/lib/paging"
 import type { PagedResult } from "@/types/paging"
-import type { InventoryInputType, InventoryVoucherApi } from "@/types/voucher"
+import type { InventoryBomSnapshot, InventoryInputType, InventoryVoucherApi } from "@/types/voucher"
 import API_BASE_URL from "../config/apiConfig"
 import axios from "./axiosClient"
 
@@ -92,6 +92,15 @@ export async function getInventoryVouchers(
     resolvePageNumber(filters.pageNumber),
     resolvePageSize(filters.pageSize),
   )
+}
+
+export async function getInventoryBomSnapshot(inventoryId: number): Promise<InventoryBomSnapshot> {
+  const response = await axios.get<ApiEnvelope<InventoryBomSnapshot>>(
+    `${getInventoryBaseUrl()}/GetBomSnapshot`,
+    { params: { CHIT_ID: inventoryId } },
+  )
+  const { data } = normalizeResponse<InventoryBomSnapshot>(response)
+  return data ?? { FINISHED: [], MATERIALS: [] }
 }
 
 export async function getInventoryIssueLinksByCogsVoucherId(cogsVoucherId: number): Promise<Record<number, number>> {
