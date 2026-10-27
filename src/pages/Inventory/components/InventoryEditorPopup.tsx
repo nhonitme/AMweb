@@ -511,6 +511,7 @@ export default function InventoryEditorPopup({
   useEffect(() => {
     if (!visible) {
       resetPreviewChitNo()
+      setBomVisible(false)
     }
   }, [resetPreviewChitNo, visible])
 
