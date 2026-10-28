@@ -84,6 +84,12 @@
 }
 
 /* ---------- Detail grids ---------- */
+/* Hide DevExtreme cell-edit cancel/revert control beside the editor. */
+.inventory-bom-allocation-popup .dx-datagrid-cancel-button,
+.inventory-bom-allocation-popup .dx-revert-button {
+  display: none !important;
+}
+
 .inventory-bom-allocation-popup .dx-datagrid-headers {
   background-color: #eef0f3;
   color: #444c57;

@@ -15,10 +15,16 @@ export function raiseOverlayAboveSiblings(wrapper: HTMLElement | null | undefine
 }
 
 function raiseOverlayAboveSiblingsCore(wrapper: HTMLElement): number {
+  // Popups/dialogs must not climb above active toasts (toast notify runs in the
+  // same frame as watchNewestPopup and would otherwise end up under the top popup).
+  const raisingToast = wrapper.classList.contains("dx-toast-wrapper")
 
   let max = 0
   document.querySelectorAll(OVERLAY_SELECTOR).forEach((node) => {
     if (node === wrapper) {
+      return
+    }
+    if (!raisingToast && (node as HTMLElement).classList.contains("dx-toast-wrapper")) {
       return
     }
     max = Math.max(max, readZIndex(node))
