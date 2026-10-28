@@ -1,3 +1,4 @@
+import EditorActionToolbar from "@/components/toolbar/EditorActionToolbar"
 import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import Button from "devextreme-react/button"
@@ -2903,44 +2904,16 @@ export default function EInvoiceEditorPopupContent({
           </div>
 
           <footer className="einvoice-editor__footer">
-            <div className="einvoice-editor__footer-actions">
-              <Button
-                text={t("PRINT", "Print")}
-                icon="print"
-                type="default"
-                stylingMode="outlined"
-                disabled={isBusy}
-                onClick={handlePrint}
-              />
-              {!isReadOnly ? (
-                <Button
-                  text={saving ? t("SAVING", "Saving...") : t("SAVE", "Save")}
-                  icon="save"
-                  type="default"
-                  stylingMode="contained"
-                  disabled={isBusy}
-                  onClick={() => void handleSaveAndClose()}
-                />
-              ) : null}
-              {!isReadOnly ? (
-                <Button
-                  text={t("SAVE_AND_NEW", "Save and create new")}
-                  icon="plus"
-                  type="success"
-                  stylingMode="contained"
-                  disabled={isBusy}
-                  onClick={() => void handleSave(true)}
-                />
-              ) : null}
-              <Button
-                text={t("CANCEL", "Cancel")}
-                icon="close"
-                type="danger"
-                stylingMode="outlined"
-                disabled={isBusy}
-                onClick={handleClosePopup}
-              />
-            </div>
+            <EditorActionToolbar
+              className="einvoice-editor__footer-actions"
+              busy={isBusy}
+              actions={[
+                { key: "print", text: t("PRINT", "Print"), type: "default", onClick: handlePrint },
+                { key: "save", text: saving ? t("SAVING", "Saving...") : t("SAVE", "Save"), visible: !isReadOnly, onClick: () => { void handleSaveAndClose() } },
+                { key: "saveAndNew", text: t("SAVE_AND_NEW", "Save and create new"), visible: !isReadOnly, type: "success", stylingMode: "contained", onClick: () => { void handleSave(true) } },
+                { key: "close", text: t("CANCEL", "Cancel"), type: "danger", onClick: handleClosePopup },
+              ]}
+            />
           </footer>
         </div>
       </div>

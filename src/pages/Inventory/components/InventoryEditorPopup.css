@@ -66,29 +66,6 @@
     padding-left: 8px;
 }
 
-/* ---------- Footer action bar ---------- */
 .inventory-editor-footer {
     border-color: #dce0e5 !important;
-}
-
-/* Primary save button: flat red, matching the approved accent (#c83239) */
-.inventory-editor-save-btn.dx-button {
-    background: #c83239 !important;
-    border-color: #c83239 !important;
-    border-radius: 5px !important;
-    box-shadow: none;
-}
-
-.inventory-editor-save-btn.dx-button .dx-icon,
-.inventory-editor-save-btn.dx-button .dx-button-text {
-    color: #ffffff;
-}
-
-.inventory-editor-save-btn.dx-button:hover {
-    background: #b4262e !important;
-    border-color: #b4262e !important;
-}
-
-.inventory-editor-save-btn.dx-button.dx-state-disabled {
-    box-shadow: none;
 }

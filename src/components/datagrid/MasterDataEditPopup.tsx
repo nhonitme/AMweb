@@ -1,5 +1,7 @@
 import { Popup as DataGridPopup } from "devextreme-react/data-grid";
 import { Popup as TreeListPopup } from "devextreme-react/tree-list";
+import dxButton from "devextreme/ui/button";
+import { EDITOR_ACTION_ICONS } from "@/components/toolbar/editorActionDefaults";
 import type { HiddenEvent, HidingEvent, ShownEvent } from "devextreme/ui/popup";
 import { useMemo, useRef, useState, type ComponentProps } from "react";
 import { MasterPopupValidationSummary } from "./masterPopupValidation";
@@ -26,7 +28,7 @@ type MasterDataPopupShownEvent = Parameters<NonNullable<MasterDataPopupProps["on
 type MasterDataPopupHiddenEvent = Parameters<NonNullable<MasterDataPopupProps["onHidden"]>>[0];
 type MasterDataPopupHidingEvent = Parameters<NonNullable<MasterDataPopupProps["onHiding"]>>[0];
 
-const editPopupActionIcons = ["save", "close"] as const;
+const editPopupActionIcons = [EDITOR_ACTION_ICONS.save, EDITOR_ACTION_ICONS.close] as const;
 const popupsWithActionIcons = new WeakSet<object>();
 const popupEscapeCleanup = new WeakMap<object, PopupEscapeRegistration>();
 const popupOverlayWatchCleanup = new WeakMap<object, () => void>();
@@ -69,15 +71,9 @@ function applyMasterDataEditPopupButtonIcons(event: ShownEvent) {
       return;
     }
 
-    const iconEl = button.querySelector(".dx-icon");
-    if (iconEl) {
-      iconEl.className = `dx-icon dx-icon-${icon}`;
-      return;
-    }
-
-    const iconNode = document.createElement("i");
-    iconNode.className = `dx-icon dx-icon-${icon}`;
-    button.querySelector(".dx-button-content")?.prepend(iconNode);
+    // Keep the grid's own handlers, validation and editing lifecycle intact.
+    // Configure the widget instead of injecting markup outside its renderer.
+    dxButton.getInstance(button as HTMLElement)?.option("icon", icon);
   });
 }
 

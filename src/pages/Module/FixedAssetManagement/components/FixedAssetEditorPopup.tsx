@@ -1,3 +1,4 @@
+import EditorActionToolbar from "@/components/toolbar/EditorActionToolbar"
 import { requiredMasterMessage } from "@/components/forms/masterValidationMessages";
 import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import Button from 'devextreme-react/button'
@@ -964,39 +965,15 @@ export default function FixedAssetEditorPopup({
             </div>
           </div>
 
-          <div className="flex flex-shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-white px-4 py-3">
-            <Button
-              icon="save"
-              text={t('TIT_SAVE', 'Lưu')}
-              type="default"
-              stylingMode="contained"
-              onClick={() => {
-                void handleSave()
-              }}
-              disabled={loading}
-            />
-            {onSaveAndNew ? (
-              <Button
-                icon="save"
-                text={t('SAVE_AND_NEW', 'Lưu và thêm mới')}
-                type="default"
-                stylingMode="outlined"
-                onClick={() => {
-                  void handleSaveAndNew()
-                }}
-                disabled={loading}
-              />
-            ) : null}
-            <Button
-              icon="close"
-              text={t('CANCEL', 'Hủy')}
-              stylingMode="outlined"
-              onClick={() => {
-                void handleClosePopup()
-              }}
-              disabled={loading}
-            />
-          </div>
+          <EditorActionToolbar
+            className="border-t border-gray-200 bg-white px-4 py-3"
+            busy={loading}
+            actions={[
+              { key: "save", text: t('TIT_SAVE', 'Lưu'), onClick: () => { void handleSave() } },
+              { key: "saveAndNew", text: t('SAVE_AND_NEW', 'Lưu và thêm mới'), icon: "save", visible: Boolean(onSaveAndNew), onClick: () => { void handleSaveAndNew() } },
+              { key: "close", text: t('CANCEL', 'Hủy'), onClick: () => { void handleClosePopup() } },
+            ]}
+          />
           <GridColumnSettingsPopup
             visible={columnSettingsVisible}
             title={t('AUDIT_SETTING_SHOW_HIDE', 'Thiết lập cột')}

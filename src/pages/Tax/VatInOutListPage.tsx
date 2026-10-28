@@ -26,7 +26,6 @@ import FetchGdtVatPopupContent from "@/pages/Reports/components/FetchGdtVatPopup
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
 import { normalizeReportLanguage } from "@/pages/Reports/reportLanguage"
 import { buildMasterGridReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
-import ChitEditorPopup from "@/pages/VoucherManagement/components/ChitEditorPopup"
 import { normalizeChitRows } from "@/pages/VoucherManagement/chitUtils"
 import ChitManagementPage from "@/pages/VoucherManagement/ChitManagementPage"
 import type { VatVoucherSource } from "./useVatVoucherSource"
@@ -322,8 +321,6 @@ export default function VatInOutListPage() {
     setLinkedVoucherLoading(false)
   }, [])
 
-  const handleLinkedVoucherSave = useCallback(async (_record: ChitInfo) => {}, [])
-
   const handleExportExcel = useCallback(async () => {
     if (rows.length === 0) {
       notify(t("NO_DATA_TO_EXPORT", "Không có dữ liệu để xuất."), "warning", 2500)
@@ -612,16 +609,14 @@ export default function VatInOutListPage() {
           />
 
           {linkedVoucher ? (
-            <ChitEditorPopup
-              visible
-              value={linkedVoucher.record}
+            <ChitManagementPage
+              key={`${linkedVoucher.ledger}-${linkedVoucher.chitType}-${linkedVoucher.record.CHIT_ID}`}
+              editorOnly
+              initialRecord={linkedVoucher.record}
               ledger={linkedVoucher.ledger}
               chitType={linkedVoucher.chitType}
-              isUpdate
-              readOnly
-              loading={false}
-              onClose={closeLinkedVoucher}
-              onSave={handleLinkedVoucherSave}
+              onEditorClose={closeLinkedVoucher}
+              onEditorSaved={() => loadInvoices(true)}
             />
           ) : null}
 

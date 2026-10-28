@@ -1,3 +1,4 @@
+import EditorActionToolbar from "@/components/toolbar/EditorActionToolbar"
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 
 import type { ReactNode } from "react"
@@ -8,6 +9,8 @@ import type dxForm from "devextreme/ui/form"
 import LoadPanel from "devextreme-react/load-panel"
 import Popup, { ToolbarItem } from "devextreme-react/popup"
 import notify from "devextreme/ui/notify"
+import { deleteChit } from "@/api/voucherApi"
+import DeleteVoucherButton from "./DeleteVoucherButton"
 import { useLocation, useNavigate } from "react-router-dom"
 
 import GridColumnSettingsPopup, {
@@ -48,6 +51,7 @@ import {
     getChitTypeLabel,
     getVoucherEditorDetailGridId,
     isInventoryLinkedAccountingVoucherType,
+    isOtCogsInventoryLinkDetail,
     isPeriodLockVoucher,
 } from "../chitUtils"
 import { openVoucherReportViewer } from "../voucherReportViewer"
@@ -81,6 +85,7 @@ interface ChitEditorPopupProps {
     readOnly?: boolean
     loading: boolean
     onClose: () => void
+    onDeleted?: () => void
     onReturnToLinkedInventory?: (inventoryId: number) => boolean
     inventoryLinkRefreshVersion?: number
     onSave: SaveAccountingWithInventory
@@ -107,8 +112,9 @@ export function ChitEditorPopup({
     voucherLabel,
     isUpdate,
     readOnly = false,
-    loading,
+    loading: externalLoading,
     onClose,
+    onDeleted,
     onReturnToLinkedInventory,
     inventoryLinkRefreshVersion = 0,
     onSave,
@@ -124,6 +130,8 @@ export function ChitEditorPopup({
     headerContent,
     additionalDetailTab,
 }: ChitEditorPopupProps) {
+    const [deleting, setDeleting] = useState(false)
+    const loading = externalLoading || deleting
 
 
     const location = useLocation()
@@ -230,15 +238,17 @@ export function ChitEditorPopup({
         }))
     }, [setDraft])
 
-    const rowInventory = useRowInventoryEditor({ visible, chitType, readOnly, draftRef, setDraft, gridRef: detailGridRef, onSave, onSaveAndNew, inventoryDraftType, prepareInventoryDraft, validateInventoryDraft, t })
+    const rowInventory = useRowInventoryEditor({ visible, chitType, readOnly, draftRef, setDraft, gridRef: detailGridRef, onSave, onSaveAndNew, inventoryDraftType, prepareInventoryDraft, validateInventoryDraft, canOpenInventoryRow, t })
     const inventoryRefreshVersion = rowInventory.refreshVersion + inventoryLinkRefreshVersion
 
     const handleOpenInventory = useCallback(async (row: ChitInfo["DETAILS"][number], target?: LinkedInventoryTarget) => {
-        if (target && onReturnToLinkedInventory?.(target.chitId)) {
+        // OT normal IO links stay in rowInventory; only COGS (Nợ 632) uses the overlay return handler.
+        const useLinkedInventoryOverlay = chitType !== "OT" || isOtCogsInventoryLinkDetail(row)
+        if (target && useLinkedInventoryOverlay && onReturnToLinkedInventory?.(target.chitId)) {
             return
         }
         await rowInventory.open(row, target)
-    }, [onReturnToLinkedInventory, rowInventory.open])
+    }, [chitType, onReturnToLinkedInventory, rowInventory.open])
 
     const editorDraft = useChitEditorDraft({
         visible,
@@ -677,47 +687,26 @@ export function ChitEditorPopup({
                         {additionalDetailTab ? <div role="tabpanel" style={{ height: "calc(100% - 2.25rem)", display: additionalTabActive ? "block" : "none" }}>{additionalDetailTab.content}</div> : null}
                     </div>
 
-                    <div className="chit-editor-footer flex flex-shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-white px-4 py-3">
-                        {!readOnly ? (
-                        <Button
-                            text={t("TIT_SAVE", "Save")}
-                            icon="save"
-                            type="default"
-                            stylingMode="contained"
-                            elementAttr={{ class: "chit-editor-save-btn" }}
-                            onClick={handleSave}
-                            disabled={loading || !canSaveDraft}
-                        />
-                        ) : null}
-                        {!readOnly && onSaveAndNew ? (
-                            <Button
-                                text={t("SAVE_AND_NEW", "Save and create new")}
-                                icon="plus"
-                                type="default"
-                                stylingMode="outlined"
-                                onClick={() => {
-                                    void handleSaveAndNew()
-                                }}
-                                disabled={loading || !canSaveDraft}
+                    <EditorActionToolbar
+                        className="chit-editor-footer border-t border-gray-200 bg-white px-4 py-3"
+                        accentSave
+                        busy={loading}
+                        leadingContent={!readOnly && isUpdate && Number(value.CHIT_ID) > 0 && !isPeriodLockVoucher(value) ? (
+                            <DeleteVoucherButton
+                                disabled={loading || rowInventory.loading || Boolean(rowInventory.editor)}
+                                voucherNo={value.CHIT_NO || String(value.CHIT_ID)}
+                                onDelete={() => deleteChit(ledger, Number(value.CHIT_ID), chitType)}
+                                onDeleted={() => { onDeleted?.(); onClose() }}
+                                onBusyChange={setDeleting}
                             />
                         ) : null}
-                        {printReportCode ? (
-                            <Button
-                                text={t("PRINT", "Print")}
-                                icon="print"
-                                stylingMode="outlined"
-                                onClick={handlePrint}
-                                disabled={loading}
-                            />
-                        ) : null}
-                        <Button
-                            text={t("CANCEL", "Cancel")}
-                            icon="close"
-                            stylingMode="outlined"
-                            onClick={handleClosePopup}
-                            disabled={loading}
-                        />
-                    </div>
+                        actions={[
+                            { key: "save", text: t("TIT_SAVE", "Save"), visible: !readOnly, disabled: !canSaveDraft, onClick: handleSave },
+                            { key: "saveAndNew", text: t("SAVE_AND_NEW", "Save and create new"), visible: !readOnly && Boolean(onSaveAndNew), disabled: !canSaveDraft, onClick: () => { void handleSaveAndNew() } },
+                            { key: "print", text: t("PRINT", "Print"), visible: Boolean(printReportCode), onClick: handlePrint },
+                            { key: "close", text: t("CANCEL", "Cancel"), onClick: handleClosePopup },
+                        ]}
+                    />
                 </div>
                 <GridColumnSettingsPopup
                     visible={columnSettingsVisible}
@@ -738,6 +727,7 @@ export function ChitEditorPopup({
                         lockAccountingReference={true}
                         loading={rowInventory.loading}
                         onClose={rowInventory.close}
+                        onDeleted={rowInventory.deleted}
                         onOpenLinkedAccountingVoucher={(linkedType, linkedId) => {
                             const parentChitId = Number(draftRef.current.CHIT_ID ?? 0)
                             const handledByParentPopup = parentChitId > 0

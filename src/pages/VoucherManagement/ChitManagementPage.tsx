@@ -104,12 +104,14 @@ import { LoadPanel } from "devextreme-react/cjs/load-panel"
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
 import { buildReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
 import { useChitListInvalidate, useChitListQuery } from "@/hooks/queries/useChitListQuery"
+import { useVatInOutListInvalidate } from "@/hooks/queries/useVatInOutListQuery"
 import { useLinkedAccountingVoucherPopup } from "./hooks/useLinkedAccountingVoucherPopup"
 import { useLinkedCogsIssuePopup } from "./hooks/useLinkedCogsIssuePopup"
 import { useVatVoucherSource, type VatVoucherSource } from "@/pages/Tax/useVatVoucherSource"
 
 interface ChitManagementPageProps {
   editorOnly?: boolean
+  initialRecord?: ChitInfo
   vatSource?: VatVoucherSource
   onEditorClose?: () => void
   onEditorSaved?: () => void | Promise<void>
@@ -336,6 +338,7 @@ export function ChitManagementPage({
   titleFallback,
   titleKey,
   editorOnly = false,
+  initialRecord,
   vatSource,
   onEditorClose,
   onEditorSaved,
@@ -360,10 +363,10 @@ export function ChitManagementPage({
   const [loading, setLoading] = useState(true)
   const [popupLoading, setPopupLoading] = useState(false)
   const persistBusyRef = useRef(false)
-  const [popupVisible, setPopupVisible] = useState(Boolean(editorOnly && vatSource))
+  const [popupVisible, setPopupVisible] = useState(Boolean(editorOnly && (vatSource || initialRecord)))
 
-  const [editorReadOnly, setEditorReadOnly] = useState(false)
-  const [isUpdate, setIsUpdate] = useState(false)
+  const [editorReadOnly, setEditorReadOnly] = useState(() => Boolean(editorOnly && initialRecord && isPeriodLockVoucher(initialRecord)))
+  const [isUpdate, setIsUpdate] = useState(() => Boolean(editorOnly && initialRecord && Number(initialRecord.CHIT_ID) > 0))
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false)
   const [columnSettingsVisible, setColumnSettingsVisible] = useState(false)
   const [columnSettingsTabs, setColumnSettingsTabs] = useState<GridColumnSettingsPopupTab[]>([])
@@ -391,6 +394,7 @@ export function ChitManagementPage({
   const [listQueryToYmd, setListQueryToYmd] = useState("")
   const [listFetchEnabled, setListFetchEnabled] = useState(false)
   const [editingRow, setEditingRow] = useState<ChitInfo>(() => {
+    if (editorOnly && initialRecord) return cloneChit(initialRecord)
     if (editorOnly && vatSource) return cloneChit(vatSource.record)
     const companyCd = getCurrentCompanyCd()
     const userId = getCurrentUserId()
@@ -544,6 +548,7 @@ export function ChitManagementPage({
   }, [executeRouteCleanup])
 
   const invalidateChits = useChitListInvalidate()
+  const invalidateVat = useVatInOutListInvalidate()
   const {
     data: listResponse,
     isLoading: isListLoading,
@@ -1298,12 +1303,14 @@ const openEditPopup = useCallback(
     try {
       await Promise.all(deletableIds.map((id) => deleteChit(ledger, id, chitType)))
       notify(t("DELETE_SUCCESS", "Deleted successfully"), "success", 3000)
-      await invalidateChits()
     } catch (error) {
       console.error("Delete chit note error", error)
       notify(getApiErrorMessage(error, t("DELETE_FAILED", "Xóa thất bại")), "error", 4000)
+    } finally {
+      // Some vouchers may already be deleted when a bulk request fails.
+      await Promise.all([invalidateChits(), invalidateVat()])
     }
-  }, [chitType, invalidateChits, ledger, t])
+  }, [chitType, invalidateChits, invalidateVat, ledger, t])
 
 
   const handleSelectionChanged = useCallback(
@@ -1735,6 +1742,13 @@ const openEditPopup = useCallback(
           isUpdate={isUpdate}
           readOnly={editorReadOnly}
           loading={popupLoading}
+          onDeleted={() => {
+            if (editorOnly) void onEditorSaved?.()
+            setSelectedRow(null)
+            setSelectedRowDetails([])
+            selectedChitIdRef.current = null
+            gridRef.current?.clearSelection()
+          }}
           onReturnToLinkedInventory={chitType === "OT" ? linkedCogsIssuePopup.open : undefined}
           inventoryLinkRefreshVersion={linkedCogsIssuePopup.refreshVersion}
           screenCd={editorOnly ? `/app/${getCurrentCompanyCd()}${getVoucherRouteByChitType(chitType)}` : undefined}

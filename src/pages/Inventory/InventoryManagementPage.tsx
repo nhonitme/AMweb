@@ -1238,6 +1238,12 @@ export default function InventoryManagementPage({
         visible={popupVisible}
         value={editingRow}
         initialIssueTab={initialIssueTab}
+        onDeleted={() => {
+          setSelectedRow(null)
+          selectedChitIdRef.current = null
+          setSelectedLines([])
+          gridRef.current?.clearSelection()
+        }}
         chitType={chitType}
         voucherLabel={title}
         isUpdate={isUpdate}

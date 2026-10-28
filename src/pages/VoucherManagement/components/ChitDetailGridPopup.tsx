@@ -227,7 +227,6 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
             pendingInventoryRowKeys = [],
             inventoryRefreshVersion = 0,
             showInventoryLinkActions: showInventoryLinkActionsProp,
-            canOpenInventoryRow,
             inventoryLinkType,
             renderDetailLink,
   linkSlot,
@@ -971,7 +970,7 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                                             />
                                         </div>
                                         {cellInfo.data && renderDetailLink ? renderDetailLink(cellInfo.data) : null}
-                                        {showInventoryLinkActions && (!canOpenInventoryRow || (cellInfo.data && canOpenInventoryRow(cellInfo.data))) ? (
+                                        {showInventoryLinkActions ? (
                                             <OpenLinkedInventoryButton
                                                 targets={linkedTargets}
                                                 label={t("INVENTORY_ROW_BUTTON", "Hàng tồn kho")}

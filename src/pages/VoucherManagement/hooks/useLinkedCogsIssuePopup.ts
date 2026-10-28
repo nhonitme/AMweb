@@ -4,9 +4,8 @@ import notify from "devextreme/ui/notify"
 import { updateInventoryVoucher } from "@/api/inventoryVoucherApi"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { useInventoryVoucherListInvalidate } from "@/hooks/queries/useInventoryVoucherListQuery"
-import { getCurrentCompanyCd } from "@/lib/login"
 import type { InventoryVoucher } from "@/types/voucher"
-import { mapInventoryVoucherToApiPayload, normalizeInventoryVoucherApi } from "@/pages/Inventory/inventoryVoucherModel"
+import { mapInventoryVoucherToApiPayload } from "@/pages/Inventory/inventoryVoucherModel"
 import { loadInventoryVoucherForDirectOpen } from "../voucherDirectOpen"
 
 type Translate = (key: string, fallback: string) => string
@@ -46,12 +45,11 @@ export function useLinkedCogsIssuePopup(t: Translate) {
   const save = useCallback(async (record: InventoryVoucher) => {
     setLoading(true)
     try {
-      const response = await updateInventoryVoucher("AR", "IO", mapInventoryVoucherToApiPayload(record))
-      const saved = normalizeInventoryVoucherApi(response.data, "IO", getCurrentCompanyCd())
+      await updateInventoryVoucher("AR", "IO", mapInventoryVoucherToApiPayload(record))
       await invalidateInventoryLists()
-      setVoucher(saved)
       setRefreshVersion(version => version + 1)
       notify(t("MSG_EDIT_SUCCESS", "Đã cập nhật thành công"), "success", 3000)
+      setVoucher(null)
     } catch (error) {
       notify(getApiErrorMessage(error, t("SAVE_FAILED", "Lưu thất bại")), "error", 3000)
     } finally {

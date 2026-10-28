@@ -1,4 +1,8 @@
+import EditorActionToolbar from "@/components/toolbar/EditorActionToolbar"
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { deleteInventoryVoucher } from "@/api/inventoryVoucherApi"
+import { getInventoryLedger } from "@/pages/Inventory/inventoryVoucherModel"
+import DeleteVoucherButton from "@/pages/VoucherManagement/components/DeleteVoucherButton"
 
 
 import "./InventoryEditorPopup.css"
@@ -85,6 +89,7 @@ interface InventoryEditorPopupProps {
   readOnly?: boolean
   lockAccountingReference?: boolean
   onClose: () => void
+  onDeleted?: () => void
   onOpenLinkedAccountingVoucher?: (chitType: ChitType, chitId: number) => boolean
   onOpenLinkedCogsVoucher: (chitId: number) => boolean
   onSave: (record: InventoryVoucher) => Promise<void>
@@ -109,10 +114,11 @@ export default function InventoryEditorPopup({
   chitType,
   voucherLabel,
   isUpdate,
-  loading,
+  loading: externalLoading,
   readOnly = false,
   lockAccountingReference = false,
   onClose,
+  onDeleted,
   onOpenLinkedAccountingVoucher,
   onOpenLinkedCogsVoucher,
   onSave,
@@ -120,6 +126,8 @@ export default function InventoryEditorPopup({
   printReportCode,
   initialIssueTab = "output",
 }: InventoryEditorPopupProps) {
+  const [deleting, setDeleting] = useState(false)
+  const loading = externalLoading || deleting
   const [draft, setDraft, draftRef] = useStateRef<InventoryVoucher>(() => ensureInventoryDefaultLine({
     ...value,
     IS_COGS: Boolean(value.IS_COGS || value.COGS),
@@ -936,7 +944,7 @@ export default function InventoryEditorPopup({
 
   usePopupEscapeLayer(
     visible,
-    onClose,
+    () => { if (!loading) onClose() },
     () => document.querySelector<HTMLElement>(`[data-popup-shortcut-scope="${popupShortcutScopeId}"]`),
   )
 
@@ -949,7 +957,7 @@ export default function InventoryEditorPopup({
         void handleSaveAndNew()
       },
       [SHORTCUT_ACTIONS.CLOSE]: () => {
-        onClose()
+        if (!loading) onClose()
       },
     }
 
@@ -967,7 +975,7 @@ export default function InventoryEditorPopup({
         [SHORTCUT_ACTIONS.CLOSE]: { allowInInput: true },
       },
     )
-  }, [handlePrint, handleSave, handleSaveAndNew, onClose])
+  }, [handlePrint, handleSave, handleSaveAndNew, onClose, loading])
 
   const shouldHandleShortcutEvent = useCallback(
     () => isPopupShortcutScopeTopMost(popupShortcutScopeId),
@@ -1272,7 +1280,8 @@ export default function InventoryEditorPopup({
       position={{ my: "center", at: "center", of: window }}
       wrapperAttr={{ class: "inventory-editor-popup", ...createPopupShortcutWrapperAttr(popupShortcutScopeId) }}
       animation={POPUP_FADE_ANIMATION}
-      onHiding={() => {
+      onHiding={(event) => {
+        if (loading) { event.cancel = true; return }
         onClose()
       }}
     >
@@ -1439,23 +1448,26 @@ export default function InventoryEditorPopup({
             </div>
           </div>
 
-          <div className="inventory-editor-footer flex flex-shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-white px-4 py-3">
-            {!readOnly ? <Button text={t("SAVE", "Save")} icon="save" type="default" stylingMode="contained" elementAttr={{ class: "inventory-editor-save-btn" }} onClick={handleSave} disabled={loading} /> : null}
-            {!readOnly && onSaveAndNew ? (
-              <Button
-                text={t("SAVE_AND_NEW", "Save and create new")}
-                icon="plus"
-                type="default"
-                stylingMode="outlined"
-                onClick={handleSaveAndNew}
+          <EditorActionToolbar
+            className="inventory-editor-footer border-t border-gray-200 bg-white px-4 py-3"
+            accentSave
+            busy={loading}
+            leadingContent={!readOnly && isUpdate && Number(value.CHIT_ID) > 0 ? (
+              <DeleteVoucherButton
                 disabled={loading}
+                voucherNo={value.CHIT_NO || String(value.CHIT_ID)}
+                onDelete={() => deleteInventoryVoucher(getInventoryLedger(chitType), chitType, Number(value.CHIT_ID))}
+                onDeleted={() => { onDeleted?.(); onClose() }}
+                onBusyChange={setDeleting}
               />
             ) : null}
-            {printReportCode ? (
-              <Button text={t("PRINT", "Print")} icon="print" stylingMode="outlined" onClick={handlePrint} disabled={loading} />
-            ) : null}
-            <Button text={t("CANCEL", "Cancel")} icon="close" stylingMode="outlined" onClick={onClose} disabled={loading} />
-          </div>
+            actions={[
+              { key: "save", text: t("SAVE", "Save"), visible: !readOnly, onClick: handleSave },
+              { key: "saveAndNew", text: t("SAVE_AND_NEW", "Save and create new"), visible: !readOnly && Boolean(onSaveAndNew), onClick: handleSaveAndNew },
+              { key: "print", text: t("PRINT", "Print"), visible: Boolean(printReportCode), onClick: handlePrint },
+              { key: "close", text: t("CANCEL", "Cancel"), onClick: onClose },
+            ]}
+          />
 
           <LoadPanel visible={loading} shading={false} showIndicator />
         </div>

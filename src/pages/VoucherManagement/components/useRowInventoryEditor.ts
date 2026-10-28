@@ -14,7 +14,7 @@ export type AfterAccountingSave = (saved: ChitInfo, submitted: ChitInfo) => Prom
 export type SaveAccountingWithInventory = (record: ChitInfo, afterSave?: AfterAccountingSave) => Promise<void>
 export type InventoryDraftPreparation = (value: InventoryVoucher, row: ChitDetail, source: ChitInfo) => Promise<InventoryVoucher>
 
-export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, setDraft, gridRef, onSave, onSaveAndNew, inventoryDraftType, prepareInventoryDraft, validateInventoryDraft, t }: {
+export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, setDraft, gridRef, onSave, onSaveAndNew, inventoryDraftType, prepareInventoryDraft, validateInventoryDraft, canOpenInventoryRow, t }: {
     visible: boolean
     chitType: ChitType
     readOnly: boolean
@@ -24,6 +24,7 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
     onSave: SaveAccountingWithInventory
     onSaveAndNew?: SaveAccountingWithInventory
     prepareInventoryDraft?: InventoryDraftPreparation
+    canOpenInventoryRow?: (row: ChitDetail) => boolean
     inventoryDraftType?: "IR" | "IO"
     validateInventoryDraft?: (value: InventoryVoucher) => void
     t: (key: string, fallback: string) => string
@@ -231,6 +232,34 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
         if (busyRef.current || editor) return
         const activeKeys = new Set(record.DETAILS.filter((row) => !row.ISDEL).map((row) => row.ROW_KEY))
         for (const key of pendingRef.current.keys()) if (!activeKeys.has(key)) pendingRef.current.delete(key)
+        // VAT imports use the same preparation and persistence for one or many invoices,
+        // including rows whose inventory editor has never been opened.
+        if (prepareInventoryDraft && canOpenInventoryRow) {
+            busyRef.current = true
+            setLoading(true)
+            try {
+                const type = inventoryDraftType ?? getInventoryTypeForAccountingChitType(chitType)
+                if (type !== "IR" && type !== "IO") throw new Error("Không xác định được loại phiếu kho.")
+                for (const row of record.DETAILS.filter((item) => !item.ISDEL && canOpenInventoryRow(item))) {
+                    if (pendingRef.current.has(row.ROW_KEY)) continue
+                    const linked = type === "IR" ? row.INVENTORY_INPUTS : row.INVENTORY_OUTPUTS
+                    if (linked.some((line) => Number(line.INVENTORY_ID) > 0 && Number(line.ISDEL ?? 0) !== 1)) continue
+                    const value = createDefaultInventoryVoucher(type, record.COMPANY_CD)
+                    value.CHIT_YMD = record.CHIT_YMD
+                    value.DESCRIPTION_VIET = record.DESCRIPTION_VIET
+                    const prepared = await prepareInventoryDraft(value, row, record)
+                    validateInventoryDraft?.(prepared)
+                    pendingRef.current.set(row.ROW_KEY, prepared)
+                }
+            } catch (error) {
+                notify(getApiErrorMessage(error, "Không tải được chi tiết kho để lưu."), "warning", 5000)
+                return
+            } finally {
+                setPendingKeys([...pendingRef.current.keys()])
+                busyRef.current = false
+                setLoading(false)
+            }
+        }
         try {
             for (const value of pendingRef.current.values()) validateInventoryDraft?.(value)
         } catch (error) {
@@ -288,6 +317,19 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
 
     return {
         editor, loading, pendingKeys, refreshVersion, open, saveInventory, cogsDraft,
+        deleted: () => {
+            if (!editor) return
+            const id = Number(editor.value.CHIT_ID)
+            pendingRef.current.delete(editor.rowKey)
+            setPendingKeys([...pendingRef.current.keys()])
+            setDraft((source) => ({ ...source, DETAILS: source.DETAILS.map((detail) => ({
+                ...detail,
+                INVENTORY_INPUTS: detail.INVENTORY_INPUTS.filter((line) => Number(line.INVENTORY_ID) !== id),
+                INVENTORY_OUTPUTS: detail.INVENTORY_OUTPUTS.filter((line) => Number(line.INVENTORY_ID) !== id),
+            })) }))
+            setRefreshVersion((version) => version + 1)
+            setEditor(null)
+        },
         saveCogsDraft: (value: ChitInfo) => {
             if (cogsDraft) {
                 const activeDetails = value.DETAILS.filter((line) => !line.ISDEL)

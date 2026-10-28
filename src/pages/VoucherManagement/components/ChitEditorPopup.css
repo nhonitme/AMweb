@@ -88,45 +88,6 @@
     background-color: #fff5f5 !important;
 }
 
-/* ---------- Footer action bar ---------- */
 .chit-editor-footer {
     border-color: #dce0e5 !important;
-}
-
-.chit-editor-footer .chit-editor-save-btn.dx-button {
-    order: 1;
-}
-
-.chit-editor-footer .dx-button-mode-outlined.dx-button-default {
-    order: 2;
-}
-
-.chit-editor-footer .dx-button:has(.dx-icon-print) {
-    order: 3;
-}
-
-.chit-editor-footer .dx-button:has(.dx-icon-close) {
-    order: 4;
-}
-
-/* Primary save button: flat red, matching the approved accent (#c83239) */
-.chit-editor-save-btn.dx-button {
-    background: #c83239 !important;
-    border-color: #c83239 !important;
-    border-radius: 5px !important;
-    box-shadow: none;
-}
-
-.chit-editor-save-btn.dx-button .dx-icon,
-.chit-editor-save-btn.dx-button .dx-button-text {
-    color: #ffffff;
-}
-
-.chit-editor-save-btn.dx-button:hover {
-    background: #b4262e !important;
-    border-color: #b4262e !important;
-}
-
-.chit-editor-save-btn.dx-button.dx-state-disabled {
-    box-shadow: none;
 }

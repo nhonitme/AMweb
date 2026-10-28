@@ -16,7 +16,7 @@ export type VatVoucherSource = {
 export function useVatVoucherSource(source: VatVoucherSource | null) {
   const linkedKeys = useRef(new Set<string>())
   useEffect(() => { linkedKeys.current.clear() }, [source])
-  const inventoryEnabled = Boolean(source?.loadInventoryDetail && source.invoices.length > 1)
+  const inventoryEnabled = Boolean(source?.loadInventoryDetail && source.invoices.length > 0)
   const moneyRows = useMemo(() => new Map(source?.invoices.flatMap((invoice, index) => {
     const row = source.record.DETAILS[index * 2]
     return row ? [[row.ROW_KEY, invoice] as const] : []
@@ -24,7 +24,7 @@ export function useVatVoucherSource(source: VatVoucherSource | null) {
   const canOpenInventoryRow = useCallback((row: ChitDetail) => moneyRows.has(row.ROW_KEY), [moneyRows])
   const prepareInventoryDraft = useCallback<InventoryDraftPreparation>(async (value, row, record) => {
     const invoice = moneyRows.get(row.ROW_KEY)
-    if (!source || !invoice) throw new Error("Chỉ có thể lập phiếu kho từ dòng tiền hàng của hóa đơn.")
+    if (!source || !invoice) return { ...value, INPUTS: [], OUTPUTS: [], TOTAL_QTY: 0, AMOUNT: 0 }
     return prepareVatMergedInventoryDraft(value, row, record, invoice, source.invoiceType)
   }, [source, moneyRows])
   const validate = useCallback((record: ChitInfo) => {
@@ -32,7 +32,7 @@ export function useVatVoucherSource(source: VatVoucherSource | null) {
     const missing = record.DETAILS.find((row) => !row.ISDEL && moneyRows.has(row.ROW_KEY)
       && (!(Number(row.CUSTOMER_ID) > 0) || !String(row.CUSTOMER_CD ?? "").trim()))
     if (missing) throw new Error(`Hóa đơn ${missing.VAT_CHIT_NO ?? ""} — ${missing.CUSTOMER_NM_VIET ?? ""}: chưa có mã khách hàng/nhà cung cấp.`)
-  }, [inventoryEnabled, moneyRows])
+  }, [inventoryEnabled, moneyRows, source])
   const link = useCallback(async (record: ChitInfo) => {
     if (!source) return
     const code = String(record.CHIT_CD ?? "").trim()

@@ -1,0 +1,29 @@
+.editor-action-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+
+  > .dx-button {
+    flex-shrink: 0;
+  }
+
+  .editor-action-toolbar__save--accent.dx-button {
+    background: #c83239 !important;
+    border-color: #c83239 !important;
+    border-radius: 5px !important;
+    box-shadow: none;
+
+    .dx-icon,
+    .dx-button-text {
+      color: #fff;
+    }
+
+    &:hover {
+      background: #b4262e !important;
+      border-color: #b4262e !important;
+    }
+  }
+}
