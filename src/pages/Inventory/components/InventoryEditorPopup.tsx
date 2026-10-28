@@ -1486,7 +1486,6 @@ export default function InventoryEditorPopup({
             visible={bomVisible}
             disabled={readOnly || loading}
             initial={bomSnapshot}
-            currentOutputs={draft.OUTPUTS}
             onClose={() => setBomVisible(false)}
             onConfirm={handleConfirmBom}
           />

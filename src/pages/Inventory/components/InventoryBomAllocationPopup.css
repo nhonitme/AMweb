@@ -31,6 +31,35 @@
 }
 
 /* ---------- Top field panel ---------- */
+.inventory-bom-allocation-field-label {
+  color: #414853;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.inventory-bom-allocation-toolbar-btn.dx-button {
+  height: 30px;
+  min-height: 30px;
+  border-radius: 5px;
+  box-shadow: none;
+}
+
+.inventory-bom-allocation-toolbar-btn.dx-button.dx-button-mode-outlined {
+  border-color: #cbd0d7;
+  background: #fff;
+}
+
+.inventory-bom-allocation-toolbar-btn.dx-button.dx-button-mode-outlined .dx-icon,
+.inventory-bom-allocation-toolbar-btn.dx-button.dx-button-mode-outlined .dx-button-text {
+  color: #414853;
+}
+
+.inventory-bom-allocation-toolbar-btn.dx-button.dx-button-mode-outlined.dx-state-hover {
+  background: #f5f6f8;
+  border-color: #9da5b1;
+}
+
 .inventory-bom-allocation-popup .dx-texteditor.dx-editor-outlined {
   border-radius: 5px;
   border-color: #cbd0d7;

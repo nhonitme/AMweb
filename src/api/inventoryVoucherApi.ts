@@ -103,6 +103,28 @@ export async function getInventoryBomSnapshot(inventoryId: number): Promise<Inve
   return data ?? { FINISHED: [], MATERIALS: [] }
 }
 
+export type InventoryLatestInputStore = {
+  PRODUCT_ID: number
+  STORE_ID: number
+  STORE_CD?: string | null
+  STORE_NM_VIET?: string | null
+}
+
+/** Batch: latest receipt STORE_ID per product (one request, no N+1). */
+export async function getLatestInputStoresByProductIds(
+  productIds: number[],
+): Promise<InventoryLatestInputStore[]> {
+  const ids = [...new Set(productIds.map(Number).filter((id) => Number.isSafeInteger(id) && id > 0))]
+  if (!ids.length) return []
+
+  const response = await axios.get<ApiEnvelope<InventoryLatestInputStore[]>>(
+    `${getInventoryBaseUrl()}/GetLatestInputStoresByProductIds`,
+    { params: { PRODUCT_IDS: ids.join(",") } },
+  )
+  const { data } = normalizeResponse<InventoryLatestInputStore[]>(response)
+  return data ?? []
+}
+
 export async function getInventoryIssueLinksByCogsVoucherId(cogsVoucherId: number): Promise<Record<number, number>> {
   type Link = { CHITDETAIL_ID: number; INVENTORY_CHIT_ID: number }
   const response = await axios.get<ApiEnvelope<Link[]>>(
