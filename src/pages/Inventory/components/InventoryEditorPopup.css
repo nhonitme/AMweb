@@ -4,12 +4,19 @@
 
 .inventory-editor-popup .inventory-issue-tabs {
     flex: 0 0 auto;
+    width: auto !important;
     max-width: 100%;
 }
 
+.inventory-editor-popup .inventory-issue-tabs .dx-tabs-wrapper {
+    width: auto;
+}
+
 .inventory-editor-popup .inventory-issue-tabs .dx-tab {
-    min-width: 112px;
-    padding: 8px 14px;
+    width: auto;
+    min-width: 0;
+    padding: 8px 16px;
+    white-space: nowrap;
 }
 
 .inventory-editor-popup .inventory-issue-tabs .dx-tab.dx-tab-selected {

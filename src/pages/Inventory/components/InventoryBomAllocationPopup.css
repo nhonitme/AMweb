@@ -46,18 +46,90 @@
 }
 
 .inventory-bom-allocation-toolbar-btn.dx-button.dx-button-mode-outlined {
-  border-color: #cbd0d7;
   background: #fff;
 }
 
-.inventory-bom-allocation-toolbar-btn.dx-button.dx-button-mode-outlined .dx-icon,
-.inventory-bom-allocation-toolbar-btn.dx-button.dx-button-mode-outlined .dx-button-text {
+/* Thêm – primary action */
+.inventory-bom-allocation-toolbar-btn.bom-btn-add.dx-button-mode-contained {
+  background: #1765ad;
+  border-color: #1765ad;
+}
+
+.inventory-bom-allocation-toolbar-btn.bom-btn-add.dx-button-mode-contained .dx-icon,
+.inventory-bom-allocation-toolbar-btn.bom-btn-add.dx-button-mode-contained .dx-button-text {
+  color: #fff;
+}
+
+.inventory-bom-allocation-toolbar-btn.bom-btn-add.dx-button-mode-contained.dx-state-hover {
+  background: #12548f;
+  border-color: #12548f;
+}
+
+/* Cập nhật định mức – secondary / navigate */
+.inventory-bom-allocation-toolbar-btn.bom-btn-edit-def.dx-button-mode-outlined {
+  border-color: #9da5b1;
+}
+
+.inventory-bom-allocation-toolbar-btn.bom-btn-edit-def.dx-button-mode-outlined .dx-icon,
+.inventory-bom-allocation-toolbar-btn.bom-btn-edit-def.dx-button-mode-outlined .dx-button-text {
   color: #414853;
 }
 
-.inventory-bom-allocation-toolbar-btn.dx-button.dx-button-mode-outlined.dx-state-hover {
+.inventory-bom-allocation-toolbar-btn.bom-btn-edit-def.dx-button-mode-outlined.dx-state-hover {
   background: #f5f6f8;
-  border-color: #9da5b1;
+  border-color: #6b7280;
+}
+
+/* Tính lại – emphasize recalculation */
+.inventory-bom-allocation-toolbar-btn.bom-btn-calculate.dx-button-mode-outlined {
+  border-color: #d97706;
+  background: #fffbeb;
+}
+
+.inventory-bom-allocation-toolbar-btn.bom-btn-calculate.dx-button-mode-outlined .dx-icon,
+.inventory-bom-allocation-toolbar-btn.bom-btn-calculate.dx-button-mode-outlined .dx-button-text {
+  color: #b45309;
+}
+
+.inventory-bom-allocation-toolbar-btn.bom-btn-calculate.dx-button-mode-outlined.dx-state-hover {
+  background: #fef3c7;
+  border-color: #b45309;
+}
+
+/* Import Excel */
+.inventory-bom-allocation-toolbar-btn.bom-btn-import.dx-button-mode-outlined {
+  border-color: #217346;
+  background: #f0faf4;
+}
+
+.inventory-bom-allocation-toolbar-btn.bom-btn-import.dx-button-mode-outlined .dx-icon,
+.inventory-bom-allocation-toolbar-btn.bom-btn-import.dx-button-mode-outlined .dx-button-text {
+  color: #217346;
+}
+
+.inventory-bom-allocation-toolbar-btn.bom-btn-import.dx-button-mode-outlined.dx-state-hover {
+  background: #dcf5e6;
+  border-color: #185c37;
+}
+
+/* Xóa đã chọn – danger */
+.inventory-bom-allocation-toolbar-btn.bom-btn-delete.dx-button-mode-outlined {
+  border-color: #c83239;
+  background: #fff;
+}
+
+.inventory-bom-allocation-toolbar-btn.bom-btn-delete.dx-button-mode-outlined .dx-icon,
+.inventory-bom-allocation-toolbar-btn.bom-btn-delete.dx-button-mode-outlined .dx-button-text {
+  color: #c83239;
+}
+
+.inventory-bom-allocation-toolbar-btn.bom-btn-delete.dx-button-mode-outlined.dx-state-hover {
+  background: #fdf1f2;
+  border-color: #a3262c;
+}
+
+.inventory-bom-allocation-toolbar-btn.bom-btn-delete.dx-state-disabled {
+  opacity: 0.45;
 }
 
 .inventory-bom-allocation-popup .dx-texteditor.dx-editor-outlined {

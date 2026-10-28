@@ -70,9 +70,17 @@ export default function InventoryBomAllocationPopup({
       .then(([list, rawMaterials, result]) => {
         if (!cancelled) { setProducts(list); setMaterialProducts(rawMaterials); setStores(result.data) }
       })
-      .catch(error => { if (!cancelled) notifyAboveOverlays(getApiErrorMessage(error, "Không đọc được danh mục thành phẩm/kho"), "error", 4500) })
+      .catch(error => {
+        if (!cancelled) {
+          notifyAboveOverlays(
+            getApiErrorMessage(error, t("BOM_LOAD_CATALOG_FAILED", "Không đọc được danh mục thành phẩm/kho")),
+            "error",
+            4500,
+          )
+        }
+      })
     return () => { cancelled = true }
-  }, [visible, initial])
+  }, [visible, initial, t])
 
   const materialProductsById = useMemo(() => new Map(materialProducts.map(p => [p.PRODUCT_ID, p])), [materialProducts])
   const productsById = useMemo(() => new Map(products.map(p => [p.PRODUCT_ID, p])), [products])
@@ -81,20 +89,28 @@ export default function InventoryBomAllocationPopup({
   const controlsDisabled = busy || disabled
 
   const addFinished = useCallback((product: Product, amount: number) => {
-    if (!(amount > 0) || !Number.isFinite(amount)) throw new Error("Số lượng thành phẩm phải lớn hơn 0.")
+    if (!(amount > 0) || !Number.isFinite(amount)) {
+      throw new Error(t("BOM_INVALID_QUANTITY", "Số lượng thành phẩm phải lớn hơn 0"))
+    }
     setFinished(rows => [...rows, {
       CLIENT_KEY: newKey("FIN"), FINISHED_PRODUCT_ID: product.PRODUCT_ID,
       PRODUCT_CD: product.PRODUCT_CD, PRODUCT_NM_VIET: product.PRODUCT_NM_VIET,
       UNIT_CD: product.UNIT_CD ?? "", FINISHED_QUANTITY: amount, SORT: rows.length + 1,
     }])
     setRequiresRecalculation(true)
-  }, [])
+  }, [t])
 
   const addSelected = () => {
     const product = productsById.get(Number(selectedProductId))
     if (!product) return notifyAboveOverlays(t("SELECT_PRODUCT", "Chọn thành phẩm"), "warning", 2500)
     try { addFinished(product, finishedQuantity) }
-    catch (error) { notifyAboveOverlays(getApiErrorMessage(error, "Số lượng không hợp lệ"), "warning", 3000) }
+    catch (error) {
+      notifyAboveOverlays(
+        getApiErrorMessage(error, t("BOM_INVALID_QUANTITY", "Số lượng thành phẩm phải lớn hơn 0")),
+        "warning",
+        3000,
+      )
+    }
   }
 
   const handleDownloadTemplate = useCallback(() => {
@@ -243,9 +259,27 @@ export default function InventoryBomAllocationPopup({
       })
       setMaterials(next)
       setRequiresRecalculation(false)
-      if (missing) notifyAboveOverlays(`${missing} thành phẩm chưa khai báo định mức. Vui lòng kiểm tra Grid 1.`, "warning", 5000)
-      else if (missingStore) notifyAboveOverlays(t("BOM_MISSING_INPUT_STORE", "Một số NVL chưa có lịch sử nhập kho để gán mã kho. Vui lòng chọn kho trên Grid 2."), "warning", 5000)
-    } catch (error) { notifyAboveOverlays(getApiErrorMessage(error, "Không tính được định mức"), "error", 4500) }
+      if (missing) {
+        notifyAboveOverlays(
+          t("BOM_MISSING_DEFINITION", "{0} thành phẩm chưa khai báo định mức. Vui lòng kiểm tra Grid 1.")
+            .replace("{0}", String(missing)),
+          "warning",
+          5000,
+        )
+      } else if (missingStore) {
+        notifyAboveOverlays(
+          t("BOM_MISSING_INPUT_STORE", "Một số NVL chưa có lịch sử nhập kho để gán mã kho. Vui lòng chọn kho trên Grid 2."),
+          "warning",
+          5000,
+        )
+      }
+    } catch (error) {
+      notifyAboveOverlays(
+        getApiErrorMessage(error, t("BOM_CALCULATE_FAILED", "Không tính được định mức")),
+        "error",
+        4500,
+      )
+    }
     finally { setBusy(false) }
   }
 
@@ -255,14 +289,38 @@ export default function InventoryBomAllocationPopup({
     await materialGridRef.current?.saveEditData()
     const finalFinished = (finishedGridRef.current?.getDataSource()?.items() ?? finished) as InventoryBomFinishedRow[]
     const finalMaterials = (materialGridRef.current?.getDataSource()?.items() ?? materials) as InventoryBomMaterialRow[]
-    if (requiresRecalculation) return notifyAboveOverlays(t("BOM_RECALCULATE", "Danh sách đã thay đổi, cần Tính lại trước khi xác nhận"), "warning", 4000)
-    if (!finalFinished.length || !finalMaterials.length) return notifyAboveOverlays(t("BOM_EMPTY", "Chưa có kết quả định mức"), "warning", 2500)
-    if (finalMaterials.some(m => !finalFinished.some(f => f.CLIENT_KEY === m.FINISHED_CLIENT_KEY)))
-      return notifyAboveOverlays("Dòng nguyên vật liệu không có thành phẩm tương ứng", "error", 3000)
+    if (requiresRecalculation) {
+      return notifyAboveOverlays(
+        t("BOM_RECALCULATE", "Danh sách đã thay đổi, cần Tính lại trước khi xác nhận"),
+        "warning",
+        4000,
+      )
+    }
+    if (!finalFinished.length || !finalMaterials.length) {
+      return notifyAboveOverlays(t("BOM_EMPTY", "Chưa có kết quả định mức"), "warning", 2500)
+    }
+    if (finalMaterials.some(m => !finalFinished.some(f => f.CLIENT_KEY === m.FINISHED_CLIENT_KEY))) {
+      return notifyAboveOverlays(
+        t("BOM_ORPHAN_MATERIAL", "Dòng nguyên vật liệu không có thành phẩm tương ứng"),
+        "error",
+        3000,
+      )
+    }
     const confirmed = finalMaterials.filter(m => qty(m.CONFIRMED_QUANTITY) > 0)
-    if (!confirmed.length) return notifyAboveOverlays("Không có nguyên vật liệu có số lượng xuất hợp lệ", "warning", 3000)
-    if (confirmed.some(m => !(qty(m.STORE_ID) > 0) || !storesById.has(Number(m.STORE_ID))))
-      return notifyAboveOverlays("Vui lòng chọn kho xuất cho mọi dòng NVL cần xuất", "warning", 4000)
+    if (!confirmed.length) {
+      return notifyAboveOverlays(
+        t("BOM_NO_CONFIRMED_QTY", "Không có nguyên vật liệu có số lượng xuất hợp lệ"),
+        "warning",
+        3000,
+      )
+    }
+    if (confirmed.some(m => !(qty(m.STORE_ID) > 0) || !storesById.has(Number(m.STORE_ID)))) {
+      return notifyAboveOverlays(
+        t("BOM_STORE_REQUIRED", "Vui lòng chọn kho xuất cho mọi dòng NVL cần xuất"),
+        "warning",
+        4000,
+      )
+    }
     onConfirm({
       FINISHED: finalFinished.map((row, i) => ({ ...row, SORT: i + 1 })),
       MATERIALS: finalMaterials.map((row, i) => {
@@ -291,7 +349,7 @@ export default function InventoryBomAllocationPopup({
       onShown={(event) => {
         disableBuiltInPopupEscape(event.component)
       }}
-      title={t("BOM_ALLOCATION", "Phân bổ nguyên vật liệu theo thành phẩm")}
+      title={t("BOM_ALLOCATION_TITLE", "Phân bổ nguyên vật liệu theo thành phẩm")}
       showTitle
       showCloseButton={false}
       onHiding={(event) => {
@@ -367,7 +425,7 @@ export default function InventoryBomAllocationPopup({
               icon="plus"
               type="default"
               stylingMode="contained"
-              elementAttr={{ class: "inventory-bom-allocation-toolbar-btn" }}
+              elementAttr={{ class: "inventory-bom-allocation-toolbar-btn bom-btn-add" }}
               onClick={addSelected}
               disabled={controlsDisabled}
             />
@@ -377,7 +435,7 @@ export default function InventoryBomAllocationPopup({
                 icon="edit"
                 type="normal"
                 stylingMode="outlined"
-                elementAttr={{ class: "inventory-bom-allocation-toolbar-btn" }}
+                elementAttr={{ class: "inventory-bom-allocation-toolbar-btn bom-btn-edit-def" }}
                 onClick={() => window.open(`/app/${encodeURIComponent(companyCd)}/cost/material-product`, "_blank", "noopener,noreferrer")}
               />
               <Button
@@ -385,7 +443,7 @@ export default function InventoryBomAllocationPopup({
                 icon="refresh"
                 type="normal"
                 stylingMode="outlined"
-                elementAttr={{ class: "inventory-bom-allocation-toolbar-btn" }}
+                elementAttr={{ class: "inventory-bom-allocation-toolbar-btn bom-btn-calculate" }}
                 onClick={() => void calculate()}
                 disabled={controlsDisabled}
               />
@@ -394,7 +452,7 @@ export default function InventoryBomAllocationPopup({
                 icon="xlsxfile"
                 type="normal"
                 stylingMode="outlined"
-                elementAttr={{ class: "inventory-bom-allocation-toolbar-btn" }}
+                elementAttr={{ class: "inventory-bom-allocation-toolbar-btn bom-btn-import" }}
                 disabled={controlsDisabled}
                 onClick={() => setImportVisible(true)}
               />
@@ -413,7 +471,9 @@ export default function InventoryBomAllocationPopup({
                 <Button
                   text={t("DELETE_SELECTED", "Xóa đã chọn")}
                   icon="trash"
+                  type="danger"
                   stylingMode="outlined"
+                  elementAttr={{ class: "inventory-bom-allocation-toolbar-btn bom-btn-delete" }}
                   disabled={controlsDisabled || !selectedFinishedKeys.length}
                   onClick={deleteSelectedFinished}
                 />
@@ -452,7 +512,7 @@ export default function InventoryBomAllocationPopup({
               </div>
               {requiresRecalculation ? (
                 <span className="rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
-                  {t("BOM_RECALCULATE", "Cần Tính lại")}
+                  {t("BOM_NEEDS_RECALCULATE", "Cần Tính lại")}
                 </span>
               ) : null}
             </div>
@@ -521,7 +581,7 @@ export default function InventoryBomAllocationPopup({
         visible={importVisible}
         onClose={() => setImportVisible(false)}
         title={t("BOM_IMPORT_TITLE", "Import thành phẩm từ Excel")}
-        description={t("BOM_IMPORT_DESC", "Cột PRODUCT_CD và QUANTITY. Tải file mẫu trong form import.")}
+        description={t("IMPORT_MAIN_DESC", "Cột PRODUCT_CD và QUANTITY. Tải file mẫu trong form import.")}
         onImportFile={handleImportFile}
         onDownloadTemplate={handleDownloadTemplate}
         templateFileName="BOM_Finished_Template"

@@ -1214,7 +1214,8 @@ export default function InventoryEditorPopup({
     <div className="flex shrink-0 justify-start">
       <Tabs
         className="inventory-issue-tabs"
-        width={inventoryTabItems.length * 112}
+        width="auto"
+        scrollingEnabled={false}
         items={inventoryTabItems}
         keyExpr="id"
         selectedIndex={inventoryTabItems.findIndex((item) => item.id === activeInventoryIssueTab)}
