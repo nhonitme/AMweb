@@ -1,0 +1,25 @@
+{
+  "installed": "2.1.10",
+  "installedCount": 1512,
+  "referenceUrl": "https://themes.kopyov.com/limitless/demo/template/html/layout_1/full/icons_phosphor.html",
+  "referenceNames": 1046,
+  "matched": 1030,
+  "unmatchedOldNames": [
+    "ph-activity",
+    "ph-archive-box",
+    "ph-archive-tray",
+    "ph-circle-wavy",
+    "ph-circle-wavy-check",
+    "ph-circle-wavy-question",
+    "ph-circle-wavy-warning",
+    "ph-file-dotted",
+    "ph-file-search",
+    "ph-folder-dotted",
+    "ph-folder-notch",
+    "ph-folder-notch-minus",
+    "ph-folder-notch-open",
+    "ph-folder-notch-plus",
+    "ph-folder-simple-dotted",
+    "ph-text-bolder"
+  ]
+}

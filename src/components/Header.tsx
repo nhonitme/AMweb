@@ -702,6 +702,11 @@ export default function Header({
     navigate(buildAppPath(currentCompanyCd, "/help-support"));
   };
 
+  const handleUiGuidelinesClick = () => {
+    closeDropdowns();
+    navigate(buildAppPath(currentCompanyCd, "/help/ui-guidelines"));
+  };
+
   const handleClearCache = () => {
     closeDropdowns();
     clearFrontendCaches();
@@ -1077,6 +1082,24 @@ export default function Header({
                         </div>
                       </div>
                     </button>
+
+                    {import.meta.env.DEV ? (
+                      <button
+                        className={`flex w-full items-start gap-3 px-4 py-3 text-left text-sm transition-colors ${itemHoverClass} ${bodyTextClass}`}
+                        onClick={handleUiGuidelinesClick}
+                        type="button"
+                      >
+                        <BookOpen size={16} className={`mt-0.5 ${mutedTextClass}`} />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium">
+                            {t("uiGuidelines", "AMnote UI Guidelines")}
+                          </div>
+                          <div className={`mt-1 text-xs ${mutedTextClass}`}>
+                            {t("uiGuidelinesDevOnly", "Dev only · design system & component kit")}
+                          </div>
+                        </div>
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               </>

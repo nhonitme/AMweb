@@ -2,17 +2,10 @@
   padding: 0;
 }
 
+/* Title metrics via kit .am-dx-popup-title / .am-dx-title-actions (IO = OT). */
+.inventory-bom-allocation-popup.editor-mode--edit > .dx-overlay-content > .dx-popup-title,
 .inventory-bom-allocation-popup > .dx-overlay-content > .dx-popup-title {
   border-bottom: 1px solid #dce0e5;
-  padding: 4px 8px !important;
-  min-height: 0;
-  font-size: 16px;
-  line-height: 22px;
-}
-
-.inventory-bom-allocation-popup > .dx-overlay-content > .dx-popup-title .dx-toolbar-items-container {
-  height: 26px;
-  min-height: 0;
 }
 
 .inventory-bom-allocation-popup > .dx-overlay-content > .dx-popup-title .dx-toolbar-label {
@@ -20,14 +13,10 @@
   line-height: 22px;
 }
 
-.inventory-bom-allocation-title-actions > .dx-button {
-  width: 26px;
-  height: 26px;
-  min-height: 0;
-}
-
-.inventory-bom-allocation-title-actions > .dx-button .dx-button-content {
-  padding: 4px;
+/* Scope AMButton tokens: Inter, compact 32px, radius 8px (buttons-4 Soft footer IO). */
+.inventory-bom-allocation-popup .am-ui {
+  --am-ui-font: "Inter", Arial, sans-serif;
+  --am-font-family: var(--am-ui-font);
 }
 
 /* ---------- Top field panel ---------- */
@@ -38,102 +27,29 @@
   line-height: 18px;
 }
 
-.inventory-bom-allocation-toolbar-btn.dx-button {
-  height: 30px;
-  min-height: 30px;
-  border-radius: 5px;
-  box-shadow: none;
+.inventory-bom-allocation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
-.inventory-bom-allocation-toolbar-btn.dx-button.dx-button-mode-outlined {
-  background: #fff;
+.inventory-bom-allocation-actions--end {
+  margin-left: auto;
 }
 
-/* Thêm – primary action */
-.inventory-bom-allocation-toolbar-btn.bom-btn-add.dx-button-mode-contained {
-  background: #1765ad;
-  border-color: #1765ad;
-}
-
-.inventory-bom-allocation-toolbar-btn.bom-btn-add.dx-button-mode-contained .dx-icon,
-.inventory-bom-allocation-toolbar-btn.bom-btn-add.dx-button-mode-contained .dx-button-text {
-  color: #fff;
-}
-
-.inventory-bom-allocation-toolbar-btn.bom-btn-add.dx-button-mode-contained.dx-state-hover {
-  background: #12548f;
-  border-color: #12548f;
-}
-
-/* Cập nhật định mức – secondary / navigate */
-.inventory-bom-allocation-toolbar-btn.bom-btn-edit-def.dx-button-mode-outlined {
-  border-color: #9da5b1;
-}
-
-.inventory-bom-allocation-toolbar-btn.bom-btn-edit-def.dx-button-mode-outlined .dx-icon,
-.inventory-bom-allocation-toolbar-btn.bom-btn-edit-def.dx-button-mode-outlined .dx-button-text {
-  color: #414853;
-}
-
-.inventory-bom-allocation-toolbar-btn.bom-btn-edit-def.dx-button-mode-outlined.dx-state-hover {
-  background: #f5f6f8;
-  border-color: #6b7280;
-}
-
-/* Tính lại – emphasize recalculation */
-.inventory-bom-allocation-toolbar-btn.bom-btn-calculate.dx-button-mode-outlined {
-  border-color: #d97706;
-  background: #fffbeb;
-}
-
-.inventory-bom-allocation-toolbar-btn.bom-btn-calculate.dx-button-mode-outlined .dx-icon,
-.inventory-bom-allocation-toolbar-btn.bom-btn-calculate.dx-button-mode-outlined .dx-button-text {
-  color: #b45309;
-}
-
-.inventory-bom-allocation-toolbar-btn.bom-btn-calculate.dx-button-mode-outlined.dx-state-hover {
-  background: #fef3c7;
-  border-color: #b45309;
-}
-
-/* Import Excel */
-.inventory-bom-allocation-toolbar-btn.bom-btn-import.dx-button-mode-outlined {
-  border-color: #217346;
-  background: #f0faf4;
-}
-
-.inventory-bom-allocation-toolbar-btn.bom-btn-import.dx-button-mode-outlined .dx-icon,
-.inventory-bom-allocation-toolbar-btn.bom-btn-import.dx-button-mode-outlined .dx-button-text {
-  color: #217346;
-}
-
-.inventory-bom-allocation-toolbar-btn.bom-btn-import.dx-button-mode-outlined.dx-state-hover {
-  background: #dcf5e6;
-  border-color: #185c37;
-}
-
-/* Xóa đã chọn – danger */
-.inventory-bom-allocation-toolbar-btn.bom-btn-delete.dx-button-mode-outlined {
-  border-color: #c83239;
-  background: #fff;
-}
-
-.inventory-bom-allocation-toolbar-btn.bom-btn-delete.dx-button-mode-outlined .dx-icon,
-.inventory-bom-allocation-toolbar-btn.bom-btn-delete.dx-button-mode-outlined .dx-button-text {
-  color: #c83239;
-}
-
-.inventory-bom-allocation-toolbar-btn.bom-btn-delete.dx-button-mode-outlined.dx-state-hover {
-  background: #fdf1f2;
-  border-color: #a3262c;
-}
-
-.inventory-bom-allocation-toolbar-btn.bom-btn-delete.dx-state-disabled {
-  opacity: 0.45;
+.inventory-bom-allocation-footer-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: auto;
+  margin-left: auto;
 }
 
 .inventory-bom-allocation-popup .dx-texteditor.dx-editor-outlined {
-  border-radius: 5px;
+  border-radius: 8px;
   border-color: #cbd0d7;
   box-shadow: none;
 }
@@ -147,8 +63,8 @@
 }
 
 .inventory-bom-allocation-popup .dx-texteditor.dx-editor-outlined.dx-state-focused:not(.dx-invalid) {
-  border-color: #c83239;
-  box-shadow: 0 0 0 2px rgba(200, 50, 57, 0.14);
+  border-color: #2563eb;
+  box-shadow: none;
 }
 
 .inventory-bom-allocation-popup .dx-texteditor.dx-state-readonly.dx-editor-outlined {
@@ -176,20 +92,51 @@
 
 .inventory-bom-allocation-popup .dx-datagrid .dx-row.dx-selection > td,
 .inventory-bom-allocation-popup .dx-datagrid .dx-row.dx-row-focused > td {
-  background-color: #fdf1f2 !important;
+  background-color: #eff6ff !important;
   color: #303640 !important;
 }
 
 .inventory-bom-allocation-popup .dx-datagrid .dx-datagrid-focus-overlay {
-  border-color: #c83239;
+  border-color: #2563eb;
 }
 
-.inventory-bom-allocation-footer {
-  border-color: #dce0e5 !important;
+/* Soft footer bar + nút = OT (chit-editor-footer / EditorActionToolbar): px-2 py-1, cao 30px */
+.inventory-bom-allocation-footer.editor-action-toolbar {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+}
+
+.inventory-bom-allocation-footer .am-button {
+  height: 30px;
+  min-height: 30px;
+  padding: 4px 8px;
+  font-weight: 600;
+  line-height: 20px;
+  box-sizing: border-box;
+  border-radius: 8px;
 }
 
 .inventory-bom-allocation-section-title {
   color: #414853;
   font-size: 13px;
   font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .inventory-bom-allocation-actions--end {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .inventory-bom-allocation-footer-actions {
+    justify-content: stretch;
+  }
+
+  .inventory-bom-allocation-footer-actions .am-button {
+    flex: 1 1 auto;
+  }
 }

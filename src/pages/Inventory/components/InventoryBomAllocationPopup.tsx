@@ -1,10 +1,10 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import Popup, { ToolbarItem } from "devextreme-react/popup"
+import Button from "devextreme-react/button"
 import DataGrid, { Column, Editing, Lookup, Selection } from "devextreme-react/data-grid"
 import type dxDataGrid from "devextreme/ui/data_grid"
 import SelectBox from "devextreme-react/select-box"
 import NumberBox from "devextreme-react/number-box"
-import Button from "devextreme-react/button"
 import * as XLSX from "xlsx"
 import type { ClientExcelImportContext, ExcelImportResponse } from "@/api/excelApi"
 import { getLatestInputStoresByProductIds } from "@/api/inventoryVoucherApi"
@@ -12,9 +12,10 @@ import { getProducts } from "@/api/productApi"
 import { getStoreInfos } from "@/api/storeAPI"
 import { getProductMaterials } from "@/api/productMaterialApi"
 import { getApiErrorMessage } from "@/api/apiTypes"
+import { AMButton } from "@/components/amnote/ui"
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
 import { disableBuiltInPopupEscape, usePopupEscapeLayer } from "@/components/popup/popupEscapeStack"
-import EditorActionToolbar from "@/components/toolbar/EditorActionToolbar"
+import "@/components/toolbar/EditorActionToolbar.scss"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { notifyAboveOverlays } from "@/lib/notifyAboveOverlays"
 import { createPopupShortcutWrapperAttr, usePopupShortcutScopeId } from "@/lib/popupShortcutScope"
@@ -52,6 +53,7 @@ export default function InventoryBomAllocationPopup({
   const [finishedQuantity, setFinishedQuantity] = useState(1)
   const [selectedFinishedKeys, setSelectedFinishedKeys] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
+  const [busyAction, setBusyAction] = useState<"calculate" | "confirm" | null>(null)
   const [requiresRecalculation, setRequiresRecalculation] = useState(false)
   const [importVisible, setImportVisible] = useState(false)
 
@@ -221,10 +223,12 @@ export default function InventoryBomAllocationPopup({
   }
 
   const calculate = async () => {
+    if (busy) return
     if (!finished.length) return notifyAboveOverlays(t("BOM_NO_FINISHED", "Chưa có thành phẩm"), "warning", 2500)
     if (finished.some(row => !(qty(row.FINISHED_QUANTITY) > 0)))
       return notifyAboveOverlays(t("BOM_INVALID_QUANTITY", "Số lượng thành phẩm phải lớn hơn 0"), "warning", 2500)
     setBusy(true)
+    setBusyAction("calculate")
     try {
       const keys = [...new Set(finished.map(row => row.FINISHED_PRODUCT_ID))]
       const result = await Promise.all(keys.map(async productId => [productId, await getProductMaterials(productId)] as const))
@@ -280,7 +284,10 @@ export default function InventoryBomAllocationPopup({
         4500,
       )
     }
-    finally { setBusy(false) }
+    finally {
+      setBusy(false)
+      setBusyAction(null)
+    }
   }
 
   const confirmAllocation = async () => {
@@ -321,15 +328,23 @@ export default function InventoryBomAllocationPopup({
         4000,
       )
     }
-    onConfirm({
-      FINISHED: finalFinished.map((row, i) => ({ ...row, SORT: i + 1 })),
-      MATERIALS: finalMaterials.map((row, i) => {
-        const store = storesById.get(Number(row.STORE_ID))
-        const materialProduct = materialProductsById.get(row.MATERIAL_PRODUCT_ID)
-        return { ...row, STORE_CD: store?.STORE_CD ?? "", STORE_NM_VIET: store?.STORE_NM_VIET ?? "",
-          UNIT_ID: materialProduct?.UNIT_ID ?? null, UNIT_CD: materialProduct?.UNIT_CD ?? row.UNIT_CD, SORT: i + 1 }
-      }),
-    })
+    if (busy) return
+    setBusy(true)
+    setBusyAction("confirm")
+    try {
+      onConfirm({
+        FINISHED: finalFinished.map((row, i) => ({ ...row, SORT: i + 1 })),
+        MATERIALS: finalMaterials.map((row, i) => {
+          const store = storesById.get(Number(row.STORE_ID))
+          const materialProduct = materialProductsById.get(row.MATERIAL_PRODUCT_ID)
+          return { ...row, STORE_CD: store?.STORE_CD ?? "", STORE_NM_VIET: store?.STORE_NM_VIET ?? "",
+            UNIT_ID: materialProduct?.UNIT_ID ?? null, UNIT_CD: materialProduct?.UNIT_CD ?? row.UNIT_CD, SORT: i + 1 }
+        }),
+      })
+    } finally {
+      setBusy(false)
+      setBusyAction(null)
+    }
   }
 
   const popupShortcutScopeId = usePopupShortcutScopeId("inventory-bom-allocation")
@@ -371,7 +386,7 @@ export default function InventoryBomAllocationPopup({
       position={{ my: "center", at: "center", of: window }}
       animation={POPUP_FADE_ANIMATION}
       wrapperAttr={{
-        class: "inventory-bom-allocation-popup editor-mode--edit",
+        class: "inventory-bom-allocation-popup am-dx-popup-title editor-mode--edit",
         ...createPopupShortcutWrapperAttr(popupShortcutScopeId),
       }}
     >
@@ -379,18 +394,22 @@ export default function InventoryBomAllocationPopup({
         toolbar="top"
         location="after"
         render={() => (
-          <div className="inventory-bom-allocation-title-actions flex items-center gap-1 rounded-lg bg-white shadow-sm">
+          <div className="am-ui am-dx-title-actions inventory-bom-allocation-title-actions">
             <Button
               icon="close"
               stylingMode="text"
               disabled={busy}
-              hint={t("CANCEL", "Cancel")}
+              hint={t("CLOSE_FORM", "Đóng form")}
+              elementAttr={{
+                "aria-label": t("CLOSE_FORM", "Đóng form"),
+                title: t("CLOSE_FORM", "Đóng form"),
+              }}
               onClick={handleClose}
             />
           </div>
         )}
       />
-      <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#f3f4f6]">
+      <div className="am-ui relative flex h-full min-h-0 flex-col overflow-hidden bg-[#f3f4f6]">
         <div className="flex flex-shrink-0 flex-col gap-3 border-b border-[#dce0e5] bg-white px-4 py-3">
           <div className="flex flex-wrap items-end gap-2">
             <div className="flex flex-col gap-1">
@@ -420,42 +439,44 @@ export default function InventoryBomAllocationPopup({
                 width={140}
               />
             </div>
-            <Button
-              text={t("ADD", "Thêm")}
-              icon="plus"
-              type="default"
-              stylingMode="contained"
-              elementAttr={{ class: "inventory-bom-allocation-toolbar-btn bom-btn-add" }}
-              onClick={addSelected}
-              disabled={controlsDisabled}
-            />
-            <div className="ml-auto flex flex-wrap items-end gap-2">
-              <Button
-                text={t("BOM_EDIT_DEFINITION", "Cập nhật định mức")}
-                icon="edit"
-                type="normal"
-                stylingMode="outlined"
-                elementAttr={{ class: "inventory-bom-allocation-toolbar-btn bom-btn-edit-def" }}
-                onClick={() => window.open(`/app/${encodeURIComponent(companyCd)}/cost/material-product`, "_blank", "noopener,noreferrer")}
-              />
-              <Button
-                text={t("CALCULATE", "Tính lại")}
-                icon="refresh"
-                type="normal"
-                stylingMode="outlined"
-                elementAttr={{ class: "inventory-bom-allocation-toolbar-btn bom-btn-calculate" }}
-                onClick={() => void calculate()}
+            <div className="am-soft-footer inventory-bom-allocation-actions">
+              <AMButton
+                icon="plus"
                 disabled={controlsDisabled}
-              />
-              <Button
-                text={t("IMPORT_EXCEL", "Import Excel")}
+                onClick={addSelected}
+              >
+                {t("ADD", "Thêm")}
+              </AMButton>
+            </div>
+            <div
+              className="am-soft-footer inventory-bom-allocation-actions inventory-bom-allocation-actions--end"
+              role="group"
+              aria-label={t("BUTTONS", "Buttons")}
+            >
+              <AMButton
+                variant="outline"
+                icon="edit"
+                onClick={() => window.open(`/app/${encodeURIComponent(companyCd)}/cost/material-product`, "_blank", "noopener,noreferrer")}
+              >
+                {t("BOM_EDIT_DEFINITION", "Cập nhật định mức")}
+              </AMButton>
+              <AMButton
+                variant="outline"
+                icon="refresh"
+                loading={busyAction === "calculate"}
+                disabled={controlsDisabled}
+                onClick={() => { void calculate() }}
+              >
+                {t("CALCULATE", "Tính lại")}
+              </AMButton>
+              <AMButton
+                variant="outline"
                 icon="xlsxfile"
-                type="normal"
-                stylingMode="outlined"
-                elementAttr={{ class: "inventory-bom-allocation-toolbar-btn bom-btn-import" }}
                 disabled={controlsDisabled}
                 onClick={() => setImportVisible(true)}
-              />
+              >
+                {t("IMPORT_EXCEL", "Import Excel")}
+              </AMButton>
             </div>
           </div>
         </div>
@@ -467,16 +488,16 @@ export default function InventoryBomAllocationPopup({
                 {t("BOM_FINISHED_GRID", "Grid 1 – Thành phẩm")}
                 <span className="ml-2 font-normal text-[#9da5b1]">({finished.length})</span>
               </div>
-              <div className="ml-auto">
-                <Button
-                  text={t("DELETE_SELECTED", "Xóa đã chọn")}
+              <div className="am-soft-footer ml-auto">
+                <AMButton
+                  variant="soft"
+                  color="danger"
                   icon="trash"
-                  type="danger"
-                  stylingMode="outlined"
-                  elementAttr={{ class: "inventory-bom-allocation-toolbar-btn bom-btn-delete" }}
                   disabled={controlsDisabled || !selectedFinishedKeys.length}
                   onClick={deleteSelectedFinished}
-                />
+                >
+                  {t("DELETE", "Xóa đã chọn")}
+                </AMButton>
               </div>
             </div>
             <div className="min-h-0 flex-1">
@@ -556,25 +577,32 @@ export default function InventoryBomAllocationPopup({
           </div>
         </div>
 
-        <EditorActionToolbar
-          mode="edit"
-          className="inventory-bom-allocation-footer border-t border-gray-200 bg-white px-4 py-3"
-          busy={busy}
-          actions={[
-            {
-              key: "save",
-              text: t("CONFIRM", "Xác nhận"),
-              icon: "check",
-              disabled: controlsDisabled || requiresRecalculation,
-              onClick: () => { void confirmAllocation() },
-            },
-            {
-              key: "close",
-              text: t("CANCEL", "Hủy"),
-              onClick: handleClose,
-            },
-          ]}
-        />
+        <div className="inventory-bom-allocation-footer editor-action-toolbar editor-mode--edit flex flex-shrink-0 px-2 py-1">
+          <div
+            className="am-soft-footer inventory-bom-allocation-footer-actions editor-action-toolbar__right"
+            role="group"
+            aria-label={t("BUTTONS", "Buttons")}
+          >
+            <AMButton
+              variant="primary"
+              icon="check"
+              loading={busyAction === "confirm"}
+              disabled={controlsDisabled || requiresRecalculation}
+              onClick={() => { void confirmAllocation() }}
+            >
+              {t("CONFIRM", "Xác nhận")}
+            </AMButton>
+            <AMButton
+              variant="soft"
+              color="neutral"
+              icon="close"
+              disabled={busy}
+              onClick={handleClose}
+            >
+              {t("CANCEL", "Hủy")}
+            </AMButton>
+          </div>
+        </div>
       </div>
 
       <BaseExcelImportPopup

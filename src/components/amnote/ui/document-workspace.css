@@ -1,0 +1,47 @@
+/* Bounded master/detail workspace; toolbar and column preferences stay shared. */
+.am-ui .am-document-workspace{--am-document-hover-bg:var(--am-gray-table-hover)}
+.am-ui .am-document-workspace{display:flex;flex-direction:column;height:clamp(600px,76dvh,780px);min-width:0;overflow:hidden;background:var(--am-surface)}
+.am-ui .am-document-workspace>.am-document-toolbar,.am-ui .am-document-workspace>.am-error{flex:none}
+.am-ui .am-document-master{display:flex;flex-direction:column;flex:1 1 0;min-height:180px;min-width:0;overflow:hidden}
+.am-ui .am-document-master-scroll{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.am-ui .am-document-master>.am-document-state{flex:1;min-height:0;padding:var(--am-space-5);overflow:auto}
+.am-ui .am-document-workspace .am-document-table{border-collapse:separate;border-spacing:0;font:400 var(--am-font-sm)/20px var(--am-input-font-family);color:var(--am-document-text)}
+.am-ui .am-document-workspace .am-document-table th,.am-ui .am-document-workspace .am-document-table td{border-right:1px solid var(--am-document-divider);border-bottom-color:var(--am-document-grid);padding:3px 10px}
+.am-ui .am-document-workspace .am-document-table td{height:var(--am-table-row-height);padding-block:0}
+.am-ui .am-document-workspace .am-document-table thead th{position:sticky;top:0;z-index:3;height:36px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--am-document-header-bg);color:var(--am-document-heading);font-weight:500}
+.am-ui .am-document-workspace .am-document-table th button{display:block;width:100%;text-align:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:22px}
+.am-ui .am-document-workspace .am-document-table thead th.am-column-sticky{z-index:4}
+.am-ui .am-document-workspace .am-document-table .am-actions-cell{position:sticky;right:0;left:auto;z-index:2;border-left:1px solid var(--am-document-divider);box-shadow:none;text-align:center}
+.am-ui .am-document-workspace .am-document-table .am-check-cell{position:sticky;left:0;right:auto;z-index:2;padding:0;text-align:center;box-shadow:none}
+.am-ui .am-document-workspace .am-document-table thead :is(.am-actions-cell,.am-column-sticky){z-index:5;background:var(--am-document-header-bg)}
+.am-ui .am-document-workspace .am-document-master .am-document-table--configured thead th.am-actions-cell{border-left:0;box-shadow:none}
+.am-ui .am-document-workspace .am-document-table tbody tr{--am-document-row-bg:var(--am-surface)}
+.am-ui .am-document-workspace .am-document-table tbody tr[aria-selected=true]{--am-document-row-bg:var(--am-selected)}
+.am-ui .am-document-workspace .am-document-table tbody tr:hover{--am-document-row-bg:var(--am-document-hover-bg)}
+.am-ui .am-document-workspace .am-document-table tbody tr td{background:var(--am-document-row-bg)}
+/* Receipt master only: the header retains its grid; body uses horizontal rules.
+   Clear sticky shadows as well, otherwise they recreate removed vertical lines. */
+.am-ui .am-document-workspace .am-document-master .am-document-table--configured tbody td{border-left:0;border-right:0;box-shadow:none}
+.am-ui .am-document-master .am-document-table--configured tbody td.am-check-cell{border-right:1px solid var(--am-document-divider)}
+.am-ui .am-document-workspace .am-document-table tbody tr[aria-selected] td:is(.am-column-sticky,.am-actions-cell){background:var(--am-document-row-bg)}
+.am-ui .am-document-workspace .am-document-table .am-document-row-actions{display:flex;align-items:center;justify-content:center;gap:8px;opacity:0}
+.am-ui .am-document-workspace .am-document-table tr:is(:hover,:focus-within) .am-document-row-actions,.am-ui .am-document-workspace .am-document-row-actions:has([aria-expanded=true]){opacity:1}
+.am-ui .am-document-workspace .am-document-row-actions .am-button{border:1px solid var(--am-document-action-border);background:var(--am-surface);color:var(--am-document-action-text);border-radius:var(--am-radius-sm)}
+.am-ui .am-document-workspace .am-document-row-actions .am-button:is(:hover,[aria-expanded=true]){background:var(--am-document-header-bg);border-color:var(--am-document-action-text)}
+.am-ui .am-document-workspace .am-document-row-actions .am-button:focus-visible{outline:2px solid var(--am-primary);outline-offset:0}
+@media(hover:none),(pointer:coarse){.am-ui .am-document-workspace .am-document-table .am-document-row-actions{opacity:1}}
+.am-ui .am-document-workspace .am-document-table .am-number{text-align:right;font-variant-numeric:tabular-nums}
+.am-ui .am-document-workspace .am-document-code[aria-current=true]{font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.am-ui .am-document-workspace .am-document-total,.am-ui .am-document-detail-total{display:flex;justify-content:space-between;align-items:center;gap:var(--am-space-3);flex:none;min-height:32px;padding:6px 12px;font-size:var(--am-font-xs);background:var(--am-table-header-bg);border-top:1px solid var(--am-border)}
+.am-ui .am-document-total strong,.am-ui .am-document-detail-total strong{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+.am-ui .am-document-workspace .am-document-pagination{flex:none;padding:6px 12px;gap:8px;border-top:1px solid var(--am-border);font-size:var(--am-font-xs);min-height:44px}
+.am-ui .am-document-workspace .am-document-pagination .am-control{height:28px;width:56px;padding:2px 4px}
+.am-ui .am-document-workspace .am-document-pagination .am-button{height:28px;font-size:var(--am-font-xs);padding-inline:8px}
+.am-ui .am-document-workspace .am-document-detail{display:flex;flex-direction:column;flex:0 0 210px;min-height:0;min-width:0;padding:0;border-top:6px solid var(--am-page);box-shadow:0 -1px var(--am-border);overflow:hidden}
+.am-ui .am-document-detail-heading{display:flex;align-items:center;gap:var(--am-space-4);flex:none;min-height:40px;padding:8px 12px;border-bottom:1px solid var(--am-border)}
+.am-ui .am-document-workspace .am-document-detail-heading h4{font-size:var(--am-font-sm);font-weight:600;margin:0;color:var(--am-primary-active)}
+.am-ui .am-document-detail-heading>span{font-size:var(--am-font-xs);color:var(--am-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.am-ui .am-document-detail-scroll{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
+.am-ui .am-document-detail-empty{flex:1;padding:var(--am-space-5);color:var(--am-muted);font-size:var(--am-font-xs);overflow:auto}
+.am-ui .am-document-workspace .am-table-scroll:focus-visible{outline:2px solid var(--am-primary);outline-offset:-2px}
+@media(max-width:767px){.am-ui .am-document-workspace{height:700px}.am-ui .am-document-workspace .am-document-detail{flex-basis:210px}.am-ui .am-document-workspace .am-document-table td{height:38px}.am-ui .am-document-workspace .am-document-pagination>div{gap:6px}.am-ui .am-document-workspace .am-document-pagination .am-button{min-height:32px}.am-ui .am-document-workspace .am-document-total{flex-wrap:wrap}}

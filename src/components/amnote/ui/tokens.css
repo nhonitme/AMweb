@@ -1,0 +1,47 @@
+/* Scope includes dialogs and menu portals. Values verified against the visible
+   sale-order local reference are identified in docs/ui-guidelines.md. */
+.am-ui,.am-cost-center-workspace {
+  /* Primitive */
+  --am-blue-600:#2563eb;--am-blue-700:#1d4ed8;--am-blue-800:#1e40af;
+  --am-red-600:#c91526;--am-red-700:#dc2626;--am-white:#fff;--am-slate-900:#293547;--am-slate-700:#334155;--am-slate-600:#64748b;
+  --am-gray-50:#f7f9fb;--am-gray-100:#f3f4f6;--am-gray-200:#dfe5ec;--am-gray-300:#d1d5db;--am-gray-400:#9ca3af;--am-slate-500:#7e8a9a;
+  --am-blue-50:#eff6ff;--am-blue-100:rgba(37,99,235,.08);--am-red-50:#fff0f1;--am-red-100:#fee2e2;--am-amber-700:#875608;--am-amber-50:#fff5df;
+  --am-gray-input:#d3d5d8;--am-ink-input:#242a31;--am-ink-label:#15191f;
+  --am-green-700:#18704a;--am-green-50:#ecf8f1;--am-blue-300:#93b4ed;--am-slate-400:#94a3b8;
+  --am-teal-700:#0f766e;--am-teal-50:#f0fdfa;--am-teal-100:#ccfbf1;
+  --am-violet-700:#7e22ce;--am-violet-50:#faf5ff;--am-violet-100:#f3e8ff;
+  --am-slate-100:#f1f5f9;--am-slate-200:#e2e8f0;
+  --am-gray-table-header:#ecedef;--am-gray-table-grid:#d2d5d8;--am-gray-table-divider:#d3d5d9;
+  --am-ink-table:#101828;--am-ink-table-heading:#262626;--am-ink-table-action:#596572;--am-gray-table-action:#d4d9dd;
+  --am-gray-table-hover:#f0f0f0;--am-green-table-current:#e5f4ef;--am-green-table-hover:#eaf7f2;
+  --am-space-1:4px;--am-space-2:6px;--am-space-3:8px;--am-space-4:12px;--am-space-5:16px;--am-space-6:20px;--am-space-7:24px;
+  --am-font-family:"Segoe UI","Noto Sans",Arial,sans-serif;--am-font-xs:12px;--am-font-sm:13px;--am-font-lg:20px;
+  --am-radius-sm:4px;--am-radius-md:8px;--am-size-sm:32px;--am-size-md:36px;--am-row-size-compact:24px;--am-row-size:var(--am-row-size-compact);
+  /* Semantic */
+  --am-primary:var(--am-blue-600);--am-primary-hover:var(--am-blue-700);--am-primary-active:var(--am-blue-800);
+  --am-danger:var(--am-red-600);--am-text:var(--am-slate-900);--am-muted:var(--am-slate-600);--am-inverse:var(--am-white);
+  --am-page:var(--am-gray-50);--am-surface:var(--am-white);--am-muted-surface:var(--am-gray-100);--am-border:var(--am-gray-200);
+  --am-control-border:var(--am-slate-500);--am-border-hover:var(--am-slate-600);--am-selected:var(--am-blue-50);--am-error-bg:var(--am-red-50);
+  --am-field-border:var(--am-gray-input);--am-field-border-hover:var(--am-gray-400);--am-field-text:var(--am-ink-input);--am-field-label:var(--am-ink-label);
+  --am-font-control-family:var(--am-ui-font,var(--am-font-family));--am-field-label-gap:7px;
+  --am-warning:var(--am-amber-700);--am-warning-bg:var(--am-amber-50);--am-radius:var(--am-radius-md);--am-control-size:var(--am-size-sm);
+  --am-gap:var(--am-space-4);--am-section-space:var(--am-space-7);--am-menu-shadow:0 4px 16px rgb(23 43 77 / 15%);
+  --am-backdrop:rgb(23 43 77 / 35%);--am-motion-enter:220ms;--am-motion-exit:160ms;
+  --am-success:var(--am-green-700);--am-success-bg:var(--am-green-50);--am-info:var(--am-blue-700);--am-info-bg:var(--am-blue-50);
+  /* Soft footer actions · đối chiếu EditorActionToolbar popup IO / chứng từ */
+  --am-teal:var(--am-teal-700);--am-teal-bg:var(--am-teal-50);--am-violet:var(--am-violet-700);--am-violet-bg:var(--am-violet-50);
+  --am-soft-danger:var(--am-red-700);--am-soft-danger-bg:#fef2f2;--am-soft-neutral-bg:var(--am-slate-100);
+  /* Soft footer IO/OT (= EditorActionToolbar / Chit footer): cao 30px, padding 4px 8px */
+  --am-button-soft-height:30px;
+  --am-series-primary:var(--am-blue-600);--am-series-secondary:var(--am-slate-400);--am-series-third:var(--am-blue-300);--am-series-fourth:var(--am-slate-900);
+  /* Component */
+  --am-button-bg:var(--am-primary);--am-button-fg:var(--am-inverse);--am-button-height:var(--am-control-size);
+  --am-input-bg:var(--am-surface);--am-input-border:var(--am-field-border);--am-input-focus:var(--am-primary);--am-input-text:var(--am-field-text);
+  --am-input-font-family:var(--am-font-control-family);--am-input-textarea-font-family:monospace;--am-input-label-color:var(--am-field-label);
+  --am-table-header-bg:var(--am-muted-surface);--am-table-row-height:var(--am-row-size);--am-dialog-body-bg:var(--am-muted-surface);
+  --am-document-header-bg:var(--am-gray-table-header);--am-document-grid:var(--am-gray-table-grid);--am-document-divider:var(--am-gray-table-divider);
+  --am-document-text:var(--am-ink-table);--am-document-heading:var(--am-ink-table-heading);--am-document-action-text:var(--am-ink-table-action);--am-document-action-border:var(--am-gray-table-action);
+  --am-document-current-bg:var(--am-green-table-current);--am-document-hover-bg:var(--am-green-table-hover);
+  --am-chart-revenue:var(--am-series-primary);--am-chart-expense:var(--am-series-secondary);--am-chart-third:var(--am-series-third);--am-chart-fourth:var(--am-series-fourth);--am-chart-height:260px;--am-kpi-font-size:26px;
+}
+.am-ui{font:400 var(--am-font-sm)/1.5 var(--am-font-family);color:var(--am-text);color-scheme:light}

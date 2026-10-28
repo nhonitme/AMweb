@@ -1281,7 +1281,7 @@ export default function InventoryEditorPopup({
       maxHeight="100vh"
       container="body"
       position={{ my: "center", at: "center", of: window }}
-      wrapperAttr={{ class: `inventory-editor-popup editor-mode--${isUpdate ? "edit" : "add"}`, ...createPopupShortcutWrapperAttr(popupShortcutScopeId) }}
+      wrapperAttr={{ class: `inventory-editor-popup am-dx-popup-title editor-mode--${isUpdate ? "edit" : "add"}`, ...createPopupShortcutWrapperAttr(popupShortcutScopeId) }}
       animation={POPUP_FADE_ANIMATION}
       onHiding={(event) => {
         if (loading) { event.cancel = true; return }
@@ -1292,7 +1292,7 @@ export default function InventoryEditorPopup({
         toolbar="top"
         location="after"
         render={() => (
-          <div className="flex items-center gap-1 rounded-xl bg-white p-1 shadow-sm">
+          <div className="am-dx-title-actions inventory-editor-title-actions">
             {/* TEMP disabled create-from-source — restore with handlers above + DropDownButton below.
             {createVoucherActions.length > 0 ? (
               <DropDownButton
@@ -1452,7 +1452,7 @@ export default function InventoryEditorPopup({
           </div>
 
           <EditorActionToolbar mode={isUpdate ? "edit" : "add"}
-            className="inventory-editor-footer border-t border-gray-200 bg-white px-4 py-3"
+            className="inventory-editor-footer border-t border-gray-200 bg-white px-2 py-1"
             accentSave
             busy={loading}
             leadingContent={!readOnly && isUpdate && Number(value.CHIT_ID) > 0 ? (

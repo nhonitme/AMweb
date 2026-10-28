@@ -2,32 +2,14 @@
     padding: 0;
 }
 
+/* Title metrics via kit .am-dx-popup-title / .am-dx-title-actions (IO = OT). */
 .chit-editor-popup > .dx-overlay-content > .dx-popup-title {
     border-bottom: 1px solid #dce0e5;
-    padding: 4px 8px !important;
-    min-height: 0;
-    font-size: 16px;
-    line-height: 22px;
-}
-
-.chit-editor-popup > .dx-overlay-content > .dx-popup-title .dx-toolbar-items-container {
-    height: 26px;
-    min-height: 0;
 }
 
 .chit-editor-popup > .dx-overlay-content > .dx-popup-title .dx-toolbar-label {
     font-size: 16px;
     line-height: 22px;
-}
-
-.chit-editor-title-actions > .dx-button {
-    width: 26px;
-    height: 26px;
-    min-height: 0;
-}
-
-.chit-editor-title-actions > .dx-button .dx-button-content {
-    padding: 4px;
 }
 
 .chit-editor-footer .dx-button {

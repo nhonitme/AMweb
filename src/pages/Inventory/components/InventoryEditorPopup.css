@@ -25,8 +25,14 @@
     font-weight: 600;
 }
 
+/* Title metrics via kit .am-dx-popup-title / .am-dx-title-actions (IO = OT). */
 .inventory-editor-popup > .dx-overlay-content > .dx-popup-title {
     border-bottom: 1px solid #dce0e5;
+}
+
+.inventory-editor-popup > .dx-overlay-content > .dx-popup-title .dx-toolbar-label {
+    font-size: 16px;
+    line-height: 22px;
 }
 
 /* ---------- Top field panel ---------- */
@@ -75,4 +81,10 @@
 
 .inventory-editor-footer {
     border-color: #dce0e5 !important;
+}
+
+/* Soft footer size + padding = OT (.chit-editor-footer px-2 py-1, nút 30px) */
+.inventory-editor-footer .dx-button {
+    height: 30px;
+    min-height: 30px;
 }

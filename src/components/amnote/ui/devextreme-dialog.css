@@ -1,0 +1,30 @@
+/* Native popup adapter using the same semantic tokens as AMDialog/AMField/AMButton. */
+.am-ui.am-guidelines-dialog>.dx-overlay-content{border:1px solid var(--am-border)!important;border-radius:var(--am-radius)!important;background:var(--am-surface)!important;color:var(--am-text);font-family:var(--am-font-family)!important;overflow:hidden}
+.am-ui.am-guidelines-dialog .dx-popup-title{padding:0!important;min-height:0!important;background:var(--am-surface)!important;border:0!important}
+.am-ui.am-guidelines-dialog .dx-popup-title:before,.am-ui.am-guidelines-dialog .dx-popup-title:after{display:none!important}
+.am-ui.am-guidelines-dialog .am-dialog-header{padding:var(--am-space-5) var(--am-space-6)!important;width:100%;max-width:none!important}
+.am-ui.am-guidelines-dialog .am-dialog-header h2{font:600 var(--am-font-lg)/28px var(--am-font-family)!important;margin:0}
+.am-ui.am-guidelines-dialog>.dx-overlay-content>.dx-popup-content{background:var(--am-dialog-body-bg)!important;padding:14px 18px!important;min-height:0;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain}
+.am-ui.am-guidelines-dialog .dx-field-item-label{padding:0 0 var(--am-field-label-gap)!important}
+.am-ui.am-guidelines-dialog .dx-field-item-label-text{font:400 var(--am-font-sm)/20px var(--am-font-family)!important;color:var(--am-input-label-color)!important}
+.am-ui.am-guidelines-dialog .dx-texteditor.dx-editor-outlined{height:var(--am-input-height)!important;min-height:32px!important;border:1px solid var(--am-input-border)!important;border-radius:var(--am-radius)!important;background:var(--am-surface)!important;box-shadow:none!important}
+.am-ui.am-guidelines-dialog .dx-texteditor-input{height:30px!important;min-height:0!important;padding:5px 10px!important;font:400 var(--am-font-sm)/20px var(--am-font-family)!important;color:var(--am-input-text)!important}
+.am-ui.am-guidelines-dialog .dx-texteditor.dx-state-hover:not(.dx-state-focused):not(.dx-invalid){border-color:var(--am-field-border-hover)!important}
+.am-ui.am-guidelines-dialog .dx-texteditor.dx-state-focused:not(.dx-invalid){border-color:var(--am-primary)!important;box-shadow:none!important}
+.am-ui.am-guidelines-dialog .dx-texteditor.dx-invalid{border-color:var(--am-danger)!important}
+.am-ui.am-guidelines-dialog .dx-texteditor:before,.am-ui.am-guidelines-dialog .dx-texteditor:after{display:none!important}
+.am-ui.am-guidelines-dialog .dx-invalid-message-content{font:400 var(--am-font-sm)/20px var(--am-font-family);white-space:normal}
+.am-ui.am-guidelines-dialog .dx-popup-bottom{padding:var(--am-space-4) var(--am-space-6)!important;border-top:1px solid var(--am-border)!important;background:var(--am-surface)!important}
+.am-ui.am-guidelines-dialog .dx-popup-bottom .dx-toolbar-after{display:flex;align-items:center;gap:var(--am-space-3)}
+.am-ui.am-guidelines-dialog .dx-popup-bottom .dx-toolbar-item{padding:0!important}
+.am-ui.am-guidelines-dialog .dx-popup-bottom .dx-toolbar-item:has(.dx-button-normal){order:1}
+.am-ui.am-guidelines-dialog .dx-popup-bottom .dx-toolbar-item:has(.dx-button-default){order:2}
+.am-ui.am-guidelines-dialog .dx-popup-bottom .dx-button{height:var(--am-button-height)!important;min-height:32px!important;min-width:60px;border-radius:var(--am-radius)!important;font:500 var(--am-font-sm)/20px var(--am-font-family)!important;box-shadow:none!important}
+.am-ui.am-guidelines-dialog .dx-popup-bottom .dx-button-content{padding:5px 12px!important}
+.am-ui.am-guidelines-dialog .dx-popup-bottom .dx-button .dx-icon{display:none}
+.am-ui.am-guidelines-dialog .dx-popup-bottom .dx-button-normal{background:var(--am-surface)!important;border:1px solid var(--am-control-border)!important;color:var(--am-text)!important}
+.am-ui.am-guidelines-dialog .dx-popup-bottom .dx-button-default{background:var(--am-primary)!important;border:1px solid var(--am-primary)!important;color:var(--am-surface)!important}
+.am-ui.am-guidelines-dialog .dx-popup-bottom .dx-button-default.dx-state-hover{background:var(--am-primary-hover)!important;border-color:var(--am-primary-hover)!important}
+.am-ui.am-guidelines-dialog .dx-popup-bottom .dx-button-normal.dx-state-hover{background:var(--am-selected)!important;border-color:var(--am-primary)!important}
+.am-ui.am-guidelines-dialog .dx-button.dx-state-focused{outline:2px solid var(--am-primary);outline-offset:2px}
+@media(max-width:600px){.am-ui.am-guidelines-dialog .am-dialog-header h2{font-size:18px!important}.am-ui.am-guidelines-dialog>.dx-overlay-content>.dx-popup-content{padding:12px 14px!important}}

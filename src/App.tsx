@@ -65,6 +65,9 @@ import {
 
 const DashboardPage = lazy(() => import('./components/DashboardPage'));
 const HelpSupportPage = lazy(() => import('./components/HelpSupportPage'));
+const UiGuidelinesDevPage = import.meta.env.DEV
+    ? lazy(() => import('./pages/Help/UiGuidelinesDevPage'))
+    : null;
 const LicenseInfoPage = lazy(() => import('./components/LicenseInfoPage'));
 const CompanyManagement = lazy(() => import('./pages/Module/CompanyManagement/CompanyInfo'));
 const DebitNotePage = lazy(() => import('./pages/VoucherManagement/DebitNotePage'));
@@ -808,6 +811,9 @@ function AppWorkspaceRoutes({
                         <Route path="/profile" element={<ProfilePage />} />
                         <Route path="/system/license" element={<LicenseInfoPage />} />
                         <Route path="/help-support" element={<HelpSupportPage />} />
+                        {import.meta.env.DEV && UiGuidelinesDevPage ? (
+                            <Route path="/help/ui-guidelines" element={<UiGuidelinesDevPage />} />
+                        ) : null}
                       <Route path="/master/user" element={<UserManagementPage />} />
                         <Route path="/customer-management" element={<Navigate to={buildAppPath(currentCompanyCd, "/master/customer")} replace />} />
                         <Route path="/master/customer" element={<CustomerExtPage />} />

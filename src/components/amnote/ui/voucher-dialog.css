@@ -1,0 +1,26 @@
+dialog.am-ui.am-dialog--fullscreen{inset:0;width:100vw;max-width:none;height:100dvh;max-height:none;margin:0;border:0;border-radius:0}
+.am-dialog--fullscreen .am-dialog-header{flex-shrink:0;min-height:64px;padding:16px 20px}
+.am-dialog--fullscreen .am-dialog-body{flex:1;padding:20px;overscroll-behavior:contain}
+.am-ui .am-dialog-header,.am-ui .am-dialog-footer{flex-shrink:0}
+.am-ui .am-dialog-footer-note{margin-right:auto;align-self:center;color:var(--am-muted);font-size:11px}
+.am-ui .am-voucher-summary{display:grid;grid-template-columns:minmax(0,3fr) minmax(220px,1fr);gap:20px;padding:20px;background:var(--am-surface);border-radius:var(--am-radius)}
+.am-ui .am-voucher-summary h3{font-size:16px;font-weight:600;margin:0 0 16px}
+.am-ui .am-voucher-fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:16px}
+.am-ui .am-voucher-wide{grid-column:span 2}
+.am-ui .am-voucher-other{border-left:1px solid var(--am-border);padding-left:20px;display:flex;flex-direction:column;gap:16px}
+.am-ui .am-voucher-other h3{margin-bottom:0}
+.am-ui .am-voucher-detail{margin-top:16px;background:var(--am-surface);border-radius:var(--am-radius);min-width:0}
+.am-ui .am-voucher-tabs{display:flex;overflow:auto;border-bottom:1px solid var(--am-border);gap:12px;padding:0 12px}
+.am-ui .am-voucher-tabs button{display:flex;gap:6px;align-items:center;white-space:nowrap;min-height:42px;padding:8px 0;border:0;border-bottom:2px solid transparent;color:var(--am-text);background:transparent;font:500 13px var(--am-input-font-family);cursor:pointer}
+.am-ui .am-voucher-tabs button[aria-selected=true]{color:var(--am-primary);border-bottom-color:var(--am-primary)}
+.am-ui .am-voucher-tabs span{font-size:11px;border-radius:12px;padding:0 5px;background:var(--am-selected)}
+.am-ui .am-voucher-currency{padding:16px;text-align:right;color:var(--am-muted)}
+.am-ui .am-voucher-lines{min-width:900px;table-layout:auto}
+.am-ui .am-voucher-lines th:first-child{width:45px}.am-ui .am-voucher-lines th:nth-child(2){min-width:250px}.am-ui .am-voucher-lines th:nth-child(4),.am-ui .am-voucher-lines th:nth-child(5){min-width:150px}
+.am-ui .am-voucher-lines .am-field-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.am-ui .am-voucher-lines .am-field{gap:4px;padding:4px 0}
+.am-ui .am-voucher-line-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--am-border)}
+.am-ui .am-voucher-totals{display:grid;gap:12px;margin:0;padding:20px 16px 24px}
+.am-ui .am-voucher-totals>div{display:flex;justify-content:flex-end;gap:24px}.am-ui .am-voucher-totals dt{min-width:190px}.am-ui .am-voucher-totals dd{margin:0;min-width:140px;text-align:right;font-variant-numeric:tabular-nums}.am-ui .am-voucher-totals>div:last-child{font-weight:600;font-size:16px}
+@media(max-width:900px){.am-ui .am-voucher-summary{grid-template-columns:1fr}.am-ui .am-voucher-other{padding-left:0;border-left:0;border-top:1px solid var(--am-border);padding-top:16px}.am-ui .am-voucher-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.am-ui .am-voucher-wide{grid-column:auto}}
+@media(max-width:600px){.am-dialog--fullscreen .am-dialog-body{padding:12px}.am-ui .am-voucher-summary{padding:14px}.am-ui .am-voucher-fields{grid-template-columns:1fr}.am-ui .am-dialog-footer{flex-wrap:wrap}.am-ui .am-dialog-footer-note{width:100%}.am-ui .am-voucher-totals dt{min-width:0}.am-ui .am-voucher-totals dd{min-width:100px}}

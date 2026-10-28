@@ -1,0 +1,10 @@
+dialog.am-ui.am-dialog--sectioned{width:960px}
+.am-ui .am-section-form{display:flex;flex-direction:column;gap:var(--am-space-5)}
+.am-ui .am-form-section{min-width:0;padding:var(--am-space-5);border:1px solid var(--am-border);border-radius:var(--am-radius);background:var(--am-surface)}
+.am-ui .am-form-section>h3{font:600 14px/20px var(--am-font-family);margin:0 0 var(--am-space-5);padding:0 0 var(--am-space-4);border-bottom:1px solid var(--am-border);color:var(--am-text)}
+.am-ui .am-form-section>p{color:var(--am-muted);font-size:var(--am-font-xs);margin:0 0 var(--am-space-4)}
+dialog.am-ui.am-dialog--sectioned .am-dialog-header{gap:var(--am-space-6);flex-shrink:0}
+dialog.am-ui.am-dialog--sectioned .am-dialog-header h2{min-width:0;overflow-wrap:anywhere}
+dialog.am-ui.am-dialog--sectioned .am-dialog-header>.am-button{flex-shrink:0}
+dialog.am-ui.am-dialog--sectioned .am-dialog-body{min-height:0}
+@media(max-width:600px){.am-ui .am-form-section{padding:var(--am-space-4)}}

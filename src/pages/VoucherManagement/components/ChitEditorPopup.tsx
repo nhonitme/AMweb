@@ -507,7 +507,7 @@ export function ChitEditorPopup({
             onShown={(event) => {
                 disableBuiltInPopupEscape(event.component)
             }}
-            wrapperAttr={{ class: `chit-editor-popup editor-mode--${isUpdate ? "edit" : "add"}`, ...createPopupShortcutWrapperAttr(popupShortcutScopeId) }}
+            wrapperAttr={{ class: `chit-editor-popup am-dx-popup-title editor-mode--${isUpdate ? "edit" : "add"}`, ...createPopupShortcutWrapperAttr(popupShortcutScopeId) }}
             title={title}
             showTitle={true}
             showCloseButton={false}
@@ -529,7 +529,7 @@ export function ChitEditorPopup({
                 toolbar="top"
                 location="after"
                 render={() => (
-                    <div className="chit-editor-title-actions flex items-center gap-1 rounded-lg bg-white shadow-sm">
+                    <div className="am-dx-title-actions chit-editor-title-actions">
                         {/* TEMP disabled: linking moved to IR/IO. referenceSourceConfig is empty; restore config + this block together. */}
                         {referenceEnabled ? (
                             <div className="min-w-[200px] w-full max-w-[220px] flex-shrink-0">
