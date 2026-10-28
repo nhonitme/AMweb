@@ -109,7 +109,7 @@
   height: 40px;
   border-radius: 11px;
   background-color: #dc2626;
-  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='18'%20height='18'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23ffffff'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M17%203a2.85%202.85%200%201%201%204%204L7.5%2020.5%202%2022l1.5-5.5Z'/%3E%3C/svg%3E"), linear-gradient(135deg, #dc2626, #991b1b);
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='18'%20height='18'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23ffffff'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M17%203a2.85%202.85%200%201%201%204%204L7.5%2020.5%202%2022l1.5-5.5Z'/%3E%3C/svg%3E"), linear-gradient(135deg, var(--editor-mode-accent, #dc2626), var(--editor-mode-accent, #991b1b));
   background-repeat: no-repeat, no-repeat;
   background-position: center, center;
   box-shadow: 0 3px 8px rgba(220, 38, 38, 0.3);

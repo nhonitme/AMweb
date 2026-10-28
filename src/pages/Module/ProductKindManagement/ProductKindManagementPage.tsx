@@ -15,7 +15,7 @@ import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid";
 import { GridToolbar } from "@/components/toolbar/GridToolbar";
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout";
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup";
-import { exportToExcel } from "@/api/productUnitApi";
+import { createProductKind, exportToExcel } from "@/api/productKindApi";
 import { getCurrentCompanyCd } from "@/lib/login";
 import { assignSequencePreviewCode, getSequenceSubmitCode } from "@/lib/codeSequence";
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage";
@@ -23,33 +23,33 @@ import { buildMasterGridReportViewerPageUrl } from "@/pages/Reports/reportViewer
 import { normalizeMessageLanguageKey } from "@/utils/language";
 import MasterDataEditPopup from "@/components/datagrid/MasterDataEditPopup";
 import { getApiErrorMessage } from "@/api/apiTypes";
-import { Unit } from "@/types/unit";
-import { ProductUnitColumns } from "./Columns/ProductUnitColumns";
-import { ProductUnitForm } from "./Forms/ProductUnitForm";
-import { useProductUnitImportConfig } from "./Columns/ProductUnitImportConfig";
+import { ProductKind } from "@/types/productKind";
+import { ProductKindColumns } from "./Columns/ProductKindColumns";
+import { ProductKindForm } from "./Forms/ProductKindForm";
+import { useProductKindImportConfig } from "./Columns/ProductKindImportConfig";
 import {
-  useProductUnitListQuery,
-  useProductUnitMutations,
+  useProductKindListQuery,
+  useProductKindMutations,
 } from "@/hooks/queries/master/masterDataQueries";
 import { useMasterListLoadError, useMasterListReload } from "@/hooks/queries/master/masterQueryHelpers";
 
-export type ProductUnitPageMode = "page" | "lookup";
+export type ProductKindManagementPageMode = "page" | "lookup";
 
-export type ProductUnitPageProps = {
-  mode?: ProductUnitPageMode;
-  onPickUnit?: (row: Unit) => void;
+export type ProductKindManagementPageProps = {
+  mode?: ProductKindManagementPageMode;
+  onPickProductKind?: (row: ProductKind) => void;
   onCloseLookup?: () => void;
 };
 
-export default function ProductUnitList({
+export default function ProductKindManagementPage({
   mode = "page",
-  onPickUnit,
+  onPickProductKind,
   onCloseLookup,
-}: ProductUnitPageProps) {
+}: ProductKindManagementPageProps) {
   const isLookup = mode === "lookup";
-  const screenCd = "/module/product-unit-management";
-  const gridId = "product-unit-grid";
-  const menuCode = "MD_UNIT";
+  const screenCd = "/module/product-kind-management";
+  const gridId = "product-kind-grid";
+  const menuCode = "MD_PRODUCT_GROUP";
   const exportName = useMenuExportName(menuCode)
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isUpdate, setIsUpdate] = useState(false);
@@ -61,9 +61,9 @@ export default function ProductUnitList({
     isFetching,
     isError,
     error: loadError,
-    refetch: refetchProductUnits,
-  } = useProductUnitListQuery();
-  const { createMutation, updateMutation, deleteMutation } = useProductUnitMutations();
+    refetch: refetchProductKinds,
+  } = useProductKindListQuery();
+  const { createMutation, updateMutation, deleteMutation } = useProductKindMutations();
   const loading = isLoading || isFetching;
 
   const { translate, lang } = useContext(LanguageContext) as {
@@ -76,12 +76,12 @@ export default function ProductUnitList({
     [translate],
   );
 
-  const importConfig = useProductUnitImportConfig();
+  const importConfig = useProductKindImportConfig();
   const langCode = normalizeMessageLanguageKey(lang);
   const popupTitle = t(isUpdate ? "lblEdit" : "lblAddNew", isUpdate ? "Sửa" : "Thêm mới");
 
-  const reloadProductUnits = useMasterListReload(refetchProductUnits, gridRef);
-  useMasterListLoadError(isError, loadError, t, "Failed to load product unit list");
+  const reloadProductKinds = useMasterListReload(refetchProductKinds, gridRef);
+  useMasterListLoadError(isError, loadError, t, "Failed to load product kind list");
 
   const handleRowInserting = useCallback((event: RowInsertingEvent) => {
     const reportSaveError = captureMasterPopupError(event.component)
@@ -91,7 +91,7 @@ export default function ProductUnitList({
       try {
         const payload = {
           ...event.data,
-          UNIT_CD: getSequenceSubmitCode(event.data?.UNIT_CD),
+          PRODUCT_KIND_CD: getSequenceSubmitCode(event.data?.PRODUCT_KIND_CD),
           ISUSE: "1",
         };
 
@@ -164,7 +164,7 @@ export default function ProductUnitList({
   const handleRowDblClick = useCallback((event: RowDblClickEvent) => {
     if (isLookup) {
       if (event.data) {
-        onPickUnit?.(event.data as Unit);
+        onPickProductKind?.(event.data as ProductKind);
         onCloseLookup?.();
       }
       return;
@@ -182,15 +182,15 @@ export default function ProductUnitList({
     if (typeof rowIndex === "number" && rowIndex !== -1) {
       gridRef.current.editRow(rowIndex);
     }
-  }, [isLookup, onCloseLookup, onPickUnit]);
+  }, [isLookup, onCloseLookup, onPickProductKind]);
 
   const handleExportPdf = useCallback(() => {
     const keys = (gridRef.current?.getSelectedRowKeys() || []) as number[];
-    const unitId = keys.length ? keys[0] : undefined;
+    const productKindId = keys.length ? keys[0] : undefined;
     const targetUrl = buildMasterGridReportViewerPageUrl({
       companyCd: getCurrentCompanyCd(),
-      unitId: unitId ? String(unitId) : undefined,
-      reportCode: "PRODUCT_UNIT_INFO",
+      productKindId: productKindId ? String(productKindId) : undefined,
+      reportCode: "PRODUCT_GROUP_INFO",
       menuCode,
       screenCd,
       gridId,
@@ -203,21 +203,21 @@ export default function ProductUnitList({
   const handleExportExcel = useCallback(async () => {
     try {
       const keys = (gridRef.current?.getSelectedRowKeys() || []) as number[];
-      const productUnitId = keys.length ? keys[0] : undefined;
-      const loadDownloadBlob = (signal: AbortSignal) => exportToExcel(productUnitId, langCode, undefined, signal);
+      const productKindId = keys.length ? keys[0] : undefined;
+      const loadDownloadBlob = (signal: AbortSignal) => exportToExcel(productKindId, langCode, undefined, signal);
       await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
     } catch (error) {
       console.error("Export error", error);
       notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất thất bại")), "error", 3000);
     }
-  }, [langCode, t]);
+  }, [exportName, langCode, t]);
 
   const content = (
     <MasterDataPageLayout
       toolbar={
         <GridToolbar
           gridRef={gridRef}
-          onRefresh={() => void reloadProductUnits()}
+          onRefresh={() => void reloadProductKinds()}
           onExportPdf={handleExportPdf}
           onExportXlsx={handleExportExcel}
           onImport={() => setIsExcelModalOpen(true)}
@@ -228,20 +228,20 @@ export default function ProductUnitList({
         <BaseExcelImportPopup
             visible={isExcelModalOpen}
             onClose={() => setIsExcelModalOpen(false)}
-            title={t('PRODUCT_UNIT_LIST','Import danh sách đơn vị')}
+            title={t('PRODUCT_KIND_LIST','Import danh sách loại sản phẩm')}
             moduleCd={importConfig.moduleCd}
             templateUrl="/System/DownloadTemplate"
             templateFileName={importConfig.templateName}
             params={{ lang: localStorage.getItem('lang') ?? undefined }}
-            onImported={() => void reloadProductUnits()}
+            onImported={() => void reloadProductKinds()}
           />
       }
     >
-        <BaseDataGrid<Unit>
+        <BaseDataGrid<ProductKind>
           enableModifierSelection
           enableDragSelection
           dataSource={gridData}
-          keyExpr="UNIT_ID"
+          keyExpr="PRODUCT_KIND_ID"
           menuCode={menuCode}
           screenCd={screenCd}
           gridId={gridId}
@@ -261,7 +261,7 @@ export default function ProductUnitList({
           onInitNewRow={(event) => {
             setIsUpdate(false);
             event.data.ISUSE = "1";
-            event.promise = assignSequencePreviewCode(event.data, menuCode, "UNIT_CD").then(() => undefined);
+            event.promise = assignSequencePreviewCode(event.data, menuCode, "PRODUCT_KIND_CD").then(() => undefined);
           }}
         >
           <Editing
@@ -271,16 +271,16 @@ export default function ProductUnitList({
             allowDeleting={true}
             confirmDelete={true}
           >
-            <MasterDataEditPopup
+            <MasterDataEditPopup editorMode={isUpdate ? "edit" : "add"}
               key={lang}
               title={popupTitle}
               width="90%"
               maxWidth={800}
             />
-            <ProductUnitForm />
+            <ProductKindForm />
           </Editing>
 
-          <ProductUnitColumns />
+          <ProductKindColumns />
         </BaseDataGrid>
 
         <LoadPanel

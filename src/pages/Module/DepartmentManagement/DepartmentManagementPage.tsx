@@ -373,7 +373,7 @@ export default function DepartmentManagementPage({
           allowDeleting={true}
           confirmDelete={true}
         >
-          <MasterDataTreeListEditPopup
+          <MasterDataTreeListEditPopup editorMode={isUpdate ? "edit" : "add"}
             key={lang}
             title={popupTitle}
             width="90%"

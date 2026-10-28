@@ -73,15 +73,15 @@ const CashExchangeRateRecalculationPage = lazy(() => import('./pages/Accounting/
 const ExchangeRateRecalculationPage = lazy(() => import('./pages/Accounting/ExchangeRateRecalculationPage'));
 const PaymentVoucherPage = lazy(() => import('./pages/VoucherManagement/PaymentVoucherPage'));
 const ReceiptVoucherPage = lazy(() => import('./pages/VoucherManagement/ReceiptVoucherPage'));
-const CostObjectPage = lazy(() => import('./pages/Module/DepartmentManagement'));
+const DepartmentManagementPage = lazy(() => import('./pages/Module/DepartmentManagement/DepartmentManagementPage'));
 const CostObjectSetupPage = lazy(() => import('./pages/Costing/CostObjectSetupPage'));
-const BankManagementPage = lazy(() => import('./pages/Module/BankManagementPage/bankInfo'));
+const BankManagementPage = lazy(() => import('./pages/Module/BankManagementPage/BankManagementPage'));
 const CustomerExtPage = lazy(() => import('./pages/Module/CustomerManagementPage/CustomerExtPage'));
-const ProductList = lazy(() => import('./pages/Module/ProductManagement/ProductPage'));
+const ProductManagementPage = lazy(() => import('./pages/Module/ProductManagement/ProductManagementPage'));
 const ProductMaterialPage = lazy(() => import('./pages/Module/ProductMaterialManagement/ProductMaterialPage'));
-const ProductKindList = lazy(() => import('./pages/Module/ProductKindManagement/ProductKindPage'));
-const StoreList = lazy(() => import('./pages/Module/StoreManagement/StorePage'));
-const StoreKindList = lazy(() => import('./pages/Module/StoreKindManagement/StoreKindPage'));
+const ProductKindManagementPage = lazy(() => import('./pages/Module/ProductKindManagement/ProductKindManagementPage'));
+const StoreManagementPage = lazy(() => import('./pages/Module/StoreManagement/StoreManagementPage'));
+const StoreKindManagementPage = lazy(() => import('./pages/Module/StoreKindManagement/StoreKindManagementPage'));
 const UserManagementPage = lazy(() => import('./pages/Module/UserManagementPage/userInfo'));
 const ManagementInfoPage = lazy(() => import('./pages/Module/ManagementInfo/ManagementInfoPage'));
 const AcclistPage = lazy(() => import('./pages/Module/AcclistManagement/AcclistPage'));
@@ -100,7 +100,7 @@ const VatInOutListPage = lazy(() => import('./pages/Tax/VatInOutListPage'));
 const ServiceAllocationCheckPage = lazy(() => import('./pages/Reports/ServiceAllocationCheckPage'));
 const DebtOffsetPage = lazy(() => import('./pages/Accounting/DebtOffsetPage'));
 const ReportFormulaOptionsPage = lazy(() => import('./pages/Reports/ReportFormulaOptionsPage'));
-const ProductUnitList = lazy(() => import('./pages/Module/ProductUnitManagement/ProductUnitPage'));
+const ProductUnitManagementPage = lazy(() => import('./pages/Module/ProductUnitManagement/ProductUnitManagementPage'));
 const InventoryIssueVoucherPage = lazy(() => import('./pages/Inventory/InventoryIssueVoucherPage'));
 const InventoryReceiptVoucherPage = lazy(() => import('./pages/Inventory/InventoryReceiptVoucherPage'));
 const InventoryAdjustVoucherPage = lazy(() => import('./pages/Inventory/InventoryAdjustVoucherPage'));
@@ -798,7 +798,7 @@ function AppWorkspaceRoutes({
                             }
                         />
                         <Route path="/cost-center" element={<Navigate to={buildAppPath(currentCompanyCd, "/master/cost-center")} replace />} />
-                        <Route path="/master/cost-center" element={<CostObjectPage />} />
+                        <Route path="/master/cost-center" element={<DepartmentManagementPage />} />
                         <Route path="/cost/cost-object" element={<CostObjectSetupPage />} />
                         <Route path="/cost/issue-material" element={<OtherVoucherPage />} />
                         <Route path="/bank-management" element={<BankManagementPage />} />
@@ -815,15 +815,15 @@ function AppWorkspaceRoutes({
                         <Route path="/account-management" element={<ModuleContent moduleId="account-management" />} />
                        <Route path="/warehouse-category" element={<ModuleContent moduleId="warehouse-category" />} />
                         <Route path="/master/account" element={<AcclistPage />} />
-                        <Route path="/master/inventory" element={<ProductList />} />
+                        <Route path="/master/inventory" element={<ProductManagementPage />} />
                         <Route path="/master/product-material" element={<Navigate to={buildAppPath(currentCompanyCd, "/cost/material-product")} replace />} />
                         <Route path="/cost/material-product" element={<ProductMaterialPage />} />
-                        <Route path="/master/product-group" element={<ProductKindList />} />
-                        <Route path="/master/unit" element={<ProductUnitList />} />
-                        <Route path="/master/warehouse" element={<StoreList />} />
-                        <Route path="/master/warehouse-type" element={<StoreKindList />} />
+                        <Route path="/master/product-group" element={<ProductKindManagementPage />} />
+                        <Route path="/master/unit" element={<ProductUnitManagementPage />} />
+                        <Route path="/master/warehouse" element={<StoreManagementPage />} />
+                        <Route path="/master/warehouse-type" element={<StoreKindManagementPage />} />
                         <Route path="/master/management" element={<ManagementInfoPage />} />
-                        <Route path="/unit-management" element={<ProductUnitList />} />
+                        <Route path="/unit-management" element={<ProductUnitManagementPage />} />
                         <Route path="/standard-management" element={<ModuleContent moduleId="standard-management" />} />
                         <Route path="/note-management" element={<ModuleContent moduleId="note-management" />} />
                         <Route path="/contract-management" element={<ModuleContent moduleId="contract-management" />} />

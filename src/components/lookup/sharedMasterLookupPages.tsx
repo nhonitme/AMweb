@@ -12,16 +12,16 @@ import type { StoreInfo } from "@/types/store"
 import type { StoreKindInfo } from "@/types/storeKind"
 import type { Unit } from "@/types/unit"
 
-const ProductPage = lazy(() => import("@/pages/Module/ProductManagement/ProductPage"))
-const ProductKindPage = lazy(() => import("@/pages/Module/ProductKindManagement/ProductKindPage"))
-const ProductUnitPage = lazy(() => import("@/pages/Module/ProductUnitManagement/ProductUnitPage"))
-const StorePage = lazy(() => import("@/pages/Module/StoreManagement/StorePage"))
-const StoreKindPage = lazy(() => import("@/pages/Module/StoreKindManagement/StoreKindPage"))
-const CustomerExtManager = lazy(() => import("@/pages/Module/CustomerManagementPage/CustomerExtManager"))
-const BankManagementPage = lazy(() => import("@/pages/Module/BankManagementPage/bankInfo"))
-const DepartmentManagementPage = lazy(() => import("@/pages/Module/DepartmentManagement"))
+const ProductManagementPage = lazy(() => import("@/pages/Module/ProductManagement/ProductManagementPage"))
+const ProductKindManagementPage = lazy(() => import("@/pages/Module/ProductKindManagement/ProductKindManagementPage"))
+const ProductUnitManagementPage = lazy(() => import("@/pages/Module/ProductUnitManagement/ProductUnitManagementPage"))
+const StoreManagementPage = lazy(() => import("@/pages/Module/StoreManagement/StoreManagementPage"))
+const StoreKindManagementPage = lazy(() => import("@/pages/Module/StoreKindManagement/StoreKindManagementPage"))
+const CustomerManagementPage = lazy(() => import("@/pages/Module/CustomerManagementPage/CustomerManagementPage"))
+const BankManagementPage = lazy(() => import("@/pages/Module/BankManagementPage/BankManagementPage"))
+const DepartmentManagementPage = lazy(() => import("@/pages/Module/DepartmentManagement/DepartmentManagementPage"))
 const ManagementInfoPage = lazy(() => import("@/pages/Module/ManagementInfo/ManagementInfoPage"))
-const AcclistManager = lazy(() => import("@/pages/Module/AcclistManagement/AcclistManager"))
+const AcclistManagementPage = lazy(() => import("@/pages/Module/AcclistManagement/AcclistManagementPage"))
 
 function MasterLookupPageFallback() {
   return (
@@ -43,7 +43,7 @@ export function renderSharedProductLookupPage({
   onPick: (item: Product) => void
 }) {
   return wrapMasterLookupPage(
-    <ProductPage mode="lookup" onPickProduct={onPick} onCloseLookup={closePopup} />,
+    <ProductManagementPage mode="lookup" onPickProduct={onPick} onCloseLookup={closePopup} />,
   )
 }
 
@@ -55,7 +55,7 @@ export function renderSharedProductGroupLookupPage({
   onPick: (item: ProductKind) => void
 }) {
   return wrapMasterLookupPage(
-    <ProductKindPage mode="lookup" onPickProductKind={onPick} onCloseLookup={closePopup} />,
+    <ProductKindManagementPage mode="lookup" onPickProductKind={onPick} onCloseLookup={closePopup} />,
   )
 }
 
@@ -67,7 +67,7 @@ export function renderSharedUnitLookupPage({
   onPick: (item: Unit) => void
 }) {
   return wrapMasterLookupPage(
-    <ProductUnitPage mode="lookup" onPickUnit={onPick} onCloseLookup={closePopup} />,
+    <ProductUnitManagementPage mode="lookup" onPickUnit={onPick} onCloseLookup={closePopup} />,
   )
 }
 
@@ -79,7 +79,7 @@ export function renderSharedWarehouseLookupPage({
   onPick: (item: StoreInfo) => void
 }) {
   return wrapMasterLookupPage(
-    <StorePage mode="lookup" onPickStore={onPick} onCloseLookup={closePopup} />,
+    <StoreManagementPage mode="lookup" onPickStore={onPick} onCloseLookup={closePopup} />,
   )
 }
 
@@ -91,7 +91,7 @@ export function renderSharedWarehouseTypeLookupPage({
   onPick: (item: StoreKindInfo) => void
 }) {
   return wrapMasterLookupPage(
-    <StoreKindPage mode="lookup" onPickStoreKind={onPick} onCloseLookup={closePopup} />,
+    <StoreKindManagementPage mode="lookup" onPickStoreKind={onPick} onCloseLookup={closePopup} />,
   )
 }
 
@@ -103,7 +103,7 @@ export function renderSharedCustomerLookupPage({
   onPick: (item: CustomerExt) => void
 }) {
   return wrapMasterLookupPage(
-    <CustomerExtManager mode="lookup" onPickCustomer={onPick} onCloseLookup={closePopup} />,
+    <CustomerManagementPage mode="lookup" onPickCustomer={onPick} onCloseLookup={closePopup} />,
   )
 }
 
@@ -163,6 +163,6 @@ export function renderSharedAcclistLookupPage({
   onPick: (item: AcclistInfo) => void
 }) {
   return wrapMasterLookupPage(
-    <AcclistManager mode="lookup" onPickAcclist={onPick} onCloseLookup={closePopup} />,
+    <AcclistManagementPage mode="lookup" onPickAcclist={onPick} onCloseLookup={closePopup} />,
   )
 }

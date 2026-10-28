@@ -63,19 +63,19 @@ type RowRemovingEventWithPromise = RowRemovingEvent<CustomerExt, TKey> & { promi
 const CUSTOMER_CATEGORY_CODE_TYPE = "CATEGORY_CD"
 const CUSTOMER_TYPE_CODE_TYPE = "CUSTOMER_TYPE"
 
-export type CustomerExtManagerMode = "page" | "lookup"
+export type CustomerManagementPageMode = "page" | "lookup"
 
-export type CustomerExtManagerProps = {
-  mode?: CustomerExtManagerMode
+export type CustomerManagementPageProps = {
+  mode?: CustomerManagementPageMode
   onPickCustomer?: (row: CustomerExt) => void
   onCloseLookup?: () => void
 }
 
-export default function CustomerExtManager({
+export default function CustomerManagementPage({
   mode = "page",
   onPickCustomer,
   onCloseLookup,
-}: CustomerExtManagerProps) {
+}: CustomerManagementPageProps) {
   const isLookup = mode === "lookup"
 
   const [isUpdate, setIsUpdate] = useState(false)
@@ -458,7 +458,7 @@ export default function CustomerExtManager({
           confirmDelete={true}
           startEditAction="dblClick"
         >
-          <MasterDataEditPopup
+          <MasterDataEditPopup editorMode={isUpdate ? "edit" : "add"}
             scrollable
             key={lang}
             title={popupTitle}

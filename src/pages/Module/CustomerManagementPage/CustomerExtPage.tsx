@@ -1,10 +1,10 @@
 import DxPage from "@/dx/DxPage"
-import CustomerExtManager from "./CustomerExtManager"
+import CustomerManagementPage from "./CustomerManagementPage"
 
 export default function CustomerExtPage() {
   return (
     <DxPage>
-      <CustomerExtManager mode="page" />
+      <CustomerManagementPage mode="page" />
     </DxPage>
   )
 }

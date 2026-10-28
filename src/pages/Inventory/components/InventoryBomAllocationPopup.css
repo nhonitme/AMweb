@@ -4,23 +4,85 @@
 
 .inventory-bom-allocation-popup > .dx-overlay-content > .dx-popup-title {
   border-bottom: 1px solid #dce0e5;
+  padding: 4px 8px !important;
+  min-height: 0;
+  font-size: 16px;
+  line-height: 22px;
+}
+
+.inventory-bom-allocation-popup > .dx-overlay-content > .dx-popup-title .dx-toolbar-items-container {
+  height: 26px;
+  min-height: 0;
+}
+
+.inventory-bom-allocation-popup > .dx-overlay-content > .dx-popup-title .dx-toolbar-label {
+  font-size: 16px;
+  line-height: 22px;
+}
+
+.inventory-bom-allocation-title-actions > .dx-button {
+  width: 26px;
+  height: 26px;
+  min-height: 0;
+}
+
+.inventory-bom-allocation-title-actions > .dx-button .dx-button-content {
+  padding: 4px;
+}
+
+/* ---------- Top field panel ---------- */
+.inventory-bom-allocation-popup .dx-texteditor.dx-editor-outlined {
+  border-radius: 5px;
+  border-color: #cbd0d7;
+  box-shadow: none;
+}
+
+.inventory-bom-allocation-popup .dx-texteditor.dx-editor-outlined:before {
+  border-bottom: 0 !important;
+}
+
+.inventory-bom-allocation-popup .dx-texteditor.dx-editor-outlined.dx-state-hover:not(.dx-state-focused):not(.dx-invalid):not(.dx-state-disabled):not(.dx-state-readonly) {
+  border-color: #9da5b1;
+}
+
+.inventory-bom-allocation-popup .dx-texteditor.dx-editor-outlined.dx-state-focused:not(.dx-invalid) {
+  border-color: #c83239;
+  box-shadow: 0 0 0 2px rgba(200, 50, 57, 0.14);
+}
+
+.inventory-bom-allocation-popup .dx-texteditor.dx-state-readonly.dx-editor-outlined {
+  background-color: #f5f6f8;
+}
+
+/* ---------- Detail grids ---------- */
+.inventory-bom-allocation-popup .dx-datagrid-headers {
+  background-color: #eef0f3;
+  color: #444c57;
+}
+
+.inventory-bom-allocation-popup .dx-datagrid-headers .dx-datagrid-table .dx-row > td {
+  padding-top: 9px;
+  padding-bottom: 9px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.inventory-bom-allocation-popup .dx-datagrid .dx-row.dx-selection > td,
+.inventory-bom-allocation-popup .dx-datagrid .dx-row.dx-row-focused > td {
+  background-color: #fdf1f2 !important;
+  color: #303640 !important;
+}
+
+.inventory-bom-allocation-popup .dx-datagrid .dx-datagrid-focus-overlay {
+  border-color: #c83239;
 }
 
 .inventory-bom-allocation-footer {
   border-color: #dce0e5 !important;
 }
 
-.inventory-bom-allocation-confirm-btn.dx-button {
-  background: #c83239 !important;
-  border-color: #c83239 !important;
-  border-radius: 5px !important;
-  box-shadow: none;
-}
-
-.inventory-bom-allocation-confirm-btn.dx-button .dx-button-content {
-  color: #fff;
-}
-
-.inventory-bom-allocation-confirm-btn.dx-button.dx-state-disabled {
-  opacity: 0.55;
+.inventory-bom-allocation-section-title {
+  color: #414853;
+  font-size: 13px;
+  font-weight: 600;
 }

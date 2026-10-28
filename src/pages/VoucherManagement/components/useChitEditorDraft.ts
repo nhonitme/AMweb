@@ -32,6 +32,7 @@ export type UseChitEditorDraftOptions = {
     isUpdate: boolean
     chitType: ChitType
     chitYmd: ChitInfo["CHIT_YMD"]
+    chitId: ChitInfo["CHIT_ID"]
     draftRef: MutableRefObject<ChitInfo>
     setDraft: Dispatch<SetStateAction<ChitInfo>>
     detailGridRef: MutableRefObject<ChitDetailGridHandle | null>
@@ -56,6 +57,7 @@ export function useChitEditorDraft({
     isUpdate,
     chitType,
     chitYmd,
+    chitId,
     draftRef,
     setDraft,
     detailGridRef,
@@ -89,7 +91,6 @@ export function useChitEditorDraft({
         }
 
         let cancelled = false
-
         void getVoucherSequencePreviewCode(chitType, draftRef.current.CHIT_YMD)
             .then((nextNo) => {
                 if (cancelled || !nextNo) {
@@ -102,7 +103,6 @@ export function useChitEditorDraft({
                     if (activeNo && activeNo !== previousPreviewNo) {
                         return current
                     }
-
                     return {
                         ...current,
                         CHIT_NO: nextNo,
@@ -116,7 +116,9 @@ export function useChitEditorDraft({
         return () => {
             cancelled = true
         }
-    }, [chitType, chitYmd, draftRef, isUpdate, setDraft, visible])
+    // Copy changes mode before the incoming record is synchronized into draft.
+    // Retry after the saved source ID is cleared, even when its date is unchanged.
+    }, [chitType, chitYmd, chitId, draftRef, isUpdate, setDraft, visible])
 
     const syncDraftDetailsFromEditors = useCallback(async (): Promise<ChitEditorSyncDraftDetailsResult> => {
         const currentDraft = draftRef.current

@@ -354,7 +354,7 @@ export default function ManagementInfoPage({
           confirmDelete={true}
           startEditAction="dblClick"
         >
-          <MasterDataEditPopup
+          <MasterDataEditPopup editorMode={isUpdate ? "edit" : "add"}
             key={lang}
             title={popupTitle}
             width="90%"

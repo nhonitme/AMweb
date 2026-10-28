@@ -1,10 +1,10 @@
 import DxPage from "@/dx/DxPage"
-import AcclistManager from "./AcclistManager"
+import AcclistManagementPage from "./AcclistManagementPage"
 
 export default function AcclistPage() {
   return (
     <DxPage>
-      <AcclistManager mode="page" />
+      <AcclistManagementPage mode="page" />
     </DxPage>
   )
 }

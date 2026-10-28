@@ -1,5 +1,6 @@
 import { Popup as DataGridPopup } from "devextreme-react/data-grid";
 import { Popup as TreeListPopup } from "devextreme-react/tree-list";
+import "@/components/toolbar/EditorActionToolbar.scss";
 import dxButton from "devextreme/ui/button";
 import { EDITOR_ACTION_ICONS } from "@/components/toolbar/editorActionDefaults";
 import type { HiddenEvent, HidingEvent, ShownEvent } from "devextreme/ui/popup";
@@ -35,10 +36,12 @@ const popupOverlayWatchCleanup = new WeakMap<object, () => void>();
 
 export type MasterDataEditPopupProps = DataGridPopupProps & {
   scrollable?: boolean;
+  editorMode: "add" | "edit";
 };
 
 export type MasterDataTreeListEditPopupProps = TreeListPopupProps & {
   scrollable?: boolean;
+  editorMode: "add" | "edit";
 };
 
 function buildWrapperClass(scrollable: boolean, wrapperAttr?: Record<string, string>) {
@@ -158,6 +161,7 @@ function resolveMasterDataEditPopupProps({
   deferRendering = true,
   showTitle = true,
   scrollable = false,
+  editorMode,
   wrapperAttr,
   onShown,
   onShowing,
@@ -180,7 +184,7 @@ function resolveMasterDataEditPopupProps({
     titleRender: useCustomTitle ? undefined : titleRender,
     wrapperAttr: {
       ...wrapperAttr,
-      class: buildWrapperClass(scrollable, wrapperAttr),
+      class: `${buildWrapperClass(scrollable, wrapperAttr)} editor-mode--${editorMode}`, 
     },
     onShowing: (event: MasterDataPopupShowingEvent) => {
       if (document.querySelector(".dx-overlay-wrapper.am-lookup-popup")) {

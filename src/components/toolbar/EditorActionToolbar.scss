@@ -1,29 +1,151 @@
+.editor-mode--add {
+  --editor-mode-bg: #ecfdf5;
+  --editor-mode-border: #a7f3d0;
+  --editor-mode-accent: #047857;
+}
+.editor-mode--edit {
+  --editor-mode-bg: #fff7ed;
+  --editor-mode-border: #fed7aa;
+  --editor-mode-accent: #c2410c;
+}
+
+.editor-action-toolbar.editor-mode--add,
+.editor-action-toolbar.editor-mode--edit {
+  background: var(--editor-mode-bg) !important;
+  border-top: 2px solid var(--editor-mode-border);
+}
+
+.editor-mode--add,
+.editor-mode--edit {
+  > .dx-overlay-content > .dx-popup-title,
+  > .dx-overlay-content > .dx-popup-bottom,
+  .einvoice-editor > .einvoice-editor__header {
+    background: var(--editor-mode-bg) !important;
+    border-color: var(--editor-mode-border) !important;
+  }
+  > .dx-overlay-content > .dx-popup-title {
+    border-top: 3px solid var(--editor-mode-accent);
+    min-height: 0;
+    padding: 4px 8px !important;
+    font-size: 16px;
+    line-height: 22px;
+
+    .dx-title,
+    .master-data-edit-popup-title-main {
+      font-size: 16px;
+      line-height: 22px;
+    }
+  }
+  &.master-data-edit-popup > .dx-overlay-content > .dx-popup-title {
+    &::before { display: none; }
+    &::after { background: var(--editor-mode-accent); }
+  }
+}
+
 .editor-action-toolbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   flex: 0 0 auto;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
-  gap: 0.75rem;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
 
-  > .dx-button {
-    flex-shrink: 0;
+  &__middle, &__right {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
   }
 
-  .editor-action-toolbar__save--accent.dx-button {
-    background: #c83239 !important;
-    border-color: #c83239 !important;
-    border-radius: 5px !important;
+  &__middle { grid-column: 2; justify-content: center; }
+  &__right { grid-column: 3; justify-content: flex-end; }
+
+  &__middle > .dx-button, &__right > .dx-button, &__delete > .dx-button {
+    flex-shrink: 0;
+    min-height: 30px;
+    border-radius: 8px;
     box-shadow: none;
 
-    .dx-icon,
-    .dx-button-text {
-      color: #fff;
+    .dx-button-content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 8px;
     }
 
-    &:hover {
-      background: #b4262e !important;
-      border-color: #b4262e !important;
+    .dx-button-text {
+      font-weight: 600;
+      line-height: 20px;
     }
+  }
+
+  &__delete { order: 1; }
+  &__delete:empty { display: none; }
+  .editor-action-toolbar__print { order: 0; }
+  .editor-action-toolbar__saveAndNew { order: 2; }
+  .editor-action-toolbar__save { order: 3; }
+  .editor-action-toolbar__close { order: 4; }
+
+  .editor-action-toolbar__save.dx-button {
+    background: #2563eb;
+    border-color: #2563eb;
+    .dx-icon, .dx-button-text { color: #fff; }
+    &.dx-state-hover { background: #1d4ed8; }
+  }
+
+  .editor-action-toolbar__saveAndNew.dx-button {
+    background: #eff6ff;
+    border-color: #2563eb;
+    .dx-icon, .dx-button-text { color: #2563eb; }
+    &.dx-state-hover { background: rgba(37, 99, 235, 0.08); }
+  }
+
+  .editor-action-toolbar__print.dx-button {
+    background: #f0fdfa;
+    border-color: #0f766e;
+    .dx-icon, .dx-button-text { color: #0f766e; }
+    &.dx-state-hover { background: #ccfbf1; }
+  }
+
+  .editor-action-toolbar__copy.dx-button {
+    background: #faf5ff;
+    border-color: #7e22ce;
+    .dx-icon, .dx-button-text { color: #7e22ce; }
+    &.dx-state-hover { background: #f3e8ff; }
+  }
+
+  &__delete > .dx-button {
+    background: #fef2f2;
+    border-color: #dc2626;
+    .dx-icon, .dx-button-text { color: #dc2626; }
+    &.dx-state-hover { background: #fee2e2; }
+  }
+
+  .editor-action-toolbar__close.dx-button {
+    background: #f1f5f9;
+    border-color: #64748b;
+    .dx-icon, .dx-button-text { color: #334155; }
+    &.dx-state-hover { background: #e2e8f0; }
+  }
+}
+
+.editor-action-toolbar__title {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  order: -1;
+  flex: 0 0 100%;
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .editor-action-toolbar {
+    grid-template-columns: auto minmax(0, 1fr);
+    &__middle { grid-column: 1; }
+    &__right { grid-column: 2; }
   }
 }

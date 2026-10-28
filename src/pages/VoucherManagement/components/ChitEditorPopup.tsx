@@ -90,6 +90,7 @@ interface ChitEditorPopupProps {
     inventoryLinkRefreshVersion?: number
     onSave: SaveAccountingWithInventory
     onSaveAndNew?: SaveAccountingWithInventory
+    onCopy?: (record: ChitInfo) => void
     printReportCode?: string | null
     screenCd?: string
     showInventoryLinkActions?: boolean
@@ -119,6 +120,7 @@ export function ChitEditorPopup({
     inventoryLinkRefreshVersion = 0,
     onSave,
     onSaveAndNew,
+    onCopy,
     printReportCode,
     screenCd: screenCdProp,
     showInventoryLinkActions,
@@ -255,6 +257,7 @@ export function ChitEditorPopup({
         isUpdate,
         chitType,
         chitYmd: draft.CHIT_YMD,
+        chitId: draft.CHIT_ID,
         draftRef,
         setDraft,
         detailGridRef,
@@ -398,7 +401,9 @@ export function ChitEditorPopup({
             reportCode,
             chitIds: [chitId],
             companyCd: draft.COMPANY_CD,
-            notifyUnableToOpen: (message) => notify(t("UNABLE_OPEN_REPORT_VIEWER", message), "error", 3000),
+            notifyUnableToOpen: (message) => {
+                notify(t("UNABLE_OPEN_REPORT_VIEWER", message), "error", 3000)
+            },
         })
     }, [draft.CHIT_ID, draft.COMPANY_CD, printReportCode, t])
 
@@ -502,7 +507,7 @@ export function ChitEditorPopup({
             onShown={(event) => {
                 disableBuiltInPopupEscape(event.component)
             }}
-            wrapperAttr={{ class: "chit-editor-popup", ...createPopupShortcutWrapperAttr(popupShortcutScopeId) }}
+            wrapperAttr={{ class: `chit-editor-popup editor-mode--${isUpdate ? "edit" : "add"}`, ...createPopupShortcutWrapperAttr(popupShortcutScopeId) }}
             title={title}
             showTitle={true}
             showCloseButton={false}
@@ -524,7 +529,7 @@ export function ChitEditorPopup({
                 toolbar="top"
                 location="after"
                 render={() => (
-                    <div className="flex items-center gap-1 rounded-xl bg-white p-1 shadow-sm">
+                    <div className="chit-editor-title-actions flex items-center gap-1 rounded-lg bg-white shadow-sm">
                         {/* TEMP disabled: linking moved to IR/IO. referenceSourceConfig is empty; restore config + this block together. */}
                         {referenceEnabled ? (
                             <div className="min-w-[200px] w-full max-w-[220px] flex-shrink-0">
@@ -687,8 +692,8 @@ export function ChitEditorPopup({
                         {additionalDetailTab ? <div role="tabpanel" style={{ height: "calc(100% - 2.25rem)", display: additionalTabActive ? "block" : "none" }}>{additionalDetailTab.content}</div> : null}
                     </div>
 
-                    <EditorActionToolbar
-                        className="chit-editor-footer border-t border-gray-200 bg-white px-4 py-3"
+                    <EditorActionToolbar mode={isUpdate ? "edit" : "add"}
+                        className="chit-editor-footer border-t border-gray-200 bg-white px-2 py-1"
                         accentSave
                         busy={loading}
                         leadingContent={!readOnly && isUpdate && Number(value.CHIT_ID) > 0 && !isPeriodLockVoucher(value) ? (
@@ -701,6 +706,14 @@ export function ChitEditorPopup({
                             />
                         ) : null}
                         actions={[
+                            { key: "copy", text: t("COPY", "Sao chép"), visible: !readOnly && Boolean(onCopy), disabled: rowInventory.loading || Boolean(rowInventory.editor), onClick: async () => {
+                                try {
+                                    const details = detailGridRef.current ? await detailGridRef.current.savePendingChanges() : draftRef.current.DETAILS
+                                    onCopy?.({ ...cloneChit(draftRef.current), DETAILS: mergeInventoryIntoDetails(details, draftRef.current.DETAILS) })
+                                } catch {
+                                    notify(t("COPY_FAILED", "Không thể sao chép chứng từ"), "error", 4000)
+                                }
+                            } },
                             { key: "save", text: t("TIT_SAVE", "Save"), visible: !readOnly, disabled: !canSaveDraft, onClick: handleSave },
                             { key: "saveAndNew", text: t("SAVE_AND_NEW", "Save and create new"), visible: !readOnly && Boolean(onSaveAndNew), disabled: !canSaveDraft, onClick: () => { void handleSaveAndNew() } },
                             { key: "print", text: t("PRINT", "Print"), visible: Boolean(printReportCode), onClick: handlePrint },
@@ -783,3 +796,4 @@ export function ChitEditorPopup({
 }
 
 export default ChitEditorPopup
+

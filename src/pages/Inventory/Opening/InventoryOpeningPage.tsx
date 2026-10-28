@@ -385,7 +385,7 @@ export default function InventoryOpeningPage() {
           }}
         >
           <Editing mode="popup" allowUpdating allowAdding allowDeleting confirmDelete>
-            <MasterDataEditPopup key={lang} title={popupTitle} width="90%" maxWidth={800} />
+            <MasterDataEditPopup editorMode={isUpdate ? "edit" : "add"} key={lang} title={popupTitle} width="90%" maxWidth={800} />
             <InventoryOpeningForm
               onFormInstance={(form) => {
                 editFormRef.current = form

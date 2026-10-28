@@ -94,6 +94,7 @@ interface InventoryEditorPopupProps {
   onOpenLinkedCogsVoucher: (chitId: number) => boolean
   onSave: (record: InventoryVoucher) => Promise<void>
   onSaveAndNew?: (record: InventoryVoucher) => Promise<void>
+  onCopy?: (record: InventoryVoucher) => void
   printReportCode?: string | null
   initialIssueTab?: "output" | "cogs"
 }
@@ -123,6 +124,7 @@ export default function InventoryEditorPopup({
   onOpenLinkedCogsVoucher,
   onSave,
   onSaveAndNew,
+  onCopy,
   printReportCode,
   initialIssueTab = "output",
 }: InventoryEditorPopupProps) {
@@ -1278,7 +1280,7 @@ export default function InventoryEditorPopup({
       maxHeight="100vh"
       container="body"
       position={{ my: "center", at: "center", of: window }}
-      wrapperAttr={{ class: "inventory-editor-popup", ...createPopupShortcutWrapperAttr(popupShortcutScopeId) }}
+      wrapperAttr={{ class: `inventory-editor-popup editor-mode--${isUpdate ? "edit" : "add"}`, ...createPopupShortcutWrapperAttr(popupShortcutScopeId) }}
       animation={POPUP_FADE_ANIMATION}
       onHiding={(event) => {
         if (loading) { event.cancel = true; return }
@@ -1448,7 +1450,7 @@ export default function InventoryEditorPopup({
             </div>
           </div>
 
-          <EditorActionToolbar
+          <EditorActionToolbar mode={isUpdate ? "edit" : "add"}
             className="inventory-editor-footer border-t border-gray-200 bg-white px-4 py-3"
             accentSave
             busy={loading}
@@ -1462,6 +1464,13 @@ export default function InventoryEditorPopup({
               />
             ) : null}
             actions={[
+              { key: "copy", text: t("COPY", "Sao chép"), visible: !readOnly && Boolean(onCopy), onClick: async () => {
+                try {
+                  onCopy?.(await syncGridRows())
+                } catch (error) {
+                  notify(getApiErrorMessage(error, t("COPY_FAILED", "Không thể sao chép chứng từ")), "error", 4000)
+                }
+              } },
               { key: "save", text: t("SAVE", "Save"), visible: !readOnly, onClick: handleSave },
               { key: "saveAndNew", text: t("SAVE_AND_NEW", "Save and create new"), visible: !readOnly && Boolean(onSaveAndNew), onClick: handleSaveAndNew },
               { key: "print", text: t("PRINT", "Print"), visible: Boolean(printReportCode), onClick: handlePrint },
@@ -1495,3 +1504,4 @@ export default function InventoryEditorPopup({
     </Popup>
   )
 }
+

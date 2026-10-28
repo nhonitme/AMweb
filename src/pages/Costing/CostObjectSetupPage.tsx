@@ -157,8 +157,8 @@ export default function CostObjectSetupPage() {
     try {
       // Resolve first-time JS chunk before showing popup to avoid Suspense fallback swap.
       const module = catalog === "cost-center"
-        ? await import("@/pages/Module/DepartmentManagement")
-        : await import("@/pages/Module/ProductManagement/ProductPage");
+        ? await import("@/pages/Module/DepartmentManagement/DepartmentManagementPage")
+        : await import("@/pages/Module/ProductManagement/ProductManagementPage");
       setCatalogComponent(() => module.default);
       setActiveCatalog(catalog);
     } catch (error) {

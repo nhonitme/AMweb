@@ -39,19 +39,19 @@ import {
   useProductMutations,
 } from "@/hooks/queries/master/useProductListQuery";
 
-export type ProductPageMode = "page" | "lookup";
+export type ProductManagementPageMode = "page" | "lookup";
 
-export type ProductPageProps = {
-  mode?: ProductPageMode;
+export type ProductManagementPageProps = {
+  mode?: ProductManagementPageMode;
   onPickProduct?: (row: Product) => void;
   onCloseLookup?: () => void;
 };
 
-export default function ProductList({
+export default function ProductManagementPage({
   mode = "page",
   onPickProduct,
   onCloseLookup,
-}: ProductPageProps) {
+}: ProductManagementPageProps) {
   const isLookup = mode === "lookup";
   const screenCd = "/module/product-management";
   const gridId = "product-grid";
@@ -318,7 +318,7 @@ export default function ProductList({
             confirmDelete={true}
             startEditAction="dblClick"
           >
-            <MasterDataEditPopup
+            <MasterDataEditPopup editorMode={isUpdate ? "edit" : "add"}
               key={lang}
               scrollable
               title={popupTitle}

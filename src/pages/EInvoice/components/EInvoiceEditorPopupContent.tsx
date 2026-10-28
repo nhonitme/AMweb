@@ -2705,7 +2705,7 @@ export default function EInvoiceEditorPopupContent({
       position={{ my: "center", at: "center", of: window }}
       wrapperAttr={{
         ...createPopupShortcutWrapperAttr(popupShortcutScopeId),
-        class: cashRegister ? "einvoice-editor-popup einvoice-pos-popup" : "einvoice-editor-popup",
+        class: `einvoice-editor-popup ${cashRegister ? "einvoice-pos-popup" : ""} editor-mode--${isUpdate ? "edit" : "add"}`,
       }}
       animation={{ show: { type: "fade", duration: 0 }, hide: { type: "fade", duration: 0 } }}
       onHiding={handlePopupHiding}
@@ -2904,7 +2904,7 @@ export default function EInvoiceEditorPopupContent({
           </div>
 
           <footer className="einvoice-editor__footer">
-            <EditorActionToolbar
+            <EditorActionToolbar mode={isUpdate ? "edit" : "add"}
               className="einvoice-editor__footer-actions"
               busy={isBusy}
               actions={[
@@ -2930,3 +2930,4 @@ export default function EInvoiceEditorPopupContent({
     </>
   )
 }
+

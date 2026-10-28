@@ -38,19 +38,19 @@ import { useMasterListLoadError, useMasterListReload } from "@/hooks/queries/mas
 type RowInsertingEventWithPromise = RowInsertingEvent & { promise?: Promise<void> };
 type RowUpdatingEventWithPromise = RowUpdatingEvent & { promise?: Promise<void> };
 
-export type StoreKindPageMode = "page" | "lookup";
+export type StoreKindManagementPageMode = "page" | "lookup";
 
-export type StoreKindPageProps = {
-  mode?: StoreKindPageMode;
+export type StoreKindManagementPageProps = {
+  mode?: StoreKindManagementPageMode;
   onPickStoreKind?: (row: StoreKindInfo) => void;
   onCloseLookup?: () => void;
 };
 
-export default function StoreKindList({
+export default function StoreKindManagementPage({
   mode = "page",
   onPickStoreKind,
   onCloseLookup,
-}: StoreKindPageProps) {
+}: StoreKindManagementPageProps) {
   const isLookup = mode === "lookup";
   const gridRef = useRef<dxDataGrid | null>(null);
   const { lang, translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string; lang: string };
@@ -311,7 +311,7 @@ const handleToolbarDelete = async () => {
             allowDeleting={true}
             confirmDelete={true} 
           >
-            <MasterDataEditPopup
+            <MasterDataEditPopup editorMode={isUpdate ? "edit" : "add"}
               key={lang}
               title={popupTitle}
               width="90%"

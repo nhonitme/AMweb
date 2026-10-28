@@ -654,7 +654,7 @@ export default function FixedAssetEditorPopup({
       deferRendering
       wrapperAttr={{
         ...createPopupShortcutWrapperAttr(popupShortcutScopeId),
-        class: 'fixed-asset-editor-popup',
+        class: `fixed-asset-editor-popup editor-mode--${isUpdate ? "edit" : "add"}`,
       }}
       title={title}
       showTitle
@@ -965,7 +965,7 @@ export default function FixedAssetEditorPopup({
             </div>
           </div>
 
-          <EditorActionToolbar
+          <EditorActionToolbar mode={isUpdate ? "edit" : "add"}
             className="border-t border-gray-200 bg-white px-4 py-3"
             busy={loading}
             actions={[
@@ -987,3 +987,4 @@ export default function FixedAssetEditorPopup({
     </Popup>
   )
 }
+

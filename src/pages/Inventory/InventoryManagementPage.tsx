@@ -1267,6 +1267,7 @@ export default function InventoryManagementPage({
         }}
         onSave={(record) => handleSave(record, false)}
         onSaveAndNew={handleSaveAndNew}
+        onCopy={handleContextMenuCopy}
         printReportCode={pdfReportCode}
       />
 

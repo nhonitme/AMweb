@@ -1108,7 +1108,7 @@ const openEditPopup = useCallback(
     })
 
     setPopupVisible(true)
-  }, [chitType, selectedRow, t])
+  }, [chitType, ledger, selectedRow, t])
 
   const notifySourceVoucherLinked = useCallback((savedChit: ChitInfo) => {
     const createFromSource = sourceCreateFromIntentRef.current
@@ -1811,6 +1811,7 @@ const openEditPopup = useCallback(
           }}
           onSave={handleSave}
           onSaveAndNew={editorOnly ? undefined : handleSaveAndNew}
+          onCopy={editorOnly ? undefined : openDuplicatePopup}
           printReportCode={pdfReportCode}
         />
       ) : null}

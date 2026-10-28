@@ -37,19 +37,19 @@ type RowInsertingEventWithPromise = RowInsertingEvent & { promise?: Promise<void
 type RowUpdatingEventWithPromise = RowUpdatingEvent & { promise?: Promise<void> };
 type RowRemovingEventWithPromise = RowRemovingEvent & { promise?: Promise<void> };
 
-export type AcclistManagerMode = "page" | "lookup"
+export type AcclistManagementPageMode = "page" | "lookup"
 
-export type AcclistManagerProps = {
-  mode?: AcclistManagerMode
+export type AcclistManagementPageProps = {
+  mode?: AcclistManagementPageMode
   onPickAcclist?: (row: AcclistInfo) => void
   onCloseLookup?: () => void
 }
 
-export default function AcclistPage({
+export default function AcclistManagementPage({
   mode = "page",
   onPickAcclist,
   onCloseLookup,
-}: AcclistManagerProps) {
+}: AcclistManagementPageProps) {
   const isLookup = mode === "lookup"
   const screenCd = "/module/acclist-management";
   const gridId = "acclist-grid";
@@ -324,7 +324,7 @@ export default function AcclistPage({
           allowDeleting={true}
           confirmDelete={true}
         >
-          <MasterDataTreeListEditPopup
+          <MasterDataTreeListEditPopup editorMode={isUpdate ? "edit" : "add"}
             key={lang}
             title={popupTitle}
             width="90%"

@@ -83,7 +83,7 @@ export default function AccountLookupCellEditor({
     [LookupCodeField, LookupNameField],
   )
 
-  // Same getEtcData_info etcType=0 (TK con); avoid AcclistManager full tree.
+  // Same getEtcData_info etcType=0 (TK con); avoid AcclistManagementPage full tree.
   const popupColumns = useMemo(
     () => [
       { dataField: LookupCodeField, caption: "Mã tài khoản", width: 180 },
