@@ -11,8 +11,10 @@ import { getProducts } from "@/api/productApi"
 import { getStoreInfos } from "@/api/storeAPI"
 import { getProductMaterials } from "@/api/productMaterialApi"
 import { getApiErrorMessage } from "@/api/apiTypes"
+import { disableBuiltInPopupEscape, usePopupEscapeLayer } from "@/components/popup/popupEscapeStack"
 import EditorActionToolbar from "@/components/toolbar/EditorActionToolbar"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { createPopupShortcutWrapperAttr, usePopupShortcutScopeId } from "@/lib/popupShortcutScope"
 import { POPUP_FADE_ANIMATION } from "@/pages/VoucherManagement/components/chitEditorConstants"
 import type { Product } from "@/types/product"
 import type { StoreInfo } from "@/types/store"
@@ -200,22 +202,64 @@ export default function InventoryBomAllocationPopup({
     })
   }
 
+  const popupShortcutScopeId = usePopupShortcutScopeId("inventory-bom-allocation")
+  const handleClose = useCallback(() => {
+    if (!busy) onClose()
+  }, [busy, onClose])
+
+  usePopupEscapeLayer(
+    visible,
+    handleClose,
+    () => document.querySelector<HTMLElement>(`[data-popup-shortcut-scope="${popupShortcutScopeId}"]`),
+  )
+
   return (
     <Popup
       visible={visible}
+      onShown={(event) => {
+        disableBuiltInPopupEscape(event.component)
+      }}
       title={t("BOM_ALLOCATION", "Phân bổ nguyên vật liệu theo thành phẩm")}
       showTitle
-      showCloseButton
-      onHiding={onClose}
-      hideOnOutsideClick={false}
-      dragEnabled
-      width="92vw"
-      height="88vh"
-      maxWidth="1500px"
+      showCloseButton={false}
+      onHiding={(event) => {
+        if (busy) {
+          event.cancel = true
+          return
+        }
+        onClose()
+      }}
+      hideOnOutsideClick={!busy}
+      dragEnabled={false}
+      resizeEnabled={false}
+      deferRendering={false}
+      width="100vw"
+      height="100vh"
+      maxWidth="100vw"
+      maxHeight="100vh"
       container="body"
+      position={{ my: "center", at: "center", of: window }}
       animation={POPUP_FADE_ANIMATION}
-      wrapperAttr={{ class: "inventory-bom-allocation-popup" }}
+      wrapperAttr={{
+        class: "inventory-bom-allocation-popup editor-mode--edit",
+        ...createPopupShortcutWrapperAttr(popupShortcutScopeId),
+      }}
     >
+      <ToolbarItem
+        toolbar="top"
+        location="after"
+        render={() => (
+          <div className="inventory-bom-allocation-title-actions flex items-center gap-1 rounded-lg bg-white shadow-sm">
+            <Button
+              icon="close"
+              stylingMode="text"
+              disabled={busy}
+              hint={t("CANCEL", "Cancel")}
+              onClick={handleClose}
+            />
+          </div>
+        )}
+      />
       <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#f3f4f6]">
         <div className="flex flex-shrink-0 flex-col gap-3 border-b border-[#dce0e5] bg-white px-4 py-3">
           <div className="flex flex-wrap items-end gap-2">
@@ -309,12 +353,12 @@ export default function InventoryBomAllocationPopup({
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
-          <div className="flex min-h-0 flex-[2] flex-col overflow-hidden rounded border border-slate-200 bg-white">
-            <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2">
-              <div className="text-sm font-semibold text-slate-700">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 py-3">
+          <div className="flex min-h-0 flex-[2] flex-col overflow-hidden bg-white p-3">
+            <div className="mb-2 flex flex-shrink-0 flex-wrap items-center gap-2">
+              <div className="inventory-bom-allocation-section-title">
                 {t("BOM_FINISHED_GRID", "Grid 1 – Thành phẩm")}
-                <span className="ml-2 font-normal text-slate-500">({finished.length})</span>
+                <span className="ml-2 font-normal text-[#9da5b1]">({finished.length})</span>
               </div>
               <div className="ml-auto">
                 <Button
@@ -326,7 +370,7 @@ export default function InventoryBomAllocationPopup({
                 />
               </div>
             </div>
-            <div className="min-h-0 flex-1 p-2">
+            <div className="min-h-0 flex-1">
               <DataGrid
                 dataSource={finished}
                 keyExpr="CLIENT_KEY"
@@ -351,11 +395,11 @@ export default function InventoryBomAllocationPopup({
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-[3] flex-col overflow-hidden rounded border border-slate-200 bg-white">
-            <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2">
-              <div className="text-sm font-semibold text-slate-700">
+          <div className="flex min-h-0 flex-[3] flex-col overflow-hidden bg-white p-3">
+            <div className="mb-2 flex flex-shrink-0 flex-wrap items-center gap-2">
+              <div className="inventory-bom-allocation-section-title">
                 {t("BOM_MATERIAL_GRID", "Grid 2 – Định mức nguyên vật liệu")}
-                <span className="ml-2 font-normal text-slate-500">({materials.length})</span>
+                <span className="ml-2 font-normal text-[#9da5b1]">({materials.length})</span>
               </div>
               {requiresRecalculation ? (
                 <span className="rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
@@ -363,7 +407,7 @@ export default function InventoryBomAllocationPopup({
                 </span>
               ) : null}
             </div>
-            <div className="min-h-0 flex-1 p-2">
+            <div className="min-h-0 flex-1">
               <DataGrid
                 dataSource={materials}
                 keyExpr="CLIENT_KEY"
@@ -403,24 +447,25 @@ export default function InventoryBomAllocationPopup({
           </div>
         </div>
 
-        <div className="inventory-bom-allocation-footer flex flex-shrink-0 items-center justify-end gap-3 border-t bg-white px-4 py-3">
-          <Button
-            text={t("CANCEL", "Hủy")}
-            icon="close"
-            stylingMode="outlined"
-            onClick={onClose}
-            disabled={busy}
-          />
-          <Button
-            text={t("CONFIRM", "Xác nhận")}
-            icon="check"
-            type="default"
-            stylingMode="contained"
-            elementAttr={{ class: "inventory-bom-allocation-confirm-btn" }}
-            disabled={controlsDisabled || requiresRecalculation}
-            onClick={() => { void confirmAllocation() }}
-          />
-        </div>
+        <EditorActionToolbar
+          mode="edit"
+          className="inventory-bom-allocation-footer border-t border-gray-200 bg-white px-4 py-3"
+          busy={busy}
+          actions={[
+            {
+              key: "save",
+              text: t("CONFIRM", "Xác nhận"),
+              icon: "check",
+              disabled: controlsDisabled || requiresRecalculation,
+              onClick: () => { void confirmAllocation() },
+            },
+            {
+              key: "close",
+              text: t("CANCEL", "Hủy"),
+              onClick: handleClose,
+            },
+          ]}
+        />
       </div>
     </Popup>
   )
