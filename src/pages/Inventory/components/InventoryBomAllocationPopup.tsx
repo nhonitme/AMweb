@@ -16,7 +16,11 @@ import { AMButton } from "@/components/amnote/ui"
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
 import { disableBuiltInPopupEscape, usePopupEscapeLayer } from "@/components/popup/popupEscapeStack"
 import "@/components/toolbar/EditorActionToolbar.scss"
+import { useDecimalColumnFormats } from "@/hooks/useDecimalColumnFormats"
+import { downloadBlobFile } from "@/lib/fileUtils"
+import { applyHeaderFieldNameTooltip } from "@/lib/gridHeaderFieldTooltip"
 import { LanguageContext } from "@/lib/i18nLoader"
+import { createNumberEditorOptions } from "@/lib/numberEditorOptions"
 import { notifyAboveOverlays } from "@/lib/notifyAboveOverlays"
 import { createPopupShortcutWrapperAttr, usePopupShortcutScopeId } from "@/lib/popupShortcutScope"
 import { POPUP_FADE_ANIMATION } from "@/pages/VoucherManagement/components/chitEditorConstants"
@@ -42,8 +46,12 @@ export default function InventoryBomAllocationPopup({
 }: Props) {
   const { translate } = useContext(LanguageContext)
   const t = useCallback((key: string, fallback: string) => translate(key, fallback), [translate])
+  const { getFormat } = useDecimalColumnFormats()
+  const quantityFormat = getFormat("QUANTITY", "#,##0.###")
+  const quantityEditorOptions = createNumberEditorOptions(quantityFormat)
   const finishedGridRef = useRef<dxDataGrid | null>(null)
   const materialGridRef = useRef<dxDataGrid | null>(null)
+  const calculateRef = useRef<(finishedRows?: InventoryBomFinishedRow[]) => Promise<void>>(async () => {})
   const [products, setProducts] = useState<Product[]>([])
   const [stores, setStores] = useState<StoreInfo[]>([])
   const [materialProducts, setMaterialProducts] = useState<Product[]>([])
@@ -115,12 +123,17 @@ export default function InventoryBomAllocationPopup({
     }
   }
 
-  const handleDownloadTemplate = useCallback(() => {
-    const sheet = XLSX.utils.aoa_to_sheet([["PRODUCT_CD", "QUANTITY"]])
+  const handleDownloadTemplate = useCallback(async () => {
+    const sheet = XLSX.utils.aoa_to_sheet([[t("FINISHED_CD", "Mã thành phẩm"), t("QUANTITY", "Số lượng")]])
     const book = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(book, sheet, "Finished")
-    XLSX.writeFile(book, "BOM_Finished_Template.xlsx")
-  }, [])
+    const arrayBuffer = XLSX.write(book, { bookType: "xlsx", type: "array" })
+    const blob = new Blob([arrayBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    })
+    // Return false when user cancels Save As — BaseExcelImportPopup skips success notify.
+    return downloadBlobFile(blob, "BOM_Finished_Template.xlsx")
+  }, [t])
 
   const handleImportFile = useCallback(async (file: File, context: ClientExcelImportContext): Promise<ExcelImportResponse> => {
     const book = XLSX.read(await file.arrayBuffer(), { type: "array" })
@@ -197,8 +210,13 @@ export default function InventoryBomAllocationPopup({
       }
     }
 
-    setFinished(current => [...current, ...next.map((row, index) => ({ ...row, SORT: current.length + index + 1 }))])
+    const merged = [
+      ...finished,
+      ...next.map((row, index) => ({ ...row, SORT: finished.length + index + 1 })),
+    ]
+    setFinished(merged)
     setRequiresRecalculation(true)
+    void calculateRef.current(merged)
 
     return {
       success: true,
@@ -212,7 +230,7 @@ export default function InventoryBomAllocationPopup({
       rows: errorRows,
       sheetName,
     }
-  }, [productsByCode, t])
+  }, [finished, productsByCode, t])
 
   const deleteSelectedFinished = () => {
     const keys = new Set(selectedFinishedKeys)
@@ -222,26 +240,26 @@ export default function InventoryBomAllocationPopup({
     setSelectedFinishedKeys([])
   }
 
-  const calculate = async () => {
+  const calculate = useCallback(async (finishedRows: InventoryBomFinishedRow[] = finished) => {
     if (busy) return
-    if (!finished.length) return notifyAboveOverlays(t("BOM_NO_FINISHED", "Chưa có thành phẩm"), "warning", 2500)
-    if (finished.some(row => !(qty(row.FINISHED_QUANTITY) > 0)))
+    if (!finishedRows.length) return notifyAboveOverlays(t("BOM_NO_FINISHED", "Chưa có thành phẩm"), "warning", 2500)
+    if (finishedRows.some(row => !(qty(row.FINISHED_QUANTITY) > 0)))
       return notifyAboveOverlays(t("BOM_INVALID_QUANTITY", "Số lượng thành phẩm phải lớn hơn 0"), "warning", 2500)
     setBusy(true)
     setBusyAction("calculate")
     try {
-      const keys = [...new Set(finished.map(row => row.FINISHED_PRODUCT_ID))]
+      const keys = [...new Set(finishedRows.map(row => row.FINISHED_PRODUCT_ID))]
       const result = await Promise.all(keys.map(async productId => [productId, await getProductMaterials(productId)] as const))
       const byProduct = new Map(result)
       const materialProductIds = [...new Set(
         result.flatMap(([, defs]) => defs.map(def => Number(def.MATERIAL_PRODUCT_ID))).filter(id => id > 0),
       )]
-      // One batch lookup: latest inbound STORE_ID per material product (no per-row query).
+      // One batch lookup: latest inbound STORE_ID, else product_info.STORE_ID (no per-row query).
       const latestStores = await getLatestInputStoresByProductIds(materialProductIds)
       const storeIdByProductId = new Map(latestStores.map(row => [Number(row.PRODUCT_ID), Number(row.STORE_ID)]))
       let sort = 0, missing = 0, missingStore = 0
       const next: InventoryBomMaterialRow[] = []
-      finished.forEach(fin => {
+      finishedRows.forEach(fin => {
         const definitions = byProduct.get(fin.FINISHED_PRODUCT_ID) ?? []
         if (!definitions.length) missing++
         definitions.forEach(def => {
@@ -288,7 +306,8 @@ export default function InventoryBomAllocationPopup({
       setBusy(false)
       setBusyAction(null)
     }
-  }
+  }, [busy, finished, materialProductsById, t])
+  calculateRef.current = calculate
 
   const confirmAllocation = async () => {
     // Commit any active DevExtreme cell editor before reading the snapshot.
@@ -510,6 +529,7 @@ export default function InventoryBomAllocationPopup({
                 onInitialized={e => { finishedGridRef.current = e.component }}
                 selectedRowKeys={selectedFinishedKeys}
                 onSelectionChanged={e => setSelectedFinishedKeys(e.selectedRowKeys.map(String))}
+                onCellPrepared={applyHeaderFieldNameTooltip}
                 onRowUpdated={e => {
                   setFinished(rows => rows.map(row => row.CLIENT_KEY === e.key ? { ...e.data } : row))
                   setRequiresRecalculation(true)
@@ -517,10 +537,17 @@ export default function InventoryBomAllocationPopup({
               >
                 <Selection mode="multiple" showCheckBoxesMode="always" />
                 <Editing mode="cell" allowUpdating={!controlsDisabled} />
-                <Column dataField="PRODUCT_CD" caption={t("PRODUCT_CD", "Mã thành phẩm")} allowEditing={false} />
-                <Column dataField="PRODUCT_NM_VIET" caption={t("PRODUCT_NM", "Tên thành phẩm")} allowEditing={false} />
+                <Column dataField="PRODUCT_CD" caption={t("FINISHED_CD", "Mã thành phẩm")} allowEditing={false} />
+                <Column dataField="PRODUCT_NM_VIET" caption={t("FINISHED_NM", "Tên thành phẩm")} allowEditing={false} />
                 <Column dataField="UNIT_CD" caption={t("UNIT_CD", "ĐVT")} allowEditing={false} width={90} />
-                <Column dataField="FINISHED_QUANTITY" caption={t("QUANTITY", "Số lượng")} dataType="number" width={140} />
+                <Column
+                  dataField="FINISHED_QUANTITY"
+                  caption={t("QUANTITY", "Số lượng")}
+                  dataType="number"
+                  format={quantityFormat}
+                  editorOptions={quantityEditorOptions}
+                  width={140}
+                />
               </DataGrid>
             </div>
           </div>
@@ -545,6 +572,7 @@ export default function InventoryBomAllocationPopup({
                 showBorders
                 columnAutoWidth
                 onInitialized={e => { materialGridRef.current = e.component }}
+                onCellPrepared={applyHeaderFieldNameTooltip}
                 onRowUpdating={e => {
                   if ("BOM_QUANTITY" in e.newData) {
                     const parent = finished.find(f => f.CLIENT_KEY === e.oldData.FINISHED_CLIENT_KEY)
@@ -558,7 +586,7 @@ export default function InventoryBomAllocationPopup({
                 <Editing mode="cell" allowUpdating={!controlsDisabled} />
                 <Column
                   dataField="FINISHED_CLIENT_KEY"
-                  caption={t("FINISHED_PRODUCT", "Thành phẩm")}
+                  caption={t("FINISHED_CD", "Thành phẩm")}
                   calculateDisplayValue={(row: InventoryBomMaterialRow) => finished.find(f => f.CLIENT_KEY === row.FINISHED_CLIENT_KEY)?.PRODUCT_CD ?? ""}
                   allowEditing={false}
                   width={140}
@@ -569,9 +597,30 @@ export default function InventoryBomAllocationPopup({
                 <Column dataField="STORE_ID" caption={t("STORE_CD", "Kho xuất")} width={120}>
                   <Lookup dataSource={stores} valueExpr="STORE_ID" displayExpr="STORE_CD" />
                 </Column>
-                <Column dataField="BOM_QUANTITY" caption={t("BOM_QUANTITY", "Định mức / TP")} dataType="number" width={130} />
-                <Column dataField="CALCULATED_QUANTITY" caption={t("CALCULATED_QUANTITY", "Số lượng tính")} dataType="number" allowEditing={false} width={130} />
-                <Column dataField="CONFIRMED_QUANTITY" caption={t("CONFIRMED_QUANTITY", "Số lượng xác nhận")} dataType="number" width={150} />
+                <Column
+                  dataField="BOM_QUANTITY"
+                  caption={t("BOM_QUANTITY", "Định mức / TP")}
+                  dataType="number"
+                  format={quantityFormat}
+                  editorOptions={quantityEditorOptions}
+                  width={130}
+                />
+                <Column
+                  dataField="CALCULATED_QUANTITY"
+                  caption={t("CALCULATED_QUANTITY", "Số lượng tính")}
+                  dataType="number"
+                  format={quantityFormat}
+                  allowEditing={false}
+                  width={130}
+                />
+                <Column
+                  dataField="CONFIRMED_QUANTITY"
+                  caption={t("CONFIRMED_QUANTITY", "Số lượng xác nhận")}
+                  dataType="number"
+                  format={quantityFormat}
+                  editorOptions={quantityEditorOptions}
+                  width={150}
+                />
               </DataGrid>
             </div>
           </div>

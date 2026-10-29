@@ -147,10 +147,11 @@ function OpenLinkedInventoryButton({
     disabled: boolean
 }) {
     const [choosing, setChoosing] = useState(false)
-    const colors = targets.length > 0
-        ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200"
-        : pending
-          ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
+    // Pending draft wins over linked-green so OT/SO show unsaved inventory edits clearly.
+    const colors = pending
+        ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
+        : targets.length > 0
+          ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200"
           : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
 
     return (
@@ -976,7 +977,7 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                                                 label={t("INVENTORY_ROW_BUTTON", "Hàng tồn kho")}
                                                 pending={pendingInventoryRowKeys.includes(rowKey ?? "")}
                                                 disabled={inventoryBusy || (detailId > 0 && (linkLoading || (!linkLoadFailed && linkedInventoryLoadKeyRef.current !== `${chitType}:${headerChitId}:${activeDetailIdsKey}:${inventoryRefreshVersion}:${linkRetryVersion}`))) || (readOnly && linkedTargets.length === 0 && !linkLoadFailed)}
-                                                hint={linkLoadFailed ? t("RETRY_INVENTORY_LINK", "Không tải được liên kết kho. Bấm để thử lại") : linkedTargets.length > 0 ? t("OPEN_INVENTORY_VOUCHER", "Mở phiếu hàng tồn kho đã liên kết") : pendingInventoryRowKeys.includes(rowKey ?? "") ? t("INVENTORY_PENDING_SOURCE_SAVE", "Bản nháp phiếu kho — lưu phiếu nguồn để hoàn tất liên kết") : t("ENTER_INVENTORY_VOUCHER", "Nhập phiếu hàng tồn kho")}
+                                                hint={linkLoadFailed ? t("RETRY_INVENTORY_LINK", "Không tải được liên kết kho. Bấm để thử lại") : pendingInventoryRowKeys.includes(rowKey ?? "") ? t("INVENTORY_PENDING_SOURCE_SAVE", "Bản nháp phiếu kho — lưu phiếu nguồn để hoàn tất liên kết") : linkedTargets.length > 0 ? t("OPEN_INVENTORY_VOUCHER", "Mở phiếu hàng tồn kho đã liên kết") : t("ENTER_INVENTORY_VOUCHER", "Nhập phiếu hàng tồn kho")}
                                                 onOpen={(target) => {
                                                     if (detailId > 0 && linkLoadFailed) {
                                                         setLinkRetryVersion((version) => version + 1)

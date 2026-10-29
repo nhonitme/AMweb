@@ -130,6 +130,9 @@ export default function BaseExcelImportPopup({
   visibleRef.current = visible;
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [step, setStep] = useState<ImportStep>('IDLE');
+  /** Sync mirror — onHiding can run before React re-renders after success. */
+  const stepRef = useRef<ImportStep>('IDLE');
+  stepRef.current = step;
   const [progressValue, setProgressValue] = useState(0);
   const [processedRows, setProcessedRows] = useState(0);
   const [totalRows, setTotalRows] = useState(0);
@@ -226,6 +229,7 @@ export default function BaseExcelImportPopup({
     setSelectedFile(null);
     setSheetNames([]);
     setSelectedSheetName('');
+    stepRef.current = 'IDLE';
     setStep('IDLE');
     setProgressValue(0);
     setProcessedRows(0);
@@ -253,7 +257,8 @@ export default function BaseExcelImportPopup({
 
   const handleClose = useCallback(() => {
     const jobIdToCancel = currentJobIdRef.current;
-    const isImportInFlight = step === 'UPLOADING' || step === 'IMPORTING';
+    // Use stepRef: close-after-success can fire onHiding before setStep('DONE') re-renders.
+    const isImportInFlight = stepRef.current === 'UPLOADING' || stepRef.current === 'IMPORTING';
     const shouldCancelServerJob =
       !useClientImport
       && !!jobIdToCancel
@@ -278,7 +283,7 @@ export default function BaseExcelImportPopup({
     }
 
     onClose();
-  }, [cancelImportUrl, headers, onClose, step, t, useClientImport]);
+  }, [cancelImportUrl, headers, onClose, t, useClientImport]);
 
   const handleDownloadTemplate = useCallback(async () => {
     const session = ++importSessionRef.current;
@@ -455,11 +460,14 @@ export default function BaseExcelImportPopup({
     setProgressValue(100);
     setProcessedRows(importResult.totalRows);
     setTotalRows(importResult.totalRows);
-    setStep(importResult.success ? 'DONE' : 'ERROR');
+    const nextStep: ImportStep = importResult.success ? 'DONE' : 'ERROR';
+    stepRef.current = nextStep;
+    setStep(nextStep);
     clearFileKeepResult();
 
     if (importResult.success) {
       notify(importResult.message || t('IMPORT_SUCCESS', 'Import Excel thành công.'), 'success', 2500);
+      // Mark DONE before onImported/onClose — parent may hide popup and trigger onHiding immediately.
       onImported?.(importResult);
       if (closeAfterSuccess) {
         resetState();

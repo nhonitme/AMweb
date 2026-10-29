@@ -79,6 +79,24 @@
     padding-left: 8px;
 }
 
+/* Same emerald cue as the «Đã liên kết» chip when BOM data already exists. */
+.inventory-editor-popup .inventory-bom-allocation-btn--filled.dx-button.dx-button-mode-outlined {
+    border-color: #a7f3d0;
+    background-color: #ecfdf5;
+    color: #064e3b;
+}
+
+.inventory-editor-popup .inventory-bom-allocation-btn--filled.dx-button.dx-button-mode-outlined .dx-icon {
+    color: inherit;
+}
+
+.inventory-editor-popup .inventory-bom-allocation-btn--filled.dx-button.dx-button-mode-outlined.dx-state-hover:not(.dx-state-disabled),
+.inventory-editor-popup .inventory-bom-allocation-btn--filled.dx-button.dx-button-mode-outlined.dx-state-focused:not(.dx-state-disabled) {
+    border-color: #6ee7b7;
+    background-color: #d1fae5;
+    color: #064e3b;
+}
+
 .inventory-editor-footer {
     border-color: #dce0e5 !important;
 }

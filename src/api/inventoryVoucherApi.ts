@@ -110,7 +110,7 @@ export type InventoryLatestInputStore = {
   STORE_NM_VIET?: string | null
 }
 
-/** Batch: latest receipt STORE_ID per product (one request, no N+1). */
+/** Batch: latest receipt STORE_ID per product, else product_info.STORE_ID (one request, no N+1). */
 export async function getLatestInputStoresByProductIds(
   productIds: number[],
 ): Promise<InventoryLatestInputStore[]> {

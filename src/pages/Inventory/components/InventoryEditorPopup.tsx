@@ -543,6 +543,8 @@ export default function InventoryEditorPopup({
     setLinkedAccountingChitType("")
     setLinkedCogsSourceId(null)
     setLinkedCogsVoucherNo("")
+    setBomSnapshot(null)
+    setBomVisible(false)
     resetPreviewChitNo()
   }, [resetPreviewChitNo, setDraft, value])
 
@@ -556,6 +558,15 @@ export default function InventoryEditorPopup({
     () => getLinkedChitDetailIdFromInventoryDraft(draft, chitType),
     [chitType, draft.INPUTS, draft.OUTPUTS],
   )
+  const hasBomAllocationData = useMemo(() => {
+    const snapshot = draft.BOM ?? bomSnapshot
+    if ((snapshot?.FINISHED?.length ?? 0) > 0 || (snapshot?.MATERIALS?.length ?? 0) > 0) {
+      return true
+    }
+    return draft.OUTPUTS.some(
+      (row) => !row.ISDEL && String(row.SUMMARY ?? "").trim().toUpperCase() === "BOM",
+    )
+  }, [bomSnapshot, draft.BOM, draft.OUTPUTS])
   const linkedCogsDetailId = useMemo(() => {
     if (chitType !== "IO") {
       return 0
@@ -807,8 +818,17 @@ export default function InventoryEditorPopup({
       .map(row => Number(row.OUTPUT_ID)).filter(id => id > 0))
     const oldOutputKeys = new Set(((previous.BOM ?? bomSnapshot)?.MATERIALS ?? [])
       .map(row => row.OUTPUT_CLIENT_KEY).filter(Boolean))
+    // Keep the current accounting link: BOM regenerates IO lines from defaults
+    // (CHITDETAIL_ID null), so without re-stamping the "Đã liên kết" badge vanishes.
+    const linkedDetailId = getLinkedChitDetailIdFromInventoryDraft(previous, "IO")
+    const linkedDetailCd = linkedDetailId > 0
+      ? String(
+        previous.OUTPUTS.find((row) => !row.ISDEL && Number(row.CHITDETAIL_ID ?? 0) === linkedDetailId)
+          ?.CHITDETAIL_CD ?? "",
+      ).trim()
+      : ""
     // A saved BOM's output is replaced, never silently added twice. Manual IO
-    // lines and other accounting links are preserved unchanged.
+    // lines are preserved; accounting link is re-applied to the final set below.
     const retained = previous.OUTPUTS.filter(row =>
       !oldOutputIds.has(Number(row.OUTPUT_ID)) && !oldOutputKeys.has(row.ROW_KEY)
       && (row.ISDEL || Number(row.PRODUCT_ID) > 0),
@@ -835,7 +855,10 @@ export default function InventoryEditorPopup({
       return { ...item, OUTPUT_ID: null, OUTPUT_CLIENT_KEY: line.ROW_KEY }
     })
     const nextBom: InventoryBomSnapshot = { FINISHED: snapshot.FINISHED, MATERIALS: nextMaterials }
-    const outputs = [...retained, ...generated].map((row, index) => ({ ...row, SORT: index + 1 }))
+    const mergedOutputs = [...retained, ...generated].map((row, index) => ({ ...row, SORT: index + 1 }))
+    const outputs = linkedDetailId > 0
+      ? applyAccountingDetailToInventoryLines(mergedOutputs, linkedDetailId, linkedDetailCd)
+      : mergedOutputs
     setDraft(current => ({
       ...current,
       OUTPUTS: outputs,
@@ -1435,9 +1458,18 @@ export default function InventoryEditorPopup({
                       <div className="flex flex-wrap items-center gap-2">
                         {accountingLinkSlot}
                         {showBomAllocation && !isCogsTab ? (
-                          <Button icon="formula" stylingMode="outlined"
+                          <Button
+                            icon="formula"
+                            stylingMode="outlined"
                             text={t("BOM_ALLOCATION", "Xuất NVL theo định mức")}
-                            disabled={loading || bomLoading} onClick={() => void handleOpenBom()} />
+                            disabled={loading || bomLoading}
+                            onClick={() => void handleOpenBom()}
+                            elementAttr={{
+                              class: hasBomAllocationData
+                                ? "inventory-bom-allocation-btn inventory-bom-allocation-btn--filled"
+                                : "inventory-bom-allocation-btn",
+                            }}
+                          />
                         ) : null}
                       </div>
                     )}

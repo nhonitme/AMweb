@@ -73,8 +73,9 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
                 )
                 return
             }
+            // Prefer the in-session draft so OT/SO reopen shows deletes/edits before source save.
             let value = pendingRef.current.get(row.ROW_KEY)
-            if (target) {
+            if (!value && target) {
                 const result = await getInventoryVouchers(getInventoryLedger(inventoryType), inventoryType, { chitId: target.chitId })
                 if (!result.data[0]) throw new Error(t("OPEN_INVENTORY_VOUCHER_FAILED", "Không tìm thấy phiếu kho"))
                 value = normalizeInventoryVoucherApi(result.data[0], inventoryType, draftRef.current.COMPANY_CD)
@@ -101,7 +102,9 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
                 value.OUTPUTS = value.OUTPUTS.map((line) => ({ ...line, ...defaults, OUTPUT_INVENTORY_YMD: source.CHIT_YMD }))
                 if (prepareInventoryDraft) value = await prepareInventoryDraft(value, currentRow, source)
             }
-            if (session === sessionRef.current) setEditor({ rowKey: row.ROW_KEY, value, isUpdate: Boolean(target) })
+            if (session === sessionRef.current) {
+                setEditor({ rowKey: row.ROW_KEY, value, isUpdate: Number(value.CHIT_ID ?? 0) > 0 })
+            }
         } catch (error) {
             notify(getApiErrorMessage(error, t("OPEN_INVENTORY_VOUCHER_FAILED", "Không mở được phiếu kho")), "error", 3500)
         } finally {
@@ -160,29 +163,13 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
         try {
             const row = draftRef.current.DETAILS.find((item) => item.ROW_KEY === editor.rowKey && !item.ISDEL)
             if (!row) throw new Error("Dòng nguồn không còn tồn tại")
-            if (chitType === "SO" || chitType === "OT") {
-                pendingRef.current.set(row.ROW_KEY, { ...value, CHIT_ID: editor.isUpdate ? value.CHIT_ID : null })
-                cogsDraftReadyRef.current = false
-                cogsDraftQueueRef.current = []
-                setCogsDraft(null)
-                notify(t("INVENTORY_PENDING_SOURCE_SAVE", "Đã giữ bản nháp phiếu kho. Lưu phiếu nguồn để hoàn tất liên kết."), "info", 3500)
-            } else if (Number(row.CHITDETAIL_ID) > 0) {
-                const saved = await persist(value, row, editor.isUpdate)
-                // Preserve other vouchers on the same row, and update every row linked to this voucher.
-                setDraft((source) => ({ ...source, DETAILS: source.DETAILS.map((detail) => saved.CHIT_TYPE === "IR" ? {
-                    ...detail,
-                    INVENTORY_INPUTS: [...detail.INVENTORY_INPUTS.filter((line) => Number(line.INVENTORY_ID) !== Number(saved.CHIT_ID)), ...saved.INPUTS.filter((line) => Number(line.CHITDETAIL_ID) === Number(detail.CHITDETAIL_ID))],
-                } : {
-                    ...detail,
-                    INVENTORY_OUTPUTS: [...detail.INVENTORY_OUTPUTS.filter((line) => Number(line.INVENTORY_ID) !== Number(saved.CHIT_ID)), ...saved.OUTPUTS.filter((line) => Number(line.CHITDETAIL_ID) === Number(detail.CHITDETAIL_ID))],
-                }) }))
-                pendingRef.current.delete(row.ROW_KEY)
-                setRefreshVersion((version) => version + 1)
-                notify(t("SAVE_SUCCESS", "Đã lưu phiếu kho"), "success", 2000)
-            } else {
-                pendingRef.current.set(row.ROW_KEY, value)
-                notify(t("INVENTORY_PENDING_SOURCE_SAVE", "Đã giữ bản nháp phiếu kho. Lưu phiếu nguồn để hoàn tất liên kết."), "info", 3500)
-            }
+            // All accounting↔inventory links (PO/PD/SR→IR, SO/SD/PR/OT→IO, VAT) keep a draft
+            // until the source voucher is saved — same UX as OT→IO.
+            pendingRef.current.set(row.ROW_KEY, { ...value, CHIT_ID: editor.isUpdate ? value.CHIT_ID : null })
+            cogsDraftReadyRef.current = false
+            cogsDraftQueueRef.current = []
+            setCogsDraft(null)
+            notify(t("INVENTORY_PENDING_SOURCE_SAVE", "Đã giữ bản nháp phiếu kho. Lưu phiếu nguồn để hoàn tất liên kết."), "info", 3500)
             setPendingKeys([...pendingRef.current.keys()])
             setEditor(null)
         } finally {
@@ -192,40 +179,29 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
     }
 
     const afterSave: AfterAccountingSave = async (saved, submitted) => {
-        if (chitType === "SO" || chitType === "OT") {
-            setDraft(saved)
-            for (const [rowKey, pending] of pendingRef.current) {
-                const submittedRow = submitted.DETAILS.find((row) => row.ROW_KEY === rowKey && !row.ISDEL)
-                const detail = saved.DETAILS.find((row) => row.ROW_KEY === rowKey && !row.ISDEL)
-                if (!submittedRow || !detail || !(Number(detail.CHITDETAIL_ID) > 0)) continue
-                const inventory = await persist(pending, detail, Number(pending.CHIT_ID ?? 0) > 0)
-                if (inventory.CHIT_TYPE === "IR") detail.INVENTORY_INPUTS = inventory.INPUTS
-                else detail.INVENTORY_OUTPUTS = inventory.OUTPUTS
-                pendingRef.current.delete(rowKey)
-                setPendingKeys([...pendingRef.current.keys()])
+        setDraft(saved)
+        for (const [rowKey, pending] of pendingRef.current) {
+            const submittedRow = submitted.DETAILS.find((row) => row.ROW_KEY === rowKey && !row.ISDEL)
+            if (!submittedRow) continue
+            let detail = saved.DETAILS.find((row) => row.ROW_KEY === rowKey && !row.ISDEL)
+            if (!detail) {
+                const matches = saved.DETAILS.filter((item) => !item.ISDEL && Number(item.SORT) === Number(submittedRow.SORT))
+                if (matches.length === 1) detail = matches[0]
             }
-            setRefreshVersion((version) => version + 1)
-            cogsDraftReadyRef.current = false
-            cogsDraftQueueRef.current = []
-            setCogsDraft(null)
-            return false
-        }
-
-        for (const row of submitted.DETAILS.filter((item) => !item.ISDEL)) {
-            const pending = pendingRef.current.get(row.ROW_KEY)
-            if (!pending) continue
-            const matches = saved.DETAILS.filter((item) => !item.ISDEL && Number(item.SORT) === Number(row.SORT))
-            if (matches.length !== 1 || !(Number(matches[0].CHITDETAIL_ID) > 0)) {
+            if (!detail || !(Number(detail.CHITDETAIL_ID) > 0)) {
                 throw new Error("Phiếu nguồn đã lưu, nhưng chưa xác định được dòng để liên kết kho. Vui lòng thử lưu lại.")
             }
-            const detail = matches[0]
-            const inventory = await persist(pending, detail, false)
+            const inventory = await persist(pending, detail, Number(pending.CHIT_ID ?? 0) > 0)
             if (inventory.CHIT_TYPE === "IR") detail.INVENTORY_INPUTS = inventory.INPUTS
             else detail.INVENTORY_OUTPUTS = inventory.OUTPUTS
-            pendingRef.current.delete(row.ROW_KEY)
+            pendingRef.current.delete(rowKey)
             setPendingKeys([...pendingRef.current.keys()])
         }
         setRefreshVersion((version) => version + 1)
+        cogsDraftReadyRef.current = false
+        cogsDraftQueueRef.current = []
+        setCogsDraft(null)
+        return false
     }
 
     const saveSource = async (record: ChitInfo, save: SaveAccountingWithInventory) => {
