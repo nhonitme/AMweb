@@ -90,6 +90,8 @@ interface ChitDetailGridProps {
     onOpenInventory?: (row: ChitDetail, target?: LinkedInventoryTarget) => Promise<void>
     inventoryBusy?: boolean
     pendingInventoryRowKeys?: string[]
+    pendingInventoryDeleteRowKeys?: string[]
+    pendingInventoryDeleteChitIds?: number[]
     inventoryRefreshVersion?: number
     showInventoryLinkActions?: boolean
     canOpenInventoryRow?: (row: ChitDetail) => boolean
@@ -226,6 +228,8 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
             onOpenInventory,
             inventoryBusy = false,
             pendingInventoryRowKeys = [],
+            pendingInventoryDeleteRowKeys = [],
+            pendingInventoryDeleteChitIds = [],
             inventoryRefreshVersion = 0,
             showInventoryLinkActions: showInventoryLinkActionsProp,
             inventoryLinkType,
@@ -366,7 +370,13 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
 
             void (async () => {
                 try {
-                    const lines = inventoryLinkType === "IR" || (!inventoryLinkType && isInventoryInputLinkedAccountingVoucherType(chitType))
+                    // OT may link IR or IO per detail account pair; load both sides.
+                    const lines = chitType === "OT" && !inventoryLinkType
+                        ? [
+                            ...(await getInventoryInputs(detailIds)),
+                            ...(await getInventoryOutputs(detailIds)),
+                          ]
+                        : inventoryLinkType === "IR" || (!inventoryLinkType && isInventoryInputLinkedAccountingVoucherType(chitType))
                         ? await getInventoryInputs(detailIds)
                         : inventoryLinkType === "IO" || (!inventoryLinkType && isInventoryOutputLinkedAccountingVoucherType(chitType))
                           ? await getInventoryOutputs(detailIds)
@@ -952,10 +962,15 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                             cellRender={(cellInfo: ColumnCellTemplateData<ChitDetail, string>) => {
                                 const rowKey = resolveChitDetailRowKey(cellInfo.row?.key, cellInfo.data)
                                 const detailId = Number(cellInfo.data?.CHITDETAIL_ID ?? 0)
-                                const linkedTargets =
+                                const pendingDeleteIdSet = new Set(pendingInventoryDeleteChitIds)
+                                const linkedTargets = (
                                     showInventoryLinkActions && detailId > 0
                                         ? linkedInventoryByDetailIdRef.current[detailId] ?? []
                                         : []
+                                ).filter((item) => !pendingDeleteIdSet.has(item.chitId))
+                                const inventoryPending =
+                                    pendingInventoryRowKeys.includes(rowKey ?? "")
+                                    || pendingInventoryDeleteRowKeys.includes(rowKey ?? "")
                                 void linkedInventoryVersion
 
                                 return (
@@ -975,9 +990,9 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                                             <OpenLinkedInventoryButton
                                                 targets={linkedTargets}
                                                 label={t("INVENTORY_ROW_BUTTON", "Hàng tồn kho")}
-                                                pending={pendingInventoryRowKeys.includes(rowKey ?? "")}
-                                                disabled={inventoryBusy || (detailId > 0 && (linkLoading || (!linkLoadFailed && linkedInventoryLoadKeyRef.current !== `${chitType}:${headerChitId}:${activeDetailIdsKey}:${inventoryRefreshVersion}:${linkRetryVersion}`))) || (readOnly && linkedTargets.length === 0 && !linkLoadFailed)}
-                                                hint={linkLoadFailed ? t("RETRY_INVENTORY_LINK", "Không tải được liên kết kho. Bấm để thử lại") : pendingInventoryRowKeys.includes(rowKey ?? "") ? t("INVENTORY_PENDING_SOURCE_SAVE", "Bản nháp phiếu kho — lưu phiếu nguồn để hoàn tất liên kết") : linkedTargets.length > 0 ? t("OPEN_INVENTORY_VOUCHER", "Mở phiếu hàng tồn kho đã liên kết") : t("ENTER_INVENTORY_VOUCHER", "Nhập phiếu hàng tồn kho")}
+                                                pending={inventoryPending}
+                                                disabled={inventoryBusy || (detailId > 0 && (linkLoading || (!linkLoadFailed && linkedInventoryLoadKeyRef.current !== `${chitType}:${headerChitId}:${activeDetailIdsKey}:${inventoryRefreshVersion}:${linkRetryVersion}`))) || (readOnly && linkedTargets.length === 0 && !linkLoadFailed && !inventoryPending)}
+                                                hint={linkLoadFailed ? t("RETRY_INVENTORY_LINK", "Không tải được liên kết kho. Bấm để thử lại") : inventoryPending ? t("INVENTORY_PENDING_SOURCE_SAVE", "Bản nháp phiếu kho — lưu phiếu nguồn để hoàn tất liên kết") : linkedTargets.length > 0 ? t("OPEN_INVENTORY_VOUCHER", "Mở phiếu hàng tồn kho đã liên kết") : t("ENTER_INVENTORY_VOUCHER", "Nhập phiếu hàng tồn kho")}
                                                 onOpen={(target) => {
                                                     if (detailId > 0 && linkLoadFailed) {
                                                         setLinkRetryVersion((version) => version + 1)

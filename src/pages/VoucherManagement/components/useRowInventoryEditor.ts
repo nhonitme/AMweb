@@ -1,18 +1,60 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction, type MutableRefObject } from "react"
+import { confirm } from "devextreme/ui/dialog"
 import notify from "devextreme/ui/notify"
 import { getApiErrorMessage } from "@/api/apiTypes"
-import { createInventoryVoucher, getInventoryVouchers, updateInventoryVoucher } from "@/api/inventoryVoucherApi"
+import { createInventoryVoucher, deleteInventoryVoucher, getInventoryVouchers, updateInventoryVoucher } from "@/api/inventoryVoucherApi"
 import { getInventoryInputs, getInventoryOutputs } from "@/api/inventoryLinkApi"
 import { clearSysCodeSequencePreviewCache } from "@/api/sysCodeSequenceApi"
+import { getUserSettingsBatch } from "@/api/userSettingApi"
 import { applyAccountingDetailToInventoryLines, getInventoryTypeForAccountingChitType, type LinkedInventoryTarget } from "@/pages/Inventory/inventoryAccountingLinkUtils"
 import { createDefaultInventoryVoucher, formatInventoryDate, getInventoryLedger, mapInventoryVoucherToApiPayload, normalizeInventoryVoucherApi } from "@/pages/Inventory/inventoryVoucherModel"
 import type { ChitDetail, ChitInfo, ChitType, InventoryVoucher } from "@/types/voucher"
 import type { ChitDetailGridHandle } from "./ChitDetailGridPopup"
 import { canLinkOtCogsInventoryDetail, createDefaultChit, createDefaultChitDetail, isOtCogsInventoryLinkDetail } from "../chitUtils"
+import {
+    OT_INVENTORY_ACCOUNT_PAIR_KEYS,
+    OT_INVENTORY_ISSUE_ACCOUNT_PAIRS,
+    OT_INVENTORY_RECEIPT_ACCOUNT_PAIRS,
+    resolveOtInventoryChitType,
+} from "../otInventoryAccountPairs"
 
 export type AfterAccountingSave = (saved: ChitInfo, submitted: ChitInfo) => Promise<boolean | void>
 export type SaveAccountingWithInventory = (record: ChitInfo, afterSave?: AfterAccountingSave) => Promise<void>
 export type InventoryDraftPreparation = (value: InventoryVoucher, row: ChitDetail, source: ChitInfo) => Promise<InventoryVoucher>
+
+type InventoryDirection = "IR" | "IO"
+type PendingInventoryDelete = { chitId: number; chitType: InventoryDirection }
+
+function isInventoryDirection(value: unknown): value is InventoryDirection {
+    return value === "IR" || value === "IO"
+}
+
+function activeLinkedInventoryIds(detail: ChitDetail, direction: InventoryDirection): number[] {
+    const lines = direction === "IR" ? detail.INVENTORY_INPUTS ?? [] : detail.INVENTORY_OUTPUTS ?? []
+    return [...new Set(
+        lines
+            .filter((line) => !line.ISDEL && Number(line.ISDEL ?? 0) !== 1 && Number(line.INVENTORY_ID) > 0)
+            .map((line) => Number(line.INVENTORY_ID)),
+    )]
+}
+
+function resolveExistingInventoryDirection(
+    detail: ChitDetail,
+    pending: InventoryVoucher | undefined,
+    target?: LinkedInventoryTarget,
+): InventoryDirection | null {
+    if (pending && isInventoryDirection(pending.CHIT_TYPE)) {
+        return pending.CHIT_TYPE
+    }
+    if (target && isInventoryDirection(target.chitType)) {
+        return target.chitType
+    }
+    const hasInputs = activeLinkedInventoryIds(detail, "IR").length > 0
+    const hasOutputs = activeLinkedInventoryIds(detail, "IO").length > 0
+    if (hasInputs && !hasOutputs) return "IR"
+    if (hasOutputs && !hasInputs) return "IO"
+    return null
+}
 
 export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, setDraft, gridRef, onSave, onSaveAndNew, inventoryDraftType, prepareInventoryDraft, validateInventoryDraft, canOpenInventoryRow, t }: {
     visible: boolean
@@ -30,10 +72,24 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
     t: (key: string, fallback: string) => string
 }) {
     const pendingRef = useRef(new Map<string, InventoryVoucher>())
+    const pendingDeletesRef = useRef(new Map<string, PendingInventoryDelete[]>())
+    const otAccountPairsRef = useRef<{ receipt: string; issue: string } | null>(null)
     const busyRef = useRef(false)
     const sessionRef = useRef(0)
     const [pendingKeys, setPendingKeys] = useState<string[]>([])
+    const [pendingDeleteRowKeys, setPendingDeleteRowKeys] = useState<string[]>([])
+    const [pendingDeleteChitIds, setPendingDeleteChitIds] = useState<number[]>([])
     const [refreshVersion, setRefreshVersion] = useState(0)
+
+    const syncPendingDeleteState = () => {
+        const rowKeys = [...pendingDeletesRef.current.keys()]
+        const chitIds = [...pendingDeletesRef.current.values()]
+            .flat()
+            .map((item) => item.chitId)
+            .filter((id) => id > 0)
+        setPendingDeleteRowKeys(rowKeys)
+        setPendingDeleteChitIds([...new Set(chitIds)])
+    }
     const [loading, setLoading] = useState(false)
     const [editor, setEditor] = useState<{ rowKey: string; value: InventoryVoucher; isUpdate: boolean } | null>(null)
     const [cogsDraft, setCogsDraft] = useState<{ rowKey: string; inventory: InventoryVoucher; value: ChitInfo } | null>(null)
@@ -44,7 +100,11 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
         if (!visible) {
             sessionRef.current += 1
             pendingRef.current.clear()
+            pendingDeletesRef.current.clear()
+            otAccountPairsRef.current = null
             setPendingKeys([])
+            setPendingDeleteRowKeys([])
+            setPendingDeleteChitIds([])
             setEditor(null)
             setCogsDraft(null)
             cogsDraftReadyRef.current = false
@@ -52,11 +112,64 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
         }
     }, [visible])
 
+    const loadOtAccountPairs = async () => {
+        if (otAccountPairsRef.current) return otAccountPairsRef.current
+        const settings = await getUserSettingsBatch([...OT_INVENTORY_ACCOUNT_PAIR_KEYS])
+        const byKey = new Map(settings.map((item) => [item.KEY_NAME, item.VALUE]))
+        const next = {
+            receipt: byKey.get(OT_INVENTORY_RECEIPT_ACCOUNT_PAIRS) ?? "",
+            issue: byKey.get(OT_INVENTORY_ISSUE_ACCOUNT_PAIRS) ?? "",
+        }
+        otAccountPairsRef.current = next
+        return next
+    }
+
+    const queueDirectionSwitchDeletes = (
+        rowKey: string,
+        detail: ChitDetail,
+        previousDirection: InventoryDirection,
+        previousPending?: InventoryVoucher,
+    ) => {
+        const deletes: PendingInventoryDelete[] = []
+        for (const chitId of activeLinkedInventoryIds(detail, previousDirection)) {
+            deletes.push({ chitId, chitType: previousDirection })
+        }
+        const pendingId = Number(previousPending?.CHIT_ID ?? 0)
+        if (previousPending && isInventoryDirection(previousPending.CHIT_TYPE) && pendingId > 0) {
+            if (!deletes.some((item) => item.chitId === pendingId)) {
+                deletes.push({ chitId: pendingId, chitType: previousPending.CHIT_TYPE })
+            }
+        }
+        if (deletes.length > 0) {
+            const existing = pendingDeletesRef.current.get(rowKey) ?? []
+            const merged = [...existing]
+            for (const item of deletes) {
+                if (!merged.some((entry) => entry.chitId === item.chitId && entry.chitType === item.chitType)) {
+                    merged.push(item)
+                }
+            }
+            pendingDeletesRef.current.set(rowKey, merged)
+        }
+        pendingRef.current.delete(rowKey)
+        setDraft((current) => ({
+            ...current,
+            DETAILS: current.DETAILS.map((item) => {
+                if (item.ROW_KEY !== rowKey) return item
+                return {
+                    ...item,
+                    INVENTORY_INPUTS: previousDirection === "IR" ? [] : item.INVENTORY_INPUTS,
+                    INVENTORY_OUTPUTS: previousDirection === "IO" ? [] : item.INVENTORY_OUTPUTS,
+                }
+            }),
+        }))
+        setPendingKeys([...pendingRef.current.keys()])
+        syncPendingDeleteState()
+        setRefreshVersion((version) => version + 1)
+    }
+
     const open = async (row: ChitDetail, target?: LinkedInventoryTarget) => {
         if (busyRef.current || (!target && readOnly)) return
 
-        const inventoryType = target?.chitType ?? inventoryDraftType ?? (chitType === "OT" ? "IO" : getInventoryTypeForAccountingChitType(chitType))
-        if (inventoryType !== "IR" && inventoryType !== "IO") return
         busyRef.current = true
         setLoading(true)
         const session = sessionRef.current
@@ -64,8 +177,62 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
             const rows = await gridRef.current?.savePendingChanges() ?? draftRef.current.DETAILS
             const currentRow = rows.find((item) => item.ROW_KEY === row.ROW_KEY)
             if (!currentRow || currentRow.ISDEL) return
-            const otCogs = chitType === "OT" && isOtCogsInventoryLinkDetail(currentRow)
-            if (!target && otCogs && !canLinkOtCogsInventoryDetail(currentRow)) {
+
+            let openTarget = target
+            let inventoryType: string | null | undefined =
+                openTarget?.chitType ?? inventoryDraftType ?? (chitType === "OT" ? "IO" : getInventoryTypeForAccountingChitType(chitType))
+
+            if (chitType === "OT" && !inventoryDraftType) {
+                const pairs = await loadOtAccountPairs()
+                const desired = resolveOtInventoryChitType(
+                    currentRow.DEBIT,
+                    currentRow.CREDIT,
+                    pairs.receipt,
+                    pairs.issue,
+                )
+                if (!desired) {
+                    notify(
+                        t(
+                            "MSG_NOT_INPUT_INVENTORY",
+                            "Cặp tài khoản Nợ/Có không khớp cấu hình nhập kho hoặc xuất kho (user_setting).",
+                        ),
+                        "warning",
+                        4500,
+                    )
+                    return
+                }
+
+                const previousPending = pendingRef.current.get(row.ROW_KEY)
+                const existingDirection = resolveExistingInventoryDirection(currentRow, previousPending, openTarget)
+                if (existingDirection && existingDirection !== desired) {
+                    const fromLabel = existingDirection === "IR"
+                        ? t("INVENTORY_RECEIPT", "Phiếu nhập kho")
+                        : t("INVENTORY_ISSUE", "Phiếu xuất kho")
+                    const toLabel = desired === "IR"
+                        ? t("INVENTORY_RECEIPT", "Phiếu nhập kho")
+                        : t("INVENTORY_ISSUE", "Phiếu xuất kho")
+                    const confirmed = await confirm(
+                        t(
+                            "OT_INVENTORY_DIRECTION_SWITCH_CONFIRM",
+                            "Dòng này đang liên kết {0}. Cặp hạch toán hiện tại khớp {1}. Nếu tiếp tục, phiếu kho cũ sẽ được đánh dấu xóa (nháp) và chỉ bị xóa khi bạn lưu phiếu OT; đồng thời sẽ lập phiếu kho theo hướng mới.",
+                        )
+                            .replace("{0}", fromLabel)
+                            .replace("{1}", toLabel),
+                        t("MSG_CONFIRM", "Xác nhận"),
+                    )
+                    if (!confirmed) return
+                    queueDirectionSwitchDeletes(row.ROW_KEY, currentRow, existingDirection, previousPending)
+                    openTarget = undefined
+                } else if (openTarget && isInventoryDirection(openTarget.chitType) && openTarget.chitType !== desired) {
+                    openTarget = undefined
+                }
+                inventoryType = desired
+            }
+
+            if (inventoryType !== "IR" && inventoryType !== "IO") return
+
+            const otCogs = chitType === "OT" && inventoryType === "IO" && isOtCogsInventoryLinkDetail(currentRow)
+            if (!openTarget && otCogs && !canLinkOtCogsInventoryDetail(currentRow)) {
                 notify(
                     t("COGS_DETAIL_LINK_ACCOUNTS_REQUIRED", "Liên kết giá vốn yêu cầu dòng Nợ 632 / Có 156, tiền VND không âm"),
                     "warning",
@@ -75,10 +242,14 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
             }
             // Prefer the in-session draft so OT/SO reopen shows deletes/edits before source save.
             let value = pendingRef.current.get(row.ROW_KEY)
-            if (!value && target) {
-                const result = await getInventoryVouchers(getInventoryLedger(inventoryType), inventoryType, { chitId: target.chitId })
+            if (value && value.CHIT_TYPE !== inventoryType) {
+                value = undefined
+            }
+            if (!value && openTarget) {
+                const targetType = isInventoryDirection(openTarget.chitType) ? openTarget.chitType : inventoryType
+                const result = await getInventoryVouchers(getInventoryLedger(targetType), targetType, { chitId: openTarget.chitId })
                 if (!result.data[0]) throw new Error(t("OPEN_INVENTORY_VOUCHER_FAILED", "Không tìm thấy phiếu kho"))
-                value = normalizeInventoryVoucherApi(result.data[0], inventoryType, draftRef.current.COMPANY_CD)
+                value = normalizeInventoryVoucherApi(result.data[0], targetType, draftRef.current.COMPANY_CD)
             } else if (!value) {
                 const source = draftRef.current
                 value = createDefaultInventoryVoucher(inventoryType, source.COMPANY_CD)
@@ -115,7 +286,7 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
 
     const persist = async (value: InventoryVoucher, detail: ChitDetail, update: boolean) => {
         const type = value.CHIT_TYPE
-        const otCogs = chitType === "OT" && isOtCogsInventoryLinkDetail(detail)
+        const otCogs = chitType === "OT" && type === "IO" && isOtCogsInventoryLinkDetail(detail)
         const linked = {
             ...value,
             CHIT_YMD: formatInventoryDate(value.CHIT_YMD),
@@ -178,7 +349,21 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
         }
     }
 
+    const flushPendingDeletes = async () => {
+        for (const [rowKey, deletes] of [...pendingDeletesRef.current.entries()]) {
+            for (const item of deletes) {
+                if (!(item.chitId > 0)) continue
+                await deleteInventoryVoucher(getInventoryLedger(item.chitType), item.chitType, item.chitId)
+            }
+            pendingDeletesRef.current.delete(rowKey)
+        }
+        syncPendingDeleteState()
+    }
+
     const afterSave: AfterAccountingSave = async (saved, submitted) => {
+        const deletedIds = new Set(
+            [...pendingDeletesRef.current.values()].flat().map((item) => item.chitId).filter((id) => id > 0),
+        )
         setDraft(saved)
         for (const [rowKey, pending] of pendingRef.current) {
             const submittedRow = submitted.DETAILS.find((row) => row.ROW_KEY === rowKey && !row.ISDEL)
@@ -192,10 +377,31 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
                 throw new Error("Phiếu nguồn đã lưu, nhưng chưa xác định được dòng để liên kết kho. Vui lòng thử lưu lại.")
             }
             const inventory = await persist(pending, detail, Number(pending.CHIT_ID ?? 0) > 0)
-            if (inventory.CHIT_TYPE === "IR") detail.INVENTORY_INPUTS = inventory.INPUTS
-            else detail.INVENTORY_OUTPUTS = inventory.OUTPUTS
+            if (inventory.CHIT_TYPE === "IR") {
+                detail.INVENTORY_INPUTS = inventory.INPUTS
+                detail.INVENTORY_OUTPUTS = []
+            } else {
+                detail.INVENTORY_OUTPUTS = inventory.OUTPUTS
+                detail.INVENTORY_INPUTS = []
+            }
             pendingRef.current.delete(rowKey)
             setPendingKeys([...pendingRef.current.keys()])
+        }
+        // Create/update the new direction first; remove the opposite-direction voucher after.
+        await flushPendingDeletes()
+        if (deletedIds.size > 0) {
+            setDraft((current) => ({
+                ...current,
+                DETAILS: current.DETAILS.map((detail) => ({
+                    ...detail,
+                    INVENTORY_INPUTS: (detail.INVENTORY_INPUTS ?? []).filter(
+                        (line) => !deletedIds.has(Number(line.INVENTORY_ID)),
+                    ),
+                    INVENTORY_OUTPUTS: (detail.INVENTORY_OUTPUTS ?? []).filter(
+                        (line) => !deletedIds.has(Number(line.INVENTORY_ID)),
+                    ),
+                })),
+            }))
         }
         setRefreshVersion((version) => version + 1)
         cogsDraftReadyRef.current = false
@@ -208,6 +414,7 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
         if (busyRef.current || editor) return
         const activeKeys = new Set(record.DETAILS.filter((row) => !row.ISDEL).map((row) => row.ROW_KEY))
         for (const key of pendingRef.current.keys()) if (!activeKeys.has(key)) pendingRef.current.delete(key)
+        for (const key of pendingDeletesRef.current.keys()) if (!activeKeys.has(key)) pendingDeletesRef.current.delete(key)
         // VAT imports use the same preparation and persistence for one or many invoices,
         // including rows whose inventory editor has never been opened.
         if (prepareInventoryDraft && canOpenInventoryRow) {
@@ -242,7 +449,7 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
             notify(getApiErrorMessage(error, "Thông tin phiếu kho chưa đầy đủ."), "warning", 5000)
             return
         }
-        if (pendingRef.current.size === 0) {
+        if (pendingRef.current.size === 0 && pendingDeletesRef.current.size === 0) {
             await save(record)
             return
         }
@@ -335,8 +542,18 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
             }
             setEditor(null)
         },
-        clearPending: () => { pendingRef.current.clear(); setPendingKeys([]) },
+        clearPending: () => {
+            pendingRef.current.clear()
+            pendingDeletesRef.current.clear()
+            setPendingKeys([])
+            setPendingDeleteRowKeys([])
+            setPendingDeleteChitIds([])
+        },
         saveSource: (record: ChitInfo) => saveSource(record, onSave),
         saveSourceAndNew: onSaveAndNew ? (record: ChitInfo) => saveSource(record, onSaveAndNew) : undefined,
+        pendingDeleteRowKeys,
+        pendingDeleteChitIds,
     }
 }
+
+export type RowInventoryEditorApi = ReturnType<typeof useRowInventoryEditor>

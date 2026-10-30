@@ -819,7 +819,10 @@ export function isInventoryOutputLinkedAccountingVoucherType(chitType?: ChitType
   return normalized === "SO" || normalized === "SD" || normalized === "PR" || normalized === "OT"
 }
 
-/** OT detail uses COGS inventory link when debit is 632; otherwise normal issue link like SO. */
+/**
+ * OT detail uses COGS inventory link when debit is 632 (within IO direction).
+ * OT IR vs IO popup direction is resolved from OT_INVENTORY_*_ACCOUNT_PAIRS.
+ */
 export function isOtCogsInventoryLinkDetail(detail?: Pick<ChitDetail, "DEBIT"> | null): boolean {
   return String(detail?.DEBIT ?? "").trim() === "632"
 }

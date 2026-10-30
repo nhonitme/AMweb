@@ -804,6 +804,7 @@ function AppWorkspaceRoutes({
                         <Route path="/master/cost-center" element={<DepartmentManagementPage />} />
                         <Route path="/cost/cost-object" element={<CostObjectSetupPage />} />
                         <Route path="/cost/issue-material" element={<OtherVoucherPage />} />
+                        <Route path="/cost/finish-goods-in" element={<OtherVoucherPage />} />
                         <Route path="/bank-management" element={<BankManagementPage />} />
                         <Route path="/master/bank" element={<BankManagementPage />} />
                         <Route path="/company" element={<CompanyManagement />} />

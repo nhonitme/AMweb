@@ -119,7 +119,7 @@ interface ChitManagementPageProps {
   chitType: ChitType
   titleFallback?: string
   titleKey?: string
-  /** Chỉ dùng trên /cost/issue-material: "MATERIAL_ISSUE" */
+  /** /cost/issue-material → MATERIAL_ISSUE; /cost/finish-goods-in → FINISH_GOODS_IN */
   accountPairFilter?: string
 }
 

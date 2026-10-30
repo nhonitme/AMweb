@@ -38,7 +38,7 @@ export type GetChitsParams = {
   INCLUDE_DETAILS?: boolean
   pageNumber?: number
   pageSize?: number
-  /** Chỉ /cost/issue-material: MATERIAL_ISSUE → API lọc theo MATERIAL_ISSUE_ACCOUNT_PAIRS */
+  /** MATERIAL_ISSUE → MATERIAL_ISSUE_ACCOUNT_PAIRS; FINISH_GOODS_IN → FINISH_GOODS_IN_ACCOUNT_PAIRS */
   accountPairFilter?: string | null
 }
 

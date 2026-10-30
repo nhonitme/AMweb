@@ -51,7 +51,6 @@ import {
     getChitTypeLabel,
     getVoucherEditorDetailGridId,
     isInventoryLinkedAccountingVoucherType,
-    isOtCogsInventoryLinkDetail,
     isPeriodLockVoucher,
 } from "../chitUtils"
 import { openVoucherReportViewer } from "../voucherReportViewer"
@@ -244,9 +243,13 @@ export function ChitEditorPopup({
     const inventoryRefreshVersion = rowInventory.refreshVersion + inventoryLinkRefreshVersion
 
     const handleOpenInventory = useCallback(async (row: ChitInfo["DETAILS"][number], target?: LinkedInventoryTarget) => {
-        // OT normal IO links stay in rowInventory; only COGS (Nợ 632) uses the overlay return handler.
-        const useLinkedInventoryOverlay = chitType !== "OT" || isOtCogsInventoryLinkDetail(row)
-        if (target && useLinkedInventoryOverlay && onReturnToLinkedInventory?.(target.chitId)) {
+        // OT always goes through rowInventory so account-pair IR/IO resolution and
+        // direction-switch confirmation run before opening. Non-OT COGS overlays stay.
+        if (chitType === "OT") {
+            await rowInventory.open(row, target)
+            return
+        }
+        if (target && onReturnToLinkedInventory?.(target.chitId)) {
             return
         }
         await rowInventory.open(row, target)
@@ -685,6 +688,8 @@ export function ChitEditorPopup({
                                 inventoryLinkType={inventoryDraftType}
                                 inventoryBusy={rowInventory.loading || loading || Boolean(rowInventory.editor)}
                                 pendingInventoryRowKeys={rowInventory.pendingKeys}
+                                pendingInventoryDeleteRowKeys={rowInventory.pendingDeleteRowKeys}
+                                pendingInventoryDeleteChitIds={rowInventory.pendingDeleteChitIds}
                                 inventoryRefreshVersion={inventoryRefreshVersion}
                                 showInventoryLinkActions={showInventoryLinkActions}
                             />

@@ -25,6 +25,8 @@ interface ChitDocumentEditorPanelProps {
   onOpenInventory?: (row: ChitDetail, target?: LinkedInventoryTarget) => Promise<void>
   inventoryBusy?: boolean
   pendingInventoryRowKeys?: string[]
+  pendingInventoryDeleteRowKeys?: string[]
+  pendingInventoryDeleteChitIds?: number[]
   inventoryRefreshVersion?: number
   showInventoryLinkActions?: boolean
   canOpenInventoryRow?: (row: ChitDetail) => boolean
@@ -51,6 +53,8 @@ export default function ChitDocumentEditorPanel({
   onOpenInventory,
   inventoryBusy,
   pendingInventoryRowKeys,
+  pendingInventoryDeleteRowKeys,
+  pendingInventoryDeleteChitIds,
   inventoryRefreshVersion,
   showInventoryLinkActions,
   canOpenInventoryRow,
@@ -80,6 +84,8 @@ export default function ChitDocumentEditorPanel({
         onOpenInventory={onOpenInventory}
         inventoryBusy={inventoryBusy}
         pendingInventoryRowKeys={pendingInventoryRowKeys}
+        pendingInventoryDeleteRowKeys={pendingInventoryDeleteRowKeys}
+        pendingInventoryDeleteChitIds={pendingInventoryDeleteChitIds}
         inventoryRefreshVersion={inventoryRefreshVersion}
         showInventoryLinkActions={showInventoryLinkActions}
         canOpenInventoryRow={canOpenInventoryRow}

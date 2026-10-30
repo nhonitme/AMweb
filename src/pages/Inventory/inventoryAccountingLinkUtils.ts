@@ -99,6 +99,11 @@ export function isInventoryVoucherUnlinked(draft: InventoryVoucher, chitType: st
   })
 }
 
+/**
+ * Default inventory direction for accounting vouchers.
+ * OT is listed as IO for bulk-link tooling; per-detail OT direction uses
+ * OT_INVENTORY_RECEIPT/ISSUE_ACCOUNT_PAIRS when opening Hàng tồn kho.
+ */
 export function getInventoryTypeForAccountingChitType(chitType: ChitType | string): "IR" | "IO" | null {
   const normalized = String(chitType ?? "").trim().toUpperCase()
   if (normalized === "PO" || normalized === "PD" || normalized === "SR") {
