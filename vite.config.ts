@@ -1,4 +1,4 @@
-import { createReadStream, existsSync, statSync } from "node:fs"
+import { cpSync, createReadStream, existsSync, statSync } from "node:fs"
 import path from "node:path"
 import { defineConfig, type Plugin } from "vite"
 import react from "@vitejs/plugin-react"
@@ -15,9 +15,15 @@ const AMNOTE_UI_MIME: Record<string, string> = {
     ".woff2": "font/woff2",
 }
 
-/** Serve kit hosting/ only during `vite` / `npm run dev` (not production build). */
+const AMNOTE_UI_SRC = path.resolve(__dirname, "dev-static/amnote-ui")
+const AMNOTE_UI_BUILD_DEST = path.resolve(
+    __dirname,
+    "../API_AMNOTE_WEB/API_AMNOTE_WEB/wwwroot/amnote-ui",
+)
+
+/** Serve kit during `vite` / `npm run dev`. */
 function amnoteUiGuidelinesDevPlugin(): Plugin {
-    const root = path.resolve(__dirname, "dev-static/amnote-ui")
+    const root = AMNOTE_UI_SRC
     return {
         name: "amnote-ui-guidelines-dev",
         apply: "serve",
@@ -53,6 +59,21 @@ function amnoteUiGuidelinesDevPlugin(): Plugin {
     }
 }
 
+/** Copy kit into wwwroot so company 0001 can open Guidelines in production build. */
+function amnoteUiGuidelinesBuildPlugin(): Plugin {
+    return {
+        name: "amnote-ui-guidelines-build",
+        apply: "build",
+        closeBundle() {
+            if (!existsSync(AMNOTE_UI_SRC)) {
+                return
+            }
+
+            cpSync(AMNOTE_UI_SRC, AMNOTE_UI_BUILD_DEST, { recursive: true })
+        },
+    }
+}
+
 export default defineConfig({
     resolve: {
         alias: {
@@ -61,7 +82,7 @@ export default defineConfig({
             // "@": path.resolve(__dirname, "."),
         },
     },
-    plugins: [react(), amnoteUiGuidelinesDevPlugin()],
+    plugins: [react(), amnoteUiGuidelinesDevPlugin(), amnoteUiGuidelinesBuildPlugin()],
     build: {
         outDir: '../API_AMNOTE_WEB/API_AMNOTE_WEB/wwwroot',
         emptyOutDir: true

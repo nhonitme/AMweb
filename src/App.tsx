@@ -28,7 +28,7 @@ import {
     getMenuPath,
     isOverviewPath,
 } from '@/api/menuApi';
-import { SHOW_DASHBOARD } from '@/lib/featureVisibility';
+import { canShowUiGuidelines, SHOW_DASHBOARD } from '@/lib/featureVisibility';
 import { useLicenseDetailsQuery, useLicenseStatusQuery } from '@/hooks/queries/useLicenseQueries';
 import { collectDescendantIds as collectFinanceDescendantIds, findFinanceTopMenu, flattenFinanceMenuForSidebar } from '@/lib/financeMenu';
 import { collectDescendantIds as collectReportDescendantIds, findReportTopMenu, flattenReportMenuForSidebar } from '@/lib/reportMenu';
@@ -65,9 +65,7 @@ import {
 
 const DashboardPage = lazy(() => import('./components/DashboardPage'));
 const HelpSupportPage = lazy(() => import('./components/HelpSupportPage'));
-const UiGuidelinesDevPage = import.meta.env.DEV
-    ? lazy(() => import('./pages/Help/UiGuidelinesDevPage'))
-    : null;
+const UiGuidelinesDevPage = lazy(() => import('./pages/Help/UiGuidelinesDevPage'));
 const LicenseInfoPage = lazy(() => import('./components/LicenseInfoPage'));
 const CompanyManagement = lazy(() => import('./pages/Module/CompanyManagement/CompanyInfo'));
 const DebitNotePage = lazy(() => import('./pages/VoucherManagement/DebitNotePage'));
@@ -815,9 +813,16 @@ function AppWorkspaceRoutes({
                         <Route path="/profile" element={<ProfilePage />} />
                         <Route path="/system/license" element={<LicenseInfoPage />} />
                         <Route path="/help-support" element={<HelpSupportPage />} />
-                        {import.meta.env.DEV && UiGuidelinesDevPage ? (
-                            <Route path="/help/ui-guidelines" element={<UiGuidelinesDevPage />} />
-                        ) : null}
+                        <Route
+                            path="/help/ui-guidelines"
+                            element={
+                                canShowUiGuidelines(currentCompanyCd) ? (
+                                    <UiGuidelinesDevPage />
+                                ) : (
+                                    <Navigate to={buildAppPath(currentCompanyCd, "/help-support")} replace />
+                                )
+                            }
+                        />
                       <Route path="/master/user" element={<UserManagementPage />} />
                         <Route path="/customer-management" element={<Navigate to={buildAppPath(currentCompanyCd, "/master/customer")} replace />} />
                         <Route path="/master/customer" element={<CustomerExtPage />} />

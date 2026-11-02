@@ -56,7 +56,12 @@ import {
   type AuthSession,
 } from "@/lib/login";
 import { clearFrontendCaches } from "@/lib/cacheManager";
-import { SHOW_DASHBOARD, SHOW_NOTIFICATIONS, SHOW_USER_GUIDE } from "@/lib/featureVisibility";
+import {
+  canShowUiGuidelines,
+  SHOW_DASHBOARD,
+  SHOW_NOTIFICATIONS,
+  SHOW_USER_GUIDE,
+} from "@/lib/featureVisibility";
 import { SHORTCUT_KEYS } from "@/lib/shortcuts/shortcutKeys";
 import { dispatchShortcutCombo } from "@/lib/shortcuts/shortcutUtils";
 import { useSysCodes } from "@/lib/sysCodeContext";
@@ -1083,7 +1088,7 @@ export default function Header({
                       </div>
                     </button>
 
-                    {import.meta.env.DEV ? (
+                    {canShowUiGuidelines(currentCompanyCd) ? (
                       <button
                         className={`flex w-full items-start gap-3 px-4 py-3 text-left text-sm transition-colors ${itemHoverClass} ${bodyTextClass}`}
                         onClick={handleUiGuidelinesClick}
@@ -1095,7 +1100,10 @@ export default function Header({
                             {t("uiGuidelines", "AMnote UI Guidelines")}
                           </div>
                           <div className={`mt-1 text-xs ${mutedTextClass}`}>
-                            {t("uiGuidelinesDevOnly", "Dev only · design system & component kit")}
+                            {t(
+                              "uiGuidelinesCompanyAccess",
+                              "Design system & component kit · company 0001 / DEV",
+                            )}
                           </div>
                         </div>
                       </button>
