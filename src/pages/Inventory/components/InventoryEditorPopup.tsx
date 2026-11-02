@@ -1487,16 +1487,14 @@ export default function InventoryEditorPopup({
             className="inventory-editor-footer border-t border-gray-200 bg-white px-2 py-1"
             accentSave
             busy={loading}
-            leadingContent={!readOnly && isUpdate && Number(value.CHIT_ID) > 0 ? (
-              <DeleteVoucherButton
+            actions={[
+              { key: "delete", visible: !readOnly && isUpdate && Number(value.CHIT_ID) > 0, render: <DeleteVoucherButton
                 disabled={loading}
                 voucherNo={value.CHIT_NO || String(value.CHIT_ID)}
                 onDelete={() => deleteInventoryVoucher(getInventoryLedger(chitType), chitType, Number(value.CHIT_ID))}
                 onDeleted={() => { onDeleted?.(); onClose() }}
                 onBusyChange={setDeleting}
-              />
-            ) : null}
-            actions={[
+              /> },
               { key: "copy", text: t("COPY", "Sao chép"), visible: !readOnly && Boolean(onCopy), onClick: async () => {
                 try {
                   onCopy?.(await syncGridRows())

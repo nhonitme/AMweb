@@ -701,16 +701,14 @@ export function ChitEditorPopup({
                         className="chit-editor-footer border-t border-gray-200 bg-white px-2 py-1"
                         accentSave
                         busy={loading}
-                        leadingContent={!readOnly && isUpdate && Number(value.CHIT_ID) > 0 && !isPeriodLockVoucher(value) ? (
-                            <DeleteVoucherButton
+                        actions={[
+              { key: "delete", visible: !readOnly && isUpdate && Number(value.CHIT_ID) > 0 && !isPeriodLockVoucher(value), render: <DeleteVoucherButton
                                 disabled={loading || rowInventory.loading || Boolean(rowInventory.editor)}
                                 voucherNo={value.CHIT_NO || String(value.CHIT_ID)}
                                 onDelete={() => deleteChit(ledger, Number(value.CHIT_ID), chitType)}
                                 onDeleted={() => { onDeleted?.(); onClose() }}
                                 onBusyChange={setDeleting}
-                            />
-                        ) : null}
-                        actions={[
+                            /> },
                             { key: "copy", text: t("COPY", "Sao chép"), visible: !readOnly && Boolean(onCopy), disabled: rowInventory.loading || Boolean(rowInventory.editor), onClick: async () => {
                                 try {
                                     const details = detailGridRef.current ? await detailGridRef.current.savePendingChanges() : draftRef.current.DETAILS

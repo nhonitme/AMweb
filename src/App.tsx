@@ -78,6 +78,7 @@ const PaymentVoucherPage = lazy(() => import('./pages/VoucherManagement/PaymentV
 const ReceiptVoucherPage = lazy(() => import('./pages/VoucherManagement/ReceiptVoucherPage'));
 const DepartmentManagementPage = lazy(() => import('./pages/Module/DepartmentManagement/DepartmentManagementPage'));
 const CostObjectSetupPage = lazy(() => import('./pages/Costing/CostObjectSetupPage'));
+const ProductionCostingPage = lazy(() => import('./pages/Costing/ProductionCostingPage'));
 const BankManagementPage = lazy(() => import('./pages/Module/BankManagementPage/BankManagementPage'));
 const CustomerExtPage = lazy(() => import('./pages/Module/CustomerManagementPage/CustomerExtPage'));
 const ProductManagementPage = lazy(() => import('./pages/Module/ProductManagement/ProductManagementPage'));
@@ -803,6 +804,8 @@ function AppWorkspaceRoutes({
                         <Route path="/cost-center" element={<Navigate to={buildAppPath(currentCompanyCd, "/master/cost-center")} replace />} />
                         <Route path="/master/cost-center" element={<DepartmentManagementPage />} />
                         <Route path="/cost/cost-object" element={<CostObjectSetupPage />} />
+                        {/* G-K Giá thành giản đơn All-in-One (FE mock DEMO — chưa nối API ghi sổ) */}
+                        <Route path="/cost/simple-costing" element={<ProductionCostingPage />} />
                         <Route path="/cost/issue-material" element={<OtherVoucherPage />} />
                         <Route path="/cost/finish-goods-in" element={<OtherVoucherPage />} />
                         <Route path="/bank-management" element={<BankManagementPage />} />

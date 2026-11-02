@@ -3,7 +3,7 @@ import Button from "devextreme-react/button"
 import { EDITOR_ACTION_ICONS } from "./editorActionDefaults"
 import "./EditorActionToolbar.scss"
 
-export type EditorAction = {
+type StandardEditorAction = {
   key: "save" | "saveAndNew" | "print" | "close" | "copy"
   text: string
   icon?: string
@@ -15,11 +15,16 @@ export type EditorAction = {
   onClick: () => void | Promise<void>
 }
 
+export type EditorAction = StandardEditorAction | {
+  key: "delete"
+  visible?: boolean
+  render: ReactNode
+}
+
 type EditorActionToolbarProps = {
   mode?: "add" | "edit"
   title?: string
   actions: EditorAction[]
-  leadingContent?: ReactNode
   busy?: boolean
   className?: string
   /** @deprecated Save actions use the shared blue accent. */
@@ -27,7 +32,7 @@ type EditorActionToolbarProps = {
 }
 
 export default function EditorActionToolbar({
-  title, mode, actions, leadingContent, busy = false, className = "",
+  title, mode, actions, busy = false, className = "",
 }: EditorActionToolbarProps) {
   return (
     <div className={`editor-action-toolbar ${mode ? `editor-mode--${mode}` : ""} ${className}`}>
@@ -36,15 +41,17 @@ export default function EditorActionToolbar({
           .sort((a, b) => Number(a.key === "print") - Number(b.key === "print")).map(renderAction)}
       </div>
       <div className="editor-action-toolbar__right">
-        <div className="editor-action-toolbar__delete">{leadingContent}</div>
         {actions.filter(action => action.visible !== false && action.key !== "print" && action.key !== "copy")
-          .sort((a, b) => ["saveAndNew", "save", "close"].indexOf(a.key) - ["saveAndNew", "save", "close"].indexOf(b.key)).map(renderAction)}
+          .sort((a, b) => ["delete", "saveAndNew", "save", "close"].indexOf(a.key) - ["delete", "saveAndNew", "save", "close"].indexOf(b.key)).map(renderAction)}
       </div>
       {title ? <div className="editor-action-toolbar__title">{title}</div> : null}
     </div>
   )
 
   function renderAction(action: EditorAction) {
+    if (action.key === "delete") {
+      return <div key={action.key} className="editor-action-toolbar__delete">{action.render}</div>
+    }
     return (
         <Button
           key={action.key}
