@@ -11,7 +11,7 @@ type Props = {
   onOpenDetail: (row: OpeningBalanceSummaryModel) => void
 }
 
-export function OpeningBalanceSummaryColumns(props: Props): React.JSX.Element {
+export function useOpeningBalanceSummaryColumns(props: Props): React.JSX.Element {
   const { t, onOpenDetail } = props
   const { getFormat } = useDecimalColumnFormats()
 

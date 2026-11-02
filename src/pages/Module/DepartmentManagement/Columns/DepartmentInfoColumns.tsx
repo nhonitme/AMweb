@@ -74,7 +74,7 @@ function ParentCodeLookupEditor({ value, data, setValue }: ParentCodeEditCell) {
   )
 }
 
-export function DepartmentInfoColumns({ onAddChild }: DepartmentInfoColumnsProps) {
+export function useDepartmentInfoColumns({ onAddChild }: DepartmentInfoColumnsProps) {
   const { translate } = useContext(LanguageContext) as {
     translate?: (key: string, fallback?: string) => string
   }
@@ -121,4 +121,4 @@ export function DepartmentInfoColumns({ onAddChild }: DepartmentInfoColumnsProps
   )
 }
 
-export default DepartmentInfoColumns
+export default useDepartmentInfoColumns

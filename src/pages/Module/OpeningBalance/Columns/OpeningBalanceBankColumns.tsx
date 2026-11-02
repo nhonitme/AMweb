@@ -58,7 +58,7 @@ function getBankNameField(): BankNameField {
   }
 }
 
-export function OpeningBalanceBankColumns(props: Props): React.JSX.Element {
+export function useOpeningBalanceBankColumns(props: Props): React.JSX.Element {
   const { t } = props
   const { getFormat } = useDecimalColumnFormats()
   const accountNameField = getAccountNameField()

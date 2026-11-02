@@ -58,7 +58,7 @@ function getCustomerNameField(): CustomerNameField {
   }
 }
 
-export function OpeningBalanceCustomerColumns(props: Props): React.JSX.Element {
+export function useOpeningBalanceCustomerColumns(props: Props): React.JSX.Element {
   const { t } = props
   const { getFormat } = useDecimalColumnFormats()
   const accountNameField = getAccountNameField()

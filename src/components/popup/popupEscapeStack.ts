@@ -18,18 +18,25 @@ export type PopupEscapeRegistration = (() => void) & {
 const escapeLayers: PopupEscapeLayer[] = []
 let listening = false
 
-function dismissPopupWrapper(wrapper: HTMLElement) {
+function dismissPopupWrapper(wrapper: HTMLElement): boolean {
   const content = wrapper.querySelector<HTMLElement>(".dx-overlay-content")
   if (!content) {
-    return
+    return false
   }
 
   const instance = Popup.getInstance(content) as dxPopup | undefined
   if (!instance) {
-    return
+    return false
   }
 
   void instance.hide()
+  return true
+}
+
+function consumeEscape(event: KeyboardEvent) {
+  event.preventDefault()
+  event.stopPropagation()
+  event.stopImmediatePropagation()
 }
 
 function handleEscape(event: KeyboardEvent) {
@@ -47,30 +54,34 @@ function handleEscape(event: KeyboardEvent) {
 
   // Child popup is visually above a registered parent. Close only the child.
   if (topLayer && layerWrapper && topVisual && topVisual !== layerWrapper) {
-    event.preventDefault()
-    event.stopPropagation()
-    event.stopImmediatePropagation()
-    dismissPopupWrapper(topVisual)
+    if (!dismissPopupWrapper(topVisual)) {
+      // Leave the event for topmost scoped CLOSE shortcuts when DX hide is unavailable.
+      return
+    }
+    consumeEscape(event)
     return
   }
 
   if (visiblePopupCount() > 1 && topVisual) {
-    event.preventDefault()
-    event.stopPropagation()
-    event.stopImmediatePropagation()
-
     const unregisteredPopupOpen = visiblePopupCount() > escapeLayers.length
     if (unregisteredPopupOpen && layerWrapper !== topVisual) {
-      dismissPopupWrapper(topVisual)
+      if (!dismissPopupWrapper(topVisual)) {
+        return
+      }
+      consumeEscape(event)
       return
     }
 
     if (topLayer && (!layerWrapper || layerWrapper === topVisual)) {
+      consumeEscape(event)
       topLayer.close()
       return
     }
 
-    dismissPopupWrapper(topVisual)
+    if (!dismissPopupWrapper(topVisual)) {
+      return
+    }
+    consumeEscape(event)
     return
   }
 
@@ -78,9 +89,7 @@ function handleEscape(event: KeyboardEvent) {
     return
   }
 
-  event.preventDefault()
-  event.stopPropagation()
-  event.stopImmediatePropagation()
+  consumeEscape(event)
   topLayer.close()
 }
 

@@ -34,7 +34,7 @@ import type {
   ContextMenuPreparingEvent,
 } from "devextreme/ui/data_grid"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
-import { OpeningBalanceCustomerColumns } from "./Columns/OpeningBalanceCustomerColumns"
+import { useOpeningBalanceCustomerColumns } from "./Columns/OpeningBalanceCustomerColumns"
 import { OpeningBalanceCustomerForm } from "./Forms/OpeningBalanceCustomerForm"
 import { openingBalanceAmountErrorMessage } from "./openingBalanceValidation"
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
@@ -398,6 +398,8 @@ function OpeningBalanceCustomer(): React.JSX.Element {
     }
   }
 
+  const configuredOpeningBalanceCustomerColumns = useOpeningBalanceCustomerColumns({ t })
+
   return (
     <div className="min-h-full bg-gray-50 pt-0 md:pl-6 pr-6">
       <LoadPanel
@@ -621,7 +623,7 @@ function OpeningBalanceCustomer(): React.JSX.Element {
                     editingRowData={editingRowData}
                   />
                 </Editing>
-                <OpeningBalanceCustomerColumns t={t} />
+                {configuredOpeningBalanceCustomerColumns}
               </BaseDataGrid>
             </div>
           </div>

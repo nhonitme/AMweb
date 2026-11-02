@@ -22,7 +22,7 @@ function calcAmount(quantity: unknown, unitPrice: unknown): number {
   return toNumber(quantity) * toNumber(unitPrice)
 }
 
-export const InventoryOpeningColumns: React.FC = () => {
+export const useInventoryOpeningColumns: React.FC = () => {
   const { lang, translate } = useContext(LanguageContext) as {
     lang: string
     translate: (key: string, fallback?: string) => string

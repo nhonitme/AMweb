@@ -70,6 +70,7 @@ import {
     useChitEditorDraft,
 } from "./useChitEditorDraft"
 import { useChitEditorReference } from "./useChitEditorReference"
+import { useLinkedAccountingVoucherPopup } from "../hooks/useLinkedAccountingVoucherPopup"
 import { useLinkedCogsVoucherPopup } from "../hooks/useLinkedCogsVoucherPopup"
 import InventoryEditorPopup from "@/pages/Inventory/components/InventoryEditorPopup"
 import { useRowInventoryEditor, type SaveAccountingWithInventory, type InventoryDraftPreparation } from "./useRowInventoryEditor"
@@ -160,6 +161,7 @@ export function ChitEditorPopup({
         [translate],
     )
     const linkedCogsPopup = useLinkedCogsVoucherPopup(t)
+    const linkedAccountingPopup = useLinkedAccountingVoucherPopup(t)
     const screenCd = useMemo(() => {
         const override = typeof screenCdProp === "string" ? screenCdProp.trim() : ""
         return override || location.pathname
@@ -243,8 +245,6 @@ export function ChitEditorPopup({
     const inventoryRefreshVersion = rowInventory.refreshVersion + inventoryLinkRefreshVersion
 
     const handleOpenInventory = useCallback(async (row: ChitInfo["DETAILS"][number], target?: LinkedInventoryTarget) => {
-        // OT always goes through rowInventory so account-pair IR/IO resolution and
-        // direction-switch confirmation run before opening. Non-OT COGS overlays stay.
         if (chitType === "OT") {
             await rowInventory.open(row, target)
             return
@@ -533,7 +533,6 @@ export function ChitEditorPopup({
                 location="after"
                 render={() => (
                     <div className="am-dx-title-actions chit-editor-title-actions">
-                        {/* TEMP disabled: linking moved to IR/IO. referenceSourceConfig is empty; restore config + this block together. */}
                         {referenceEnabled ? (
                             <div className="min-w-[200px] w-full max-w-[220px] flex-shrink-0">
                                 <ReferenceLookup
@@ -754,10 +753,35 @@ export function ChitEditorPopup({
                                 rowInventory.close()
                                 return true
                             }
-                            return false
+
+                            const linkedLedger: ChitLedger =
+                                linkedType === "PO" || linkedType === "PD" || linkedType === "PR" ? "AP" : "AR"
+                            return linkedAccountingPopup.open(linkedLedger, linkedType, linkedId)
                         }}
                         onOpenLinkedCogsVoucher={linkedCogsPopup.open}
                         onSave={rowInventory.saveInventory}
+                    />
+                ) : null}
+                {linkedAccountingPopup.voucher && linkedAccountingPopup.ledger && linkedAccountingPopup.chitType ? (
+                    <ChitEditorPopup
+                        key={`linked-accounting-${linkedAccountingPopup.voucher.CHIT_ID}`}
+                        visible
+                        value={linkedAccountingPopup.voucher}
+                        ledger={linkedAccountingPopup.ledger}
+                        chitType={linkedAccountingPopup.chitType}
+                        isUpdate
+                        readOnly={isPeriodLockVoucher(linkedAccountingPopup.voucher)}
+                        loading={linkedAccountingPopup.loading}
+                        onClose={linkedAccountingPopup.close}
+                        onReturnToLinkedInventory={(inventoryId) => {
+                            if (inventoryId === Number(rowInventory.editor?.value.CHIT_ID)) {
+                                linkedAccountingPopup.close()
+                                return true
+                            }
+                            return false
+                        }}
+                        onSave={linkedAccountingPopup.save}
+                        screenCd={screenCd}
                     />
                 ) : null}
                 {linkedCogsPopup.voucher ? (

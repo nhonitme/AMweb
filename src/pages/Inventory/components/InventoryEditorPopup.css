@@ -97,6 +97,22 @@
     color: #064e3b;
 }
 
+/* Same Add-row button look as ChitDetailGridPopup / OT. */
+.chit-detail-add-row-btn.dx-button {
+    background-color: #ffffff !important;
+    border: 1px solid #e3b8ba !important;
+    border-radius: 5px !important;
+}
+
+.chit-detail-add-row-btn.dx-button .dx-icon,
+.chit-detail-add-row-btn.dx-button .dx-button-text {
+    color: #c83239;
+}
+
+.chit-detail-add-row-btn.dx-button:hover {
+    background-color: #fff5f5 !important;
+}
+
 .inventory-editor-footer {
     border-color: #dce0e5 !important;
 }

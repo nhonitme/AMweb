@@ -13,7 +13,6 @@ import { customerLookupStore } from "@/components/lookup/customerLookupStore"
 import { renderSharedCustomerLookupPage } from "@/components/lookup/sharedMasterLookupPages"
 import { buildCustomerLookupSearchExpr, getCustomerLookupName } from "@/components/lookup/customerLookupUtils"
 import { getCurrentDataLanguageSuffix } from "@/utils/language"
-import DropDownButton from "devextreme-react/drop-down-button"
 import Form, { Item } from "devextreme-react/form"
 import LoadPanel from "devextreme-react/load-panel"
 import Popup, { ToolbarItem } from "devextreme-react/popup"
@@ -32,7 +31,7 @@ import GridColumnSettingsPopup, {
 } from "@/components/datagrid/GridColumnSettingsPopup"
 import type { GridColumnSettingEditorItem } from "@/types/sysGridColumnSetting"
 import { type GridColumnSettingState } from "@/components/datagrid/useGridColumnSettingState"
-import { ReferenceLookup } from "@/components/lookup"
+import { AccountingFreeDetailLookup } from "@/components/lookup"
 import { LookupPopupProvider } from "@/components/lookup/LookupPopupHost"
 import { disableBuiltInPopupEscape, usePopupEscapeLayer } from "@/components/popup/popupEscapeStack"
 import { LanguageContext } from "@/lib/i18nLoader"
@@ -44,24 +43,25 @@ import { SHORTCUT_ACTIONS, type ShortcutActionCode } from "@/lib/shortcuts/short
 import { createPopupShortcutWrapperAttr, isPopupShortcutScopeTopMost, usePopupShortcutScopeId } from "@/lib/popupShortcutScope"
 import useShortcutBindings from "@/hooks/useShortcutBindings"
 import useStateRef from "@/hooks/useStateRef"
-import type { ChitInfo, ChitType, InventoryBomSnapshot, InventoryInputLine, InventoryOutputLine, InventoryVoucher } from "@/types/voucher"
+import type { ChitType, InventoryBomSnapshot, InventoryInputLine, InventoryOutputLine, InventoryVoucher } from "@/types/voucher"
 import type { CustomerExt } from "@/types/customerExt"
 import { getVoucherRouteByChitType, normalizeChitRows } from "@/pages/VoucherManagement/chitUtils"
 import {
   buildInventoryAccountingReferenceOptions,
   INVENTORY_LINK_SOURCE_CODE_TYPE,
   POPUP_FADE_ANIMATION,
-  type InventoryAccountingReferenceOption,
 } from "@/pages/VoucherManagement/components/chitEditorConstants"
 import { useSysCodes } from "@/lib/sysCodeContext"
 import {
   applyAccountingDetailToInventoryLines,
   getLinkedChitDetailIdFromInventoryDraft,
-  resolveFreeAccountingDetail,
+  toAccountingDetailLinkSelection,
+  type LinkDetailCandidate,
 } from "../inventoryAccountingLinkUtils"
 import {
   calculateInventoryAmount,
   calculateInventoryIssueAmount,
+  createDefaultInventoryInputLine,
   createDefaultInventoryOutputLine,
   calculateInventoryRevenueAmount,
   ensureInventoryDefaultLine,
@@ -149,6 +149,7 @@ export default function InventoryEditorPopup({
   // Xuất NVL theo định mức belongs to the OT material-issue workflow only.
   // This popup is reused by ordinary inventory/issue and other accounting screens.
   const showBomAllocation = chitType === "IO" && location.pathname.endsWith("/cost/issue-material")
+
   const activeLines = chitType === "IR" ? draft.INPUTS : draft.OUTPUTS
   // Revenue is always sourced from the Xuất kho detail, independent of the
   // Giá vốn tab and IS_COGS checkbox. Keep the read-only Info field live.
@@ -184,34 +185,12 @@ export default function InventoryEditorPopup({
     () => (chitType === "IR" || chitType === "IO" ? inventoryLinkSourceOptions[chitType] ?? [] : []),
     [chitType, inventoryLinkSourceOptions],
   )
-  const [accountingReferenceOptionKey, setAccountingReferenceOptionKey] = useState<string>("")
   const [selectedAccountingSourceId, setSelectedAccountingSourceId] = useState<number | null>(null)
   const [linkedAccountingChitNo, setLinkedAccountingChitNo] = useState("")
   const [linkedAccountingChitType, setLinkedAccountingChitType] = useState("")
   const [linkedCogsSourceId, setLinkedCogsSourceId] = useState<number | null>(null)
   const [linkedCogsVoucherNo, setLinkedCogsVoucherNo] = useState("")
   const [linkingAccountingReference, setLinkingAccountingReference] = useState(false)
-
-  const selectedAccountingReferenceOption = useMemo(() => {
-    if (accountingReferenceOptions.length === 0) {
-      return null
-    }
-    return (
-      accountingReferenceOptions.find((option) => option.optionKey === accountingReferenceOptionKey) ??
-      accountingReferenceOptions[0] ??
-      null
-    )
-  }, [accountingReferenceOptionKey, accountingReferenceOptions])
-
-  useEffect(() => {
-    if (accountingReferenceOptions.length === 0) {
-      setAccountingReferenceOptionKey("")
-      return
-    }
-    if (!accountingReferenceOptions.some((option) => option.optionKey === accountingReferenceOptionKey)) {
-      setAccountingReferenceOptionKey(accountingReferenceOptions[0].optionKey)
-    }
-  }, [accountingReferenceOptionKey, accountingReferenceOptions])
 
   const createColumnSettingTabs = useCallback(
     (items: GridColumnSettingEditorItem[] = [], loading = false): GridColumnSettingsPopupTab[] => [
@@ -332,9 +311,9 @@ export default function InventoryEditorPopup({
   // )
 
   const handleAccountingReferenceSelected = useCallback(
-    async (source: ChitInfo) => {
-      const option = selectedAccountingReferenceOption
-      if (!option) {
+    async (candidate: LinkDetailCandidate) => {
+      const selection = toAccountingDetailLinkSelection(candidate)
+      if (!selection) {
         return
       }
 
@@ -355,59 +334,52 @@ export default function InventoryEditorPopup({
           }
         }
 
-        const currentLinkedDetailId = getLinkedChitDetailIdFromInventoryDraft(
-          {
-            ...draftRef.current,
-            INPUTS: syncedInputs,
-            OUTPUTS: syncedOutputs,
-          },
-          chitType,
-        )
-        const freeDetail = await resolveFreeAccountingDetail(option, source, currentLinkedDetailId)
-        if (!freeDetail) {
-          notify(
-            t("REFERENCE_NO_FREE_DETAIL", "Chứng từ kế toán không còn chi tiết trống để liên kết"),
-            "warning",
-            3500,
-          )
-          return
-        }
-
-        setSelectedAccountingSourceId(Number(source.CHIT_ID ?? 0) || null)
-        setLinkedAccountingChitNo(String(source.CHIT_NO ?? source.CHIT_CD ?? "").trim())
-        setLinkedAccountingChitType(String(source.CHIT_TYPE ?? option.chitType ?? "").trim().toUpperCase())
-        const hasSourceCustomer = Number(freeDetail.CUSTOMER_ID ?? 0) > 0 || Boolean(freeDetail.CUSTOMER_CD)
+        setSelectedAccountingSourceId(selection.CHIT_ID)
+        setLinkedAccountingChitNo(selection.CHIT_NO)
+        setLinkedAccountingChitType(selection.CHIT_TYPE)
+        const hasSourceCustomer = Number(selection.CUSTOMER_ID ?? 0) > 0 || Boolean(selection.CUSTOMER_CD)
         setDraft((current) => {
           if (chitType === "IR") {
+            const ensuredInputs =
+              syncedInputs.some((line) => !line.ISDEL)
+                ? syncedInputs
+                : [...syncedInputs, createDefaultInventoryInputLine(current.COMPANY_CD, current.CHIT_YMD)]
             const nextInputs = applyAccountingDetailToInventoryLines(
-              syncedInputs,
-              freeDetail.CHITDETAIL_ID,
-              freeDetail.CHITDETAIL_CD,
+              ensuredInputs,
+              selection.CHITDETAIL_ID,
+              selection.CHITDETAIL_CD,
+              selection.AMOUNT,
             )
             return {
               ...current,
               ...(hasSourceCustomer
-                ? { CUSTOMER_ID: freeDetail.CUSTOMER_ID, CUSTOMER_CD: freeDetail.CUSTOMER_CD }
+                ? { CUSTOMER_ID: selection.CUSTOMER_ID, CUSTOMER_CD: selection.CUSTOMER_CD }
                 : {}),
               INPUTS: nextInputs,
               OUTPUTS: [],
-              AMOUNT: calculateInventoryAmount(nextInputs),
+              AMOUNT: selection.AMOUNT,
             }
           }
 
+          const ensuredOutputs =
+            syncedOutputs.some((line) => !line.ISDEL)
+              ? syncedOutputs
+              : [...syncedOutputs, createDefaultInventoryOutputLine(current.COMPANY_CD, current.CHIT_YMD)]
           const nextOutputs = applyAccountingDetailToInventoryLines(
-            syncedOutputs,
-            freeDetail.CHITDETAIL_ID,
-            freeDetail.CHITDETAIL_CD,
+            ensuredOutputs,
+            selection.CHITDETAIL_ID,
+            selection.CHITDETAIL_CD,
+            selection.AMOUNT,
           )
           return {
             ...current,
             ...(hasSourceCustomer
-              ? { CUSTOMER_ID: freeDetail.CUSTOMER_ID, CUSTOMER_CD: freeDetail.CUSTOMER_CD }
+              ? { CUSTOMER_ID: selection.CUSTOMER_ID, CUSTOMER_CD: selection.CUSTOMER_CD }
               : {}),
             INPUTS: [],
             OUTPUTS: nextOutputs,
-            AMOUNT: calculateInventoryIssueAmount(nextOutputs),
+            AMOUNT: selection.AMOUNT,
+            REVENUE_AMOUNT: selection.AMOUNT,
           }
         })
       } catch (error) {
@@ -416,7 +388,7 @@ export default function InventoryEditorPopup({
         setLinkingAccountingReference(false)
       }
     },
-    [chitType, draftRef, resolveFreeAccountingDetail, selectedAccountingReferenceOption, setDraft, t],
+    [chitType, draftRef, setDraft, t],
   )
 
   const handleClearAccountingReference = useCallback(() => {
@@ -474,17 +446,6 @@ export default function InventoryEditorPopup({
     setLinkedCogsVoucherNo("")
     notify(t("INVENTORY_COGS_UNLINK_PENDING", "Đã chọn bỏ liên kết giá vốn. Lưu phiếu xuất kho để hoàn tất."), "info", 3000)
   }, [linkedCogsSourceId, loading, readOnly, setDraft, t])
-
-  const handleAccountingReferenceOptionClick = useCallback(
-    (option: InventoryAccountingReferenceOption) => {
-      if (option.optionKey === accountingReferenceOptionKey) {
-        return
-      }
-      setAccountingReferenceOptionKey(option.optionKey)
-      handleClearAccountingReference()
-    },
-    [accountingReferenceOptionKey, handleClearAccountingReference],
-  )
 
   const handleColumnSettingsSave = useCallback(
     async (tabs: GridColumnSettingsPopupTabSaveItem[]) => {
@@ -600,9 +561,6 @@ export default function InventoryEditorPopup({
         const matchedOption = accountingReferenceOptions.find(
           (option) => option.chitType === sourceType,
         )
-        if (matchedOption) {
-          setAccountingReferenceOptionKey(matchedOption.optionKey)
-        }
         setSelectedAccountingSourceId(Number(sourceVoucher.CHIT_ID ?? 0) || null)
         setLinkedAccountingChitType(sourceType)
         setLinkedAccountingChitNo(String(sourceVoucher.CHIT_CD ?? "").trim())
@@ -1122,7 +1080,7 @@ export default function InventoryEditorPopup({
       )
     }
 
-    if (!selectedAccountingReferenceOption || isAdjustmentVoucher) {
+    if (accountingReferenceOptions.length === 0 || isAdjustmentVoucher) {
       return cogsLinkButton
     }
 
@@ -1132,44 +1090,11 @@ export default function InventoryEditorPopup({
 
     return (
       <>
-        {accountingReferenceOptions.length > 1 ? (
-          <DropDownButton
-            stylingMode="outlined"
-            text={t(
-              selectedAccountingReferenceOption.hintKey,
-              selectedAccountingReferenceOption.hintFallback,
-            )}
-            items={accountingReferenceOptions.map((option) => ({
-              ...option,
-              label: t(option.hintKey, option.hintFallback),
-            }))}
-            displayExpr="label"
-            keyExpr="optionKey"
-            onItemClick={(event) => {
-              const option = event.itemData as InventoryAccountingReferenceOption | undefined
-              if (option) {
-                handleAccountingReferenceOptionClick(option)
-              }
-            }}
-            disabled={loading || linkingAccountingReference}
-          />
-        ) : null}
-        <div className="min-w-[220px] w-full max-w-[300px] flex-shrink-0">
-          <ReferenceLookup
-            key={`${selectedAccountingReferenceOption.ledger}:${selectedAccountingReferenceOption.chitType}`}
-            ledger={selectedAccountingReferenceOption.ledger}
-            chitType={selectedAccountingReferenceOption.chitType}
-            value={null}
-            selectedSourceIds={[]}
+        <div className="min-w-[280px] w-full max-w-[420px] flex-shrink-0">
+          <AccountingFreeDetailLookup
+            options={accountingReferenceOptions}
             onSelect={handleAccountingReferenceSelected}
-            excludeLinkedSources={false}
-            useGlobalLinkedStatus={true}
-            placeholder={t(
-              selectedAccountingReferenceOption.hintKey,
-              selectedAccountingReferenceOption.hintFallback,
-            )}
-            hintKey={selectedAccountingReferenceOption.hintKey}
-            hintFallback={selectedAccountingReferenceOption.hintFallback}
+            placeholder={t("SELECT_LINK_VOUCHER", "Chọn chứng từ liên kết")}
             disabled={loading || linkingAccountingReference}
           />
         </div>
@@ -1179,7 +1104,6 @@ export default function InventoryEditorPopup({
   }, [
     accountingReferenceOptions,
     draft.COGS?.IS_LOCK,
-    handleAccountingReferenceOptionClick,
     handleAccountingReferenceSelected,
     handleClearAccountingReference,
     handleOpenLinkedCogsVoucher,
@@ -1195,7 +1119,6 @@ export default function InventoryEditorPopup({
     loading,
     lockAccountingReference,
     readOnly,
-    selectedAccountingReferenceOption,
     selectedAccountingSourceId,
     getCodeName,
     t,
@@ -1250,8 +1173,6 @@ export default function InventoryEditorPopup({
       />
     </div>
   )
-
-  const useRightVoucherFields = chitType === "IR" || chitType === "IO"
 
   const customerHeaderField = (
     <Item
@@ -1364,18 +1285,18 @@ export default function InventoryEditorPopup({
                   label={{ text: t("REVENUE_AMOUNT", "Tổng doanh thu") }}
                   editorOptions={createVoucherEditorOptions({ readOnly: true, format: "#,##0.00" })}
                 />
-              ) : null}
-              <Item
-                dataField="PAYER_INFO"
-                editorType="dxTextBox"
-                label={{ text: t("PAYER_INFO", "Payer") }}
-                editorOptions={createVoucherEditorOptions()}
-              />
-              {!useRightVoucherFields ? customerHeaderField : null}
+              ) : (
+                <Item
+                  dataField="PAYER_INFO"
+                  editorType="dxTextBox"
+                  label={{ text: t("PAYER_INFO", "Payer") }}
+                  editorOptions={createVoucherEditorOptions()}
+                />
+              )}
               <Item
                 dataField="CHIT_NO"
                 editorType="dxTextBox"
-                label={{ text: t("CHIT_NO", "Voucher No") }}
+                label={{ text: t("CHIT_NO", "Số chứng từ") }}
                 editorOptions={createVoucherEditorOptions({ validationMessageMode: "always" })}
                 validationRules={[
                   createRequiredRule(t("MSG_MUST_ITEM", "Voucher no is required")),
@@ -1392,10 +1313,18 @@ export default function InventoryEditorPopup({
               <Item
                 dataField="CHIT_YMD"
                 editorType="dxDateBox"
-                label={{ text: t("CHIT_YMD", "Voucher Date") }}
+                label={{ text: t("CHIT_YMD", "Ngày giao dịch") }}
                 editorOptions={createVoucherDateBoxEditorOptions({ validationMessageMode: "always" })}
               />
-              {useRightVoucherFields ? customerHeaderField : null}
+              {chitType === "IO" ? (
+                <Item
+                  dataField="PAYER_INFO"
+                  editorType="dxTextBox"
+                  label={{ text: t("PAYER_INFO", "Payer") }}
+                  editorOptions={createVoucherEditorOptions()}
+                />
+              ) : null}
+              {customerHeaderField}
               {chitType === "IO" ? (
                 <Item
                   dataField="IS_COGS"

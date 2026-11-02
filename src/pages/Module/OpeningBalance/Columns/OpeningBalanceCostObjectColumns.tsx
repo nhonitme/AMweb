@@ -58,7 +58,7 @@ function getDepartmentNameField(): DepartmentNameField {
   }
 }
 
-export function OpeningBalanceCostObjectColumns(props: Props): React.JSX.Element {
+export function useOpeningBalanceCostObjectColumns(props: Props): React.JSX.Element {
   const { t } = props
   const { getFormat } = useDecimalColumnFormats()
   const accountNameField = getAccountNameField()

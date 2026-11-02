@@ -38,7 +38,7 @@ import {
 import { useMasterListLoadError, useMasterListReload } from "@/hooks/queries/master/masterQueryHelpers"
 
 import CustomerExtForm from "./CustomerExtForm"
-import { CustomerColumns } from "./Columns/CustomerColumns"
+import { useCustomerColumns } from "./Columns/CustomerColumns"
 import { customerImportConfig } from "./Columns/customerImportConfig"
 import {
   createDefaultCustomerExt,
@@ -371,6 +371,8 @@ export default function CustomerManagementPage({
     registerCustomerEditGrid(() => gridRef.current)
   }
 
+  const configuredCustomerColumns = useCustomerColumns({ categoryCodes, customerTypeCodes })
+
   return (
     <MasterDataPageLayout
       toolbar={
@@ -468,10 +470,7 @@ export default function CustomerManagementPage({
           <CustomerExtForm categoryCodes={categoryCodes} customerTypeCodes={customerTypeCodes} />
         </Editing>
 
-        <CustomerColumns
-          categoryCodes={categoryCodes}
-          customerTypeCodes={customerTypeCodes}
-        />
+        {configuredCustomerColumns}
       </BaseDataGrid>
 
       <LoadPanel

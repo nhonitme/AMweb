@@ -85,6 +85,7 @@ import {
   getVoucherMasterGridId,
   getVoucherRouteByChitType,
   isInventoryInputLinkedAccountingVoucherType,
+  isInventoryLinkedAccountingVoucherType,
   isInventoryOutputLinkedAccountingVoucherType,
   mapChitToApiPayload,
   mapInventoryVoucherToSourceChitInfo,
@@ -1193,6 +1194,31 @@ const openEditPopup = useCallback(
             ...detail,
             ROW_KEY: record.DETAILS.find((row) => Number(row.SORT) === Number(detail.SORT))?.ROW_KEY ?? detail.ROW_KEY,
           }))
+          // Update APIs omit inventory lines; keep links already resolved on the submitted draft.
+          if (isInventoryLinkedAccountingVoucherType(chitType)) {
+            const inputLinked = isInventoryInputLinkedAccountingVoucherType(chitType)
+            savedChit.DETAILS = savedChit.DETAILS.map((detail) => {
+              const submittedDetail =
+                submitted.DETAILS.find((row) => row.ROW_KEY === detail.ROW_KEY && !row.ISDEL)
+                ?? submitted.DETAILS.find((row) => !row.ISDEL && Number(row.SORT) === Number(detail.SORT))
+                ?? submitted.DETAILS.find((row) => !row.ISDEL && Number(row.CHITDETAIL_ID) === Number(detail.CHITDETAIL_ID))
+              if (!submittedDetail) {
+                return detail
+              }
+              return {
+                ...detail,
+                INVENTORY_INPUTS: inputLinked
+                  ? (submittedDetail.INVENTORY_INPUTS ?? detail.INVENTORY_INPUTS)
+                  : detail.INVENTORY_INPUTS,
+                INVENTORY_OUTPUTS: !inputLinked
+                  ? (submittedDetail.INVENTORY_OUTPUTS ?? detail.INVENTORY_OUTPUTS)
+                  : detail.INVENTORY_OUTPUTS,
+                HASINVENTORY: inputLinked
+                  ? (submittedDetail.INVENTORY_INPUTS ?? []).some((line) => !line.ISDEL && Number(line.ISDEL ?? 0) !== 1)
+                  : (submittedDetail.INVENTORY_OUTPUTS ?? []).some((line) => !line.ISDEL && Number(line.ISDEL ?? 0) !== 1),
+              }
+            })
+          }
           selectedChitIdRef.current = savedChit.CHIT_ID ?? null
           await vatContext.link(savedChit)
           if (afterSave) {

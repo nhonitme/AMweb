@@ -44,7 +44,7 @@ import type { InventoryOpening } from "@/types/inventoryOpening"
 import type { Product } from "@/types/product"
 import type { StoreInfo } from "@/types/store"
 import type { Unit } from "@/types/unit"
-import { InventoryOpeningColumns, applyProductLookup, applyStoreLookup, applyUnitLookup } from "./Columns/InventoryOpeningColumns"
+import { useInventoryOpeningColumns, applyProductLookup, applyStoreLookup, applyUnitLookup } from "./Columns/InventoryOpeningColumns"
 import { InventoryOpeningForm } from "./Forms/InventoryOpeningForm"
 import { useInventoryOpeningImportConfig } from "./Columns/InventoryOpeningImportConfig"
 
@@ -325,6 +325,8 @@ export default function InventoryOpeningPage() {
     }
   }
 
+  const configuredInventoryOpeningColumns = useInventoryOpeningColumns({})
+
   return (
     <DxPage>
       <MasterDataPageLayout
@@ -392,7 +394,7 @@ export default function InventoryOpeningPage() {
               }}
             />
           </Editing>
-          <InventoryOpeningColumns />
+          {configuredInventoryOpeningColumns}
         </BaseDataGrid>
 
         <LoadPanel

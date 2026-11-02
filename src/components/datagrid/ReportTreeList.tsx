@@ -500,13 +500,10 @@ function ReportTreeList(
         format: resolveColumnDisplayFormat(column, tempDecimalPlacesByField),
       })
     })
-    // columnLayoutSignature/companyLangRevision intentionally bust the memo when
-    // cached settings arrays are replaced in place.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columnChildren, columnLayoutSignature, companyLangRevision, columns, preserveRowOrder, tempDecimalPlacesByField])
+  }, [columnChildren, columnSettingState.cachedEditorItems, columnSettingState.translateCaption, companyLangRevision, columns, preserveRowOrder, tempDecimalPlacesByField])
 
   const { cachedEditorItems: cachedColumnSettings, syncEditorItemsToComponent } = columnSettingState
-  useEffect(() => {
+  useLayoutEffect(() => {
     const component = treeListRef.current
     if (loading || !component || !cachedColumnSettings.length) {
       return
@@ -915,6 +912,7 @@ function ReportTreeList(
           allowColumnReordering
           columnResizingMode="widget"
           wordWrapEnabled={false}
+          noDataText={t("NO_DATA", "Không có dữ liệu")}
           autoExpandAll={defaultExpandAll}
           repaintChangesOnly
         >
@@ -951,6 +949,7 @@ function ReportTreeList(
     columnSettingState.customSave,
     searchVisible,
     renderedColumnChildren,
+    t,
   ])
 
   if (loading) {

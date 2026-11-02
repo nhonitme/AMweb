@@ -1,7 +1,7 @@
 import React from "react"
 import { Column } from "devextreme-react/data-grid"
 
-export const ProductUnitColumns: React.FC = () => {
+export const useProductUnitColumns: React.FC = () => {
 
   return (
     <>

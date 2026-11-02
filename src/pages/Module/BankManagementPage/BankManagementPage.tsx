@@ -29,7 +29,7 @@ import MasterDataEditPopup from "@/components/datagrid/MasterDataEditPopup"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import type { BankInfo, BankInfoApi } from "@/types/bankInfo"
 import BankForm from "./Form/BankForm"
-import { BankColumns } from "./Columns/BankColumns"
+import { useBankColumns } from "./Columns/BankColumns"
 import { bankImportConfig } from "./Columns/bankImportConfig"
 import {
   useBankListQuery,
@@ -291,6 +291,8 @@ export default function BankManagementPage({
     }
   }, [isLookup, onCloseLookup, onPickBank])
 
+  const configuredBankColumns = useBankColumns()
+
   const content = (
     <MasterDataPageLayout
       toolbar={
@@ -366,7 +368,7 @@ export default function BankManagementPage({
           <BankForm isUpdate={isUpdate} />
         </Editing>
 
-        <BankColumns />
+        {configuredBankColumns}
       </BaseDataGrid>
 
       <LoadPanel

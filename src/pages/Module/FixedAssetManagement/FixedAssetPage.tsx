@@ -36,7 +36,7 @@ import { getCurrentCompanyCd } from '@/lib/login'
 import { normalizeMessageLanguageKey } from '@/utils/language'
 import type { FixedAssetGridRow, FixedAssetListItem } from '@/types/fixedAsset'
 
-import { FixedAssetColumns } from './Columns/FixedAssetColumns'
+import { useFixedAssetColumns } from './Columns/FixedAssetColumns'
 import { useFixedAssetImportConfig } from './Columns/FixedAssetImportConfig'
 import {
   FIXED_ASSET_MASTER_GRID_ID,
@@ -534,10 +534,7 @@ export default function FixedAssetPage() {
     setAccFilterDraft(value)
   }, [])
 
-  const columnsNode = useMemo(
-    () => <FixedAssetColumns statusCodes={statusCodes} />,
-    [statusCodes],
-  )
+  const columnsNode = useFixedAssetColumns({ statusCodes })
 
   return (
     <DxPage>

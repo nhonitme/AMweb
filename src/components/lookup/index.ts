@@ -33,5 +33,6 @@ export { inventoryLookupStore, clearInventoryLookupCache } from "./inventoryLook
 export { default as ProductGroupLookupCellEditor } from "./ProductGroupLookupCellEditor"
 export { productGroupLookupStore, clearProductGroupLookupCache } from "./productGroupLookupStore"
 export { default as ReferenceLookup } from "./ReferenceLookup"
+export { default as AccountingFreeDetailLookup } from "./AccountingFreeDetailLookup"
 export { default as UnitLookupCellEditor } from "./UnitLookupCellEditor"
 export { unitLookupStore, clearUnitLookupCache } from "./unitLookupStore"

@@ -34,7 +34,7 @@ import type {
   ContextMenuPreparingEvent,
 } from "devextreme/ui/data_grid"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
-import { OpeningBalanceCostObjectColumns } from "./Columns/OpeningBalanceCostObjectColumns"
+import { useOpeningBalanceCostObjectColumns } from "./Columns/OpeningBalanceCostObjectColumns"
 import { OpeningBalanceCostObjectForm } from "./Forms/OpeningBalanceCostObjectForm"
 import { openingBalanceAmountErrorMessage } from "./openingBalanceValidation"
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
@@ -415,6 +415,8 @@ function OpeningBalanceCostObject(): React.JSX.Element {
     }
   }
 
+  const configuredOpeningBalanceCostObjectColumns = useOpeningBalanceCostObjectColumns({ t })
+
   return (
     <div className="min-h-full bg-gray-50 pt-0 md:pl-6 pr-6">
       <LoadPanel
@@ -638,7 +640,7 @@ function OpeningBalanceCostObject(): React.JSX.Element {
                     editingRowData={editingRowData}
                   />
                 </Editing>
-                <OpeningBalanceCostObjectColumns t={t} />
+                {configuredOpeningBalanceCostObjectColumns}
               </BaseDataGrid>
             </div>
           </div>

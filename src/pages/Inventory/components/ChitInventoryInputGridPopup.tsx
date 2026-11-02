@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react"
+import { forwardRef, useCallback, useContext, useEffect, useLayoutEffect, useImperativeHandle, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react"
 import { Button } from "devextreme-react"
 import DataGrid, { Column, ColumnFixing, Editing, Scrolling } from "devextreme-react/data-grid"
 import TextBox from "devextreme-react/text-box"
@@ -212,6 +212,7 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
         const gridRef = useRef<dxDataGrid<InventoryInputLine, string> | null>(null)
         const searchContainerRef = useRef<HTMLDivElement | null>(null)
         const currentRowKeyRef = useRef<string | null>(null)
+        const deleteFlowRef = useRef(false)
         const [forceForeignCurrencyColumnsVisible, setForceForeignCurrencyColumnsVisible] = useState(false)
         const usesSysGridCatalog = persistColumnSettings && Boolean(gridId?.trim())
         const columnSettingState = useGridColumnSettingState({
@@ -446,6 +447,7 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
             gridRef,
             syncRows,
             dataSource: visibleRows,
+            shouldSkipSavedSync: () => deleteFlowRef.current,
         })
 
         const focusSearchInput = useCallback(() => {
@@ -475,33 +477,39 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
                     return
                 }
 
-                if (gridRef.current?.hasEditData()) {
-                    await gridRef.current.saveEditData()
-                }
+                deleteFlowRef.current = true
 
-                const currentRows = buildMergedRows()
-                let changed = false
-                const nextRows = currentRows.map((item) => {
-                    if (item.ROW_KEY !== targetKey || item.ISDEL) {
-                        return item
+                try {
+                    if (gridRef.current?.hasEditData()) {
+                        await gridRef.current.saveEditData()
                     }
 
-                    changed = true
-                    return cloneInventoryLine({
-                        ...item,
-                        ISDEL: true,
+                    const currentRows = buildMergedRows()
+                    let changed = false
+                    const nextRows = currentRows.map((item) => {
+                        if (item.ROW_KEY !== targetKey || item.ISDEL) {
+                            return item
+                        }
+
+                        changed = true
+                        return cloneInventoryLine({
+                            ...item,
+                            ISDEL: true,
+                        })
                     })
-                })
 
-                if (!changed) {
-                    return
+                    if (!changed) {
+                        return
+                    }
+
+                    if (currentRowKeyRef.current === targetKey) {
+                        currentRowKeyRef.current = getActiveInventoryLines(nextRows).at(-1)?.ROW_KEY ?? null
+                    }
+
+                    emitRowsChange(nextRows)
+                } finally {
+                    deleteFlowRef.current = false
                 }
-
-                if (currentRowKeyRef.current === targetKey) {
-                    currentRowKeyRef.current = getActiveInventoryLines(nextRows).at(-1)?.ROW_KEY ?? null
-                }
-
-                emitRowsChange(nextRows)
             },
             [buildMergedRows, emitRowsChange],
         )
@@ -617,7 +625,7 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
             currentRowKeyRef.current = visibleRows[0]?.ROW_KEY ?? null
         }, [isVisible, visibleRows])
 
-        useEffect(() => {
+        useLayoutEffect(() => {
             if (!isVisible || !columnSettingState.enabled || !gridRef.current || !columnSettingState.cachedEditorItems.length) {
                 return
             }
@@ -786,9 +794,11 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
             <div className="flex min-h-0 w-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white" style={rootStyle}>
                 <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-2">
                         <Button
-                            stylingMode="contained"
+                            stylingMode="outlined"
                             icon="plus"
-                            hint={t("ADD_ROW", "Add row")}
+                            text={t("ADD_ROW", "Thêm dòng")}
+                            hint={t("ADD_ROW", "Thêm dòng")}
+                            elementAttr={{ class: "chit-detail-add-row-btn" }}
                             onClick={() => {
                                 void handleAddRow()
                             }}
@@ -803,7 +813,12 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
                             }}
                         />
 
-                        {linkSlot ? <div className="flex min-w-0 flex-wrap items-center gap-2">{linkSlot}</div> : null}
+                        {linkSlot ? (
+                            <>
+                                <div role="separator" aria-orientation="vertical" className="mx-1 h-6 border-l border-slate-300" />
+                                {linkSlot}
+                            </>
+                        ) : null}
 
                         <div className="ml-auto flex items-center gap-2">
                             {searchVisible ? (

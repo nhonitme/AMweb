@@ -30,7 +30,7 @@ import { normalizeMessageLanguageKey } from "@/utils/language";
 import MasterDataEditPopup from "@/components/datagrid/MasterDataEditPopup";
 import { getApiErrorMessage } from "@/api/apiTypes";
 import { Product } from "@/types/product";
-import { ProductColumns } from "./Columns/ProductColumns";
+import { useProductColumns } from "./Columns/ProductColumns";
 import { ProductForm } from "./Forms/ProductForm";
 import { useProductImportConfig } from "./Columns/ProductImportConfig";
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup";
@@ -235,6 +235,8 @@ export default function ProductManagementPage({
     }
   }, [langCode, t]);
 
+  const configuredProductColumns = useProductColumns({})
+
   const content = (
     <MasterDataPageLayout
       toolbar={
@@ -328,7 +330,7 @@ export default function ProductManagementPage({
             <ProductForm />
           </Editing>
 
-          <ProductColumns />
+          {configuredProductColumns}
         </BaseDataGrid>
 
         <LoadPanel

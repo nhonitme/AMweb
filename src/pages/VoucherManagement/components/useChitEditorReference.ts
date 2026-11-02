@@ -23,6 +23,10 @@ import {
     normalizeInventoryInputApi,
     normalizeInventoryOutputApi,
 } from "../chitUtils"
+import {
+    getInventoryLedgerForInventoryType,
+    getInventoryTypeForAccountingChitType,
+} from "@/pages/Inventory/inventoryAccountingLinkUtils"
 import { normalizeInventoryDraftForEditor as normalizeDraftForEditor } from "@/pages/Inventory/inventoryVoucherUtils"
 import { referenceSourceConfig, type ReferenceSourceConfig } from "./chitEditorConstants"
 import type { ChitDetailGridHandle } from "./ChitDetailGridPopup"
@@ -106,6 +110,15 @@ export function useChitEditorReference({
         () => (isInventoryLinkedAccountingVoucherType(chitType) ? getLinkedReferenceSourceIds(activeDetails, chitType) : []),
         [activeDetails, chitType],
     )
+    const inventoryLoadDetailIdsKey = useMemo(() => {
+        if (!isInventoryLinkedAccountingVoucherType(chitType)) {
+            return ""
+        }
+        return activeDetails
+            .map((detail) => Number(detail.CHITDETAIL_ID ?? 0))
+            .filter((detailId) => Number.isFinite(detailId) && detailId > 0)
+            .join(",")
+    }, [activeDetails, chitType])
 
     const resetReferenceState = useCallback(() => {
         referenceInventoryLoadKeyRef.current = ""
@@ -144,20 +157,26 @@ export function useChitEditorReference({
     }, [chitType, linkedReferenceSourceIds, pendingUnlinkReferenceSourceIds, referenceConfig, visible])
 
     useEffect(() => {
-        if (!visible || !referenceConfig || !isInventoryLinkedAccountingVoucherType(chitType)) {
+        if (!visible || !isInventoryLinkedAccountingVoucherType(chitType) || !inventoryLoadDetailIdsKey) {
             return
         }
 
-        const detailIds = activeDetails
-            .map((detail) => Number(detail.CHITDETAIL_ID ?? 0))
-            .filter((detailId) => Number.isFinite(detailId) && detailId > 0)
+        const inventoryType = getInventoryTypeForAccountingChitType(chitType)
+        if (!inventoryType) {
+            return
+        }
+        const inventoryLedger = getInventoryLedgerForInventoryType(inventoryType)
+        const detailIds = inventoryLoadDetailIdsKey
+            .split(",")
+            .map((value) => Number(value))
+            .filter((detailId) => detailId > 0)
 
         if (detailIds.length === 0) {
             referenceInventoryLoadKeyRef.current = ""
             return
         }
 
-        const loadKey = `${chitType}:${Number(chitId ?? 0)}:${detailIds.join(",")}`
+        const loadKey = `${chitType}:${Number(chitId ?? 0)}:${inventoryLoadDetailIdsKey}`
         if (referenceInventoryLoadKeyRef.current === loadKey) {
             return
         }
@@ -165,10 +184,11 @@ export function useChitEditorReference({
         referenceInventoryLoadKeyRef.current = loadKey
 
         let cancelled = false
+        let completed = false
         const loadLinkedInventoryLines = async () => {
             try {
                 if (isInventoryInputLinkedAccountingVoucherType(chitType)) {
-                    const inputs = await getInventoryInputs(referenceConfig.ledger, referenceConfig.chitType, detailIds)
+                    const inputs = await getInventoryInputs(inventoryLedger, inventoryType, detailIds)
                     if (cancelled) {
                         return
                     }
@@ -177,6 +197,7 @@ export function useChitEditorReference({
                         normalizeInventoryInputApi(input, `${input.INPUT_ID ?? index + 1}`),
                     )
 
+                    completed = true
                     setDraft((current) => ({
                         ...current,
                         DETAILS: attachInventoryInputsToPurchaseDetails(current.DETAILS as DetailRow[], normalizedInputs) as ChitInfo["DETAILS"],
@@ -184,7 +205,7 @@ export function useChitEditorReference({
                     return
                 }
 
-                const outputs = await getInventoryOutputs(referenceConfig.ledger, referenceConfig.chitType, detailIds)
+                const outputs = await getInventoryOutputs(inventoryLedger, inventoryType, detailIds)
                 if (cancelled) {
                     return
                 }
@@ -193,12 +214,16 @@ export function useChitEditorReference({
                     normalizeInventoryOutputApi(output, `${output.OUTPUT_ID ?? index + 1}`),
                 )
 
+                completed = true
                 setDraft((current) => ({
                     ...current,
                     DETAILS: attachInventoryOutputsToSalesDetails(current.DETAILS as DetailRow[], normalizedOutputs) as ChitInfo["DETAILS"],
                 }))
             } catch (error) {
                 if (!cancelled) {
+                    if (referenceInventoryLoadKeyRef.current === loadKey) {
+                        referenceInventoryLoadKeyRef.current = ""
+                    }
                     console.error("Load voucher inventory references failed", error)
                 }
             }
@@ -207,8 +232,11 @@ export function useChitEditorReference({
         void loadLinkedInventoryLines()
         return () => {
             cancelled = true
+            if (!completed && referenceInventoryLoadKeyRef.current === loadKey) {
+                referenceInventoryLoadKeyRef.current = ""
+            }
         }
-    }, [activeDetails, chitId, chitType, referenceConfig, setDraft, visible])
+    }, [chitId, chitType, inventoryLoadDetailIdsKey, setDraft, visible])
 
     const buildReferenceDetails = useCallback(
         (source: ChitInfo, linkedChitDetailIds?: number[] | null): DetailRow[] => {
@@ -704,9 +732,15 @@ export function useChitEditorReference({
 
     const ensureAccountingInventoryLinksForSave = useCallback(
         async (details: DetailRow[]): Promise<DetailRow[]> => {
-            if (!referenceConfig || !isInventoryLinkedAccountingVoucherType(chitType)) {
+            if (!isInventoryLinkedAccountingVoucherType(chitType)) {
                 return details
             }
+
+            const inventoryType = getInventoryTypeForAccountingChitType(chitType)
+            if (!inventoryType) {
+                return details
+            }
+            const inventoryLedger = getInventoryLedgerForInventoryType(inventoryType)
 
             const inputLinked = isInventoryInputLinkedAccountingVoucherType(chitType)
             const missingDetailIds = details
@@ -729,20 +763,20 @@ export function useChitEditorReference({
             }
 
             if (inputLinked) {
-                const inputs = await getInventoryInputs(referenceConfig.ledger, referenceConfig.chitType, missingDetailIds)
+                const inputs = await getInventoryInputs(inventoryLedger, inventoryType, missingDetailIds)
                 const normalizedInputs = inputs.map((input, index) =>
                     normalizeInventoryInputApi(input, `${input.INPUT_ID ?? index + 1}`),
                 )
                 return attachInventoryInputsToPurchaseDetails(details, normalizedInputs) as DetailRow[]
             }
 
-            const outputs = await getInventoryOutputs(referenceConfig.ledger, referenceConfig.chitType, missingDetailIds)
+            const outputs = await getInventoryOutputs(inventoryLedger, inventoryType, missingDetailIds)
             const normalizedOutputs = outputs.map((output, index) =>
                 normalizeInventoryOutputApi(output, `${output.OUTPUT_ID ?? index + 1}`),
             )
             return attachInventoryOutputsToSalesDetails(details, normalizedOutputs) as DetailRow[]
         },
-        [chitType, referenceConfig],
+        [chitType],
     )
 
     return {

@@ -240,7 +240,6 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
                 )
                 return
             }
-            // Prefer the in-session draft so OT/SO reopen shows deletes/edits before source save.
             let value = pendingRef.current.get(row.ROW_KEY)
             if (value && value.CHIT_TYPE !== inventoryType) {
                 value = undefined
@@ -297,7 +296,6 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
         }
         const payload = mapInventoryVoucherToApiPayload(linked)
         if (prepareInventoryDraft && !update && Number(detail.CHITDETAIL_ID) > 0) {
-            // Reconcile a successful create whose response was lost before retrying.
             const existing = type === "IR" ? await getInventoryInputs([Number(detail.CHITDETAIL_ID)]) : await getInventoryOutputs([Number(detail.CHITDETAIL_ID)])
             const active = existing.filter((line) => line.ISDEL !== true && Number(line.ISDEL ?? 0) !== 1)
             if (active.length) {
@@ -334,8 +332,6 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
         try {
             const row = draftRef.current.DETAILS.find((item) => item.ROW_KEY === editor.rowKey && !item.ISDEL)
             if (!row) throw new Error("Dòng nguồn không còn tồn tại")
-            // All accounting↔inventory links (PO/PD/SR→IR, SO/SD/PR/OT→IO, VAT) keep a draft
-            // until the source voucher is saved — same UX as OT→IO.
             pendingRef.current.set(row.ROW_KEY, { ...value, CHIT_ID: editor.isUpdate ? value.CHIT_ID : null })
             cogsDraftReadyRef.current = false
             cogsDraftQueueRef.current = []
@@ -387,7 +383,6 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
             pendingRef.current.delete(rowKey)
             setPendingKeys([...pendingRef.current.keys()])
         }
-        // Create/update the new direction first; remove the opposite-direction voucher after.
         await flushPendingDeletes()
         if (deletedIds.size > 0) {
             setDraft((current) => ({
@@ -415,8 +410,6 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
         const activeKeys = new Set(record.DETAILS.filter((row) => !row.ISDEL).map((row) => row.ROW_KEY))
         for (const key of pendingRef.current.keys()) if (!activeKeys.has(key)) pendingRef.current.delete(key)
         for (const key of pendingDeletesRef.current.keys()) if (!activeKeys.has(key)) pendingDeletesRef.current.delete(key)
-        // VAT imports use the same preparation and persistence for one or many invoices,
-        // including rows whose inventory editor has never been opened.
         if (prepareInventoryDraft && canOpenInventoryRow) {
             busyRef.current = true
             setLoading(true)
@@ -488,7 +481,6 @@ export function useRowInventoryEditor({ visible, chitType, readOnly, draftRef, s
             cogsDraftQueueRef.current = entries.slice(1)
             return
         }
-        // Unique SORT values correlate newly allocated detail IDs without relying on response order.
         const submitted = { ...record, DETAILS: record.DETAILS.map((row, index) => ({ ...row, SORT: index + 1 })) }
         busyRef.current = true
         try {

@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, type ComponentType, type MutableRefObject, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react"
+import { forwardRef, useCallback, useContext, useEffect, useLayoutEffect, useImperativeHandle, useMemo, useRef, useState, type ComponentType, type MutableRefObject, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react"
 import { Button } from "devextreme-react"
 import type { ReactNode } from "react"
 import DataGrid, { Column, Editing, ColumnFixing, Scrolling } from "devextreme-react/data-grid"
@@ -149,7 +149,6 @@ function OpenLinkedInventoryButton({
     disabled: boolean
 }) {
     const [choosing, setChoosing] = useState(false)
-    // Pending draft wins over linked-green so OT/SO show unsaved inventory edits clearly.
     const colors = pending
         ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
         : targets.length > 0
@@ -370,7 +369,6 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
 
             void (async () => {
                 try {
-                    // OT may link IR or IO per detail account pair; load both sides.
                     const lines = chitType === "OT" && !inventoryLinkType
                         ? [
                             ...(await getInventoryInputs(detailIds)),
@@ -387,7 +385,6 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
 
                     const nextMap = buildLinkedInventoryByDetailId(lines)
 
-                    // OT COGS links use CHITDETAIL_ID_COGS (not OUTPUTS.CHITDETAIL_ID); merge for one-button UX.
                     if (chitType === "OT" && headerChitId > 0) {
                         const cogsLinks = await getInventoryIssueLinksByCogsVoucherId(headerChitId)
                         if (cancelled) {
@@ -417,7 +414,6 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                     }
 
                     linkedInventoryByDetailIdRef.current = nextMap
-                    // Fixed action width keeps the grid stable when link status changes.
                     setLinkedInventoryVersion((current) => current + 1)
                 } catch (error) {
                     console.error("Load linked inventory vouchers failed", error)
@@ -801,7 +797,7 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
             currentRowKeyRef.current = visibleDetails[0]?.ROW_KEY ?? null
         }, [isVisible, visibleDetails])
 
-        useEffect(() => {
+        useLayoutEffect(() => {
             if (!isVisible || !columnSettingState.enabled || !gridRef.current || !columnSettingState.cachedEditorItems.length) {
                 return
             }

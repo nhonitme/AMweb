@@ -405,6 +405,7 @@ export default function LinkVouchersPreviewPopup({
             >
               <Selection mode="single" />
               <Column dataField="chitNo" caption={t("CHIT_NO", "Voucher No")} width={120} />
+              <Column dataField="customerNm" caption={t("CUSTOMER_NM", "Tên KH")} minWidth={140} />
               <Column dataField="debit" caption={t("DEBIT", "TK Nợ")} width={90} />
               <Column dataField="credit" caption={t("CREDIT", "TK Có")} width={90} />
               <Column

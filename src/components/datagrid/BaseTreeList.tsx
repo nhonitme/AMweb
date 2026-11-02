@@ -139,17 +139,6 @@ export function BaseTreeList<T extends object>({
     () => columnSettingState.targetIdentity || [(menuCode ?? screenCd)?.trim() ?? "", gridId?.trim() ?? ""].join("::"),
     [columnSettingState.targetIdentity, gridId, menuCode, screenCd],
   );
-  const columnLayoutSignature = React.useMemo(
-    () => columnSettingState.cachedEditorItems
-      .map((item) => [
-        item.columnName.toUpperCase(),
-        item.visibleIndex ?? "",
-        item.width ?? "",
-        item.fixedPosition,
-      ].join(":"))
-      .join("|"),
-    [columnSettingState.cachedEditorItems],
-  );
   const gridRemountKey = `${columnSettingsTargetKey}::grid`;
   const columnSettingsPopupKey = `${columnSettingsTargetKey}::column-settings`;
   const columnSettingsTargetKeyRef = React.useRef(columnSettingsTargetKey);
@@ -212,26 +201,20 @@ export function BaseTreeList<T extends object>({
       : [...otherChildren, injectedCommandColumn];
   }, [children, actionButtons, actionButtonsPosition]);
 
-  const columnLayoutItemsRef = React.useRef(columnSettingState.cachedEditorItems);
-  const columnLayoutSignatureRef = React.useRef(columnLayoutSignature);
-  if (columnLayoutSignatureRef.current !== columnLayoutSignature) {
-    columnLayoutSignatureRef.current = columnLayoutSignature;
-    columnLayoutItemsRef.current = columnSettingState.cachedEditorItems;
-  }
-
   const companyLangRevision = useCompanyLangRevision();
   const renderedChildren = React.useMemo(
     () => applyGridColumnSettingsToChildren(
       normalizedChildren,
       Column,
-      columnLayoutItemsRef.current,
+      columnSettingState.cachedEditorItems,
       columnSettingState.translateCaption,
       { hideColumnsMissingFromSettings: usesSysGridCatalog },
     ),
-    [columnLayoutSignature, columnSettingState.translateCaption, companyLangRevision, normalizedChildren, usesSysGridCatalog],
+    [columnSettingState.cachedEditorItems, columnSettingState.translateCaption, companyLangRevision, normalizedChildren, usesSysGridCatalog],
   );
 
-  React.useEffect(() => {
+  // Sync custom column components before the browser paints generated field captions.
+  React.useLayoutEffect(() => {
     const component = treeListInstanceRef.current;
     if (!component || !columnSettingState.cachedEditorItems.length) {
       return;

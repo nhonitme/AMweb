@@ -24,7 +24,7 @@ import { normalizeMessageLanguageKey } from "@/utils/language";
 import MasterDataEditPopup from "@/components/datagrid/MasterDataEditPopup";
 import { getApiErrorMessage } from "@/api/apiTypes";
 import { Unit } from "@/types/unit";
-import { ProductUnitColumns } from "./Columns/ProductUnitColumns";
+import { useProductUnitColumns } from "./Columns/ProductUnitColumns";
 import { ProductUnitForm } from "./Forms/ProductUnitForm";
 import { useProductUnitImportConfig } from "./Columns/ProductUnitImportConfig";
 import {
@@ -212,6 +212,8 @@ export default function ProductUnitManagementPage({
     }
   }, [langCode, t]);
 
+  const configuredProductUnitColumns = useProductUnitColumns({})
+
   const content = (
     <MasterDataPageLayout
       toolbar={
@@ -280,7 +282,7 @@ export default function ProductUnitManagementPage({
             <ProductUnitForm />
           </Editing>
 
-          <ProductUnitColumns />
+          {configuredProductUnitColumns}
         </BaseDataGrid>
 
         <LoadPanel

@@ -28,7 +28,7 @@ import {
 import { useMasterListLoadError, useMasterListReload } from "@/hooks/queries/master/masterQueryHelpers"
 import type { EditorPreparingEvent, EditingStartEvent, RowDblClickEvent, ContextMenuPreparingEvent } from "devextreme/ui/data_grid"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
-import { OpeningBalanceAccountColumns } from "./Columns/OpeningBalanceAccountColumns"
+import { useOpeningBalanceAccountColumns } from "./Columns/OpeningBalanceAccountColumns"
 import { OpeningBalanceAccountForm } from "./Forms/OpeningBalanceAccountForm"
 import { openingBalanceAmountErrorMessage } from "./openingBalanceValidation"
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup";
@@ -374,6 +374,8 @@ function OpeningBalanceAccount(): React.JSX.Element {
         }
   };
 
+    const configuredOpeningBalanceAccountColumns = useOpeningBalanceAccountColumns({ t })
+
     return (
             <div className="min-h-full bg-gray-50 pt-0 md:pl-6 pr-6">
                 <LoadPanel
@@ -592,7 +594,7 @@ function OpeningBalanceAccount(): React.JSX.Element {
                                             editingRowData={editingRowData}
                                         />
                                     </Editing>
-                                    <OpeningBalanceAccountColumns t={t} />
+                                    {configuredOpeningBalanceAccountColumns}
                                 </BaseDataGrid>
                             </div>
                         </div>

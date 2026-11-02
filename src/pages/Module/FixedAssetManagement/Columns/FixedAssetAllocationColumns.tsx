@@ -90,7 +90,7 @@ function buildBaseColumnProps(column: FaResolvedColumn) {
   }
 }
 
-export function FixedAssetAllocationColumns({
+export function useFixedAssetAllocationColumns({
   gridId = FIXED_ASSET_ALLOCATION_GRID_ID,
   depreciationHeader,
   onRateApplied,

@@ -1,6 +1,7 @@
 import { getInventoryLinkStatus, getInventoryLinkStatuses } from "@/api/inventoryLinkApi"
 import { getInventoryVouchers, updateInventoryVoucher } from "@/api/inventoryVoucherApi"
 import { getChits } from "@/api/voucherApi"
+import { pickLocalizedText } from "@/lib/companyLang"
 import { getCurrentCompanyCd } from "@/lib/login"
 import type {
   ChitInfo,
@@ -42,9 +43,45 @@ export type LinkDetailCandidate = {
   debit: string
   credit: string
   amount: number
+  customerId: number | null
+  customerCd: string
+  customerNm: string
   ledger: string
   chitType: string
   sort: number
+}
+
+export type AccountingDetailLinkSelection = {
+  CHITDETAIL_ID: number
+  CHITDETAIL_CD: string
+  CUSTOMER_ID: number | null
+  CUSTOMER_CD: string
+  AMOUNT: number
+  CHIT_ID: number
+  CHIT_NO: string
+  CHIT_TYPE: string
+}
+
+export function toAccountingDetailLinkSelection(
+  candidate: LinkDetailCandidate,
+): AccountingDetailLinkSelection | null {
+  const detailId = Number(candidate.chitDetailId ?? 0)
+  const detailCd = String(candidate.chitDetailCd ?? "").trim()
+  const chitId = Number(candidate.chitId ?? 0)
+  if (!(detailId > 0) || !detailCd || !(chitId > 0)) {
+    return null
+  }
+
+  return {
+    CHITDETAIL_ID: detailId,
+    CHITDETAIL_CD: detailCd,
+    CUSTOMER_ID: Number(candidate.customerId ?? 0) > 0 ? Number(candidate.customerId) : null,
+    CUSTOMER_CD: String(candidate.customerCd ?? "").trim(),
+    AMOUNT: Number(candidate.amount ?? 0),
+    CHIT_ID: chitId,
+    CHIT_NO: String(candidate.chitNo ?? "").trim(),
+    CHIT_TYPE: String(candidate.chitType ?? "").trim().toUpperCase(),
+  }
 }
 
 export type LinkAmountPair = {
@@ -63,16 +100,45 @@ export function applyAccountingDetailToInventoryLines<T extends InventoryInputLi
   lines: T[],
   chitDetailId: number | null,
   chitDetailCd: string,
+  amount?: number | null,
 ): T[] {
-  return lines.map((line) =>
-    line.ISDEL
-      ? line
-      : {
-          ...line,
-          CHITDETAIL_ID: chitDetailId,
-          CHITDETAIL_CD: chitDetailCd,
-        },
-  )
+  const amountValue = amount == null ? null : Number(amount)
+  const shouldFillAmount = amountValue != null && Number.isFinite(amountValue)
+  const firstActiveIndex = shouldFillAmount
+    ? lines.findIndex((line) => !line.ISDEL)
+    : -1
+
+  return lines.map((line, index) => {
+    if (line.ISDEL) {
+      return line
+    }
+
+    const next: T = {
+      ...line,
+      CHITDETAIL_ID: chitDetailId,
+      CHITDETAIL_CD: chitDetailCd,
+    }
+
+    if (index !== firstActiveIndex || !shouldFillAmount || amountValue == null) {
+      return next
+    }
+
+    const withAmount = {
+      ...next,
+      AMOUNT_CC: amountValue,
+      AMOUNT_TOTAL: amountValue,
+    } as T
+
+    if ("REVENUE_AMOUNT_CC" in withAmount) {
+      return {
+        ...withAmount,
+        REVENUE_AMOUNT_CC: amountValue,
+        REVENUE_AMOUNT_TOTAL: amountValue,
+      }
+    }
+
+    return withAmount
+  })
 }
 
 export function getLinkedChitDetailIdFromInventoryDraft(draft: InventoryVoucher, chitType: string): number {
@@ -326,12 +392,38 @@ function toFreeDetailCandidates(
 
     const linkedIds = linkedByChitId.get(chitId) ?? new Set<number>()
     const details = getActiveChitDetails(voucher.DETAILS ?? [])
+    const fallbackCustomer = details.reduce<{
+      customerId: number | null
+      customerCd: string
+      customerNm: string
+    }>(
+      (current, detail) => {
+        if (current.customerId || current.customerCd || current.customerNm) {
+          return current
+        }
+        const id = Number(detail.CUSTOMER_ID ?? 0)
+        const cd = String(detail.CUSTOMER_CD ?? "").trim()
+        const nm = pickLocalizedText(detail, "CUSTOMER_NM")
+        if (id > 0 || cd || nm) {
+          return { customerId: id > 0 ? id : null, customerCd: cd, customerNm: nm }
+        }
+        return current
+      },
+      { customerId: null, customerCd: "", customerNm: "" },
+    )
     details.forEach((detail, index) => {
       const detailId = Number(detail.CHITDETAIL_ID ?? 0)
       const detailCd = String(detail.CHITDETAIL_CD ?? "").trim()
       if (!(detailId > 0) || !detailCd || linkedIds.has(detailId)) {
         return
       }
+      const detailCustomerId = Number(detail.CUSTOMER_ID ?? 0)
+      const detailCustomerCd = String(detail.CUSTOMER_CD ?? "").trim()
+      const detailCustomerNm = pickLocalizedText(detail, "CUSTOMER_NM")
+      const customerId =
+        detailCustomerId > 0 ? detailCustomerId : fallbackCustomer.customerId
+      const customerCd = detailCustomerCd || fallbackCustomer.customerCd
+      const customerNm = detailCustomerNm || fallbackCustomer.customerNm
       result.push({
         chitId,
         chitNo: String(voucher.CHIT_NO ?? "").trim(),
@@ -341,6 +433,9 @@ function toFreeDetailCandidates(
         debit: String(detail.DEBIT ?? "").trim(),
         credit: String(detail.CREDIT ?? "").trim(),
         amount: Number(detail.AMOUNT ?? 0),
+        customerId,
+        customerCd,
+        customerNm,
         ledger,
         chitType: String(voucher.CHIT_TYPE ?? chitType).trim().toUpperCase(),
         sort: Number(detail.SORT ?? index + 1),
@@ -453,7 +548,7 @@ export async function loadFreeAccountingDetailsInDateRange(params: {
           return await getInventoryLinkStatuses(params.ledger, params.chitType, chunk)
         } catch {
           // Link-status is a nice-to-have filter; skip when the user lacks
-          // the inventory-link permission (e.g. AR_SALES) for this chit type.
+          // the inventory-link permission (e.g. GL_VOUCHER_SALE) for this chit type.
           return []
         }
       }),

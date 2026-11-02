@@ -17,7 +17,7 @@ import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid";
 import { GridToolbar } from "@/components/toolbar/GridToolbar";
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout";
 
-import { StoreColumns } from "./Columns/StoreColumns";
+import { useStoreColumns } from "./Columns/StoreColumns";
 import { StoreForm } from "./Forms/StoreForm";
 
 import { exportToExcel } from "@/api/storeAPI";
@@ -256,6 +256,8 @@ const handleToolbarDelete = async () => {
     }
 };
 
+  const configuredStoreColumns = useStoreColumns({})
+
   const content = (
     <MasterDataPageLayout
       toolbar={
@@ -333,7 +335,7 @@ const handleToolbarDelete = async () => {
             <StoreForm />
           </Editing>
 
-          <StoreColumns />
+          {configuredStoreColumns}
         </BaseDataGrid>
 
         <LoadPanel

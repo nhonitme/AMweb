@@ -24,7 +24,7 @@ import { normalizeMessageLanguageKey } from "@/utils/language";
 import MasterDataEditPopup from "@/components/datagrid/MasterDataEditPopup";
 import { getApiErrorMessage } from "@/api/apiTypes";
 import { ProductKind } from "@/types/productKind";
-import { ProductKindColumns } from "./Columns/ProductKindColumns";
+import { useProductKindColumns } from "./Columns/ProductKindColumns";
 import { ProductKindForm } from "./Forms/ProductKindForm";
 import { useProductKindImportConfig } from "./Columns/ProductKindImportConfig";
 import {
@@ -212,6 +212,8 @@ export default function ProductKindManagementPage({
     }
   }, [exportName, langCode, t]);
 
+  const configuredProductKindColumns = useProductKindColumns({})
+
   const content = (
     <MasterDataPageLayout
       toolbar={
@@ -280,7 +282,7 @@ export default function ProductKindManagementPage({
             <ProductKindForm />
           </Editing>
 
-          <ProductKindColumns />
+          {configuredProductKindColumns}
         </BaseDataGrid>
 
         <LoadPanel

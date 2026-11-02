@@ -58,7 +58,7 @@ function buildBaseColumnProps(column: FaResolvedColumn) {
   }
 }
 
-export const FixedAssetColumns: React.FC<FixedAssetColumnsProps> = ({
+export const useFixedAssetColumns: React.FC<FixedAssetColumnsProps> = ({
   statusCodes,
   gridId = FIXED_ASSET_MASTER_GRID_ID,
 }) => {

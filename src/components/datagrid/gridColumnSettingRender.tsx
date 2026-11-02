@@ -359,7 +359,13 @@ function expandGridColumnChildren(children: React.ReactNode): React.ReactNode {
     }
 
     if (child.type === React.Fragment) {
-      return React.Children.toArray(child.props.children)
+      // Keep the fragment's key namespace when flattening. Sibling fragments
+      // otherwise both contribute keys such as `.0` to DevExtreme's option tree.
+      return React.Children.toArray(expandGridColumnChildren(child.props.children)).map((nested) =>
+        React.isValidElement(nested)
+          ? React.cloneElement(nested, { key: `${child.key}/${nested.key}` })
+          : nested,
+      )
     }
 
     return [child]

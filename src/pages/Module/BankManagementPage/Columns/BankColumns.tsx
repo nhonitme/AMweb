@@ -1,6 +1,6 @@
 import { Column } from "devextreme-react/data-grid"
 
-export function BankColumns() {
+export function useBankColumns() {
 
   return (
     <>
@@ -17,4 +17,4 @@ export function BankColumns() {
   )
 }
 
-export default BankColumns
+export default useBankColumns

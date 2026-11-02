@@ -15,62 +15,16 @@ export type ReferenceSourceConfig = {
     hintFallback: string
 }
 
-// TEMP disabled: linking moved to inventory vouchers (IR/IO pick accounting voucher).
-// Restore these entries to re-enable ReferenceLookup on PO/PD/PR/SO/SD/SR.
-export const referenceSourceConfig: Partial<Record<ChitType, ReferenceSourceConfig>> = {
-    // PO: {
-    //     ledger: "AP",
-    //     chitType: "IR",
-    //     hintKey: "REFERENCE",
-    //     hintFallback: "Chọn phiếu nhập kho",
-    // },
-    // PD: {
-    //     ledger: "AP",
-    //     chitType: "IR",
-    //     hintKey: "REFERENCE",
-    //     hintFallback: "Chọn phiếu nhập kho",
-    // },
-    // PR: {
-    //     ledger: "AP",
-    //     chitType: "IO",
-    //     hintKey: "REFERENCE",
-    //     hintFallback: "Chọn phiếu xuất kho",
-    // },
-    // SO: {
-    //     ledger: "AR",
-    //     chitType: "IO",
-    //     hintKey: "REFERENCE",
-    //     hintFallback: "Chọn phiếu xuất kho",
-    // },
-    // SD: {
-    //     ledger: "AR",
-    //     chitType: "IO",
-    //     hintKey: "REFERENCE",
-    //     hintFallback: "Chọn phiếu xuất kho",
-    // },
-    // SR: {
-    //     ledger: "AR",
-    //     chitType: "IR",
-    //     hintKey: "REFERENCE",
-    //     hintFallback: "Chọn phiếu nhập kho",
-    // },
-}
+export const referenceSourceConfig: Partial<Record<ChitType, ReferenceSourceConfig>> = {}
 
-/** Accounting vouchers selectable from IR/IO editor (1 inventory ↔ 1 accounting). */
 export type InventoryAccountingReferenceOption = ReferenceSourceConfig & {
     optionKey: string
 }
 
-/** sys_code CODE_TYPE holding IR/IO ↔ accounting link sources. */
 export const INVENTORY_LINK_SOURCE_CODE_TYPE = "INVENTORY_LINK_SOURCE"
 
-/** sys_code.NOTE format: INVENTORY_TYPE|LEDGER|CHIT_TYPE */
 const INVENTORY_LINK_SOURCE_NOTE_SEPARATOR = "|"
 
-/**
- * Build IR/IO link options from sys_code rows.
- * CODE_CD = optionKey, CODE_NAME = language key, NOTE = IR|AP|PO.
- */
 export function buildInventoryAccountingReferenceOptions(
     codes: readonly SysCode[],
 ): Partial<Record<"IR" | "IO", InventoryAccountingReferenceOption[]>> {

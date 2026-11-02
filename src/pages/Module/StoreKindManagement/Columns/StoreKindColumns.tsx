@@ -3,7 +3,7 @@ import { Column } from "devextreme-react/data-grid"
 
 import { useCompanyLangRevision } from "@/lib/companyLang"
 
-export const StoreKindColumns: React.FC = () => {
+export const useStoreKindColumns: React.FC = () => {
   useCompanyLangRevision()
 
   return (

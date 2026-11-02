@@ -11,7 +11,7 @@ import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout";
 import BaseTreeList from "@/components/datagrid/BaseTreeList";
 import { GridToolbar } from "@/components/toolbar/GridToolbar";
 
-import { AcclistColumns} from "./Columns/AcclistColumns";
+import { useAcclistColumns} from "./Columns/AcclistColumns";
 import { AcclistForm } from "./Forms/AcclistForm";
 
 import { exportToExcel } from "@/api/acclistAPI";
@@ -265,6 +265,8 @@ export default function AcclistManagementPage({
     }
 };
 
+  const configuredAcclistColumns = useAcclistColumns({ onAddChild: handleAddChild })
+
   return (
     <MasterDataPageLayout
       toolbar={
@@ -332,7 +334,7 @@ export default function AcclistManagementPage({
           />
           <AcclistForm isUpdate={isUpdate} lblChoose={lblChoose} lblAccType={lblAccType} data={accTypeData} />
         </Editing>
-        <AcclistColumns onAddChild={handleAddChild} />
+        {configuredAcclistColumns}
       </BaseTreeList>
 
       <LoadPanel

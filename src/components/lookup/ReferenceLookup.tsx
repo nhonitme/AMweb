@@ -166,19 +166,22 @@ export default function ReferenceLookup({
       }))
 
       if (useGlobalLinkedStatus) {
-        const statuses = await getInventoryLinkStatuses(ledger, chitType, sourceIds)
-        const linkedIds = new Set(
-          statuses
-            .filter((status) => (status.LINKED_CHITDETAIL_IDS ?? []).length > 0 || status.LINKED_TOTAL_QUANTITY > 0)
-            .map((status) => Number(status.CHIT_ID ?? 0))
-            .filter((id) => Number.isFinite(id) && id > 0),
-        )
-        itemsWithStatus = normalized.map((item) => ({
-          ...item,
-          IS_LINKED_SOURCE:
-            selectedSourceIdSet.has(Number(item.CHIT_ID ?? 0)) ||
-            linkedIds.has(Number(item.CHIT_ID ?? 0)),
-        }))
+        try {
+          const statuses = await getInventoryLinkStatuses(ledger, chitType, sourceIds)
+          const linkedIds = new Set(
+            statuses
+              .filter((status) => (status.LINKED_CHITDETAIL_IDS ?? []).length > 0 || status.LINKED_TOTAL_QUANTITY > 0)
+              .map((status) => Number(status.CHIT_ID ?? 0))
+              .filter((id) => Number.isFinite(id) && id > 0),
+          )
+          itemsWithStatus = normalized.map((item) => ({
+            ...item,
+            IS_LINKED_SOURCE:
+              selectedSourceIdSet.has(Number(item.CHIT_ID ?? 0)) ||
+              linkedIds.has(Number(item.CHIT_ID ?? 0)),
+          }))
+        } catch {
+        }
       }
 
       if (excludeLinkedSources) {

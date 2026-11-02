@@ -7,17 +7,21 @@ import Popup from "devextreme-react/popup"
 import SelectBox from "devextreme-react/select-box"
 import TextBox from "devextreme-react/text-box"
 import notify from "devextreme/ui/notify"
+import type dxPopup from "devextreme/ui/popup"
 import { GripVertical } from "lucide-react"
 
-import { useCompanyLangRevision } from "@/lib/companyLang"
-import { LanguageContext } from "@/lib/i18nLoader"
-import { resolveSysGridColumnDisplayCaption } from "@/lib/gridColumnSettingUtils"
 import { getApiErrorMessage } from "@/api/apiTypes"
+import { disableBuiltInPopupEscape, usePopupEscapeLayer } from "@/components/popup/popupEscapeStack"
+import { overlayWrapperFromPopupContent, raiseOverlayAboveSiblings } from "@/components/popup/raiseOverlayZIndex"
 import useShortcutBindings from "@/hooks/useShortcutBindings"
+import { useCompanyLangRevision } from "@/lib/companyLang"
+import { resolveSysGridColumnDisplayCaption } from "@/lib/gridColumnSettingUtils"
+import { LanguageContext } from "@/lib/i18nLoader"
 import {
   createPopupShortcutWrapperAttr,
   isPopupShortcutScopeTopMost,
   usePopupShortcutScopeId,
+  visiblePopupCount,
 } from "@/lib/popupShortcutScope"
 import { createShortcutBindings } from "@/lib/shortcuts/shortcutBindings"
 import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/shortcutDefinitions"
@@ -182,6 +186,7 @@ export function GridColumnSettingsPopup({
   const hydratedSourceSignatureRef = useRef("")
   const draftDirtyRef = useRef(false)
   const draggingColumnNameRef = useRef("")
+  const popupWrapperRef = useRef<HTMLElement | null>(null)
   const popupShortcutScopeId = usePopupShortcutScopeId("grid-column-settings")
   const companyLangRevision = useCompanyLangRevision()
 
@@ -534,6 +539,17 @@ export function GridColumnSettingsPopup({
     shouldHandleEvent: () => isPopupShortcutScopeTopMost(popupShortcutScopeId),
   })
 
+  usePopupEscapeLayer(visible, onClose, () => popupWrapperRef.current)
+
+  const bindPopup = useCallback((component: dxPopup) => {
+    const wrapper = overlayWrapperFromPopupContent(component.content())
+    popupWrapperRef.current = wrapper
+    disableBuiltInPopupEscape(component)
+    if (visiblePopupCount() > 1) {
+      raiseOverlayAboveSiblings(wrapper)
+    }
+  }, [])
+
   const handleSetDefaultTemplateClick = async () => {
     if (!activeTemplate || !onSetDefaultTemplate || activeTemplate.isDefaultTemplate || templateBusyState) {
       return
@@ -559,6 +575,12 @@ export function GridColumnSettingsPopup({
       maxWidth={980}
       height="min(80vh, 820px)"
       wrapperAttr={createPopupShortcutWrapperAttr(popupShortcutScopeId)}
+      onShowing={(event) => {
+        bindPopup(event.component)
+      }}
+      onShown={(event) => {
+        bindPopup(event.component)
+      }}
       onHiding={onClose}
     >
       <div className="flex h-full flex-col gap-3">

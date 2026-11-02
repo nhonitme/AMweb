@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from "react"
+import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react"
 import { Button } from "devextreme-react"
 import DataGrid, {
   Column,
@@ -186,7 +186,7 @@ export function DetailGrid<TData>({
     [columnSettingState.bindGridComponent, effectiveEditorItems, columnSettingState.syncEditorItemsToComponent, onInitialized],
   )
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!columnSettingState.enabled || !gridRef.current || !effectiveEditorItems.length) {
       return
     }

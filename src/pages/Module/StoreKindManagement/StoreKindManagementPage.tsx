@@ -12,7 +12,7 @@ import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid";
 import { GridToolbar } from "@/components/toolbar/GridToolbar";
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout";
 
-import { StoreKindColumns } from "./Columns/StoreKindColumns";
+import { useStoreKindColumns } from "./Columns/StoreKindColumns";
 import { StoreKindForm } from "./Forms/StoreKindForm";
 
 import { exportToExcel } from "@/api/storeKindAPI";
@@ -247,6 +247,8 @@ const handleToolbarDelete = async () => {
     }
 };
 
+  const configuredStoreKindColumns = useStoreKindColumns({})
+
   const content = (
     <MasterDataPageLayout
       toolbar={
@@ -320,7 +322,7 @@ const handleToolbarDelete = async () => {
             <StoreKindForm isUpdate={isUpdate}/>
           </Editing>
 
-          <StoreKindColumns />
+          {configuredStoreKindColumns}
         </BaseDataGrid>
 
         <LoadPanel

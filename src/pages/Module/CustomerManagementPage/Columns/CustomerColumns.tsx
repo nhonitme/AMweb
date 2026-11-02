@@ -10,7 +10,7 @@ type CustomerColumnsProps = {
   customerTypeCodes?: SysCode[]
 }
 
-export function CustomerColumns({
+export function useCustomerColumns({
   categoryCodes = [],
   customerTypeCodes = [],
 }: CustomerColumnsProps) {
@@ -49,4 +49,4 @@ export function CustomerColumns({
   )
 }
 
-export default CustomerColumns
+export default useCustomerColumns

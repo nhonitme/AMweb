@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -43,7 +44,7 @@ import {
 import { LanguageContext } from '@/lib/i18nLoader'
 import type { FixedAssetAllocationRow } from '@/types/fixedAsset'
 
-import { FixedAssetAllocationColumns } from '../Columns/FixedAssetAllocationColumns'
+import { useFixedAssetAllocationColumns } from '../Columns/FixedAssetAllocationColumns'
 import { getAcclistLookupStore } from '@/components/lookup/AcclistLookupStore'
 import { EtcType } from '@/api/systemApi'
 import { rememberAccountDisplayNamesFromRow } from '@/components/lookup/accountLookupUtils'
@@ -951,7 +952,7 @@ export const FixedAssetAllocationGridPopup = forwardRef<
     prepareVoucherSpreadsheetToolbar(event)
   }, [])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (
       !isVisible ||
       !columnSettingState.enabled ||
@@ -1066,6 +1067,8 @@ export const FixedAssetAllocationGridPopup = forwardRef<
   if (columnSettingStateRef) {
     columnSettingStateRef.current = columnSettingState
   }
+
+  const configuredFixedAssetAllocationColumns = useFixedAssetAllocationColumns({ depreciationHeader, onRateApplied: handleRateApplied })
 
   return (
     <div
@@ -1234,10 +1237,7 @@ export const FixedAssetAllocationGridPopup = forwardRef<
               )
             }}
           />
-          <FixedAssetAllocationColumns
-            depreciationHeader={depreciationHeader}
-            onRateApplied={handleRateApplied}
-          />
+          {configuredFixedAssetAllocationColumns}
         </DataGrid>
       </div>
 

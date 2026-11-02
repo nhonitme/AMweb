@@ -9,7 +9,7 @@ type AcclistColumnsProps = {
   onAddChild?: (rowData: AcclistInfo) => void;
 };
 
-export const AcclistColumns: React.FC<AcclistColumnsProps> = ({ onAddChild }) => {
+export const useAcclistColumns: React.FC<AcclistColumnsProps> = ({ onAddChild }) => {
   const { translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string };
   useCompanyLangRevision();
   return (

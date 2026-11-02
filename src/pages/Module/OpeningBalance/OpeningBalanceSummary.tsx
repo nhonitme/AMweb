@@ -8,7 +8,7 @@ import Summary, { TotalItem } from "devextreme-react/data-grid"
 
 import { LanguageContext } from "@/lib/i18nLoader";
 import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid";
-import { OpeningBalanceSummaryColumns } from "./Columns/OpeningBalanceSummaryColumns"
+import { useOpeningBalanceSummaryColumns } from "./Columns/OpeningBalanceSummaryColumns"
 import { formatNumber, SummaryCard } from "@/utils/openingBalanceHelpers"
 import type { OpeningBalanceSummaryModel } from "@/types/openingBalance"
 import { getCurrentDataLanguageSuffix } from "@/utils/language"
@@ -149,6 +149,8 @@ const handleOpenDetail = useCallback(
   [month, navigate, openWorkspacePath, openYmd, t, year]
 )
 
+  const configuredOpeningBalanceSummaryColumns = useOpeningBalanceSummaryColumns({ t, onOpenDetail: handleOpenDetail })
+
   return (
     <div className="min-h-full bg-gray-50 p-0">
       <LoadPanel
@@ -246,7 +248,7 @@ const handleOpenDetail = useCallback(
                 e.event?.preventDefault();
               }}
             >
-              <OpeningBalanceSummaryColumns t={t} onOpenDetail={handleOpenDetail} />
+              {configuredOpeningBalanceSummaryColumns}
 
               <Summary>
                 <TotalItem

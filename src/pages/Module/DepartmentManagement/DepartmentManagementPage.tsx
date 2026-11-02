@@ -29,7 +29,7 @@ import { MasterDataTreeListEditPopup } from "@/components/datagrid/MasterDataEdi
 import { getApiErrorMessage } from "@/api/apiTypes"
 import type { DepartmentInfo, DepartmentInfoApi } from "@/types/departmentInfo"
 import DepartmentInfoForm from "./DepartmentInfoForm"
-import { DepartmentInfoColumns } from "./Columns/DepartmentInfoColumns"
+import { useDepartmentInfoColumns } from "./Columns/DepartmentInfoColumns"
 import { useDepartmentImportConfig } from "./Columns/DepartmentImportConfig"
 import {
   useDepartmentListQuery,
@@ -303,6 +303,8 @@ export default function DepartmentManagementPage({
     }
   }, [isLookup, onCloseLookup, onPickDepartment])
 
+  const configuredDepartmentInfoColumns = useDepartmentInfoColumns({ onAddChild: handleAddChild })
+
   const content = (
     <MasterDataPageLayout
       toolbar={
@@ -382,7 +384,7 @@ export default function DepartmentManagementPage({
           <DepartmentInfoForm isUpdate={isUpdate} />
         </Editing>
 
-        <DepartmentInfoColumns onAddChild={handleAddChild} />
+        {configuredDepartmentInfoColumns}
       </BaseTreeList>
 
       <LoadPanel
