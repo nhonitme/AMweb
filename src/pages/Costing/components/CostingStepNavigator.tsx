@@ -91,7 +91,7 @@ export function CostingStepNavigator({
         <br />
         {t(
           "GK_SIDE_TIP_BODY",
-          "Bước 1 và 6 dùng lại engine B-I. Mở lại theo thứ tự ngược 6→1. DEMO không ghi DB.",
+          "Bước 1 và 6 dùng PeriodLock. Các bước còn lại gọi /api/production-cost.",
         )}
       </div>
 

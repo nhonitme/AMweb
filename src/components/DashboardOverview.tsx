@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { Bar, Line } from "react-chartjs-2"
 import {
   Chart as ChartJS,
@@ -11,12 +12,17 @@ import {
   PointElement,
   Filler,
 } from "chart.js"
-import SelectBox from "devextreme-react/select-box"
 import Button from "devextreme-react/button"
 import DataGrid, { Column, Paging, Scrolling } from "devextreme-react/data-grid"
+import notify from "devextreme/ui/notify"
 import { getDashboardOverview } from "@/api/dashboardApi"
-import { formatYmdForDisplay } from "@/pages/Accounting/accountingDateUtils"
+import DateRangeBox from "@/components/toolbar/DateRangeBox"
+import { createCurrentQuarterDateRange } from "@/lib/dateRangeDefaults"
+import { formatDateToYmd, formatYmdForDisplay, normalizeYmd } from "@/pages/Accounting/accountingDateUtils"
 import { getDevExtremeIconClass } from "@/lib/devexpressIcons"
+import { buildAppPath, getCurrentCompanyCd } from "@/lib/login"
+import { getVoucherRouteByChitType } from "@/pages/VoucherManagement/chitUtils"
+import { buildVoucherOpenUrl } from "@/pages/VoucherManagement/voucherOpenRouteUtils"
 import type {
   DashboardKpi,
   DashboardChartItem,
@@ -29,6 +35,25 @@ import type {
   DashboardRecentVoucher,
   DashboardFilter,
 } from "@/types/dashboard"
+
+const DASHBOARD_ROUTES = {
+  cashBook: "/cash/cash-book",
+  arAging: "/gl/book/ar-aging",
+  purchaseJournal: "/ap/report/purchase-journal",
+  periodLock: "/gl/closing-balance",
+  vatDeclaration: "/tax/vat/declaration",
+} as const
+
+function resolveAppActionUrl(companyCd: string, actionUrl: string): string {
+  const trimmed = actionUrl.trim()
+  if (!trimmed) return buildAppPath(companyCd, "/")
+  if (trimmed.startsWith("/app/")) return trimmed
+  const queryIndex = trimmed.indexOf("?")
+  if (queryIndex < 0) return buildAppPath(companyCd, trimmed)
+  const path = trimmed.slice(0, queryIndex) || "/"
+  const query = trimmed.slice(queryIndex + 1)
+  return `${buildAppPath(companyCd, path)}?${query}`
+}
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend, LineElement, PointElement, Filler)
 
@@ -91,25 +116,26 @@ const LOCK_STATUS_STYLES: Record<string, string> = {
   ERROR:      "bg-red-100   text-red-700",
 }
 
-const currentYear  = new Date().getFullYear()
-const currentMonth = new Date().getMonth() + 1
-const yearOptions  = Array.from({ length: 6 }, (_, i) => currentYear - i)
-const monthOptions = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `Tháng ${i + 1}` }))
-
-function getDefaultFilter(): DashboardFilter {
-  const now    = new Date()
-  const year   = now.getFullYear()
-  const month  = now.getMonth() + 1
-  const pad    = (n: number) => String(n).padStart(2, "0")
-  const fromYmd = `${year}${pad(month)}01`
-  const lastDay = new Date(year, month, 0).getDate()
-  const toYmd   = `${year}${pad(month)}${pad(lastDay)}`
+function buildFilterFromDates(fromDate: Date | null, toDate: Date | null): DashboardFilter | null {
+  const fromYmd = formatDateToYmd(fromDate)
+  const toYmd = formatDateToYmd(toDate)
+  if (!fromYmd || !toYmd) return null
+  if (fromYmd > toYmd) return null
   return {
     fromYmd,
     toYmd,
-    year:     String(year),
-    periodYm: `${year}${pad(month)}`,
+    year: toYmd.slice(0, 4),
+    periodYm: toYmd.slice(0, 6),
   }
+}
+
+function getDefaultFilter(): DashboardFilter {
+  const { fromDate, toDate } = createCurrentQuarterDateRange()
+  const filter = buildFilterFromDates(fromDate, toDate)
+  if (!filter) {
+    throw new Error("Invalid default dashboard quarter range")
+  }
+  return filter
 }
 
 type KpiCardProps = {
@@ -118,13 +144,15 @@ type KpiCardProps = {
   prevValue: number
   color: string
   icon: string
+  onClick?: () => void
 }
 
-function KpiCard({ title, value, prevValue, color, icon }: KpiCardProps) {
+function KpiCard({ title, value, prevValue, color, icon, onClick }: KpiCardProps) {
   const change = pctChange(value, prevValue)
   const isUp   = !change.startsWith("-")
-  return (
-    <div className={`bg-white rounded-xl border-l-4 shadow-sm p-4 ${color}`}>
+  const className = `bg-white rounded-xl border-l-4 shadow-sm p-4 ${color}${onClick ? " cursor-pointer hover:bg-gray-50" : ""}`
+  const content = (
+    <>
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">{title}</span>
         <span
@@ -139,13 +167,31 @@ function KpiCard({ title, value, prevValue, color, icon }: KpiCardProps) {
           {isUp ? "▲" : "▼"} {change} so với tháng trước
         </div>
       )}
-    </div>
+    </>
   )
+  if (onClick) {
+    return (
+      <button type="button" className={`${className} text-left w-full`} onClick={onClick}>
+        {content}
+      </button>
+    )
+  }
+  return <div className={className}>{content}</div>
 }
 
-function SectionCard({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
+function SectionCard({
+  title,
+  children,
+  action,
+  sectionRef,
+}: {
+  title: string
+  children: React.ReactNode
+  action?: React.ReactNode
+  sectionRef?: React.RefObject<HTMLDivElement | null>
+}) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div ref={sectionRef} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
         <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">{title}</h2>
         {action}
@@ -155,10 +201,26 @@ function SectionCard({ title, children, action }: { title: string; children: Rea
   )
 }
 
+function SectionLink({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-xs text-blue-600 hover:text-blue-800 underline underline-offset-2"
+    >
+      {label}
+    </button>
+  )
+}
+
 export default function DashboardOverview() {
-  const [filter, setFilter] = useState<DashboardFilter>(getDefaultFilter)
-  const [selectedYear, setSelectedYear]   = useState(currentYear)
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth)
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const companyCd = getCurrentCompanyCd()
+
+  const [filter, setFilter] = useState<DashboardFilter>(() => getDefaultFilter())
+  const [fromDate, setFromDate] = useState<Date | null>(() => normalizeYmd(filter.fromYmd))
+  const [toDate, setToDate] = useState<Date | null>(() => normalizeYmd(filter.toYmd))
 
   const [kpi,          setKpi]          = useState<DashboardKpi | null>(null)
   const [chartData,    setChartData]    = useState<DashboardChartItem[]>([])
@@ -173,25 +235,40 @@ export default function DashboardOverview() {
   const [loading, setLoading] = useState(false)
   const mountedRef = useRef(true)
   const requestSeqRef = useRef(0)
+  const recentVouchersRef = useRef<HTMLDivElement | null>(null)
+  const focusHandledRef = useRef(false)
 
-  const applyFilter = useCallback(() => {
-    const pad     = (n: number) => String(n).padStart(2, "0")
-    const lastDay = new Date(selectedYear, selectedMonth, 0).getDate()
-    const nextFilter: DashboardFilter = {
-      fromYmd:  `${selectedYear}${pad(selectedMonth)}01`,
-      toYmd:    `${selectedYear}${pad(selectedMonth)}${pad(lastDay)}`,
-      year:     String(selectedYear),
-      periodYm: `${selectedYear}${pad(selectedMonth)}`,
+  const goToAppPath = useCallback((path: string) => {
+    navigate(resolveAppActionUrl(companyCd, path))
+  }, [companyCd, navigate])
+
+  const applyPendingVouchersFocus = useCallback(() => {
+    setVoucherFilter("PENDING")
+    window.requestAnimationFrame(() => {
+      recentVouchersRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    })
+  }, [])
+
+  const handleTaskAction = useCallback((actionUrl?: string) => {
+    if (!actionUrl) return
+    const focus = new URL(actionUrl, "http://local.invalid").searchParams.get("focus")
+    // Same-page deep-link: apply filter/scroll directly (navigate+effect raced).
+    if (focus === "pending-vouchers") {
+      applyPendingVouchersFocus()
+      return
     }
-    setFilter((previous) =>
-      previous.fromYmd === nextFilter.fromYmd &&
-      previous.toYmd === nextFilter.toYmd &&
-      previous.year === nextFilter.year &&
-      previous.periodYm === nextFilter.periodYm
-        ? previous
-        : nextFilter
-    )
-  }, [selectedYear, selectedMonth])
+    navigate(resolveAppActionUrl(companyCd, actionUrl))
+  }, [applyPendingVouchersFocus, companyCd, navigate])
+
+  const handleOpenRecentVoucher = useCallback((voucher: DashboardRecentVoucher) => {
+    const route = getVoucherRouteByChitType(voucher.ChitType || voucher.ChitCd)
+    if (!route) return
+    if (voucher.ChitId > 0) {
+      navigate(buildVoucherOpenUrl(route, voucher.ChitId))
+      return
+    }
+    goToAppPath(route)
+  }, [goToAppPath, navigate])
 
   const applyDashboardData = useCallback((data: DashboardOverviewData) => {
     setKpi(data.kpi)
@@ -222,6 +299,24 @@ export default function DashboardOverview() {
     }
   }, [applyDashboardData])
 
+  const applyFilter = useCallback(() => {
+    const nextFilter = buildFilterFromDates(fromDate, toDate)
+    if (!nextFilter) {
+      notify("Từ ngày phải nhỏ hơn hoặc bằng Đến ngày", "warning", 2500)
+      return
+    }
+    const unchanged =
+      filter.fromYmd === nextFilter.fromYmd &&
+      filter.toYmd === nextFilter.toYmd &&
+      filter.year === nextFilter.year &&
+      filter.periodYm === nextFilter.periodYm
+    if (unchanged) {
+      void loadAll(filter, true)
+      return
+    }
+    setFilter(nextFilter)
+  }, [filter, fromDate, loadAll, toDate])
+
   useEffect(() => {
     mountedRef.current = true
     return () => {
@@ -234,6 +329,22 @@ export default function DashboardOverview() {
     mountedRef.current = true
     void loadAll(filter)
   }, [filter, loadAll])
+
+  useEffect(() => {
+    const focus = searchParams.get("focus")
+    if (focus !== "pending-vouchers") {
+      focusHandledRef.current = false
+      return
+    }
+    if (focusHandledRef.current || loading) return
+    focusHandledRef.current = true
+    applyPendingVouchersFocus()
+    const next = new URLSearchParams(searchParams)
+    next.delete("focus")
+    setSearchParams(next, { replace: true })
+  }, [applyPendingVouchersFocus, loading, searchParams, setSearchParams])
+
+  const visibleTasks = tasks.filter((task) => Number(task.Count) > 0)
 
   const months12 = Array.from({ length: 12 }, (_, i) => {
     const mm     = String(i + 1).padStart(2, "0")
@@ -305,47 +416,25 @@ export default function DashboardOverview() {
     <div className="space-y-4 p-1">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-gray-500 font-medium">Năm:</span>
-            <SelectBox
-              dataSource={yearOptions}
-              value={selectedYear}
-              onValueChanged={e => setSelectedYear(e.value as number)}
-              width={90}
-              stylingMode="outlined"
-            />
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-gray-500 font-medium">Kỳ:</span>
-            <SelectBox
-              dataSource={monthOptions}
-              displayExpr="label"
-              valueExpr="value"
-              value={selectedMonth}
-              onValueChanged={e => setSelectedMonth(e.value as number)}
-              width={110}
-              stylingMode="outlined"
-            />
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-gray-500 font-medium">Từ:</span>
-            <span className="text-sm font-medium text-gray-700">{formatYmdForDisplay(filter.fromYmd)}</span>
-            <span className="text-xs text-gray-400 mx-1">→</span>
-            <span className="text-sm font-medium text-gray-700">{formatYmdForDisplay(filter.toYmd)}</span>
-          </div>
+          <DateRangeBox
+            fromDate={fromDate}
+            toDate={toDate}
+            fromPlaceholder="Từ ngày"
+            toPlaceholder="Đến ngày"
+            labelMode="floating"
+            variant="grouped"
+            onFromDateChange={setFromDate}
+            onToDateChange={setToDate}
+            onEnter={applyFilter}
+            width={150}
+            className="flex flex-nowrap items-center gap-2"
+          />
           <Button
             text="Áp dụng"
             type="default"
             stylingMode="contained"
             onClick={applyFilter}
-            icon="refresh"
-          />
-          <Button
-            text="Làm mới"
-            type="normal"
-            stylingMode="outlined"
-            onClick={() => void loadAll(filter, true)}
-            icon="refresh"
+            icon="filter"
             disabled={loading}
           />
           {loading && (
@@ -355,14 +444,46 @@ export default function DashboardOverview() {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <KpiCard title="Tiền mặt / Ngân hàng"   value={kpi?.CashBalance    ?? 0} prevValue={0}                  color="border-blue-500"   icon="money" />
+        <KpiCard
+          title="Tiền mặt / Ngân hàng"
+          value={kpi?.CashBalance ?? 0}
+          prevValue={0}
+          color="border-blue-500"
+          icon="money"
+          onClick={() => goToAppPath(DASHBOARD_ROUTES.cashBook)}
+        />
         <KpiCard title="Doanh thu kỳ"            value={kpi?.Revenue        ?? 0} prevValue={kpi?.PrevRevenue   ?? 0} color="border-green-500"  icon="chart" />
         <KpiCard title="Chi phí kỳ"              value={kpi?.Expense        ?? 0} prevValue={kpi?.PrevExpense   ?? 0} color="border-red-400"    icon="decrease" />
         <KpiCard title="Lợi nhuận tạm tính"      value={kpi?.Profit         ?? 0} prevValue={kpi?.PrevProfit    ?? 0} color="border-emerald-500" icon="increase" />
-        <KpiCard title="Phải thu KH"             value={kpi?.Receivables    ?? 0} prevValue={0}                  color="border-sky-400"    icon="group" />
-        <KpiCard title="Phải trả NCC"            value={kpi?.Payables       ?? 0} prevValue={0}                  color="border-orange-400" icon="card" />
-        <KpiCard title="Thuế GTGT phải nộp"      value={kpi?.VatPayable     ?? 0} prevValue={0}                  color="border-violet-400" icon="percent" />
-        <div className="bg-white rounded-xl border-l-4 border-amber-500 shadow-sm p-4">
+        <KpiCard
+          title="Phải thu KH"
+          value={kpi?.Receivables ?? 0}
+          prevValue={0}
+          color="border-sky-400"
+          icon="group"
+          onClick={() => goToAppPath(DASHBOARD_ROUTES.arAging)}
+        />
+        <KpiCard
+          title="Phải trả NCC"
+          value={kpi?.Payables ?? 0}
+          prevValue={0}
+          color="border-orange-400"
+          icon="card"
+          onClick={() => goToAppPath(DASHBOARD_ROUTES.purchaseJournal)}
+        />
+        <KpiCard
+          title="Thuế GTGT phải nộp"
+          value={kpi?.VatPayable ?? 0}
+          prevValue={0}
+          color="border-violet-400"
+          icon="percent"
+          onClick={() => goToAppPath(DASHBOARD_ROUTES.vatDeclaration)}
+        />
+        <button
+          type="button"
+          className="bg-white rounded-xl border-l-4 border-amber-500 shadow-sm p-4 text-left hover:bg-gray-50"
+          onClick={() => handleTaskAction("/?focus=pending-vouchers")}
+        >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">CT chưa ghi sổ</span>
             <span
@@ -373,27 +494,27 @@ export default function DashboardOverview() {
           </div>
           <div className="text-3xl font-bold text-amber-600">{kpi?.PendingVouchers ?? 0}</div>
           <div className="text-xs text-gray-400 mt-1">chứng từ cần xử lý</div>
-        </div>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <SectionCard title={`Doanh thu – Chi phí theo tháng (${selectedYear})`}>
+        <SectionCard title={`Doanh thu – Chi phí theo tháng (${filter.year})`}>
           <Bar data={barChartData} options={chartOptions} height={110} />
         </SectionCard>
-        <SectionCard title={`Lợi nhuận theo tháng (${selectedYear})`}>
+        <SectionCard title={`Lợi nhuận theo tháng (${filter.year})`}>
           <Line data={lineChartData} options={chartOptions} height={110} />
         </SectionCard>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <SectionCard title="Công việc cần xử lý">
-          {tasks.length === 0 ? (
+          {visibleTasks.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-4">Không có việc cần xử lý</p>
           ) : (
             <div className="space-y-2">
-              {tasks.map((task, i) => (
+              {visibleTasks.map((task, i) => (
                 <div
-                  key={i}
+                  key={`${task.Category}-${i}`}
                   className={`flex items-center justify-between rounded-lg border-l-4 px-3 py-2 ${SEVERITY_STYLES[task.Severity] ?? SEVERITY_STYLES.info}`}
                 >
                   <div>
@@ -402,12 +523,13 @@ export default function DashboardOverview() {
                   <div className="flex items-center gap-2">
                     <span className="text-lg font-bold">{task.Count}</span>
                     {task.ActionUrl && (
-                      <a
-                        href={task.ActionUrl}
+                      <button
+                        type="button"
+                        onClick={() => handleTaskAction(task.ActionUrl)}
                         className="text-xs underline opacity-70 hover:opacity-100"
                       >
                         Xử lý
-                      </a>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -463,9 +585,12 @@ export default function DashboardOverview() {
         <SectionCard
           title="Công nợ phải thu"
           action={
-            <div className="text-xs text-gray-500 text-right">
-              <div>Tổng: <span className="font-semibold text-gray-800">{fmtFull(totalReceivables)}</span></div>
-              <div>Quá hạn: <span className="font-semibold text-red-600">{fmtFull(overdueReceivables)}</span></div>
+            <div className="flex items-start gap-3">
+              <div className="text-xs text-gray-500 text-right">
+                <div>Tổng: <span className="font-semibold text-gray-800">{fmtFull(totalReceivables)}</span></div>
+                <div>Quá hạn: <span className="font-semibold text-red-600">{fmtFull(overdueReceivables)}</span></div>
+              </div>
+              <SectionLink label="Xem chi tiết" onClick={() => goToAppPath(DASHBOARD_ROUTES.arAging)} />
             </div>
           }
         >
@@ -513,9 +638,12 @@ export default function DashboardOverview() {
         <SectionCard
           title="Công nợ phải trả"
           action={
-            <div className="text-xs text-gray-500 text-right">
-              <div>Tổng: <span className="font-semibold text-gray-800">{fmtFull(totalPayables)}</span></div>
-              <div>Quá hạn: <span className="font-semibold text-red-600">{fmtFull(overduePayables)}</span></div>
+            <div className="flex items-start gap-3">
+              <div className="text-xs text-gray-500 text-right">
+                <div>Tổng: <span className="font-semibold text-gray-800">{fmtFull(totalPayables)}</span></div>
+                <div>Quá hạn: <span className="font-semibold text-red-600">{fmtFull(overduePayables)}</span></div>
+              </div>
+              <SectionLink label="Xem chi tiết" onClick={() => goToAppPath(DASHBOARD_ROUTES.purchaseJournal)} />
             </div>
           }
         >
@@ -562,7 +690,10 @@ export default function DashboardOverview() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <SectionCard title="Trạng thái khóa sổ">
+        <SectionCard
+          title="Trạng thái khóa sổ"
+          action={<SectionLink label="Xem chi tiết" onClick={() => goToAppPath(DASHBOARD_ROUTES.periodLock)} />}
+        >
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Kỳ hiện tại:</span>
@@ -608,7 +739,10 @@ export default function DashboardOverview() {
           </div>
         </SectionCard>
 
-        <SectionCard title="Hạn nộp báo cáo thuế">
+        <SectionCard
+          title="Hạn nộp báo cáo thuế"
+          action={<SectionLink label="Tờ khai VAT" onClick={() => goToAppPath(DASHBOARD_ROUTES.vatDeclaration)} />}
+        >
           {taxDeadlines.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-4">Không có dữ liệu</p>
           ) : (
@@ -631,6 +765,7 @@ export default function DashboardOverview() {
 
       <SectionCard
         title="Chứng từ gần đây"
+        sectionRef={recentVouchersRef}
         action={
           <div className="flex gap-1">
             {(["ALL", "PENDING", "CONFIRMED", "LOCKED"] as const).map(s => (
@@ -658,6 +793,10 @@ export default function DashboardOverview() {
           hoverStateEnabled
           height={280}
           noDataText="Không có chứng từ"
+          onRowClick={(e) => {
+            const row = e.data as DashboardRecentVoucher | undefined
+            if (row) handleOpenRecentVoucher(row)
+          }}
         >
           <Paging pageSize={20} />
           <Scrolling mode="virtual" />

@@ -56,6 +56,7 @@ import {
   type AuthSession,
 } from "@/lib/login";
 import { clearFrontendCaches } from "@/lib/cacheManager";
+
 import {
   canShowUiGuidelines,
   SHOW_DASHBOARD,
@@ -661,7 +662,18 @@ export default function Header({
       closeDropdowns();
       const actionUrl = normalizeDisplayText(notification.ACTION_URL);
       if (actionUrl) {
-        navigate(actionUrl.startsWith("/app/") ? actionUrl : buildAppPath(currentCompanyCd, actionUrl));
+        if (actionUrl.startsWith("/app/")) {
+          navigate(actionUrl);
+        } else {
+          const queryIndex = actionUrl.indexOf("?");
+          if (queryIndex < 0) {
+            navigate(buildAppPath(currentCompanyCd, actionUrl));
+          } else {
+            const path = actionUrl.slice(0, queryIndex) || "/";
+            const query = actionUrl.slice(queryIndex + 1);
+            navigate(`${buildAppPath(currentCompanyCd, path)}?${query}`);
+          }
+        }
       }
     },
     [closeDropdowns, currentCompanyCd, navigate],

@@ -4,8 +4,22 @@
 
 import Button from "devextreme-react/button";
 import SelectBox from "devextreme-react/select-box";
-import { MOCK_PERIOD_OPTIONS } from "../mock/productionCostingMockData";
 import type { PeriodMonthStatus } from "../types/productionCostingTypes";
+
+function periodOptions(selected: string): Array<{ value: string; text: string }> {
+  const now = new Date();
+  const values = new Set<string>();
+  if (/^\d{6}$/.test(selected)) values.add(selected);
+  for (let offset = 0; offset < 18; offset += 1) {
+    const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    values.add(`${date.getFullYear()}${month}`);
+  }
+  return [...values]
+    .sort()
+    .reverse()
+    .map((value) => ({ value, text: `${value.slice(4, 6)}/${value.slice(0, 4)}` }));
+}
 
 type CostingHeaderProps = {
   periodYm: string;
@@ -15,7 +29,6 @@ type CostingHeaderProps = {
   onChangePeriod: (periodYm: string) => void;
   onOpenPrerequisite: () => void;
   onOpenHistory: () => void;
-  onResetDemo: () => void;
 };
 
 export function CostingHeader({
@@ -26,7 +39,6 @@ export function CostingHeader({
   onChangePeriod,
   onOpenPrerequisite,
   onOpenHistory,
-  onResetDemo,
 }: CostingHeaderProps) {
   return (
     <div className="gk-header">
@@ -45,7 +57,7 @@ export function CostingHeader({
         <div className="gk-period-group">
           <span>{t("GK_PERIOD", "Kỳ kế toán")}</span>
           <SelectBox
-            dataSource={MOCK_PERIOD_OPTIONS}
+            dataSource={periodOptions(periodYm)}
             displayExpr="text"
             valueExpr="value"
             value={periodYm}
@@ -69,13 +81,6 @@ export function CostingHeader({
           stylingMode="outlined"
           disabled={busy}
           onClick={onOpenHistory}
-        />
-        <Button
-          text={t("GK_RESET_DEMO", "Đặt lại demo")}
-          stylingMode="outlined"
-          type="danger"
-          disabled={busy}
-          onClick={onResetDemo}
         />
       </div>
     </div>

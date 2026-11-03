@@ -47,7 +47,7 @@ export function ProfitLossLockPanel({
     const ok = await confirm(
       t(
         "GK_STEP6_CONFIRM",
-        "Gọi engine B-I PROFIT_LOSS_REPORT (mô phỏng). Kỳ sẽ LOCKED chỉ trong mock store. Tiếp tục?",
+        "Chạy PeriodLock PROFIT_LOSS_REPORT. Chỉ báo thành công khi bước trên DB là DONE. Tiếp tục?",
       ),
       t("GK_STEP6_TITLE", "Khóa sổ bước 3"),
     );
@@ -56,7 +56,7 @@ export function ProfitLossLockPanel({
       onBusy(true);
       const next = await lockProfitLoss();
       onRefresh(next);
-      onSuccess(t("GK_STEP6_OK", "Đã hoàn tất toàn bộ 6 bước (DEMO)!"));
+      onSuccess(t("GK_STEP6_OK", "PeriodLock đã ghi nhận khóa lãi lỗ."));
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -182,7 +182,7 @@ export function ProfitLossLockPanel({
         {locked
           ? t(
               "GK_STEP6_DONE",
-              "Hoàn tất 6/6 bước. Trạng thái LOCKED chỉ trong mock — B-I thật không bị đổi.",
+              "B6 gọi PeriodLock PROFIT_LOSS_REPORT. Không tự đánh dấu DONE nếu job chưa xong.",
             )
           : overview.step6Checked
             ? t("GK_STEP6_READY", "Đã kiểm tra đủ điều kiện. Có thể khóa sổ cuối kỳ.")

@@ -6,7 +6,7 @@ import { useState } from "react";
 import DataGrid, { Column, Paging } from "devextreme-react/data-grid";
 import Button from "devextreme-react/button";
 import { confirm } from "devextreme/ui/dialog";
-import { runProductionCostingStep1 } from "@/api/productionCostingApi";
+import { reloadProductionCosting, runProductionCostingStep1 } from "@/api/productionCostingApi";
 import { formatMoney, Notice, StepShell, type PanelCommonProps } from "./costingPanelShared";
 
 export function FaPrepaidLockPanel({
@@ -32,7 +32,7 @@ export function FaPrepaidLockPanel({
     const ok = await confirm(
       t(
         "GK_STEP1_CONFIRM",
-        "Mô phỏng FA_PREPAID_LOCK qua engine B-I. Không ghi database thật. Tiếp tục?",
+        "Chạy PeriodLock FA_PREPAID_LOCK trên kỳ đang chọn. Tiếp tục?",
       ),
       t("GK_STEP1_TITLE", "Khóa sổ bước 1"),
     );
@@ -41,7 +41,7 @@ export function FaPrepaidLockPanel({
       onBusy(true);
       const next = await runProductionCostingStep1();
       onRefresh(next);
-      onSuccess(t("GK_STEP1_OK", "Đã mô phỏng khóa sổ bước 1."));
+      onSuccess(t("GK_STEP1_OK", "PeriodLock đã ghi nhận bước 1."));
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -68,8 +68,19 @@ export function FaPrepaidLockPanel({
             stylingMode="outlined"
             disabled={busy || locked}
             onClick={() => {
-              setChecked(true);
-              onSuccess(t("GK_STEP1_CHECK_OK", "Điều kiện khóa bước 1 hợp lệ (DEMO)."));
+              void (async () => {
+                try {
+                  onBusy(true);
+                  const next = await reloadProductionCosting();
+                  onRefresh(next);
+                  setChecked(true);
+                  onSuccess(t("GK_STEP1_CHECK_OK", `Trạng thái B1 trên DB: ${next.stepStatuses[0]}.`));
+                } catch (err) {
+                  onError(err instanceof Error ? err.message : String(err));
+                } finally {
+                  onBusy(false);
+                }
+              })();
             }}
           />
           <Button
@@ -97,7 +108,7 @@ export function FaPrepaidLockPanel({
           <div className="desc">
             {t(
               "GK_STEP1_BAND_DESC",
-              "Thực hiện trực tiếp tại G-K. Backend thật sẽ dùng FA_PREPAID_LOCK dùng chung — bản DEMO chỉ mô phỏng trạng thái.",
+              "Bước này gọi PeriodLock FA_PREPAID_LOCK. Trạng thái DONE chỉ hiện khi DB trả về DONE.",
             )}
           </div>
         </div>
@@ -149,7 +160,7 @@ export function FaPrepaidLockPanel({
         </div>
         <div className="gk-check">
           <span className="symbol">✓</span>
-          {t("GK_FA_CHECK4", "Có quyền thực hiện khóa sổ (giả lập)")}
+          {t("GK_FA_CHECK4", "Có quyền khóa sổ trên menu PeriodLock")}
         </div>
       </div>
 
@@ -157,7 +168,7 @@ export function FaPrepaidLockPanel({
         {locked
           ? t(
               "GK_STEP1_DONE_MSG",
-              `Đã mô phỏng FA_PREPAID_LOCK = DONE. Tổng ${formatMoney(faTotal)} đ. Không ghi DB thật.`,
+              `B1 trên DB đang DONE. Tổng xem trước ${formatMoney(faTotal)} đ.`,
             )
           : runStatus === "REOPENED"
             ? t(
@@ -166,7 +177,7 @@ export function FaPrepaidLockPanel({
               )
             : t(
                 "GK_STEP1_HINT",
-                "Thứ tự: Kiểm tra → Xem trước → Thực hiện. Trạng thái DONE chỉ lưu trong mock store.",
+                "Thứ tự: Kiểm tra → Xem trước → Thực hiện. DONE chỉ khi PeriodLock và DB báo xong.",
               )}
       </Notice>
     </StepShell>

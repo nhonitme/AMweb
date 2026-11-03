@@ -184,6 +184,17 @@ export type IncompleteCostConfigView = {
 };
 
 /** Dòng chi tiết tab Chi phí dở dang (Bước 4). */
+export type WipPatchFields = {
+  percentCompleted?: number;
+  closingIncompleteQty?: number;
+  closingIncompleteAmount154?: number;
+  amount154Direct?: number;
+  productReduce?: number;
+  beforeAmountResult621?: number;
+  beforeAmountResult62N?: number;
+  incompleteQtyOpening?: number;
+};
+
 export type WipDetailRow = {
   productId: number;
   productCd: string;
@@ -371,7 +382,13 @@ export type CostingJobProgressState = {
 export type ProductionCostingOverview = {
   companyCd: string;
   periodYm: string;
-  demoMode: true;
+  demoMode: false;
+  periodExists: boolean;
+  statusMessage: string;
+  runId: number | null;
+  runVersion: number | null;
+  costEngine: string;
+  cogsRule: string;
   monthStatus: PeriodMonthStatus;
   faPrepaidStatus: SharedLockStepStatus;
   allocationStatus: AllocationStatus;

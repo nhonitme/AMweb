@@ -2,7 +2,6 @@ import { useContext, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 
 import { findMenuById, findOverviewMenu, isOverviewPath } from "@/api/menuApi";
-import { SHOW_DASHBOARD } from "@/lib/featureVisibility";
 import { useMenuTreeQuery } from "@/hooks/queries/useMenuTreeQuery";
 import { LanguageContext } from "@/lib/i18nLoader";
 import { getCompanyCdFromPathname, getCurrentCompanyCd } from "@/lib/login";
@@ -24,9 +23,6 @@ function stripCompanyPath(pathname: string): string {
 
 function getActiveMenuFromPath(pathname: string, tree: MenuTreeNode[]): string {
   if (isOverviewPath(pathname)) {
-    if (!SHOW_DASHBOARD) {
-      return "";
-    }
     return findOverviewMenu(tree)?.id ?? "";
   }
 

@@ -56,7 +56,7 @@ export function CostValuationPanel({
     const ok = await confirm(
       t(
         "GK_STEP5_CONFIRM",
-        "Ghi đè giá vốn theo bình quân gia quyền. Không tạo bút toán trùng. DEMO không ghi DB. Tiếp tục?",
+        "Cập nhật giá nhập theo INPUT_ID, tính lại giá xuất và ghi VALUATION_COGS. Tiếp tục?",
       ),
       t("GK_STEP5_TITLE", "Tính lại & đối chiếu giá xuất"),
     );
@@ -66,7 +66,7 @@ export function CostValuationPanel({
       const next = await confirmValuation();
       onRefresh(next);
       setPreviewed(false);
-      onSuccess(t("GK_STEP5_OK", "Đã mô phỏng đối chiếu / ghi đè giá vốn thành phẩm."));
+      onSuccess(t("GK_STEP5_OK", "Backend đã ghi nhận định giá."));
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -107,7 +107,7 @@ export function CostValuationPanel({
       <div className="gk-summary-band">
         <div className="big">632</div>
         <div className="explain">
-          <div className="title">{t("GK_STEP5_BAND", "Tính lại giá xuất theo phương pháp kho (mock)")}</div>
+          <div className="title">{t("GK_STEP5_BAND", "Tính lại giá xuất theo phương pháp kho")}</div>
           <div className="desc">
             {t(
               "GK_STEP5_BAND_DESC",
@@ -200,10 +200,10 @@ export function CostValuationPanel({
 
       <Notice type={locked ? "good" : "warn"}>
         {locked
-          ? t("GK_STEP5_DONE", "Giá vốn đã đối chiếu (mock). Chạy lại sau mở lại sẽ ghi đè cùng chứng từ C-A.")
+          ? t("GK_STEP5_DONE", "Định giá đã ghi. Chạy lại sau REOPEN cập nhật cùng STABLE_KEY, không tạo chứng từ thứ hai.")
           : t(
               "GK_STEP5_HINT",
-              "Tính thử để xem chênh lệch; xác nhận mới ghi đè. DEMO mô phỏng BQGQ, không tạo bút toán trùng.",
+              "Xem trước không ghi kho. Xác nhận mới cập nhật INPUT_ID, giá xuất và chứng từ VALUATION_COGS.",
             )}
       </Notice>
     </StepShell>

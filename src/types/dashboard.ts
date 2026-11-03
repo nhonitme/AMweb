@@ -70,6 +70,7 @@ export type DashboardPeriodLock = {
 }
 
 export type DashboardRecentVoucher = {
+  ChitId: number
   ChitYmd: string
   ChitNo: string
   ChitCd: string

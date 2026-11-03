@@ -5,7 +5,11 @@ import notify from "devextreme/ui/notify"
 import { confirm } from "devextreme/ui/dialog"
 import * as XLSX from "xlsx"
 
-import { applyInventoryPriceUpdate, getInventoryPriceUpdateRows } from "@/api/inventoryPriceUpdateApi"
+import {
+  applyInventoryPriceUpdate,
+  exportInventoryPriceUpdateExcel,
+  getInventoryPriceUpdateRows,
+} from "@/api/inventoryPriceUpdateApi"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import type { ClientExcelImportContext, ExcelImportResponse } from "@/api/excelApi"
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
@@ -22,6 +26,8 @@ import DxPage from "@/dx/DxPage"
 import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults"
+import { downloadFile } from "@/lib/fileUtils"
+import { normalizeMessageLanguageKey } from "@/utils/language"
 import { createNumberEditorOptions } from "@/lib/numberEditorOptions"
 import type { InventoryPriceFlow, InventoryPriceUpdateFilter, InventoryPriceUpdateRow } from "@/types/inventoryPriceUpdate"
 import type { StoreInfo } from "@/types/store"
@@ -56,10 +62,11 @@ export default function InventoryPriceUpdatePage({ flow }: Props) {
   const [saving, setSaving] = useState(false)
   const [importVisible, setImportVisible] = useState(false)
   const gridRef = useRef<dxDataGrid | null>(null)
-  const { translate } = useContext(LanguageContext) as { translate?: TranslationFn }
+  const { translate, lang } = useContext(LanguageContext) as { translate?: TranslationFn; lang?: string }
   const t = useCallback((key: string, fallback: string) => translate?.(key, fallback) ?? fallback, [translate])
   const isInput = flow === "IN"
   const exportName = useMenuExportName(isInput ? "INV_UPDATE_IN_PRICE" : "INV_UPDATE_OUT_PRICE")
+  const langCode = normalizeMessageLanguageKey(lang)
   const priceCaption = isInput
     ? t("INVENTORY_INPUT_PRICE", "Giá nhập mới")
     : t("INVENTORY_COGS_UNIT_PRICE", "Giá vốn xuất mới")
@@ -104,9 +111,12 @@ export default function InventoryPriceUpdatePage({ flow }: Props) {
       const invalidRows: number[] = []
       input.forEach((record, index) => {
         const normalized = new Map<string, unknown>()
-        Object.entries(record).forEach(([key, value]) => normalized.set(key.trim().toUpperCase().replace(/[\s_-]/g, ""), value))
-        const code = asText(normalized.get("PRODUCTCD"))
-        const price = asPrice(normalized.get("NEWUNITPRICE") ?? normalized.get("NEWPRICE") ?? normalized.get("GIAMOI"))
+        Object.entries(record).forEach(([key, value]) => {
+          const normalizedKey = key.trim().toUpperCase().replace(/\(\*\)/g, "").replace(/[\s_-]/g, "")
+          normalized.set(normalizedKey, value)
+        })
+        const code = asText(normalized.get("PRODUCTCD") ?? normalized.get("PRODUCTCODE"))
+        const price = asPrice(normalized.get("NEWUNITPRICE") ?? normalized.get("INVENTORYCOGSUNITPRICE") ?? normalized.get("INVENTORYINPUTPRICE"))
         if (!code || price == null || priceByProduct.has(code.toUpperCase())) {
           invalidRows.push(index + 2)
           return
@@ -140,26 +150,36 @@ export default function InventoryPriceUpdatePage({ flow }: Props) {
     }
   }, [rows, t])
 
-  const handleExport = useCallback(() => {
+  const downloadPriceUpdateExcel = useCallback(async (): Promise<boolean> => {
+    const filter = buildFilter()
+    if (!filter) return false
     if (!rows.length) {
       notify(t("NO_DATA_TO_EXPORT", "Không có dữ liệu để xuất"), "warning", 2500)
-      return
+      return false
     }
-    const exportRows = rows.map(row => ({
-      PRODUCT_CD: row.PRODUCT_CD,
-      PRODUCT_NAME: row.PRODUCT_NAME,
-      MOVEMENT_COUNT: row.MOVEMENT_COUNT,
-      TOTAL_QUANTITY: row.TOTAL_QUANTITY,
-      CURRENT_PRICE_MIN: row.CURRENT_PRICE_MIN,
-      CURRENT_PRICE_MAX: row.CURRENT_PRICE_MAX,
-      CURRENT_AMOUNT: row.CURRENT_AMOUNT,
-      NEW_UNIT_PRICE: row.NEW_UNIT_PRICE ?? "",
-    }))
-    const sheet = XLSX.utils.json_to_sheet(exportRows)
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, sheet, exportName.sheetName())
-    XLSX.writeFile(workbook, exportName.fileName("xlsx"))
-  }, [exportName, isInput, rows, t])
+    const saved = await downloadFile({
+      fileName: exportName.fileName("xlsx"),
+      load: signal => exportInventoryPriceUpdateExcel(flow, filter, langCode, signal),
+    })
+    return saved !== false
+  }, [buildFilter, exportName, flow, langCode, rows.length, t])
+
+  const handleExport = useCallback(async () => {
+    try {
+      await downloadPriceUpdateExcel()
+    } catch (error) {
+      notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất thất bại")), "error", 3000)
+    }
+  }, [downloadPriceUpdateExcel, t])
+
+  const handleDownloadTemplate = useCallback(async () => {
+    try {
+      return await downloadPriceUpdateExcel()
+    } catch (error) {
+      notify(getApiErrorMessage(error, t("TEMPLATE_DL_ERROR", "Không tải được file mẫu. Vui lòng kiểm tra API hoặc quyền truy cập.")), "error", 2500)
+      throw error
+    }
+  }, [downloadPriceUpdateExcel, t])
 
   const handleApply = useCallback(async () => {
     const filter = buildFilter()
@@ -215,7 +235,7 @@ export default function InventoryPriceUpdatePage({ flow }: Props) {
           showExportPdf={false}
           showExportXlsx
           exportXlsxDisabled={!rows.length || saving}
-          onExportXlsx={handleExport}
+          onExportXlsx={() => void handleExport()}
           showImport
           importDisabled={!rows.length || saving}
           onImport={() => setImportVisible(true)}
@@ -296,11 +316,11 @@ export default function InventoryPriceUpdatePage({ flow }: Props) {
           visible={importVisible}
           onClose={() => setImportVisible(false)}
           title={t("INVENTORY_PRICE_IMPORT_TITLE", "Nhập giá từ Excel")}
-          description={t("INVENTORY_PRICE_IMPORT_FIELDS_DESC", "Giữ cột PRODUCT_CD và nhập NEW_UNIT_PRICE.")}
+          onDownloadTemplate={handleDownloadTemplate}
           onImportFile={handleImportFile}
           onImported={() => setImportVisible(false)}
           importMode="client"
-          showTemplateDownload={false}
+          showTemplateDownload
           showSheetSelector
         />
       </div>

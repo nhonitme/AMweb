@@ -19,3 +19,15 @@ export function createCurrentMonthDateRange(baseDate = new Date()): DateRange {
     toDate,
   }
 }
+
+export function createCurrentQuarterDateRange(baseDate = new Date()): DateRange {
+  const anchor = new Date(baseDate)
+  anchor.setHours(0, 0, 0, 0)
+  const year = anchor.getFullYear()
+  const quarterStartMonth = Math.floor(anchor.getMonth() / 3) * 3
+  const fromDate = new Date(year, quarterStartMonth, 1)
+  fromDate.setHours(0, 0, 0, 0)
+  const toDate = new Date(year, quarterStartMonth + 3, 0)
+  toDate.setHours(0, 0, 0, 0)
+  return { fromDate, toDate }
+}

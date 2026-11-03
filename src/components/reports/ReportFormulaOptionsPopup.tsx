@@ -125,7 +125,7 @@ function getElementTypeOptions(t: TranslateFn): DataSourceOption[] {
   ]
 }
 
-function getCalcMethodOptions(t: TranslateFn, reportKind: "balance" | "profit"): DataSourceOption[] {
+function getCalcMethodOptions(t: TranslateFn, reportKind: "balance" | "profit" | "cost"): DataSourceOption[] {
   if (reportKind === "profit") {
     return [
       {
@@ -143,6 +143,35 @@ function getCalcMethodOptions(t: TranslateFn, reportKind: "balance" | "profit"):
       {
         value: "DEBIT_ONLY",
         label: t("CALC_METHOD_DEBIT_ONLY_PL", "Chỉ lấy phát sinh Nợ"),
+      },
+    ]
+  }
+
+  if (reportKind === "cost") {
+    return [
+      {
+        value: "DEBIT_MINUS_CREDIT",
+        label: t("CALC_METHOD_DEBIT_MINUS_CREDIT_PL", "Phát sinh Nợ − Có"),
+      },
+      {
+        value: "CREDIT_MINUS_DEBIT",
+        label: t("CALC_METHOD_CREDIT_MINUS_DEBIT_PL", "Phát sinh Có − Nợ"),
+      },
+      {
+        value: "DEBIT_ONLY",
+        label: t("CALC_METHOD_DEBIT_ONLY_PL", "Chỉ lấy phát sinh Nợ"),
+      },
+      {
+        value: "CREDIT_ONLY",
+        label: t("CALC_METHOD_CREDIT_ONLY_PL", "Chỉ lấy phát sinh Có"),
+      },
+      {
+        value: "OPENING_BALANCE",
+        label: t("CALC_METHOD_OPENING_BALANCE", "Số dư đầu kỳ"),
+      },
+      {
+        value: "CLOSING_BALANCE",
+        label: t("CALC_METHOD_CLOSING_BALANCE", "Số dư cuối kỳ"),
       },
     ]
   }
@@ -167,7 +196,7 @@ function getCalcMethodOptions(t: TranslateFn, reportKind: "balance" | "profit"):
   ]
 }
 
-function getCalcMethodLabel(calcMethod: string, t: TranslateFn, reportKind: "balance" | "profit"): string {
+function getCalcMethodLabel(calcMethod: string, t: TranslateFn, reportKind: "balance" | "profit" | "cost"): string {
   const normalized = calcMethod.trim().toUpperCase()
   if (!normalized) {
     return ""
@@ -181,7 +210,7 @@ function formatAccountRuleDisplay(
   accountRule: string,
   calcMethod: string,
   t: TranslateFn,
-  reportKind: "balance" | "profit",
+  reportKind: "balance" | "profit" | "cost",
 ): string {
   const accounts = accountRule.trim()
   if (!accounts) {
@@ -330,6 +359,10 @@ function getCanonicalReportCode(reportCode: string): string {
   const normalized = reportCode.trim().toUpperCase()
   if (normalized.includes("GTGT") || normalized.includes("VAT_DECLARATION") || normalized === "TAX_VAT_DECLARATION") {
     return "GTGT_01"
+  }
+
+  if (normalized.includes("COST_LIST")) {
+    return "COST_LIST"
   }
 
   if (normalized.includes("B01") || normalized.includes("BALANCE")) {
@@ -652,7 +685,7 @@ function formatIndirectAccountRuleDisplay(accountRule: string | null | undefined
   return parts.join(" · ")
 }
 
-function localizeCalcMethodTokens(text: string, t: TranslateFn, reportKind: "balance" | "profit"): string {
+function localizeCalcMethodTokens(text: string, t: TranslateFn, reportKind: "balance" | "profit" | "cost"): string {
   return text
     .replace(/\bDEBIT_MINUS_CREDIT\b/gi, getCalcMethodLabel("DEBIT_MINUS_CREDIT", t, reportKind))
     .replace(/\bCREDIT_MINUS_DEBIT\b/gi, getCalcMethodLabel("CREDIT_MINUS_DEBIT", t, reportKind))
@@ -668,8 +701,9 @@ function buildFormulaDisplay(
 ): string {
   const sourceType = normalizeText(row.DATA_SOURCE_TYPE).toUpperCase()
   const translate = t ?? ((_: string, fallback: string) => fallback)
-  const reportKind: "balance" | "profit" = (reportCode ?? "").toUpperCase() === "B02_DN" ? "profit" : "balance"
   const canonical = (reportCode ?? "").toUpperCase()
+  const reportKind: "balance" | "profit" | "cost" =
+    canonical === "B02_DN" ? "profit" : canonical === "COST_LIST" ? "cost" : "balance"
 
   if (canonical === "GTGT_01") {
     const parts: string[] = []
@@ -716,7 +750,7 @@ function buildFormulaDisplay(
     return translate("ACCOUNT_RULE_MISSING", "Chưa khai báo tài khoản")
   }
 
-  const isAccountRuleReport = canonical === "B01_DN" || canonical === "B02_DN"
+  const isAccountRuleReport = canonical === "B01_DN" || canonical === "B02_DN" || canonical === "COST_LIST"
 
   if (isAccountRuleReport && (sourceType === "ACCOUNT_RULE" || sourceType === "PROCEDURE")) {
     const accountRule = normalizeText(row.ACCOUNT_RULE)
@@ -765,16 +799,17 @@ export default function ReportFormulaOptionsPopup({
   const isIndirect = canonicalReportCode === "B03_DN_GT"
   const isBalanceSheet = canonicalReportCode === "B01_DN"
   const isProfitLoss = canonicalReportCode === "B02_DN"
+  const isCostList = canonicalReportCode === "COST_LIST"
   const isVatDeclaration = canonicalReportCode === "GTGT_01"
-  const isAccountRuleReport = isBalanceSheet || isProfitLoss
+  const isAccountRuleReport = isBalanceSheet || isProfitLoss || isCostList
   const isCashflow = canonicalReportCode === "B03_DN_GT" || canonicalReportCode === "B03_DN_TT"
   const effectiveReportVersion = reportVersion?.trim() || "2025"
   const dataSourceMode = isVatDeclaration ? "vat" : isAccountRuleReport ? "accountRule" : "cashflow"
   const dataSourceOptions = useMemo(() => getDataSourceOptions(t, dataSourceMode), [t, dataSourceMode])
   const elementTypeOptions = useMemo(() => getElementTypeOptions(t), [t])
   const calcMethodOptions = useMemo(
-    () => getCalcMethodOptions(t, isProfitLoss ? "profit" : "balance"),
-    [t, isProfitLoss],
+    () => getCalcMethodOptions(t, isCostList ? "cost" : isProfitLoss ? "profit" : "balance"),
+    [t, isCostList, isProfitLoss],
   )
   const vatCalcMethodOptions = useMemo(() => getVatCalcMethodOptions(t), [t])
   const flowSignOptions = useMemo(() => getFlowSignOptions(t), [t])

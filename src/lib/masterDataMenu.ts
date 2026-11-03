@@ -17,7 +17,7 @@ function collectRoutePaths(node: MenuTreeNode, out: string[]): void {
  * prefix (instead of the translated display name) keeps this correct
  * regardless of language or label changes coming from the backend menu data.
  */
-export function isMasterDataTopMenu(node: MenuTreeNode): boolean {
+function isMasterDataTopMenu(node: MenuTreeNode): boolean {
   if (node.parentId) {
     return false;
   }

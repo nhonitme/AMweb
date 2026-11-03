@@ -73,15 +73,6 @@ function findFirstRoutePath(node: MenuTreeNode): string | null {
   return null;
 }
 
-/**
- * Same idea as flattenFinanceMenuForSidebar (src/lib/financeMenu.ts):
- * returns a copy of the tree where the BÁO CÁO TỔNG HỢP top-level node has
- * its children hidden from the Sidebar tree (they render as
- * TieredModuleTabs instead) and gains a routePath (its first descendant's)
- * so clicking it in the sidebar still lands somewhere real. Only affects
- * what the Sidebar renders — routing and everything else keep using the
- * real, full tree.
- */
 export function flattenReportMenuForSidebar(tree: MenuTreeNode[]): MenuTreeNode[] {
   const reportNode = findReportTopMenu(tree);
   if (!reportNode) {

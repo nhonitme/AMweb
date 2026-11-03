@@ -159,9 +159,6 @@ function stripCompanyPath(pathname: string): string {
 
 function getActiveMenuFromPath(pathname: string, tree: MenuTreeNode[]): string {
     if (isOverviewPath(pathname)) {
-        if (!SHOW_DASHBOARD) {
-            return "";
-        }
         return findOverviewMenu(tree)?.id ?? "";
     }
 
@@ -393,7 +390,7 @@ function AppContent({ onLogout, licenseExpired }: { onLogout: () => void; licens
         }
 
         const pathname = new URL(href, window.location.origin).pathname;
-        if (SHOW_DASHBOARD && isOverviewPath(stripCompanyPath(pathname))) {
+        if (isOverviewPath(stripCompanyPath(pathname))) {
             return t("OVERVIEW", "Tổng quan");
         }
 
@@ -411,7 +408,7 @@ function AppContent({ onLogout, licenseExpired }: { onLogout: () => void; licens
         }
 
         const pathname = new URL(href, window.location.origin).pathname;
-        if (SHOW_DASHBOARD && isOverviewPath(stripCompanyPath(pathname))) {
+        if (isOverviewPath(stripCompanyPath(pathname))) {
             return "home";
         }
         if (stripCompanyPath(pathname) === "/report-viewer") {
@@ -420,13 +417,8 @@ function AppContent({ onLogout, licenseExpired }: { onLogout: () => void; licens
         return "doc";
     }, [resolveWorkspaceMenu]);
     const resolveDefaultLandingHref = useCallback(() => {
-        if (SHOW_DASHBOARD) {
-            return buildAppPath(currentCompanyCd ?? "", "/");
-        }
-
-        const landingPath = findFirstMenuRoutePath(visibleMenuTree);
-        return buildAppPath(currentCompanyCd ?? "", landingPath ?? "/");
-    }, [currentCompanyCd, visibleMenuTree]);
+        return buildAppPath(currentCompanyCd ?? "", "/");
+    }, [currentCompanyCd]);
     const workspaceTabs = useWorkspaceTabsController({
         companyCd: currentCompanyCd ?? "",
         enabled: workspaceTabsEnabled,
@@ -436,23 +428,6 @@ function AppContent({ onLogout, licenseExpired }: { onLogout: () => void; licens
         navigate,
         resolveDefaultLandingHref,
     });
-
-    useEffect(() => {
-        if (SHOW_DASHBOARD || !currentCompanyCd || menuLoading) {
-            return;
-        }
-
-        if (!isOverviewPath(scopedPathname)) {
-            return;
-        }
-
-        const landingPath = findFirstMenuRoutePath(visibleMenuTree);
-        if (!landingPath) {
-            return;
-        }
-
-        navigate(buildAppPath(currentCompanyCd, landingPath), { replace: true });
-    }, [currentCompanyCd, menuLoading, navigate, scopedPathname, visibleMenuTree]);
 
     useEffect(() => {
         if (isMobile) {
@@ -786,23 +761,15 @@ function AppWorkspaceRoutes({
     return (
         <Suspense fallback={<RouteLoading />}>
                     <Routes location={tabLocation}>
-                        <Route
-                            path="/"
-                            element={SHOW_DASHBOARD ? <DashboardPage /> : null}
-                        />
+                        <Route path="/" element={<DashboardPage />} />
                         <Route
                             path="/dashboard"
-                            element={
-                                <Navigate
-                                    to={SHOW_DASHBOARD ? buildAppPath(currentCompanyCd, "/") : resolveDefaultLandingHref()}
-                                    replace
-                                />
-                            }
+                            element={<Navigate to={buildAppPath(currentCompanyCd, "/")} replace />}
                         />
                         <Route path="/cost-center" element={<Navigate to={buildAppPath(currentCompanyCd, "/master/cost-center")} replace />} />
                         <Route path="/master/cost-center" element={<DepartmentManagementPage />} />
                         <Route path="/cost/cost-object" element={<CostObjectSetupPage />} />
-                        {/* G-K Giá thành giản đơn All-in-One (FE mock DEMO — chưa nối API ghi sổ) */}
+                        {/* G-K Giá thành giản đơn — /api/production-cost */}
                         <Route path="/cost/simple-costing" element={<ProductionCostingPage />} />
                         <Route path="/cost/issue-material" element={<OtherVoucherPage />} />
                         <Route path="/cost/finish-goods-in" element={<OtherVoucherPage />} />
@@ -945,6 +912,10 @@ function AppWorkspaceRoutes({
                         <Route
                             path="/gl/book/trial-balance"
                             element={<JournalReportPage reportCode="GL_TRIAL_BALANCE_S06DN" menuCode="GL_BOOK_TRIAL" titleKey="GL_TRIAL_BALANCE_S06DN" titleFallback="Bảng cân đối số phát sinh" showExportExcel={true} />}
+                        />
+                        <Route
+                            path="/gl/book/cost-list"
+                            element={<JournalReportPage reportCode="GL_COST_LIST" menuCode="GL_BOOK_COST_LIST" titleKey="GL_COST_LIST" titleFallback="Bảng giá thành" reportVersion="2025" unitDivisor="1" showExportExcel={true} />}
                         />
                         <Route
                             path="/gl/fs/balance-sheet"

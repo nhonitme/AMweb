@@ -5,6 +5,10 @@ import type { InventoryPriceFlow, InventoryPriceUpdateBatch, InventoryPriceUpdat
 
 const BASE_URL = `${API_BASE_URL}/inventory/price-update`
 
+export function getInventoryPriceUpdateExcelModuleCd(flow: InventoryPriceFlow): string {
+  return flow === "IN" ? "InventoryUpdateInPrice" : "InventoryUpdateOutPrice"
+}
+
 export async function getInventoryPriceUpdateRows(
   flow: InventoryPriceFlow,
   filter: InventoryPriceUpdateFilter,
@@ -12,6 +16,28 @@ export async function getInventoryPriceUpdateRows(
   const path = flow === "IN" ? "in-price" : "out-price"
   const response = await axios.get(`${BASE_URL}/${path}`, { params: filter })
   return getApiArrayPayload<InventoryPriceUpdateRow>(response.data)
+}
+
+export async function exportInventoryPriceUpdateExcel(
+  flow: InventoryPriceFlow,
+  filter: InventoryPriceUpdateFilter,
+  lang?: string,
+  abortSignal?: AbortSignal,
+): Promise<Blob> {
+  const path = flow === "IN" ? "in-price/export" : "out-price/export"
+  const params: Record<string, string> = {
+    STORE_CD: filter.STORE_CD ?? "",
+    FROM_YMD: filter.FROM_YMD,
+    TO_YMD: filter.TO_YMD,
+  }
+  if (lang) params.lang = lang
+
+  const response = await axios.get(`${BASE_URL}/${path}`, {
+    params,
+    signal: abortSignal,
+    responseType: "blob",
+  })
+  return response.data
 }
 
 export async function applyInventoryPriceUpdate(

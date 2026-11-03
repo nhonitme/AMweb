@@ -113,8 +113,9 @@ export default function BaseExcelImportPopup({
   const useClientImport = typeof onImportFile === 'function';
   const resolvedImportMode = importMode ?? (useClientImport ? 'client' : 'server');
   const isClientImport = resolvedImportMode === 'client';
+  // Client import can still download the System template when moduleCd is set.
   const canDownloadTemplate = showTemplateDownload && (
-    (!isClientImport && !!moduleCd) || typeof onDownloadTemplate === 'function'
+    !!moduleCd || typeof onDownloadTemplate === 'function'
   );
   const fileUploaderRef = useRef<FileUploaderRefLike | null>(null);
   const popupRef = useRef<dxPopup | null>(null);

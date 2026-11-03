@@ -1,7 +1,6 @@
 import type { MenuItem, MenuTreeNode, MenuTreeNodeApi } from "@/types/menu";
 import axios from "./axiosClient";
 import { normalizeDevExtremeIconName } from '@/lib/devexpressIcons';
-import { SHOW_DASHBOARD } from "@/lib/featureVisibility";
 import {
   getApiArrayPayload,
   getApiEnvelopeMessage,
@@ -266,21 +265,9 @@ export function getMenuPath(tree: MenuTreeNode[], menuId: string, path: string[]
   return null;
 }
 
-function isOverviewMenuNode(node: MenuTreeNode): boolean {
-  return (node.code || node.id || "").trim().toUpperCase() === OVERVIEW_MENU_CODE;
-}
-
+/** Pass-through: ẩn/hiện menu theo sys_menu / quyền API, FE không lọc thêm. */
 export function filterVisibleMenuTree(tree: MenuTreeNode[]): MenuTreeNode[] {
-  if (SHOW_DASHBOARD) {
-    return tree;
-  }
-
-  return tree
-    .filter((node) => !isOverviewMenuNode(node))
-    .map((node) => ({
-      ...node,
-      children: node.children?.length ? filterVisibleMenuTree(node.children) : node.children,
-    }));
+  return tree;
 }
 
 export function findFirstMenuRoutePath(tree: MenuTreeNode[]): string | null {

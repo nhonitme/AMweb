@@ -38,7 +38,7 @@ function collectRoutePaths(node: MenuTreeNode, out: string[]): void {
   }
 }
 
-export function isFlatModuleTopMenu(node: MenuTreeNode): boolean {
+function isFlatModuleTopMenu(node: MenuTreeNode): boolean {
   if (node.parentId) {
     return false;
   }
@@ -54,29 +54,6 @@ export function isFlatModuleTopMenu(node: MenuTreeNode): boolean {
   );
 }
 
-export function findFlatModuleTopMenu(tree: MenuTreeNode[]): MenuTreeNode | null {
-  return tree.find(isFlatModuleTopMenu) ?? null;
-}
-
-const ICON_OVERRIDES_BY_ROUTE_PREFIX: Record<string, string> = {
-  "/einvoice": "doc",
-  "/pit-withholding": "checklist",
-};
-
-export function getFlatModuleIconOverride(node: MenuTreeNode): string | null {
-  if (node.parentId) {
-    return null;
-  }
-  const routePaths: string[] = [];
-  collectRoutePaths(node, routePaths);
-  for (const [prefix, icon] of Object.entries(ICON_OVERRIDES_BY_ROUTE_PREFIX)) {
-    if (routePaths.some((routePath) => matchesRoutePrefix(routePath, prefix))) {
-      return icon;
-    }
-  }
-  return null;
-}
-
 function collectIds(node: MenuTreeNode, out: Set<string>): void {
   out.add(node.id);
   for (const child of node.children ?? []) {
@@ -84,7 +61,7 @@ function collectIds(node: MenuTreeNode, out: Set<string>): void {
   }
 }
 
-export function collectDescendantIds(node: MenuTreeNode): Set<string> {
+function collectDescendantIds(node: MenuTreeNode): Set<string> {
   const ids = new Set<string>();
   for (const child of node.children ?? []) {
     collectIds(child, ids);

@@ -82,6 +82,7 @@ type JournalReportPageProps = {
     | "GL_BALANCE_SHEET_B01DN"
     | "GL_PROFIT_LOSS_B02DN"
     | "GL_PROFIT_LOSS_B02DNTT"
+    | "GL_COST_LIST"
     | "GL_TRIAL_BALANCE_S06DN"
     | "GL_CASHFLOW_B03DN_TT"
     | "GL_CASHFLOW_B03DN_GT"
@@ -112,6 +113,7 @@ type JournalReportPageProps = {
     | "BA_BANK_BOOK"
     | "CA_CASH_BOOK"
     | "GL_BOOK_TRIAL"
+    | "GL_BOOK_COST_LIST"
     | "GL_FS_BALANCE"
     | "GL_FS_PL"
     | "GL_PROFIT_LOSS_B02DNTT"
@@ -1338,7 +1340,7 @@ export default function JournalReportPage({
   )
 
   const formulaOptionsEnabled = useMemo(
-    () => ["GL_CASHFLOW_B03DN_TT", "GL_CASHFLOW_B03DN_GT", "B03_DN_TT", "B03_DN_GT", "GL_BALANCE_SHEET_B01DN", "B01_DN", "GL_PROFIT_LOSS_B02DN", "GL_PROFIT_LOSS_B02DNTT", "B02_DN", "TAX_VAT_DECLARATION", "GTGT_01"].includes(
+    () => ["GL_CASHFLOW_B03DN_TT", "GL_CASHFLOW_B03DN_GT", "B03_DN_TT", "B03_DN_GT", "GL_BALANCE_SHEET_B01DN", "B01_DN", "GL_PROFIT_LOSS_B02DN", "GL_PROFIT_LOSS_B02DNTT", "B02_DN", "GL_COST_LIST", "COST_LIST", "TAX_VAT_DECLARATION", "GTGT_01"].includes(
       effectiveDashboardReportCode.trim().toUpperCase(),
     ),
     [effectiveDashboardReportCode],

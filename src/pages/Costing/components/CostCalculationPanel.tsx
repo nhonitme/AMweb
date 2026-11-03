@@ -80,7 +80,7 @@ export function CostCalculationPanel({
         const ok = await confirm(
           t(
             "GK_STEP4_CONFIRM",
-            `Xác nhận cập nhật ${overview.receiptRows.length} dòng INPUT_ID và bút toán 155/154 (DEMO — không ghi DB)?`,
+            `Xác nhận lưu snapshot giá thành của ${overview.receiptRows.length} phiếu INPUT_ID? Bước này chưa cập nhật kho.`,
           ),
           t("GK_STEP4_TITLE", "Tính & ghi nhận giá thành"),
         );
@@ -91,7 +91,7 @@ export function CostCalculationPanel({
       onSuccess(
         action === "preview"
           ? t("GK_COST_PREVIEW_OK", "Đã tính thử giá thành theo công thức dở dang.")
-          : t("GK_COST_POST_OK", "Đã mô phỏng cập nhật 155/154 (ghi đè)."),
+          : t("GK_COST_POST_OK", "Backend đã lưu snapshot giá thành."),
       );
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
@@ -511,7 +511,7 @@ export function CostCalculationPanel({
         {locked
           ? t(
               "GK_STEP4_DONE",
-              `Đã mô phỏng ghi ${formatMoney(overview.aggregateRows.reduce((s, r) => s + r.finishedCost, 0))} đ vào phiếu NK (ghi đè, không cộng dồn).`,
+              `Snapshot giá thành ${formatMoney(overview.aggregateRows.reduce((s, r) => s + r.finishedCost, 0))} đ. Kho chưa đổi ở bước này.`,
             )
           : overview.costPreviewed
             ? t("GK_STEP4_PREVIEWED", "Đã tính thử — chưa ghi đè. Xác nhận mới cập nhật đơn giá chính thức.")

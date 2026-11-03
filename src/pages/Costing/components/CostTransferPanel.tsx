@@ -47,7 +47,7 @@ export function CostTransferPanel({
     const ok = await confirm(
       t(
         "GK_STEP3_CONFIRM",
-        "Kết chuyển 621/622/627 → 154 theo EXP_TO_154_ONLY. Không sinh 154→155/632. DEMO không ghi DB. Tiếp tục?",
+        "Kết chuyển 621/622/627 sang 154 theo EXP_TO_154_ONLY. Không sinh 154→155 hoặc 154→632. Tiếp tục?",
       ),
       t("GK_STEP3_TITLE", "Khóa chi phí sản xuất"),
     );
@@ -56,7 +56,7 @@ export function CostTransferPanel({
       onBusy(true);
       const next = await lockCostTransferTo154();
       onRefresh(next);
-      onSuccess(t("GK_STEP3_OK", "Đã mô phỏng khóa chi phí sản xuất."));
+      onSuccess(t("GK_STEP3_OK", "Backend đã ghi nhận kết chuyển 154."));
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -101,7 +101,7 @@ export function CostTransferPanel({
           <div className="desc">
             {t(
               "GK_STEP3_BAND_DESC",
-              "Thực hiện trong G-K, ghi trạng thái chung COGS_SUMMARY = DONE (mock). Không tự kết chuyển 154 sang 155 hoặc 632.",
+              "Ghi EXP_TO_154_ONLY qua PeriodLock trên cùng transaction. Không kết chuyển 154 sang 155 hoặc 632.",
             )}
           </div>
         </div>
@@ -150,7 +150,7 @@ export function CostTransferPanel({
           </div>
           <div className="gk-check">
             <span className="symbol">✓</span>
-            {t("GK_NO_PARALLEL", "Không có job song song (giả lập)")}
+            {t("GK_NO_PARALLEL", "Một chứng từ EXP_TO_154_ONLY theo COMPANY_CD + kỳ")}
           </div>
           <div className="gk-check">
             <span className="symbol">✓</span>
@@ -197,7 +197,7 @@ export function CostTransferPanel({
 
       <Notice type={locked ? "good" : overview.step3Checked ? "good" : "warn"}>
         {locked
-          ? t("GK_STEP3_DONE", "Đã khóa chi phí sản xuất (mock). Chứng từ XFER-154-DEMO-001 — chạy lại sẽ ghi đè, không trùng.")
+          ? t("GK_STEP3_DONE", "Đã kết chuyển 154. Chạy lại cùng kỳ cập nhật đúng STABLE_KEY, không tạo chứng từ thứ hai.")
           : overview.step3Checked
             ? t("GK_STEP3_READY", "Đã kiểm tra điều kiện: hợp lệ. Có thể khóa chi phí → 154.")
             : t("GK_STEP3_NEED_CHECK", "Chạy kiểm tra điều kiện trước khi ghi nhận kết chuyển.")}

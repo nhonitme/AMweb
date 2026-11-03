@@ -1,27 +1,21 @@
 /**
- * Trang G-K – Giá thành giản đơn All-in-One.
- *
- * FE-01→FE-04: mock 6 bước + mở lại → tính lại → ghi đè kết quả mới.
- * Không điều hướng sang B-I/G-J; không gọi API ghi sổ thật.
+ * Trang G-K – Giá thành giản đơn.
+ * Số liệu và trạng thái bước lấy từ /api/production-cost và PeriodLock.
  */
 
-import { useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import LoadPanel from "devextreme-react/load-panel";
-import CheckBox from "devextreme-react/check-box";
+import Button from "devextreme-react/button";
 import notify from "devextreme/ui/notify";
-import { confirm } from "devextreme/ui/dialog";
 import { LanguageContext } from "@/lib/i18nLoader";
 import { getCurrentCompanyCd } from "@/lib/login";
 import {
-  getProductionCostingSnapshot,
+  ensureProductionCostingPeriod,
   getReopenInfo,
-  PRODUCTION_COSTING_DEMO_MODE,
   reopenCostingStep,
-  resetProductionCostingDemo,
-  setArmWriteFailure,
   setProductionCostingActiveStep,
   setProductionCostingPeriod,
-  subscribeProductionCosting,
+  syncProductionCostObjects,
 } from "@/api/productionCostingApi";
 import type {
   CostingReopenInfo,
@@ -52,9 +46,7 @@ export default function ProductionCostingPage() {
     [translate],
   );
 
-  const companyCd = getCurrentCompanyCd() || "0001";
-
-  useSyncExternalStore(subscribeProductionCosting, getProductionCostingSnapshot);
+  const companyCd = getCurrentCompanyCd() || "";
 
   const [overview, setOverview] = useState<ProductionCostingOverview | null>(null);
   const [busy, setBusy] = useState(false);
@@ -82,7 +74,9 @@ export default function ProductionCostingPage() {
     (async () => {
       try {
         setBooting(true);
-        const next = await setProductionCostingPeriod(companyCd, "202610");
+        const now = new Date();
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const next = await setProductionCostingPeriod(companyCd, `${now.getFullYear()}${month}`);
         if (!cancelled) setOverview(next);
       } catch (err) {
         if (!cancelled) showError(err instanceof Error ? err.message : String(err));
@@ -167,7 +161,7 @@ export default function ProductionCostingPage() {
       setBusy(true);
       const next = await setProductionCostingPeriod(companyCd, periodYm);
       refresh(next);
-      showSuccess(t("GK_PERIOD_CHANGED", "Đã đổi kỳ demo — trạng thái không lẫn kỳ cũ."));
+      showSuccess(t("GK_PERIOD_CHANGED", "Đã tải kỳ từ máy chủ."));
     } catch (err) {
       showError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -175,17 +169,22 @@ export default function ProductionCostingPage() {
     }
   };
 
-  const handleReset = async () => {
-    const ok = await confirm(
-      t("GK_RESET_CONFIRM", "Xóa các trạng thái đã mô phỏng và trở về dữ liệu mẫu ban đầu?"),
-      t("GK_RESET_DEMO", "Đặt lại demo"),
-    );
-    if (!ok) return;
+  const handleEnsurePeriod = async () => {
     try {
       setBusy(true);
-      const next = await resetProductionCostingDemo();
-      refresh(next);
-      showSuccess(t("GK_RESET_OK", "Đã đặt lại dữ liệu giả lập."));
+      refresh(await ensureProductionCostingPeriod());
+      showSuccess(t("GK_PERIOD_ENSURE_OK", "Đã khởi tạo kỳ trên máy chủ."));
+    } catch (err) {
+      showError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSyncObjects = async () => {
+    try {
+      setBusy(true);
+      refresh(await syncProductionCostObjects());
     } catch (err) {
       showError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -224,26 +223,14 @@ export default function ProductionCostingPage() {
     <div className="gk-page">
       <LoadPanel visible={busy} showIndicator showPane shading={false} />
 
-      {PRODUCTION_COSTING_DEMO_MODE ? (
-        <div className="gk-demo-banner" role="status">
-          <strong>{t("GK_DEMO_MODE", "CHẾ ĐỘ DEMO / MOCK")}</strong>
-          <span>
-            {t(
-              "GK_DEMO_MODE_DESC",
-              "Không gọi API ghi sổ. FE-04: Mở lại → Tính thử → Ghi đè. Đơn giá không về 0 khi mở lại.",
-            )}
-          </span>
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
-            <CheckBox
-              value={overview.armWriteFailure}
-              onValueChanged={(e) => {
-                void setArmWriteFailure(Boolean(e.value)).then(refresh);
-              }}
-            />
-            <span>{t("GK_ARM_FAIL", "Mô phỏng lỗi ghi nhận lần sau")}</span>
-          </label>
-        </div>
-      ) : null}
+      <div className="gk-demo-banner" role="status">
+        <span>{overview.statusMessage || t("GK_DB_STATUS", "Dữ liệu lấy từ cơ sở dữ liệu của công ty.")}</span>
+        {!overview.periodExists ? (
+          <Button text={t("GK_PERIOD_ENSURE", "Khởi tạo kỳ")} disabled={busy} onClick={() => void handleEnsurePeriod()} />
+        ) : (
+          <Button text={t("GK_SYNC_OBJECTS", "Đồng bộ đối tượng từ nhập kho")} disabled={busy} onClick={() => void handleSyncObjects()} />
+        )}
+      </div>
 
       <CostingHeader
         periodYm={overview.periodYm}
@@ -253,7 +240,6 @@ export default function ProductionCostingPage() {
         onChangePeriod={(p) => void handleChangePeriod(p)}
         onOpenPrerequisite={() => void handleSelectStep(0)}
         onOpenHistory={() => setHistoryOpen(true)}
-        onResetDemo={() => void handleReset()}
       />
 
       <div className="gk-stats">
@@ -310,7 +296,7 @@ export default function ProductionCostingPage() {
               <h2 style={{ fontSize: 13, margin: 0 }}>
                 {t("GK_SHARED_STATUS", "Trạng thái dùng chung với B-I")}
               </h2>
-              <span className="gk-pill">{t("GK_ONE_FLOW", "Chỉ một luồng xử lý tháng (mock)")}</span>
+              <span className="gk-pill">{t("GK_ONE_FLOW", "Trạng thái lấy từ cơ sở dữ liệu")}</span>
             </div>
             <div className="gk-cardbody">
               <div className="gk-workflow">
@@ -330,7 +316,7 @@ export default function ProductionCostingPage() {
               <p className="gk-muted" style={{ margin: "12px 0 0" }}>
                 {t(
                   "GK_SHARED_NOTE",
-                  "Mở lại theo thứ tự ngược 6→1. Backend thật sẽ gọi mở khóa B-I; DEMO chỉ đổi trạng thái mock.",
+                  "Mở lại theo thứ tự ngược. B1/B6 đang DONE trên PeriodLock phải mở sổ trước — G-K không báo thành công nếu chưa hoàn nguyên.",
                 )}
               </p>
             </div>
