@@ -30,7 +30,7 @@ import DxPage from "@/dx/DxPage"
 import { useMasterListLoadError } from "@/hooks/queries/master/masterQueryHelpers"
 import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { useReportOptionsQuery } from "@/hooks/queries/useReportQueries"
-import { exportToExcel } from "@/lib/excelUtils"
+import { EXCEL_EXPORT_GROUP_ROW_FLAG, exportToExcel } from "@/lib/excelUtils"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { createMonthStartDate } from "@/lib/dateRangeDefaults"
 import { getCurrentCompanyCd, buildAppPath } from "@/lib/login"
@@ -40,13 +40,14 @@ import {
   readWorkspaceTabState,
   writeWorkspaceTabState,
 } from "@/lib/workspaceTabStateCache"
-import { formatDateToYmd, normalizeYmd } from "@/pages/Accounting/accountingDateUtils"
+import { formatDateToYmd, formatYmdForDisplay, normalizeYmd } from "@/pages/Accounting/accountingDateUtils"
 import { joinReportFilterValues } from "@/pages/Accounting/reportFilterValues"
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
 import { buildReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
 import { normalizeReportLanguage, type ReportLanguageCode } from "@/pages/Reports/reportLanguage"
 import ReportPdfExportPopup, { type ReportPrintTemplateCode } from "@/components/reports/ReportPdfExportPopup"
 import FetchGdtVatPopup from "@/pages/Reports/components/FetchGdtVatPopup"
+import { VAT_INVOICE_STATUS_OPTIONS } from "@/pages/Tax/vatInvoiceStatus"
 import {
   ReportVoucherEditorHost,
   resolveAccountingLedger,
@@ -212,17 +213,6 @@ type JournalReportTabState = {
 }
 
 const TOOLBAR_FIELD = "page-toolbar__field"
-
-const VAT_INVOICE_STATUS_OPTIONS: Array<{ value: string; langKey: string; fallback: string }> = [
-  { value: "", langKey: "VAT_INOUT_STATUS_ALL", fallback: "Tất cả" },
-  { value: "1", langKey: "eInvoice_AdjustType_NM_1", fallback: "Hóa đơn mới" },
-  { value: "2", langKey: "eInvoice_AdjustType_NM_3", fallback: "Hóa đơn thay thế" },
-  { value: "3", langKey: "eInvoice_AdjustType_NM_5", fallback: "Hóa đơn điều chỉnh" },
-  { value: "4", langKey: "eInvoice_AdjustType_NM_2", fallback: "Hóa đơn bị thay thế" },
-  { value: "5", langKey: "eInvoice_AdjustType_NM_4", fallback: "Hóa đơn bị điều chỉnh" },
-  { value: "6", langKey: "eInvoice_AdjustType_NM_6", fallback: "Hóa đơn hủy" },
-  { value: "998", langKey: "eInvoice_AdjustType_NM_998", fallback: "Chưa có JSON" },
-]
 
 const ACCOUNT_FIELD_CANDIDATES = ["ACC_CD", "ACCOUNT_CD", "ACCOUNT_CODE", "AR_ACC_CD"]
 const CUSTOMER_FIELD_CANDIDATES = ["CUSTOMER_CD", "CUSTOMER_CODE", "CUST_CD", "CUST_CODE", "OBJECT_CD", "PARTNER_CD"]
@@ -618,6 +608,71 @@ function blankZeroCashBookMoneyValues(rows: ReportDataGridRow[]): ReportDataGrid
 
     return changed ? next : row
   })
+}
+
+function readExportRowText(row: ReportDataGridRow, fieldName: string): string {
+  const normalized = fieldName.trim().toUpperCase()
+  for (const [key, value] of Object.entries(row)) {
+    if (key.trim().toUpperCase() !== normalized || value == null) {
+      continue
+    }
+    return String(value).trim()
+  }
+  return ""
+}
+
+function findExportRowFieldName(row: ReportDataGridRow, fieldName: string): string | null {
+  const normalized = fieldName.trim().toUpperCase()
+  return Object.keys(row).find((key) => key.trim().toUpperCase() === normalized) ?? null
+}
+
+const TAX_REDUCTION_APPENDIX_HIDDEN_EXPORT_FIELDS = new Set(["TYPE", "ITEM_KIND"])
+
+/** Insert TYPE group header rows (like the grid) and format BILL_YMD as dd/MM/yyyy. */
+function prepareTaxVatReductionAppendixExportRows(
+  rows: readonly ReportDataGridRow[],
+  visibleFields: readonly string[],
+): ReportDataGridRow[] {
+  const firstField = visibleFields[0]
+  const result: ReportDataGridRow[] = []
+  let lastType: string | null = null
+
+  for (const row of rows) {
+    const type = readExportRowText(row, "TYPE")
+    const itemKind = readExportRowText(row, "ITEM_KIND")
+
+    if (firstField && type && type !== lastType) {
+      lastType = type
+      const groupRow: ReportDataGridRow = {
+        ROW_KEY: `__GROUP__${type}`,
+        [EXCEL_EXPORT_GROUP_ROW_FLAG]: true,
+      }
+      for (const field of visibleFields) {
+        groupRow[field] = null
+      }
+      // Label sits in the first column; Excel merges the whole row.
+      groupRow[firstField] = itemKind || type
+      result.push(groupRow)
+    }
+
+    const next: ReportDataGridRow = { ...row }
+    const billYmdField = findExportRowFieldName(row, "BILL_YMD")
+    if (billYmdField) {
+      const formatted = formatYmdForDisplay(
+        typeof row[billYmdField] === "string" || row[billYmdField] instanceof Date
+          ? row[billYmdField] as string | Date
+          : row[billYmdField] == null
+            ? null
+            : String(row[billYmdField]),
+      )
+      if (formatted) {
+        next[billYmdField] = formatted
+      }
+    }
+    result.push(next)
+  }
+
+  return result
 }
 
 function buildReportPrintParams(
@@ -1494,24 +1549,39 @@ export default function JournalReportPage({
       reportGridRef.current?.getVisibleExportColumns()
       ?? reportTreeRef.current?.getVisibleExportColumns()
       ?? []
-    const exportColumns = buildExportColumns(preview, visibleGridColumns)
+    let exportColumns = buildExportColumns(preview, visibleGridColumns)
+    const normalizedReportCode = reportCode.trim().toUpperCase()
+    if (normalizedReportCode === "TAX_VAT_REDUCTION_APPENDIX") {
+      // Hide TYPE/ITEM_KIND — group label is shown as a merged header row instead.
+      exportColumns = exportColumns.filter(
+        (column) => !TAX_REDUCTION_APPENDIX_HIDDEN_EXPORT_FIELDS.has(column.dataField.trim().toUpperCase()),
+      )
+    }
     if (exportColumns.length === 0) {
       notify(t("NO_COLUMNS_TO_EXPORT", "No visible columns to export"), "warning", 2500)
       return
     }
 
-    const exportRows = prepareReportOutlineExportRows(
+    const visibleFields = exportColumns.map((column) => column.dataField)
+    let exportRows = prepareReportOutlineExportRows(
       toLocalizedReportDataGridRows(preview, t, reportCode),
-      exportColumns.map((column) => column.dataField),
+      visibleFields,
     )
+    if (normalizedReportCode === "TAX_VAT_REDUCTION_APPENDIX") {
+      exportRows = prepareTaxVatReductionAppendixExportRows(exportRows, visibleFields)
+    } else if (normalizedReportCode === "CASH_BOOK") {
+      exportRows = blankZeroCashBookMoneyValues(exportRows)
+    }
     exportToExcel(
-      reportCode.trim().toUpperCase() === "CASH_BOOK"
-        ? blankZeroCashBookMoneyValues(exportRows)
-        : exportRows,
+      exportRows,
       exportColumns,
       exportName.fileName("xlsx"),
       exportName.sheetName(),
-      reportCode.trim().toUpperCase() === "CASH_BOOK" ? { withBorders: true } : undefined,
+      normalizedReportCode === "CASH_BOOK"
+        ? { withBorders: true }
+        : normalizedReportCode === "TAX_VAT_REDUCTION_APPENDIX"
+          ? { mergeGroupRows: true }
+          : undefined,
     )
   }, [exportName, preview, reportCode, t])
 

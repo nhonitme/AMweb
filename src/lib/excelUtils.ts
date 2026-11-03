@@ -60,19 +60,38 @@ const EXPORT_COLUMN_MIN_WIDTH = 8
 const EXPORT_COLUMN_MAX_WIDTH = 50
 const EXPORT_COLUMN_PADDING = 2
 
+/** Marker on data rows that should merge across all exported columns. */
+export const EXCEL_EXPORT_GROUP_ROW_FLAG = "__IS_EXPORT_GROUP_ROW"
+
+export type ExportToExcelOptions = {
+  withBorders?: boolean
+  preserveFileName?: boolean
+  /** Merge rows flagged with EXCEL_EXPORT_GROUP_ROW_FLAG across all columns. */
+  mergeGroupRows?: boolean
+}
+
+function isExportGroupRow(item: Record<string, unknown>): boolean {
+  const flag = item[EXCEL_EXPORT_GROUP_ROW_FLAG]
+  return flag === true || flag === 1 || flag === "1"
+}
+
 export async function exportToExcel<T extends Record<string, unknown>>(
   data: T[],
   columns: ColumnConfig[],
   fileName: string,
   sheetName = "Sheet1",
-  options: { withBorders?: boolean; preserveFileName?: boolean } = {},
+  options: ExportToExcelOptions = {},
 ) {
   return downloadFile({ fileName, preserveFileName: options.preserveFileName, load: async () => {
 
   const widthMatrix: string[][] = [columns.map((column) => column.displayName)]
-  const worksheetData = data.map((item) => {
+  const groupRowIndexes: number[] = []
+  const worksheetData = data.map((item, index) => {
     const row: ExcelRow = {}
     const widthRow: string[] = []
+    if (isExportGroupRow(item)) {
+      groupRowIndexes.push(index)
+    }
 
     columns.forEach((column) => {
       const value = item[column.dataField]
@@ -92,7 +111,8 @@ export async function exportToExcel<T extends Record<string, unknown>>(
     return row
   })
 
-  if (options.withBorders) {
+  const useExcelJs = Boolean(options.withBorders || options.mergeGroupRows)
+  if (useExcelJs) {
     const ExcelJS = (await import("exceljs")).default
     const workbook = new ExcelJS.Workbook()
     const worksheet = workbook.addWorksheet(sheetName)
@@ -114,16 +134,29 @@ export async function exportToExcel<T extends Record<string, unknown>>(
       worksheet.getColumn(index + 1).width = width.wch
     })
 
-    worksheet.eachRow({ includeEmpty: true }, (row) => {
-      row.eachCell({ includeEmpty: true }, (cell) => {
-        cell.border = {
-          top: { style: "thin", color: { argb: "FFD1D5DB" } },
-          bottom: { style: "thin", color: { argb: "FFD1D5DB" } },
-          left: { style: "thin", color: { argb: "FFD1D5DB" } },
-          right: { style: "thin", color: { argb: "FFD1D5DB" } },
-        }
+    if (options.mergeGroupRows && columns.length > 1) {
+      groupRowIndexes.forEach((dataIndex) => {
+        // Sheet row 1 = header; data starts at row 2.
+        const excelRowNumber = dataIndex + 2
+        worksheet.mergeCells(excelRowNumber, 1, excelRowNumber, columns.length)
+        const cell = worksheet.getCell(excelRowNumber, 1)
+        cell.font = { bold: true }
+        cell.alignment = { vertical: "middle", horizontal: "left" }
       })
-    })
+    }
+
+    if (options.withBorders) {
+      worksheet.eachRow({ includeEmpty: true }, (row) => {
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.border = {
+            top: { style: "thin", color: { argb: "FFD1D5DB" } },
+            bottom: { style: "thin", color: { argb: "FFD1D5DB" } },
+            left: { style: "thin", color: { argb: "FFD1D5DB" } },
+            right: { style: "thin", color: { argb: "FFD1D5DB" } },
+          }
+        })
+      })
+    }
 
     const buffer = await workbook.xlsx.writeBuffer()
     return new Blob([buffer as BlobPart], {

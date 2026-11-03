@@ -15,6 +15,7 @@ import ProgressBar from "devextreme-react/progress-bar"
 import ScrollView from "devextreme-react/scroll-view"
 import { formatNumber } from "devextreme/localization"
 import { getFaStatusDisplayText } from "@/pages/Module/FixedAssetManagement/fixedAssetStatus"
+import { resolveVatInvoiceStatusLabel } from "@/pages/Tax/vatInvoiceStatus"
 import { Coins, Landmark, Scale } from "lucide-react"
 import ContextMenu from "devextreme/ui/context_menu"
 import type {
@@ -1184,6 +1185,7 @@ export function toLocalizedReportDataGridRows(
     let localized = localizeReportItemNameFields(row, translate)
     if (localizeTaxReductionGroup) {
       localized = localizeTaxReductionAppendixGroup(localized, translate)
+      localized = localizeTaxReductionAppendixStatus(localized, translate)
     }
     return localizeStatusText ? localizeFaStatusTextField(localized, translate) : localized
   })
@@ -1208,6 +1210,20 @@ function localizeTaxReductionAppendixGroup(
   const fallback = readRowField(row, "ITEM_KIND") ??
     (type === "1" ? "I. Hàng hóa, dịch vụ mua vào" : "II. Hàng hóa, dịch vụ bán ra")
   const translated = translate(translationKey, fallback)
+  return translated === row[fieldName] ? row : { ...row, [fieldName]: translated }
+}
+
+// TThai_TEXT comes from API as eInvoice_AdjustType_NM_* (same as status combobox).
+// Localize here so language switch updates the grid/Excel without re-fetch.
+function localizeTaxReductionAppendixStatus(
+  row: ReportDataGridRow,
+  translate: (key: string, fallback: string) => string,
+): ReportDataGridRow {
+  const raw = readRowField(row, "TThai_TEXT")
+  if (!raw) return row
+  const translated = resolveVatInvoiceStatusLabel(raw, translate)
+  if (!translated) return row
+  const fieldName = Object.keys(row).find((key) => normalizeColumnKey(key) === "TTHAI_TEXT") ?? "TThai_TEXT"
   return translated === row[fieldName] ? row : { ...row, [fieldName]: translated }
 }
 

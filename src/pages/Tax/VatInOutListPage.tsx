@@ -34,6 +34,7 @@ import type { ChitInfo, ChitLedger, ChitType } from "@/types/voucher"
 import { getCurrentLang } from "@/utils/language"
 
 import { VAT_INVOICE_COLUMNS } from "./vatInOutColumns"
+import { VAT_INVOICE_STATUS_OPTIONS } from "./vatInvoiceStatus"
 import { applyInvoiceCustomerMatch, buildVatVoucherDraft, type VatInvoiceRow } from "./vatInvoiceVoucherDraft"
 import VatInOutBatchVoucherPopupContent from "./VatInOutBatchVoucherPopup"
 import VatInOutCreateModePopupContent, { type VatVoucherCreationMode } from "./VatInOutCreateModePopup"
@@ -58,16 +59,6 @@ const VAT_INOUT_REPORT_CODE = "TAX_VAT_INOUT_LIST"
 const VAT_INOUT_SCREEN_CD = "/tax/vat/inout-list"
 const VAT_INOUT_GRID_ID = "vat-inout-invoice-grid"
 const VAT_INOUT_PRINT_PAGE_SIZE = 2147483647
-const VAT_INVOICE_STATUS_OPTIONS = [
-  { value: "", langKey: "VAT_INOUT_STATUS_ALL", fallback: "Tất cả" },
-  { value: "1", langKey: "eInvoice_AdjustType_NM_1", fallback: "Hóa đơn mới" },
-  { value: "2", langKey: "eInvoice_AdjustType_NM_3", fallback: "Hóa đơn thay thế" },
-  { value: "3", langKey: "eInvoice_AdjustType_NM_5", fallback: "Hóa đơn điều chỉnh" },
-  { value: "4", langKey: "eInvoice_AdjustType_NM_2", fallback: "Hóa đơn bị thay thế" },
-  { value: "5", langKey: "eInvoice_AdjustType_NM_4", fallback: "Hóa đơn bị điều chỉnh" },
-  { value: "6", langKey: "eInvoice_AdjustType_NM_6", fallback: "Hóa đơn hủy" },
-  { value: "998", langKey: "eInvoice_AdjustType_NM_998", fallback: "Chưa có JSON" },
-]
 
 function isAlreadyLinked(row: VatInvoiceRow): boolean {
   const chitId = row.__CHIT_ID
