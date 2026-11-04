@@ -112,7 +112,6 @@ type ReportToolbarProps = {
   onSysGridColumnSettings?: () => void
   onFetchFromGdt?: () => void
   onFormulaSettings?: () => void
-  formulaSettingsLoading?: boolean
   showSearch?: boolean
   /** Hide the separate quick-search text input; keep the main report Search button. */
   showQuickSearch?: boolean
@@ -222,7 +221,6 @@ export function ReportToolbar({
   onSysGridColumnSettings,
   onFetchFromGdt,
   onFormulaSettings,
-  formulaSettingsLoading = false,
   showSearch = true,
   showQuickSearch = true,
   showRefresh = true,
@@ -603,13 +601,9 @@ export function ReportToolbar({
       },
       {
         key: "formulaSettings",
-        icon: formulaSettingsLoading ? "refresh" : "edit",
-        hint: formulaSettingsLoading
-          ? t("LOADING", "Đang tải...")
-          : t("CASHFLOW_FORMULA_CONFIG", "Khai báo chỉ tiêu / công thức"),
+        icon: "edit",
+        hint: t("CASHFLOW_FORMULA_CONFIG", "Khai báo chỉ tiêu / công thức"),
         onClick: onFormulaSettings,
-        disabled: formulaSettingsLoading,
-        loading: formulaSettingsLoading,
         visible: typeof onFormulaSettings === "function",
       },
       {
@@ -638,8 +632,7 @@ export function ReportToolbar({
     [
       onExportExcel,
       onExportPdf,
-	  onFormulaSettings,
-      formulaSettingsLoading,
+      onFormulaSettings,
       onFetchFromGdt,
       onPrint,
       onRefresh,
@@ -1056,23 +1049,19 @@ export function ReportToolbar({
 
           {visibleActionButtons.length > 0 ? (
             <div className="page-toolbar__icon-cluster">
-              {visibleActionButtons.map((button) => {
-                const loading = "loading" in button && Boolean(button.loading)
-                return (
-                  <Button
-                    key={button.key}
-                    className={loading ? "page-toolbar__action-btn page-toolbar__action-btn--loading" : "page-toolbar__action-btn"}
-                    stylingMode={"stylingMode" in button && button.stylingMode ? button.stylingMode : "text"}
-                    icon={button.icon}
-                    text={"text" in button ? button.text : undefined}
-                    hint={button.hint}
-                    type={"type" in button && button.type ? button.type : "normal"}
-                    disabled={"disabled" in button && Boolean(button.disabled)}
-                    elementAttr={loading ? { "aria-busy": "true" } : undefined}
-                    onClick={button.onClick}
-                  />
-                )
-              })}
+              {visibleActionButtons.map((button) => (
+                <Button
+                  key={button.key}
+                  className="page-toolbar__action-btn"
+                  stylingMode={"stylingMode" in button && button.stylingMode ? button.stylingMode : "text"}
+                  icon={button.icon}
+                  text={"text" in button ? button.text : undefined}
+                  hint={button.hint}
+                  type={"type" in button && button.type ? button.type : "normal"}
+                  disabled={"disabled" in button && Boolean(button.disabled)}
+                  onClick={button.onClick}
+                />
+              ))}
             </div>
           ) : null}
           </div>

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import notify from "devextreme/ui/notify"
+import LoadPanel from "devextreme-react/load-panel"
 import SelectBox from "devextreme-react/select-box"
 import type { RowDblClickEvent } from "devextreme/ui/data_grid"
 import { useLocation } from "react-router-dom"
@@ -1404,6 +1405,7 @@ export default function JournalReportPage({
 
   const [formulaOptionsVisible, setFormulaOptionsVisible] = useState(false)
   const [formulaOptionsOpening, setFormulaOptionsOpening] = useState(false)
+  const [formulaPopupShown, setFormulaPopupShown] = useState(false)
   const [formulaOptionsInitialData, setFormulaOptionsInitialData] = useState<CashflowFormulaOptions | null>(null)
   const formulaOptionsOpeningRef = useRef(false)
   const formulaOptionsOpenControllerRef = useRef<AbortController | null>(null)
@@ -1433,6 +1435,7 @@ export default function JournalReportPage({
     if (formulaOptionsVisible || formulaOptionsOpeningRef.current) return
 
     formulaOptionsOpeningRef.current = true
+    setFormulaPopupShown(false)
     setFormulaOptionsOpening(true)
     const controller = new AbortController()
     formulaOptionsOpenControllerRef.current = controller
@@ -1465,6 +1468,11 @@ export default function JournalReportPage({
     formulaOptionsOpenControllerRef.current?.abort()
     setFormulaOptionsVisible(false)
     setFormulaOptionsInitialData(null)
+    setFormulaPopupShown(false)
+  }, [])
+
+  const handleFormulaPopupShown = useCallback(() => {
+    setFormulaPopupShown(true)
   }, [])
 
   const handleFormulaSettingsSaved = useCallback(() => {
@@ -1737,7 +1745,6 @@ export default function JournalReportPage({
               onSysGridColumnSettings={handleOpenGridSettings}
               onFetchFromGdt={showFetchFromGdt ? () => setGdtPopupVisible(true) : undefined}
               onFormulaSettings={formulaOptionsEnabled ? handleOpenFormulaSettings : undefined}
-              formulaSettingsLoading={formulaOptionsOpening}
               showSearch={true}
               showRefresh={true}
               showPrint={false}
@@ -1924,6 +1931,14 @@ export default function JournalReportPage({
         ref={voucherEditorHostRef}
         onSaved={() => void loadPreview({ showValidationMessage: false })}
       />
+      <LoadPanel
+        visible={formulaOptionsOpening || (formulaOptionsVisible && !formulaPopupShown)}
+        showIndicator
+        showPane
+        shading
+        shadingColor="rgba(0, 0, 0, 0.15)"
+        message={t("LOADING", "Đang tải...")}
+      />
       {formulaOptionsVisible && formulaOptionsInitialData ? (
         <Suspense fallback={null}>
           <ReportFormulaOptionsPopup
@@ -1935,6 +1950,7 @@ export default function JournalReportPage({
             initialOptions={formulaOptionsInitialData}
             previewParams={formulaPreviewParams}
             onClose={handleCloseFormulaSettings}
+            onShown={handleFormulaPopupShown}
             onSaved={handleFormulaSettingsSaved}
           />
         </Suspense>

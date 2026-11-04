@@ -52,6 +52,7 @@ type ReportFormulaOptionsPopupProps = {
   previewParams?: FormulaOptionPreviewParams
   onClose: () => void
   onSaved: () => void
+  onShown?: () => void
   onOpenColumnSettings?: () => void
 }
 export default function ReportFormulaOptionsPopup({
@@ -64,6 +65,7 @@ export default function ReportFormulaOptionsPopup({
   previewParams,
   onClose,
   onSaved,
+  onShown,
   onOpenColumnSettings,
 }: ReportFormulaOptionsPopupProps) {
   const { translate } = useContext(LanguageContext) as {
@@ -770,6 +772,7 @@ export default function ReportFormulaOptionsPopup({
       position={fullScreen ? { my: "center", at: "center", of: window } : undefined}
       wrapperAttr={fullScreen ? { class: "report-formula-options-popup report-formula-options-popup--fullscreen" } : { class: "report-formula-options-popup" }}
       onHiding={onClose}
+      onShown={onShown}
     >
       {editor}
     </Popup>
