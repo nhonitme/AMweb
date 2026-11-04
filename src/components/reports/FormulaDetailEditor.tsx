@@ -83,6 +83,17 @@ export const FormulaDetailEditor = memo(function FormulaDetailEditor({
   moveSelectedRow,
   deleteSelectedRow,
 }: FormulaDetailEditorProps) {
+  const commitSelectedRow = (
+    event: { event?: unknown },
+    updater: (current: CashflowFormulaOptionRow) => CashflowFormulaOptionRow,
+  ) => {
+    if (!isUserValueChange(event)) {
+      return
+    }
+
+    updateSelectedRow(updater)
+  }
+
   const signedAccountRule = useMemo(
     () => parseSignedAccountRule(selectedRow?.ACCOUNT_RULE),
     [selectedRow?.ACCOUNT_RULE],
@@ -281,7 +292,7 @@ export const FormulaDetailEditor = memo(function FormulaDetailEditor({
                               disabled={!isVatFormulaMethod(selectedRow.CALC_METHOD_NO1)}
                               placeholder={t("VAT_FORMULA_PLACEHOLDER", "Ví dụ: 27=29+30+32+32A")}
                               inputAttr={{ class: "font-mono text-xs" }}
-                              onValueChanged={(event) => updateSelectedRow((row) => ({
+                              onValueChanged={(event) => commitSelectedRow(event, (row) => ({
                                 ...row,
                                 FORMULA_NO1: String(event.value ?? ""),
                               }))}
@@ -324,7 +335,7 @@ export const FormulaDetailEditor = memo(function FormulaDetailEditor({
                               disabled={!isVatFormulaMethod(selectedRow.CALC_METHOD_NO2)}
                               placeholder={t("VAT_FORMULA_PLACEHOLDER_2", "Ví dụ: 36=35-25")}
                               inputAttr={{ class: "font-mono text-xs" }}
-                              onValueChanged={(event) => updateSelectedRow((row) => ({
+                              onValueChanged={(event) => commitSelectedRow(event, (row) => ({
                                 ...row,
                                 FORMULA_NO2: String(event.value ?? ""),
                               }))}
@@ -410,7 +421,7 @@ export const FormulaDetailEditor = memo(function FormulaDetailEditor({
                         labelMode="floating"
                         height={86}
                         placeholder={t("FORMULA_EXPR_PLACEHOLDER", "Ví dụ: 10 = 01 - 02")}
-                        onValueChanged={(event) => updateSelectedRow((row) => ({
+                        onValueChanged={(event) => commitSelectedRow(event, (row) => ({
                           ...row,
                           FORMULA_EXPR: String(event.value ?? ""),
                         }))}
@@ -432,7 +443,7 @@ export const FormulaDetailEditor = memo(function FormulaDetailEditor({
                           label={t("ACCOUNT_RULE", "Tài khoản lấy số")}
                           labelMode="floating"
                           placeholder={t("ACCOUNT_RULE_PLACEHOLDER", "Ví dụ: 111, 112, 113")}
-                          onValueChanged={(event) => updateSelectedRow((row) => ({
+                          onValueChanged={(event) => commitSelectedRow(event, (row) => ({
                             ...row,
                             ACCOUNT_RULE: String(event.value ?? ""),
                           }))}
@@ -534,7 +545,7 @@ export const FormulaDetailEditor = memo(function FormulaDetailEditor({
                           stylingMode="outlined"
                           label={t("CASHFLOW_RULE_1_DIRECTION", "Quy tắc thu/chi 1")}
                           labelMode="floating"
-                          onValueChanged={(event) => updateSelectedRow((row) => ({
+                          onValueChanged={(event) => commitSelectedRow(event, (row) => ({
                             ...row,
                             DIRECT_RULE_FLOW_SIGN: Number(event.value) === -1 ? -1 : 1,
                           }))}
@@ -546,7 +557,7 @@ export const FormulaDetailEditor = memo(function FormulaDetailEditor({
                             label={t("CASHFLOW_COUNTER_ACCOUNTS_1", "Tài khoản đối ứng 1")}
                             labelMode="floating"
                             placeholder="131, 511, 515"
-                            onValueChanged={(event) => updateSelectedRow((row) => ({
+                            onValueChanged={(event) => commitSelectedRow(event, (row) => ({
                               ...row,
                               DIRECT_RULE_ACC_PREFIX: String(event.value ?? ""),
                             }))}
@@ -558,7 +569,7 @@ export const FormulaDetailEditor = memo(function FormulaDetailEditor({
                             stylingMode="outlined"
                             label={t("PRIORITY", "Ưu tiên")}
                             labelMode="floating"
-                            onValueChanged={(event) => updateSelectedRow((row) => ({
+                            onValueChanged={(event) => commitSelectedRow(event, (row) => ({
                               ...row,
                               DIRECT_RULE_PRIORITY: toPositiveInteger(event.value, row.SORT_ORDER),
                             }))}
@@ -572,7 +583,7 @@ export const FormulaDetailEditor = memo(function FormulaDetailEditor({
                           stylingMode="outlined"
                           label={t("CASHFLOW_RULE_2_DIRECTION", "Quy tắc thu/chi 2")}
                           labelMode="floating"
-                          onValueChanged={(event) => updateSelectedRow((row) => ({
+                          onValueChanged={(event) => commitSelectedRow(event, (row) => ({
                             ...row,
                             DIRECT_RULE_FLOW_SIGN_2: Number(event.value) === -1 ? -1 : 1,
                           }))}
@@ -584,7 +595,7 @@ export const FormulaDetailEditor = memo(function FormulaDetailEditor({
                             label={t("CASHFLOW_COUNTER_ACCOUNTS_2", "Tài khoản đối ứng 2")}
                             labelMode="floating"
                             placeholder="331, 152, 642"
-                            onValueChanged={(event) => updateSelectedRow((row) => ({
+                            onValueChanged={(event) => commitSelectedRow(event, (row) => ({
                               ...row,
                               DIRECT_RULE_ACC_PREFIX_2: String(event.value ?? ""),
                             }))}
@@ -596,7 +607,7 @@ export const FormulaDetailEditor = memo(function FormulaDetailEditor({
                             stylingMode="outlined"
                             label={t("PRIORITY", "Ưu tiên")}
                             labelMode="floating"
-                            onValueChanged={(event) => updateSelectedRow((row) => ({
+                            onValueChanged={(event) => commitSelectedRow(event, (row) => ({
                               ...row,
                               DIRECT_RULE_PRIORITY_2: toPositiveInteger(event.value, row.SORT_ORDER),
                             }))}
@@ -704,7 +715,7 @@ export const FormulaDetailEditor = memo(function FormulaDetailEditor({
                     <CheckBox
                       value={selectedRow.IS_VISIBLE === "1"}
                       text={t("IS_VISIBLE", "Hiện trên báo cáo")}
-                      onValueChanged={(event) => updateSelectedRow((row) => ({
+                      onValueChanged={(event) => commitSelectedRow(event, (row) => ({
                         ...row,
                         IS_VISIBLE: event.value ? "1" : "0",
                       }))}
@@ -712,7 +723,7 @@ export const FormulaDetailEditor = memo(function FormulaDetailEditor({
                     <CheckBox
                       value={selectedRow.FONT_BOLD === "1"}
                       text={t("FONT_BOLD", "In đậm")}
-                      onValueChanged={(event) => updateSelectedRow((row) => ({
+                      onValueChanged={(event) => commitSelectedRow(event, (row) => ({
                         ...row,
                         FONT_BOLD: event.value ? "1" : "0",
                       }))}
@@ -720,7 +731,7 @@ export const FormulaDetailEditor = memo(function FormulaDetailEditor({
                     <CheckBox
                       value={selectedRow.FONT_ITALIC === "1"}
                       text={t("FONT_ITALIC", "In nghiêng")}
-                      onValueChanged={(event) => updateSelectedRow((row) => ({
+                      onValueChanged={(event) => commitSelectedRow(event, (row) => ({
                         ...row,
                         FONT_ITALIC: event.value ? "1" : "0",
                       }))}

@@ -95,6 +95,7 @@ export const FormulaListGrid = memo(function FormulaListGrid({
   const gridRef = useRef<dxDataGrid<FormulaGridRow, string> | null>(null)
   const selectedKeyRef = useRef(selectedItemKey)
   const onSelectedItemKeyChangeRef = useRef(onSelectedItemKeyChange)
+  const selectionFromGridRef = useRef(false)
   const untitledLabel = t("UNTITLED", "Chưa đặt tên")
   const headerLabel = t("DATA_SOURCE_HEADER", "Tiêu đề nhóm")
 
@@ -173,13 +174,22 @@ export const FormulaListGrid = memo(function FormulaListGrid({
       return
     }
 
-    // DevExtreme handles the clicked row selection itself. Avoid an extra
-    // asynchronous selectRows call on every click (which delays detail focus).
+    // DevExtreme already paints the clicked row. Defer React state until the
+    // next frame so mounting the detail editors cannot block that paint.
     selectedKeyRef.current = nextKey
-    onSelectedItemKeyChangeRef.current(nextKey)
+    selectionFromGridRef.current = true
+    window.requestAnimationFrame(() => {
+      onSelectedItemKeyChangeRef.current(nextKey)
+    })
   }, [])
 
   useEffect(() => {
+    if (selectionFromGridRef.current && selectedItemKey === selectedKeyRef.current) {
+      selectionFromGridRef.current = false
+      return
+    }
+
+    selectionFromGridRef.current = false
     selectedKeyRef.current = selectedItemKey
     applyGridSelection(selectedItemKey)
   }, [applyGridSelection, selectedItemKey])
@@ -283,8 +293,8 @@ export const FormulaListGrid = memo(function FormulaListGrid({
       onRowPrepared={handleRowPrepared}
     >
       <Selection mode="single" showCheckBoxesMode="none" />
-      <Scrolling mode="standard" useNative={true} />
-      <Paging enabled={false} />
+      <Scrolling mode="virtual" rowRenderingMode="virtual" preloadEnabled={true} useNative={true} />
+      <Paging enabled={true} pageSize={40} />
       <Column
         caption={t("ORDER", "TT")}
         dataField="SORT_ORDER"
@@ -347,7 +357,4 @@ export const FormulaListGrid = memo(function FormulaListGrid({
   && prev.dataSourceMode === next.dataSourceMode
   && prev.t === next.t
   && prev.onSelectedItemKeyChange === next.onSelectedItemKeyChange
-  // selectedItemKey is synced imperatively via effect/ref to avoid DataGrid remount flicker.
-  // Still compare so parent-driven selection (add/delete/load) re-runs the sync effect.
-  && prev.selectedItemKey === next.selectedItemKey
 ))
