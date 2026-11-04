@@ -379,6 +379,17 @@
     }
   }
 
+  /* Glyph sits on ::before. The icon element itself keeps transform: scale(2) !important,
+     which blocks a rotate animation on .dx-icon. Spin the glyph instead. */
+  &__action-btn--loading {
+    .dx-icon::before,
+    .dx-button-icon::before {
+      display: inline-block;
+      transform-origin: center;
+      animation: page-toolbar-icon-spin 0.75s linear infinite;
+    }
+  }
+
   /* Unify 'Tim kiem' and 'Them moi' to the same height -- action-btn
      (the small icon-only pill cluster: refresh/columns/trash/pdf/excel)
      deliberately stays at the original compact 26px. */
@@ -594,4 +605,17 @@
 .date-range-box--grouped .date-range-box__field .dx-label-before,
 .date-range-box--grouped .date-range-box__field .dx-label-after {
   border-color: transparent !important;
+}
+
+@keyframes page-toolbar-icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-toolbar__action-btn--loading .dx-icon::before,
+  .page-toolbar__action-btn--loading .dx-button-icon::before {
+    animation: none;
+  }
 }

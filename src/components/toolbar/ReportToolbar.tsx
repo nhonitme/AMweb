@@ -609,6 +609,7 @@ export function ReportToolbar({
           : t("CASHFLOW_FORMULA_CONFIG", "Khai báo chỉ tiêu / công thức"),
         onClick: onFormulaSettings,
         disabled: formulaSettingsLoading,
+        loading: formulaSettingsLoading,
         visible: typeof onFormulaSettings === "function",
       },
       {
@@ -1055,19 +1056,23 @@ export function ReportToolbar({
 
           {visibleActionButtons.length > 0 ? (
             <div className="page-toolbar__icon-cluster">
-              {visibleActionButtons.map((button) => (
-                <Button
-                  key={button.key}
-                  className="page-toolbar__action-btn"
-                  stylingMode={"stylingMode" in button && button.stylingMode ? button.stylingMode : "text"}
-                  icon={button.icon}
-                  text={"text" in button ? button.text : undefined}
-                  hint={button.hint}
-                  type={"type" in button && button.type ? button.type : "normal"}
-                  disabled={"disabled" in button && Boolean(button.disabled)}
-                  onClick={button.onClick}
-                />
-              ))}
+              {visibleActionButtons.map((button) => {
+                const loading = "loading" in button && Boolean(button.loading)
+                return (
+                  <Button
+                    key={button.key}
+                    className={loading ? "page-toolbar__action-btn page-toolbar__action-btn--loading" : "page-toolbar__action-btn"}
+                    stylingMode={"stylingMode" in button && button.stylingMode ? button.stylingMode : "text"}
+                    icon={button.icon}
+                    text={"text" in button ? button.text : undefined}
+                    hint={button.hint}
+                    type={"type" in button && button.type ? button.type : "normal"}
+                    disabled={"disabled" in button && Boolean(button.disabled)}
+                    elementAttr={loading ? { "aria-busy": "true" } : undefined}
+                    onClick={button.onClick}
+                  />
+                )
+              })}
             </div>
           ) : null}
           </div>
