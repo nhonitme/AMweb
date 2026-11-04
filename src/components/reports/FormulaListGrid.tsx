@@ -24,7 +24,6 @@ type FormulaListGridProps = {
   onSelectedItemKeyChange: (itemKey: string) => void
   previewColumns: FormulaOptionPreviewColumn[]
   previewValuesByItemCode: Record<string, Record<string, unknown>>
-  loading: boolean
   lineFilter: string
   isVatDeclaration: boolean
   canonicalReportCode: string
@@ -87,7 +86,6 @@ export const FormulaListGrid = memo(function FormulaListGrid({
   onSelectedItemKeyChange,
   previewColumns,
   previewValuesByItemCode,
-  loading,
   lineFilter,
   isVatDeclaration,
   canonicalReportCode,
@@ -96,9 +94,11 @@ export const FormulaListGrid = memo(function FormulaListGrid({
 }: FormulaListGridProps) {
   const gridRef = useRef<dxDataGrid<FormulaGridRow, string> | null>(null)
   const selectedKeyRef = useRef(selectedItemKey)
-  const notifyTimerRef = useRef<number | null>(null)
+  const onSelectedItemKeyChangeRef = useRef(onSelectedItemKeyChange)
   const untitledLabel = t("UNTITLED", "Chưa đặt tên")
   const headerLabel = t("DATA_SOURCE_HEADER", "Tiêu đề nhóm")
+
+  onSelectedItemKeyChangeRef.current = onSelectedItemKeyChange
 
   const gridRows = useMemo<FormulaGridRow[]>(() => {
     const sorted = [...rows].sort(
@@ -167,18 +167,6 @@ export const FormulaListGrid = memo(function FormulaListGrid({
     void grid.selectRows([itemKey], false)
   }, [])
 
-  const notifyParentSelection = useCallback((itemKey: string) => {
-    if (notifyTimerRef.current != null) {
-      window.clearTimeout(notifyTimerRef.current)
-    }
-
-    // Let DevExtreme finish painting the selected row before mounting the detail form.
-    notifyTimerRef.current = window.setTimeout(() => {
-      notifyTimerRef.current = null
-      onSelectedItemKeyChange(itemKey)
-    }, 0)
-  }, [onSelectedItemKeyChange])
-
   const selectRowKey = useCallback((itemKey: string) => {
     const nextKey = itemKey.trim()
     if (!nextKey || nextKey === selectedKeyRef.current) {
@@ -187,17 +175,18 @@ export const FormulaListGrid = memo(function FormulaListGrid({
 
     selectedKeyRef.current = nextKey
     applyGridSelection(nextKey)
-    notifyParentSelection(nextKey)
-  }, [applyGridSelection, notifyParentSelection])
+    onSelectedItemKeyChangeRef.current(nextKey)
+  }, [applyGridSelection])
 
   useEffect(() => {
     selectedKeyRef.current = selectedItemKey
     applyGridSelection(selectedItemKey)
   }, [applyGridSelection, selectedItemKey])
 
-  useEffect(() => () => {
-    if (notifyTimerRef.current != null) {
-      window.clearTimeout(notifyTimerRef.current)
+  const handleInitialized = useCallback((event: { component?: dxDataGrid<FormulaGridRow, string> }) => {
+    gridRef.current = event.component ?? null
+    if (selectedKeyRef.current) {
+      void event.component?.selectRows([selectedKeyRef.current], false)
     }
   }, [])
 
@@ -267,11 +256,9 @@ export const FormulaListGrid = memo(function FormulaListGrid({
     event.rowElement.style.fontWeight = ""
   }, [isVatDeclaration])
 
-  const noDataText = loading
-    ? ""
-    : isVatDeclaration && lineFilter.trim()
-      ? t("NO_FILTER_MATCH", "Không có chỉ tiêu khớp bộ lọc")
-      : t("NO_DATA", "Chưa có chỉ tiêu")
+  const noDataText = isVatDeclaration && lineFilter.trim()
+    ? t("NO_FILTER_MATCH", "Không có chỉ tiêu khớp bộ lọc")
+    : t("NO_DATA", "Chưa có chỉ tiêu")
 
   return (
     <DataGrid
@@ -288,12 +275,7 @@ export const FormulaListGrid = memo(function FormulaListGrid({
       height="100%"
       noDataText={noDataText}
       loadPanel={{ enabled: false }}
-      onInitialized={(event) => {
-        gridRef.current = event.component ?? null
-        if (selectedKeyRef.current) {
-          void event.component?.selectRows([selectedKeyRef.current], false)
-        }
-      }}
+      onInitialized={handleInitialized}
       onRowClick={handleRowClick}
       onSelectionChanged={handleSelectionChanged}
       onCellPrepared={handleCellPrepared}
@@ -358,11 +340,13 @@ export const FormulaListGrid = memo(function FormulaListGrid({
   prev.rows === next.rows
   && prev.previewColumns === next.previewColumns
   && prev.previewValuesByItemCode === next.previewValuesByItemCode
-  && prev.loading === next.loading
   && prev.lineFilter === next.lineFilter
   && prev.isVatDeclaration === next.isVatDeclaration
   && prev.canonicalReportCode === next.canonicalReportCode
   && prev.dataSourceMode === next.dataSourceMode
   && prev.t === next.t
   && prev.onSelectedItemKeyChange === next.onSelectedItemKeyChange
+  // selectedItemKey is synced imperatively via effect/ref to avoid DataGrid remount flicker.
+  // Still compare so parent-driven selection (add/delete/load) re-runs the sync effect.
+  && prev.selectedItemKey === next.selectedItemKey
 ))

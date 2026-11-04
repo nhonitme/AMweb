@@ -97,7 +97,7 @@ export const FormulaDetailEditor = memo(function FormulaDetailEditor({
   return (
     <section className={`flex min-h-0 flex-col overflow-auto border bg-white p-3 ${isVatDeclaration ? "rounded-lg border-slate-300 shadow-sm" : "rounded-xl border-slate-200 p-4"}`}>
             {selectedRow ? (
-              <div className="space-y-3" key={selectedRow.ITEM_KEY}>
+              <div className="space-y-3">
                 <div className="border-b border-slate-200 pb-2">
                   <h2 className="text-sm font-semibold text-slate-900">
                     {isVatDeclaration && (normalizeText(selectedRow.CODE_NO1) || normalizeText(selectedRow.CODE_NO2))

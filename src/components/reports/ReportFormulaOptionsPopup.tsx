@@ -1,5 +1,6 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 
+import axios from "axios"
 import Button from "devextreme-react/button"
 import LoadPanel from "devextreme-react/load-panel"
 import Popup from "devextreme-react/popup"
@@ -94,19 +95,27 @@ export default function ReportFormulaOptionsPopup({
   const [companyCd, setCompanyCd] = useState("")
   const [selectedItemKey, setSelectedItemKey] = useState("")
   const [lineFilter, setLineFilter] = useState("")
-  const [loading, setLoading] = useState(true)
+  /** First paint / report change — show skeleton, do not mount empty DataGrid. */
+  const [initialLoading, setInitialLoading] = useState(true)
+  /** Manual reload — keep existing grid/editor visible. */
+  const [reloading, setReloading] = useState(false)
   const [optionsLoaded, setOptionsLoaded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewColumns, setPreviewColumns] = useState<FormulaOptionPreviewColumn[]>([])
   const [previewValuesByItemCode, setPreviewValuesByItemCode] = useState<Record<string, Record<string, unknown>>>({})
   const initialDraftSignatureRef = useRef("")
+  /** Only set after a successful load so failures can retry. */
   const loadedTargetRef = useRef("")
+  const loadRequestIdRef = useRef(0)
+  const loadAbortRef = useRef<AbortController | null>(null)
+  const optionsLoadedRef = useRef(false)
 
   const selectedRow = useMemo(
     () => rows.find((row) => row.ITEM_KEY === selectedItemKey) ?? null,
     [rows, selectedItemKey],
   )
+  const dataBusy = initialLoading || reloading
 
   const sortedRows = useMemo(
     () => [...rows].sort((left, right) => left.SORT_ORDER - right.SORT_ORDER || left.ITEM_KEY.localeCompare(right.ITEM_KEY)),
@@ -149,33 +158,84 @@ export default function ReportFormulaOptionsPopup({
     return nextRows
   }, [isAccountRuleReport, isVatDeclaration])
 
-  const loadOptions = useCallback(async () => {
-    setLoading(true)
-    setOptionsLoaded(false)
+  const loadOptions = useCallback(async (mode: "initial" | "reload" = "initial") => {
+    loadAbortRef.current?.abort()
+    const controller = new AbortController()
+    loadAbortRef.current = controller
+    const requestId = ++loadRequestIdRef.current
+    const target = `${canonicalReportCode}:${effectiveReportVersion}`
+
+    if (mode === "reload" && optionsLoadedRef.current) {
+      setReloading(true)
+    } else {
+      setInitialLoading(true)
+    }
+
     try {
-      const data = await getCashflowFormulaOptions(canonicalReportCode, effectiveReportVersion)
+      const data = await getCashflowFormulaOptions(
+        canonicalReportCode,
+        effectiveReportVersion,
+        controller.signal,
+      )
+      if (requestId !== loadRequestIdRef.current) {
+        return
+      }
+
       applyLoadedOptions(data)
+      loadedTargetRef.current = target
+      optionsLoadedRef.current = true
+      setOptionsLoaded(true)
     } catch (error) {
+      if (
+        controller.signal.aborted
+        || axios.isCancel(error)
+        || (axios.isAxiosError(error) && error.code === "ERR_CANCELED")
+      ) {
+        return
+      }
+      if (requestId !== loadRequestIdRef.current) {
+        return
+      }
+
+      // Keep loadedTargetRef empty on failure so the same report can retry.
       notify(getApiErrorMessage(error, t("LOAD_FAILED", "Không thể tải cấu hình công thức")), "error", 4000)
     } finally {
-      setLoading(false)
-      setOptionsLoaded(true)
+      if (requestId === loadRequestIdRef.current) {
+        setInitialLoading(false)
+        setReloading(false)
+      }
     }
   }, [applyLoadedOptions, canonicalReportCode, effectiveReportVersion, t])
 
   useEffect(() => {
     if (!visible) {
+      loadAbortRef.current?.abort()
       loadedTargetRef.current = ""
+      optionsLoadedRef.current = false
       return
     }
 
     const target = `${canonicalReportCode}:${effectiveReportVersion}`
-    if (loadedTargetRef.current === target) {
+    if (loadedTargetRef.current === target && optionsLoadedRef.current) {
       return
     }
 
-    loadedTargetRef.current = target
-    void loadOptions()
+    if (loadedTargetRef.current && loadedTargetRef.current !== target) {
+      // Report/version changed — drop stale UI before the next payload arrives.
+      setRows([])
+      setSelectedItemKey("")
+      setPreviewColumns([])
+      setPreviewValuesByItemCode({})
+      optionsLoadedRef.current = false
+      setOptionsLoaded(false)
+      void loadOptions("initial")
+    } else {
+      void loadOptions(optionsLoadedRef.current ? "reload" : "initial")
+    }
+
+    return () => {
+      loadAbortRef.current?.abort()
+    }
   }, [canonicalReportCode, effectiveReportVersion, loadOptions, visible])
 
   const updateSelectedRow = useCallback((updater: (current: CashflowFormulaOptionRow) => CashflowFormulaOptionRow) => {
@@ -434,29 +494,11 @@ export default function ReportFormulaOptionsPopup({
     setSelectedItemKey((current) => (current === nextKey ? current : nextKey))
   }, [])
 
-  // Keep list selection snappy: the grid paints first, then the heavy detail form follows.
-  const [editorItemKey, setEditorItemKey] = useState("")
-  useEffect(() => {
-    if (!selectedItemKey || selectedItemKey === editorItemKey) {
-      if (!selectedItemKey && editorItemKey) {
-        setEditorItemKey("")
-      }
-      return
-    }
-
-    const timer = window.setTimeout(() => {
-      setEditorItemKey(selectedItemKey)
-    }, 16)
-    return () => window.clearTimeout(timer)
-  }, [editorItemKey, selectedItemKey])
-
-  const editorRow = useMemo(
-    () => rows.find((row) => row.ITEM_KEY === editorItemKey) ?? null,
-    [editorItemKey, rows],
-  )
+  // Keep list + detail in the same render cycle (no deferred editorItemKey).
+  const editorRow = selectedRow
 
   const handleReload = useCallback(() => {
-    void loadOptions()
+    void loadOptions("reload")
   }, [loadOptions])
 
   const handleResetClick = useCallback(() => {
@@ -533,105 +575,139 @@ export default function ReportFormulaOptionsPopup({
                 icon="columnchooser"
                 stylingMode="outlined"
                 text={t("CASHFLOW_EDIT_COLUMN_NAMES", "Đặt tên cột in")}
-                disabled={loading || saving}
+                disabled={dataBusy || saving}
                 onClick={onOpenColumnSettings}
               />
             ) : null}
           </section>
         ) : null}
 
-        <div className={`grid min-h-0 flex-1 gap-3 ${isVatDeclaration ? "xl:grid-cols-[minmax(560px,1.35fr)_minmax(400px,0.85fr)]" : "xl:grid-cols-[minmax(500px,1.2fr)_minmax(430px,0.9fr)]"}`}>
-          <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-300 bg-slate-50 px-3 py-2.5">
-              <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-slate-900">{t("CASHFLOW_REPORT_LINES", "Danh sách chỉ tiêu")}</h2>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  {t(
-                    "CASHFLOW_REPORT_LINES_HINT",
-                    isVatDeclaration
-                      ? "Chọn chỉ tiêu để khai báo mã [21]/[22]… và công thức cột HHDV / thuế GTGT."
-                      : isIndirect
-                        ? "Chọn chỉ tiêu để khai báo tài khoản cộng/trừ hoặc công thức tổng hợp."
-                        : "Chọn chỉ tiêu để khai báo công thức hoặc tài khoản đối ứng.",
-                  )}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                <Button
-                  icon="chart"
-                  stylingMode="contained"
-                  type="default"
-                  text={previewLoading
-                    ? t("LOADING", "Đang tải...")
-                    : t("LOAD_REPORT", "Tải báo cáo")}
-                  disabled={loading || saving || previewLoading || !optionsLoaded || sortedRows.length === 0}
-                  onClick={() => void handleLoadPreview()}
-                />
-                <Button
-                  icon="plus"
-                  stylingMode="outlined"
-                  text={t("ADD_ROW", "Thêm chỉ tiêu")}
-                  disabled={loading || saving || previewLoading}
-                  onClick={addRow}
-                />
+        {initialLoading ? (
+          <div
+            className={`report-formula-options-skeleton min-h-0 flex-1 ${isVatDeclaration ? "report-formula-options-skeleton--vat" : ""}`}
+            aria-busy="true"
+            aria-label={t("LOADING", "Đang tải...")}
+          >
+            <div className="report-formula-options-skeleton__panel">
+              <div className="report-formula-options-skeleton__header" />
+              <div className="report-formula-options-skeleton__body">
+                <div className="report-formula-options-skeleton__line report-formula-options-skeleton__line--lg" />
+                <div className="report-formula-options-skeleton__line report-formula-options-skeleton__line--md" />
+                <div className="report-formula-options-skeleton__line report-formula-options-skeleton__line--lg" />
+                <div className="report-formula-options-skeleton__line report-formula-options-skeleton__line--sm" />
+                <div className="report-formula-options-skeleton__line report-formula-options-skeleton__line--md" />
+                <div className="report-formula-options-skeleton__line report-formula-options-skeleton__line--lg" />
+                <div className="report-formula-options-skeleton__line report-formula-options-skeleton__line--sm" />
               </div>
             </div>
+            <div className="report-formula-options-skeleton__panel">
+              <div className="report-formula-options-skeleton__header" />
+              <div className="report-formula-options-skeleton__body">
+                <div className="report-formula-options-skeleton__line report-formula-options-skeleton__line--md" />
+                <div className="report-formula-options-skeleton__line report-formula-options-skeleton__line--lg" />
+                <div className="report-formula-options-skeleton__line report-formula-options-skeleton__line--sm" />
+                <div className="report-formula-options-skeleton__line report-formula-options-skeleton__line--lg" />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className={`grid min-h-0 flex-1 gap-3 ${isVatDeclaration ? "xl:grid-cols-[minmax(560px,1.35fr)_minmax(400px,0.85fr)]" : "xl:grid-cols-[minmax(500px,1.2fr)_minmax(430px,0.9fr)]"}`}>
+            <section className="relative flex min-h-0 flex-col overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
+              {reloading ? (
+                <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden bg-slate-100">
+                  <div className="report-formula-options-skeleton__line h-full w-full" />
+                </div>
+              ) : null}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-300 bg-slate-50 px-3 py-2.5">
+                <div className="min-w-0">
+                  <h2 className="text-sm font-semibold text-slate-900">{t("CASHFLOW_REPORT_LINES", "Danh sách chỉ tiêu")}</h2>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {t(
+                      "CASHFLOW_REPORT_LINES_HINT",
+                      isVatDeclaration
+                        ? "Chọn chỉ tiêu để khai báo mã [21]/[22]… và công thức cột HHDV / thuế GTGT."
+                        : isIndirect
+                          ? "Chọn chỉ tiêu để khai báo tài khoản cộng/trừ hoặc công thức tổng hợp."
+                          : "Chọn chỉ tiêu để khai báo công thức hoặc tài khoản đối ứng.",
+                    )}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  <Button
+                    icon="chart"
+                    stylingMode="contained"
+                    type="default"
+                    text={previewLoading
+                      ? t("LOADING", "Đang tải...")
+                      : t("LOAD_REPORT", "Tải báo cáo")}
+                    disabled={dataBusy || saving || previewLoading || !optionsLoaded || sortedRows.length === 0}
+                    onClick={() => void handleLoadPreview()}
+                  />
+                  <Button
+                    icon="plus"
+                    stylingMode="outlined"
+                    text={t("ADD_ROW", "Thêm chỉ tiêu")}
+                    disabled={dataBusy || saving || previewLoading}
+                    onClick={addRow}
+                  />
+                </div>
+              </div>
 
-            {isVatDeclaration ? (
-              <div className="border-b border-slate-200 px-3 py-2">
-                <TextBox
-                  value={lineFilter}
-                  stylingMode="outlined"
-                  mode="search"
-                  placeholder={t("VAT_LINE_FILTER_PLACEHOLDER", "Tìm mã CT, mã [ ], tên chỉ tiêu…")}
-                  showClearButton={true}
-                  valueChangeEvent="input"
-                  onValueChanged={(event) => setLineFilter(String(event.value ?? ""))}
+              {isVatDeclaration ? (
+                <div className="border-b border-slate-200 px-3 py-2">
+                  <TextBox
+                    value={lineFilter}
+                    stylingMode="outlined"
+                    mode="search"
+                    placeholder={t("VAT_LINE_FILTER_PLACEHOLDER", "Tìm mã CT, mã [ ], tên chỉ tiêu…")}
+                    showClearButton={true}
+                    valueChangeEvent="input"
+                    onValueChanged={(event) => setLineFilter(String(event.value ?? ""))}
+                  />
+                </div>
+              ) : null}
+
+              <div className="min-h-0 flex-1">
+                <FormulaListGrid
+                  rows={rows}
+                  selectedItemKey={selectedItemKey}
+                  onSelectedItemKeyChange={handleSelectedItemKeyChange}
+                  previewColumns={previewColumns}
+                  previewValuesByItemCode={previewValuesByItemCode}
+                  lineFilter={lineFilter}
+                  isVatDeclaration={isVatDeclaration}
+                  canonicalReportCode={canonicalReportCode}
+                  dataSourceMode={dataSourceMode}
+                  t={t}
                 />
               </div>
-            ) : null}
-
-            <div className="min-h-0 flex-1">
-              <FormulaListGrid
-                rows={rows}
-                selectedItemKey={selectedItemKey}
-                onSelectedItemKeyChange={handleSelectedItemKeyChange}
-                previewColumns={previewColumns}
-                previewValuesByItemCode={previewValuesByItemCode}
-                loading={loading}
-                lineFilter={lineFilter}
-                isVatDeclaration={isVatDeclaration}
-                canonicalReportCode={canonicalReportCode}
-                dataSourceMode={dataSourceMode}
-                t={t}
-              />
-            </div>
-          </section>
-          <FormulaDetailEditor
-            selectedRow={editorRow}
-            sortedRows={sortedRows}
-            isVatDeclaration={isVatDeclaration}
-            isAccountRuleReport={isAccountRuleReport}
-            isCashflow={isCashflow}
-            isIndirect={isIndirect}
-            isProfitLoss={isProfitLoss}
-            canonicalReportCode={canonicalReportCode}
-            dataSourceOptions={dataSourceOptions}
-            elementTypeOptions={elementTypeOptions}
-            calcMethodOptions={calcMethodOptions}
-            vatCalcMethodOptions={vatCalcMethodOptions}
-            flowSignOptions={flowSignOptions}
-            saving={saving}
-            t={t}
-            updateSelectedRow={updateSelectedRow}
-            moveSelectedRow={moveSelectedRow}
-            deleteSelectedRow={deleteSelectedRow}
-          />
-        </div>
+            </section>
+            <FormulaDetailEditor
+              selectedRow={editorRow}
+              sortedRows={sortedRows}
+              isVatDeclaration={isVatDeclaration}
+              isAccountRuleReport={isAccountRuleReport}
+              isCashflow={isCashflow}
+              isIndirect={isIndirect}
+              isProfitLoss={isProfitLoss}
+              canonicalReportCode={canonicalReportCode}
+              dataSourceOptions={dataSourceOptions}
+              elementTypeOptions={elementTypeOptions}
+              calcMethodOptions={calcMethodOptions}
+              vatCalcMethodOptions={vatCalcMethodOptions}
+              flowSignOptions={flowSignOptions}
+              saving={saving}
+              t={t}
+              updateSelectedRow={updateSelectedRow}
+              moveSelectedRow={moveSelectedRow}
+              deleteSelectedRow={deleteSelectedRow}
+            />
+          </div>
+        )}
         <FormulaActionBar
           isDirty={isDirty}
           isVatDeclaration={isVatDeclaration}
-          loading={loading}
+          busy={dataBusy}
           saving={saving}
           hasCompanyOverride={hasCompanyOverride}
           t={t}
@@ -640,7 +716,8 @@ export default function ReportFormulaOptionsPopup({
           onClose={onClose}
           onSave={handleSaveClick}
         />
-        <LoadPanel visible={loading || saving || previewLoading} showIndicator={true} showPane={true} shading={false} />
+        {/* Saving only — initial uses skeleton; reload keeps content; preview uses button state. */}
+        <LoadPanel visible={saving} showIndicator={true} showPane={true} shading={false} />
       </div>
   )
 

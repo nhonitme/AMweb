@@ -7,7 +7,8 @@ import type { TranslateFn } from "./formulaOptionsShared"
 type FormulaActionBarProps = {
   isDirty: boolean
   isVatDeclaration: boolean
-  loading: boolean
+  /** True while initial load or manual reload is in flight. */
+  busy: boolean
   saving: boolean
   hasCompanyOverride: boolean
   t: TranslateFn
@@ -20,7 +21,7 @@ type FormulaActionBarProps = {
 export const FormulaActionBar = memo(function FormulaActionBar({
   isDirty,
   isVatDeclaration,
-  loading,
+  busy,
   saving,
   hasCompanyOverride,
   t,
@@ -39,7 +40,7 @@ export const FormulaActionBar = memo(function FormulaActionBar({
       <Button
         stylingMode="outlined"
         text={t("btnRefresh", "Tải lại")}
-        disabled={loading || saving}
+        disabled={busy || saving}
         onClick={onReload}
       />
       <Button
@@ -50,7 +51,7 @@ export const FormulaActionBar = memo(function FormulaActionBar({
           "REPORT_FORMULA_RESET_HINT",
           "Xóa bản tùy chỉnh của công ty và lấy lại mẫu mặc định ban đầu",
         )}
-        disabled={loading || saving || (!hasCompanyOverride && !isDirty)}
+        disabled={busy || saving || (!hasCompanyOverride && !isDirty)}
         onClick={onReset}
       />
       <Button
@@ -64,7 +65,7 @@ export const FormulaActionBar = memo(function FormulaActionBar({
         type="default"
         stylingMode="contained"
         text={saving ? t("SAVING", "Đang lưu...") : t("dxDataGrid-editingSaveRowChanges", "Lưu cấu hình")}
-        disabled={!isDirty || loading || saving}
+        disabled={!isDirty || busy || saving}
         onClick={onSave}
       />
     </div>

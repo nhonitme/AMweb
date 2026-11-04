@@ -104,12 +104,14 @@ const BASE_URL = `${API_BASE_URL}/reports/formula-options`
 export async function getCashflowFormulaOptions(
   reportCode: string,
   reportVersion?: string | null,
+  signal?: AbortSignal,
 ): Promise<CashflowFormulaOptions> {
   const response = await axios.get<ApiEnvelope<CashflowFormulaOptions> | CashflowFormulaOptions>(BASE_URL, {
     params: {
       reportCode,
       reportVersion: reportVersion?.trim() || undefined,
     },
+    signal,
   })
 
   return normalizeResponse(response)
