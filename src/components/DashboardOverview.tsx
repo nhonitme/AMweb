@@ -19,7 +19,6 @@ import { getDashboardOverview } from "@/api/dashboardApi"
 import DateRangeBox from "@/components/toolbar/DateRangeBox"
 import { createCurrentQuarterDateRange } from "@/lib/dateRangeDefaults"
 import { formatDateToYmd, formatYmdForDisplay, normalizeYmd } from "@/pages/Accounting/accountingDateUtils"
-import { getDevExtremeIconClass } from "@/lib/devexpressIcons"
 import { buildAppPath, getCurrentCompanyCd } from "@/lib/login"
 import { getVoucherRouteByChitType } from "@/pages/VoucherManagement/chitUtils"
 import { buildVoucherOpenUrl } from "@/pages/VoucherManagement/voucherOpenRouteUtils"
@@ -143,27 +142,19 @@ type KpiCardProps = {
   value: number
   prevValue: number
   color: string
-  icon: string
   onClick?: () => void
 }
 
-function KpiCard({ title, value, prevValue, color, icon, onClick }: KpiCardProps) {
+function KpiCard({ title, value, prevValue, color, onClick }: KpiCardProps) {
   const change = pctChange(value, prevValue)
   const isUp   = !change.startsWith("-")
-  const className = `bg-white rounded-xl border-l-4 shadow-sm p-4 ${color}${onClick ? " cursor-pointer hover:bg-gray-50" : ""}`
+  const className = `bg-white rounded-lg border-l-4 shadow-sm px-3 py-2 ${color}${onClick ? " cursor-pointer hover:bg-gray-50" : ""}`
   const content = (
     <>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">{title}</span>
-        <span
-          className={`${getDevExtremeIconClass(icon)} text-gray-400`}
-          style={{ fontSize: 48, width: 48, height: 48, lineHeight: 1 }}
-          aria-hidden="true"
-        />
-      </div>
-      <div className="text-2xl font-bold text-gray-800">{fmt(value)}</div>
+      <div className="text-[11px] font-medium text-gray-500 uppercase tracking-wide leading-tight">{title}</div>
+      <div className="text-lg font-bold text-gray-800 leading-tight mt-0.5">{fmt(value)}</div>
       {change && (
-        <div className={`text-xs mt-1 font-medium ${isUp ? "text-green-600" : "text-red-500"}`}>
+        <div className={`text-[11px] mt-0.5 font-medium leading-tight ${isUp ? "text-green-600" : "text-red-500"}`}>
           {isUp ? "▲" : "▼"} {change} so với tháng trước
         </div>
       )}
@@ -443,24 +434,22 @@ export default function DashboardOverview() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <KpiCard
           title="Tiền mặt / Ngân hàng"
           value={kpi?.CashBalance ?? 0}
           prevValue={0}
           color="border-blue-500"
-          icon="money"
           onClick={() => goToAppPath(DASHBOARD_ROUTES.cashBook)}
         />
-        <KpiCard title="Doanh thu kỳ"            value={kpi?.Revenue        ?? 0} prevValue={kpi?.PrevRevenue   ?? 0} color="border-green-500"  icon="chart" />
-        <KpiCard title="Chi phí kỳ"              value={kpi?.Expense        ?? 0} prevValue={kpi?.PrevExpense   ?? 0} color="border-red-400"    icon="decrease" />
-        <KpiCard title="Lợi nhuận tạm tính"      value={kpi?.Profit         ?? 0} prevValue={kpi?.PrevProfit    ?? 0} color="border-emerald-500" icon="increase" />
+        <KpiCard title="Doanh thu kỳ"            value={kpi?.Revenue        ?? 0} prevValue={kpi?.PrevRevenue   ?? 0} color="border-green-500" />
+        <KpiCard title="Chi phí kỳ"              value={kpi?.Expense        ?? 0} prevValue={kpi?.PrevExpense   ?? 0} color="border-red-400" />
+        <KpiCard title="Lợi nhuận tạm tính"      value={kpi?.Profit         ?? 0} prevValue={kpi?.PrevProfit    ?? 0} color="border-emerald-500" />
         <KpiCard
           title="Phải thu KH"
           value={kpi?.Receivables ?? 0}
           prevValue={0}
           color="border-sky-400"
-          icon="group"
           onClick={() => goToAppPath(DASHBOARD_ROUTES.arAging)}
         />
         <KpiCard
@@ -468,7 +457,6 @@ export default function DashboardOverview() {
           value={kpi?.Payables ?? 0}
           prevValue={0}
           color="border-orange-400"
-          icon="card"
           onClick={() => goToAppPath(DASHBOARD_ROUTES.purchaseJournal)}
         />
         <KpiCard
@@ -476,24 +464,16 @@ export default function DashboardOverview() {
           value={kpi?.VatPayable ?? 0}
           prevValue={0}
           color="border-violet-400"
-          icon="percent"
           onClick={() => goToAppPath(DASHBOARD_ROUTES.vatDeclaration)}
         />
         <button
           type="button"
-          className="bg-white rounded-xl border-l-4 border-amber-500 shadow-sm p-4 text-left hover:bg-gray-50"
+          className="bg-white rounded-lg border-l-4 border-amber-500 shadow-sm px-3 py-2 text-left hover:bg-gray-50"
           onClick={() => handleTaskAction("/?focus=pending-vouchers")}
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">CT chưa ghi sổ</span>
-            <span
-              className={`${getDevExtremeIconClass("doc")} text-gray-400`}
-              style={{ fontSize: 48, width: 48, height: 48, lineHeight: 1 }}
-              aria-hidden="true"
-            />
-          </div>
-          <div className="text-3xl font-bold text-amber-600">{kpi?.PendingVouchers ?? 0}</div>
-          <div className="text-xs text-gray-400 mt-1">chứng từ cần xử lý</div>
+          <div className="text-[11px] font-medium text-gray-500 uppercase tracking-wide leading-tight">CT chưa ghi sổ</div>
+          <div className="text-lg font-bold text-amber-600 leading-tight mt-0.5">{kpi?.PendingVouchers ?? 0}</div>
+          <div className="text-[11px] text-gray-400 mt-0.5 leading-tight">chứng từ cần xử lý</div>
         </button>
       </div>
 

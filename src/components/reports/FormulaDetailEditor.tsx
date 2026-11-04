@@ -1,4 +1,4 @@
-import { memo, useMemo, type ReactNode } from "react"
+import { memo, startTransition, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 
 import Button from "devextreme-react/button"
 import CheckBox from "devextreme-react/check-box"
@@ -64,7 +64,7 @@ type FormulaDetailEditorProps = {
 }
 
 export const FormulaDetailEditor = memo(function FormulaDetailEditor({
-  selectedRow,
+  selectedRow: committedRow,
   sortedRows,
   isVatDeclaration,
   isAccountRuleReport,
@@ -79,10 +79,49 @@ export const FormulaDetailEditor = memo(function FormulaDetailEditor({
   flowSignOptions,
   saving,
   t,
-  updateSelectedRow,
+  updateSelectedRow: publishSelectedRow,
   moveSelectedRow,
   deleteSelectedRow,
 }: FormulaDetailEditorProps) {
+  const [draftRow, setDraftRow] = useState(committedRow)
+  const committedKey = committedRow?.ITEM_KEY ?? ""
+  const [draftKey, setDraftKey] = useState(committedKey)
+  const pendingPublishRef = useRef(0)
+  const keyChanged = committedKey !== draftKey
+  if (keyChanged) {
+    setDraftKey(committedKey)
+    setDraftRow(committedRow)
+  }
+
+  useEffect(() => {
+    if (pendingPublishRef.current > 0) {
+      return
+    }
+
+    const active = document.activeElement
+    if (active instanceof HTMLElement && active.closest(".dx-texteditor")) {
+      return
+    }
+
+    setDraftRow((current) => (current === committedRow ? current : committedRow))
+  }, [committedRow])
+
+  const selectedRow = keyChanged ? committedRow : (draftRow ?? committedRow)
+  const updateSelectedRow = (
+    updater: (current: CashflowFormulaOptionRow) => CashflowFormulaOptionRow,
+  ) => {
+    setDraftRow((current) => {
+      const base = current ?? committedRow
+      return base ? updater(base) : base
+    })
+    pendingPublishRef.current += 1
+    // Keep the grid and dirty-check off this frame so the field can paint first.
+    startTransition(() => {
+      pendingPublishRef.current = Math.max(0, pendingPublishRef.current - 1)
+      publishSelectedRow(updater)
+    })
+  }
+
   const commitSelectedRow = (
     event: { event?: unknown },
     updater: (current: CashflowFormulaOptionRow) => CashflowFormulaOptionRow,

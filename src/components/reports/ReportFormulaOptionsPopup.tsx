@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useContext, useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 
 import axios from "axios"
 import Button from "devextreme-react/button"
@@ -38,7 +38,28 @@ import {
   normalizeRow,
   normalizeText,
   validateDraft,
+  type TranslateFn,
 } from "./formulaOptionsShared"
+
+function formulaOptionsTitle(canonicalReportCode: string, t: TranslateFn): string {
+  if (canonicalReportCode === "GTGT_01") {
+    return t("VAT_FORMULA_CONFIG", "Khai báo chỉ tiêu — Tờ khai thuế GTGT")
+  }
+
+  if (canonicalReportCode === "B01_DN") {
+    return t("BALANCE_FORMULA_CONFIG", "Khai báo chỉ tiêu — Bảng cân đối kế toán")
+  }
+
+  if (canonicalReportCode === "B02_DN") {
+    return t("PL_FORMULA_CONFIG", "Khai báo chỉ tiêu — Kết quả hoạt động kinh doanh")
+  }
+
+  if (canonicalReportCode === "B03_DN_GT") {
+    return t("CASHFLOW_FORMULA_CONFIG_INDIRECT", "Khai báo chỉ tiêu — BCLCTT phương pháp gián tiếp")
+  }
+
+  return t("CASHFLOW_FORMULA_CONFIG_DIRECT", "Khai báo chỉ tiêu — BCLCTT phương pháp trực tiếp")
+}
 
 type ReportFormulaOptionsPopupProps = {
   visible?: boolean
@@ -55,7 +76,7 @@ type ReportFormulaOptionsPopupProps = {
   onShown?: () => void
   onOpenColumnSettings?: () => void
 }
-export default function ReportFormulaOptionsPopup({
+function FormulaOptionsBody({
   visible = true,
   layout = "popup",
   fullScreen = false,
@@ -65,7 +86,6 @@ export default function ReportFormulaOptionsPopup({
   previewParams,
   onClose,
   onSaved,
-  onShown,
   onOpenColumnSettings,
 }: ReportFormulaOptionsPopupProps) {
   const { translate } = useContext(LanguageContext) as {
@@ -149,12 +169,18 @@ export default function ReportFormulaOptionsPopup({
     () => [...rows].sort((left, right) => left.SORT_ORDER - right.SORT_ORDER || left.ITEM_KEY.localeCompare(right.ITEM_KEY)),
     [rows],
   )
+  const deferredRows = useDeferredValue(rows)
+  const [isDirty, setIsDirty] = useState(false)
 
-  const draftSignature = useMemo(
-    () => buildDraftSignature(rows, cashAccountPrefixes),
-    [rows, cashAccountPrefixes],
-  )
-  const isDirty = optionsLoaded && draftSignature !== initialDraftSignatureRef.current
+  useEffect(() => {
+    if (!optionsLoaded) {
+      setIsDirty(false)
+      return
+    }
+
+    const nextDirty = buildDraftSignature(rows, cashAccountPrefixes) !== initialDraftSignatureRef.current
+    setIsDirty((current) => (current === nextDirty ? current : nextDirty))
+  }, [cashAccountPrefixes, optionsLoaded, rows])
   const hasCompanyOverride = Boolean(
     companyCd
     && sourceCompanyCd
@@ -537,15 +563,7 @@ export default function ReportFormulaOptionsPopup({
     void handleSave()
   }, [handleSave])
 
-  const title = isVatDeclaration
-    ? t("VAT_FORMULA_CONFIG", "Khai báo chỉ tiêu — Tờ khai thuế GTGT")
-    : isBalanceSheet
-      ? t("BALANCE_FORMULA_CONFIG", "Khai báo chỉ tiêu — Bảng cân đối kế toán")
-      : isProfitLoss
-        ? t("PL_FORMULA_CONFIG", "Khai báo chỉ tiêu — Kết quả hoạt động kinh doanh")
-        : isIndirect
-          ? t("CASHFLOW_FORMULA_CONFIG_INDIRECT", "Khai báo chỉ tiêu — BCLCTT phương pháp gián tiếp")
-          : t("CASHFLOW_FORMULA_CONFIG_DIRECT", "Khai báo chỉ tiêu — BCLCTT phương pháp trực tiếp")
+  const title = formulaOptionsTitle(canonicalReportCode, t)
 
   const showPageChrome = layout === "page" || fullScreen
 
@@ -697,7 +715,7 @@ export default function ReportFormulaOptionsPopup({
 
               <div className="min-h-0 flex-1">
                 <FormulaListGrid
-                  rows={rows}
+                  rows={deferredRows}
                   selectedItemKey={selectedItemKey}
                   onSelectedItemKeyChange={handleSelectedItemKeyChange}
                   previewColumns={previewColumns}
@@ -749,8 +767,40 @@ export default function ReportFormulaOptionsPopup({
       </div>
   )
 
+  return editor
+}
+
+export default function ReportFormulaOptionsPopup(props: ReportFormulaOptionsPopupProps) {
+  const layout = props.layout ?? "popup"
+  const fullScreen = props.fullScreen ?? false
+  const visible = props.visible ?? true
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+  const t = useCallback(
+    (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
+    [translate],
+  )
+  const canonicalReportCode = useMemo(() => getCanonicalReportCode(props.reportCode), [props.reportCode])
+  const title = useMemo(
+    () => formulaOptionsTitle(canonicalReportCode, t),
+    [canonicalReportCode, t],
+  )
+  const popupWrapperAttr = useMemo(
+    () => ({
+      class: fullScreen
+        ? "report-formula-options-popup report-formula-options-popup--fullscreen"
+        : "report-formula-options-popup",
+    }),
+    [fullScreen],
+  )
+  const popupPosition = useMemo(
+    () => (fullScreen ? { my: "center", at: "center", of: window } : undefined),
+    [fullScreen],
+  )
+
   if (layout === "page" && !fullScreen) {
-    return editor
+    return <FormulaOptionsBody {...props} />
   }
 
   return (
@@ -769,12 +819,12 @@ export default function ReportFormulaOptionsPopup({
       height={fullScreen ? "100vh" : "min(88vh, 920px)"}
       maxHeight={fullScreen ? "100vh" : undefined}
       container={fullScreen ? "body" : undefined}
-      position={fullScreen ? { my: "center", at: "center", of: window } : undefined}
-      wrapperAttr={fullScreen ? { class: "report-formula-options-popup report-formula-options-popup--fullscreen" } : { class: "report-formula-options-popup" }}
-      onHiding={onClose}
-      onShown={onShown}
+      position={popupPosition}
+      wrapperAttr={popupWrapperAttr}
+      onHiding={props.onClose}
+      onShown={props.onShown}
     >
-      {editor}
+      <FormulaOptionsBody {...props} />
     </Popup>
   )
 }
