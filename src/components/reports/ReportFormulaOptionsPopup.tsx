@@ -13,6 +13,7 @@ import {
   previewCashflowFormulaOptions,
   resetCashflowFormulaOptions,
   saveCashflowFormulaOptions,
+  type CashflowFormulaOptions,
   type CashflowFormulaOptionRow,
   type FormulaOptionPreviewColumn,
   type FormulaOptionPreviewParams,
@@ -46,6 +47,8 @@ type ReportFormulaOptionsPopupProps = {
   fullScreen?: boolean
   reportCode: string
   reportVersion?: string | null
+  /** Fully loaded template from parent; avoid a second GET and a blank first frame. */
+  initialOptions?: CashflowFormulaOptions
   previewParams?: FormulaOptionPreviewParams
   onClose: () => void
   onSaved: () => void
@@ -57,6 +60,7 @@ export default function ReportFormulaOptionsPopup({
   fullScreen = false,
   reportCode,
   reportVersion,
+  initialOptions,
   previewParams,
   onClose,
   onSaved,
@@ -89,27 +93,49 @@ export default function ReportFormulaOptionsPopup({
   const vatCalcMethodOptions = useMemo(() => getVatCalcMethodOptions(t), [t])
   const flowSignOptions = useMemo(() => getFlowSignOptions(t), [t])
 
-  const [rows, setRows] = useState<CashflowFormulaOptionRow[]>([])
-  const [cashAccountPrefixes, setCashAccountPrefixes] = useState(EMPTY_ACCOUNT_PREFIXES)
-  const [sourceCompanyCd, setSourceCompanyCd] = useState("")
-  const [companyCd, setCompanyCd] = useState("")
-  const [selectedItemKey, setSelectedItemKey] = useState("")
+  // Normalize preloaded options before the initial paint so both panes are ready together.
+  const preparedInitialOptions = useMemo(() => {
+    if (!initialOptions) return null
+
+    const preparedRows = cloneRows(initialOptions.ROWS ?? [], isVatDeclaration).map((row) => {
+      if (isAccountRuleReport && normalizeText(row.DATA_SOURCE_TYPE).toUpperCase() === "PROCEDURE") {
+        return { ...row, DATA_SOURCE_TYPE: "ACCOUNT_RULE" }
+      }
+      return row
+    })
+    const prefixes = normalizeText(initialOptions.CASH_ACCOUNT_PREFIXES) || EMPTY_ACCOUNT_PREFIXES
+    return {
+      rows: preparedRows,
+      prefixes,
+      companyCd: normalizeText(initialOptions.COMPANY_CD),
+      sourceCompanyCd: normalizeText(initialOptions.SOURCE_COMPANY_CD),
+      selectedItemKey: preparedRows[0]?.ITEM_KEY ?? "",
+    }
+  }, [initialOptions, isAccountRuleReport, isVatDeclaration])
+
+  const [rows, setRows] = useState<CashflowFormulaOptionRow[]>(() => preparedInitialOptions?.rows ?? [])
+  const [cashAccountPrefixes, setCashAccountPrefixes] = useState(() => preparedInitialOptions?.prefixes ?? EMPTY_ACCOUNT_PREFIXES)
+  const [sourceCompanyCd, setSourceCompanyCd] = useState(() => preparedInitialOptions?.sourceCompanyCd ?? "")
+  const [companyCd, setCompanyCd] = useState(() => preparedInitialOptions?.companyCd ?? "")
+  const [selectedItemKey, setSelectedItemKey] = useState(() => preparedInitialOptions?.selectedItemKey ?? "")
   const [lineFilter, setLineFilter] = useState("")
-  /** First paint / report change — show skeleton, do not mount empty DataGrid. */
-  const [initialLoading, setInitialLoading] = useState(true)
+  /** Direct route still uses the skeleton; prefetched popup opens already populated. */
+  const [initialLoading, setInitialLoading] = useState(() => !preparedInitialOptions)
   /** Manual reload — keep existing grid/editor visible. */
   const [reloading, setReloading] = useState(false)
-  const [optionsLoaded, setOptionsLoaded] = useState(false)
+  const [optionsLoaded, setOptionsLoaded] = useState(() => Boolean(preparedInitialOptions))
   const [saving, setSaving] = useState(false)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewColumns, setPreviewColumns] = useState<FormulaOptionPreviewColumn[]>([])
   const [previewValuesByItemCode, setPreviewValuesByItemCode] = useState<Record<string, Record<string, unknown>>>({})
-  const initialDraftSignatureRef = useRef("")
+  const initialDraftSignatureRef = useRef(preparedInitialOptions
+    ? buildDraftSignature(preparedInitialOptions.rows, preparedInitialOptions.prefixes)
+    : "")
   /** Only set after a successful load so failures can retry. */
-  const loadedTargetRef = useRef("")
+  const loadedTargetRef = useRef(preparedInitialOptions ? `${canonicalReportCode}:${effectiveReportVersion}` : "")
   const loadRequestIdRef = useRef(0)
   const loadAbortRef = useRef<AbortController | null>(null)
-  const optionsLoadedRef = useRef(false)
+  const optionsLoadedRef = useRef(Boolean(preparedInitialOptions))
 
   const selectedRow = useMemo(
     () => rows.find((row) => row.ITEM_KEY === selectedItemKey) ?? null,
@@ -126,7 +152,7 @@ export default function ReportFormulaOptionsPopup({
     () => buildDraftSignature(rows, cashAccountPrefixes),
     [rows, cashAccountPrefixes],
   )
-  const isDirty = draftSignature !== initialDraftSignatureRef.current
+  const isDirty = optionsLoaded && draftSignature !== initialDraftSignatureRef.current
   const hasCompanyOverride = Boolean(
     companyCd
     && sourceCompanyCd

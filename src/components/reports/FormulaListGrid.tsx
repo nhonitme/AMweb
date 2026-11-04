@@ -173,10 +173,11 @@ export const FormulaListGrid = memo(function FormulaListGrid({
       return
     }
 
+    // DevExtreme handles the clicked row selection itself. Avoid an extra
+    // asynchronous selectRows call on every click (which delays detail focus).
     selectedKeyRef.current = nextKey
-    applyGridSelection(nextKey)
     onSelectedItemKeyChangeRef.current(nextKey)
-  }, [applyGridSelection])
+  }, [])
 
   useEffect(() => {
     selectedKeyRef.current = selectedItemKey

@@ -46,7 +46,8 @@ import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
 import { buildReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
 import { normalizeReportLanguage, type ReportLanguageCode } from "@/pages/Reports/reportLanguage"
 import ReportPdfExportPopup, { type ReportPrintTemplateCode } from "@/components/reports/ReportPdfExportPopup"
-import type { FormulaOptionPreviewParams } from "@/api/reportFormulaOptionApi"
+import { getCashflowFormulaOptions, type CashflowFormulaOptions, type FormulaOptionPreviewParams } from "@/api/reportFormulaOptionApi"
+import { getCanonicalReportCode } from "@/components/reports/formulaOptionsShared"
 import FetchGdtVatPopup from "@/pages/Reports/components/FetchGdtVatPopup"
 
 const ReportFormulaOptionsPopup = lazy(() => import("@/components/reports/ReportFormulaOptionsPopup"))
@@ -1402,6 +1403,16 @@ export default function JournalReportPage({
   }, [useReportTreeList])
 
   const [formulaOptionsVisible, setFormulaOptionsVisible] = useState(false)
+  const [formulaOptionsOpening, setFormulaOptionsOpening] = useState(false)
+  const [formulaOptionsInitialData, setFormulaOptionsInitialData] = useState<CashflowFormulaOptions | null>(null)
+  const formulaOptionsOpeningRef = useRef(false)
+  const formulaOptionsOpenControllerRef = useRef<AbortController | null>(null)
+
+  // Cancel a pending prefetch if the report changes or this screen unmounts.
+  useEffect(() => () => {
+    formulaOptionsOpenControllerRef.current?.abort()
+  }, [effectiveDashboardReportCode, reportVersion])
+
   const formulaPreviewParams = useMemo<FormulaOptionPreviewParams>(() => ({
     previewReportCode: effectiveDashboardReportCode,
     fromYmd: formatDateToYmd(fromDate) || "",
@@ -1418,12 +1429,42 @@ export default function JournalReportPage({
     void import("@/components/reports/ReportFormulaOptionsPopup")
   }, [formulaOptionsEnabled])
 
-  const handleOpenFormulaSettings = useCallback(() => {
-    setFormulaOptionsVisible(true)
-  }, [])
+  const handleOpenFormulaSettings = useCallback(async () => {
+    if (formulaOptionsVisible || formulaOptionsOpeningRef.current) return
+
+    formulaOptionsOpeningRef.current = true
+    setFormulaOptionsOpening(true)
+    const controller = new AbortController()
+    formulaOptionsOpenControllerRef.current = controller
+
+    try {
+      // Only mount Popup after the template is ready, avoiding a skeleton-to-grid flash.
+      const options = await getCashflowFormulaOptions(
+        getCanonicalReportCode(effectiveDashboardReportCode),
+        reportVersion,
+        controller.signal,
+      )
+      if (controller.signal.aborted) return
+
+      setFormulaOptionsInitialData(options)
+      setFormulaOptionsVisible(true)
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        notify(getApiErrorMessage(error, t("LOAD_FAILED", "Không thể tải cấu hình công thức")), "error", 4000)
+      }
+    } finally {
+      if (formulaOptionsOpenControllerRef.current === controller) {
+        formulaOptionsOpenControllerRef.current = null
+        formulaOptionsOpeningRef.current = false
+        setFormulaOptionsOpening(false)
+      }
+    }
+  }, [effectiveDashboardReportCode, formulaOptionsVisible, reportVersion, t])
 
   const handleCloseFormulaSettings = useCallback(() => {
+    formulaOptionsOpenControllerRef.current?.abort()
     setFormulaOptionsVisible(false)
+    setFormulaOptionsInitialData(null)
   }, [])
 
   const handleFormulaSettingsSaved = useCallback(() => {
@@ -1696,6 +1737,7 @@ export default function JournalReportPage({
               onSysGridColumnSettings={handleOpenGridSettings}
               onFetchFromGdt={showFetchFromGdt ? () => setGdtPopupVisible(true) : undefined}
               onFormulaSettings={formulaOptionsEnabled ? handleOpenFormulaSettings : undefined}
+              formulaSettingsLoading={formulaOptionsOpening}
               showSearch={true}
               showRefresh={true}
               showPrint={false}
@@ -1882,7 +1924,7 @@ export default function JournalReportPage({
         ref={voucherEditorHostRef}
         onSaved={() => void loadPreview({ showValidationMessage: false })}
       />
-      {formulaOptionsVisible ? (
+      {formulaOptionsVisible && formulaOptionsInitialData ? (
         <Suspense fallback={null}>
           <ReportFormulaOptionsPopup
             layout="popup"
@@ -1890,6 +1932,7 @@ export default function JournalReportPage({
             visible={true}
             reportCode={effectiveDashboardReportCode}
             reportVersion={reportVersion}
+            initialOptions={formulaOptionsInitialData}
             previewParams={formulaPreviewParams}
             onClose={handleCloseFormulaSettings}
             onSaved={handleFormulaSettingsSaved}

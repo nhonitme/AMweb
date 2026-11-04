@@ -112,6 +112,7 @@ type ReportToolbarProps = {
   onSysGridColumnSettings?: () => void
   onFetchFromGdt?: () => void
   onFormulaSettings?: () => void
+  formulaSettingsLoading?: boolean
   showSearch?: boolean
   /** Hide the separate quick-search text input; keep the main report Search button. */
   showQuickSearch?: boolean
@@ -221,6 +222,7 @@ export function ReportToolbar({
   onSysGridColumnSettings,
   onFetchFromGdt,
   onFormulaSettings,
+  formulaSettingsLoading = false,
   showSearch = true,
   showQuickSearch = true,
   showRefresh = true,
@@ -601,9 +603,12 @@ export function ReportToolbar({
       },
       {
         key: "formulaSettings",
-        icon: "edit",
-        hint: t("CASHFLOW_FORMULA_CONFIG", "Khai báo chỉ tiêu / công thức"),
+        icon: formulaSettingsLoading ? "refresh" : "edit",
+        hint: formulaSettingsLoading
+          ? t("LOADING", "Đang tải...")
+          : t("CASHFLOW_FORMULA_CONFIG", "Khai báo chỉ tiêu / công thức"),
         onClick: onFormulaSettings,
+        disabled: formulaSettingsLoading,
         visible: typeof onFormulaSettings === "function",
       },
       {
@@ -633,6 +638,7 @@ export function ReportToolbar({
       onExportExcel,
       onExportPdf,
 	  onFormulaSettings,
+      formulaSettingsLoading,
       onFetchFromGdt,
       onPrint,
       onRefresh,
@@ -1058,6 +1064,7 @@ export function ReportToolbar({
                   text={"text" in button ? button.text : undefined}
                   hint={button.hint}
                   type={"type" in button && button.type ? button.type : "normal"}
+                  disabled={"disabled" in button && Boolean(button.disabled)}
                   onClick={button.onClick}
                 />
               ))}
