@@ -1,23 +1,11 @@
 import { useCallback, useContext, useMemo } from "react"
-import { useSearchParams } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 
 import ReportFormulaOptionsPopup from "@/components/reports/ReportFormulaOptionsPopup"
+import { useWorkspaceTabRoute, useWorkspaceTabs } from "@/components/workspaceTabs/WorkspaceTabs"
 import DxPage from "@/dx/DxPage"
 import { LanguageContext } from "@/lib/i18nLoader"
-
-function closeFormulaOptionsTab() {
-  if (typeof window === "undefined") {
-    return
-  }
-
-  window.close()
-  // If the browser keeps the tab (no opener / policy), fall back to history.
-  window.setTimeout(() => {
-    if (!window.closed) {
-      window.history.back()
-    }
-  }, 100)
-}
+import { buildAppPath, getCurrentCompanyCd } from "@/lib/login"
 
 export default function ReportFormulaOptionsPage() {
   const { translate } = useContext(LanguageContext) as {
@@ -28,6 +16,9 @@ export default function ReportFormulaOptionsPage() {
     [translate],
   )
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const tabRoute = useWorkspaceTabRoute()
+  const { closeTab } = useWorkspaceTabs()
 
   const reportCode = useMemo(() => searchParams.get("reportCode")?.trim() || "", [searchParams])
   const reportVersion = useMemo(() => searchParams.get("reportVersion")?.trim() || "2025", [searchParams])
@@ -40,6 +31,21 @@ export default function ReportFormulaOptionsPage() {
     unitDivisor: searchParams.get("unitDivisor")?.trim() || "1",
     menuCode: searchParams.get("menuCode")?.trim() || "",
   }), [searchParams])
+
+  const handleClose = useCallback(() => {
+    if (tabRoute?.tabId) {
+      closeTab(tabRoute.tabId)
+      return
+    }
+
+    // Workspace tabs disabled / deep-link without a tab: stay in-app instead of window.close().
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      navigate(-1)
+      return
+    }
+
+    navigate(buildAppPath(getCurrentCompanyCd(), "/"), { replace: true })
+  }, [closeTab, navigate, tabRoute?.tabId])
 
   const handleSaved = useCallback(() => {
     // Save already notifies inside the editor.
@@ -57,17 +63,15 @@ export default function ReportFormulaOptionsPage() {
 
   return (
     <DxPage>
-      <div className="h-full min-h-0 bg-slate-50">
-        <ReportFormulaOptionsPopup
-          layout="page"
-          visible={true}
-          reportCode={reportCode}
-          reportVersion={reportVersion}
-          previewParams={previewParams}
-          onClose={closeFormulaOptionsTab}
-          onSaved={handleSaved}
-        />
-      </div>
+      <ReportFormulaOptionsPopup
+        layout="page"
+        visible={true}
+        reportCode={reportCode}
+        reportVersion={reportVersion}
+        previewParams={previewParams}
+        onClose={handleClose}
+        onSaved={handleSaved}
+      />
     </DxPage>
   )
 }

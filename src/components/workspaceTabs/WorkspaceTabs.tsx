@@ -36,6 +36,7 @@ export type OpenWorkspacePathOptions = {
 }
 
 type WorkspaceTabsActions = {
+  closeTab: (tabId: string) => void
   openWorkspacePath: (target: string, options?: OpenWorkspacePathOptions) => void
   openWorkspaceScreen: (target: string, options?: OpenWorkspacePathOptions) => void
 }
@@ -272,7 +273,12 @@ export function useWorkspaceTabsController({
       setTabs(remaining)
       if (activeTabId !== tabId) return
 
-      const nextTab = remaining[Math.min(closingIndex, remaining.length - 1)]
+      // Prefer the most recently used remaining tab (usually the screen that opened this one).
+      const nextByRecency = remaining.reduce((best, tab) =>
+        tab.lastActivatedAt > best.lastActivatedAt ? tab : best,
+      )
+      const nextByIndex = remaining[Math.min(closingIndex, remaining.length - 1)]
+      const nextTab = nextByRecency.lastActivatedAt > 0 ? nextByRecency : nextByIndex
       setActiveTabId(nextTab.id)
       navigate(nextTab.href, { replace: true, state: nextTab.state })
     },
@@ -434,10 +440,11 @@ export function WorkspaceTabsProvider({
 }) {
   const value = useMemo<WorkspaceTabsActions>(
     () => ({
+      closeTab: controller.closeTab,
       openWorkspacePath: controller.openWorkspacePath,
       openWorkspaceScreen: controller.openWorkspaceScreen,
     }),
-    [controller.openWorkspacePath, controller.openWorkspaceScreen],
+    [controller.closeTab, controller.openWorkspacePath, controller.openWorkspaceScreen],
   )
 
   return <WorkspaceTabsContext.Provider value={value}>{children}</WorkspaceTabsContext.Provider>

@@ -1,0 +1,17 @@
+.report-formula-options-popup.report-formula-options-popup--fullscreen .dx-overlay-content {
+  border-radius: 0 !important;
+}
+
+.report-formula-options-popup.report-formula-options-popup--fullscreen .dx-popup-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.report-formula-options-popup.report-formula-options-popup--fullscreen .dx-popup-content > div {
+  flex: 1 1 auto;
+  min-height: 0;
+}

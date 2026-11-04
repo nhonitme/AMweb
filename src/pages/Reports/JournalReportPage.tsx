@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import notify from "devextreme/ui/notify"
 import SelectBox from "devextreme-react/select-box"
 import type { RowDblClickEvent } from "devextreme/ui/data_grid"
@@ -46,7 +46,10 @@ import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
 import { buildReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
 import { normalizeReportLanguage, type ReportLanguageCode } from "@/pages/Reports/reportLanguage"
 import ReportPdfExportPopup, { type ReportPrintTemplateCode } from "@/components/reports/ReportPdfExportPopup"
+import type { FormulaOptionPreviewParams } from "@/api/reportFormulaOptionApi"
 import FetchGdtVatPopup from "@/pages/Reports/components/FetchGdtVatPopup"
+
+const ReportFormulaOptionsPopup = lazy(() => import("@/components/reports/ReportFormulaOptionsPopup"))
 import { VAT_INVOICE_STATUS_OPTIONS } from "@/pages/Tax/vatInvoiceStatus"
 import {
   ReportVoucherEditorHost,
@@ -1398,33 +1401,34 @@ export default function JournalReportPage({
     void reportGridRef.current?.openColumnSettings()
   }, [useReportTreeList])
 
+  const [formulaOptionsVisible, setFormulaOptionsVisible] = useState(false)
+  const formulaPreviewParams = useMemo<FormulaOptionPreviewParams>(() => ({
+    previewReportCode: effectiveDashboardReportCode,
+    fromYmd: formatDateToYmd(fromDate) || "",
+    toYmd: formatDateToYmd(toDate) || "",
+    unitDivisor: unitDivisor?.trim() || "1",
+    menuCode: menuCode?.trim() || "",
+  }), [effectiveDashboardReportCode, fromDate, menuCode, toDate, unitDivisor])
+
+  useEffect(() => {
+    if (!formulaOptionsEnabled) {
+      return
+    }
+    // Warm the formula editor chunk while the report stays open.
+    void import("@/components/reports/ReportFormulaOptionsPopup")
+  }, [formulaOptionsEnabled])
+
   const handleOpenFormulaSettings = useCallback(() => {
-    const query = new URLSearchParams()
-    query.set("reportCode", effectiveDashboardReportCode)
-    query.set("previewReportCode", effectiveDashboardReportCode)
-    if (reportVersion?.trim()) {
-      query.set("reportVersion", reportVersion.trim())
-    }
+    setFormulaOptionsVisible(true)
+  }, [])
 
-    const normalizedFromYmd = formatDateToYmd(fromDateRef.current)
-    const normalizedToYmd = formatDateToYmd(toDateRef.current)
-    if (normalizedFromYmd) {
-      query.set("fromYmd", normalizedFromYmd)
-    }
-    if (normalizedToYmd) {
-      query.set("toYmd", normalizedToYmd)
-    }
-    if (unitDivisor?.trim()) {
-      query.set("unitDivisor", unitDivisor.trim())
-    }
-    if (menuCode?.trim()) {
-      query.set("menuCode", menuCode.trim())
-    }
+  const handleCloseFormulaSettings = useCallback(() => {
+    setFormulaOptionsVisible(false)
+  }, [])
 
-    const companyCd = getCurrentCompanyCd()
-    const targetUrl = `${window.location.origin}${buildAppPath(companyCd, `/reports/formula-options?${query.toString()}`)}`
-    openWorkspacePath(targetUrl, { title: t("REPORT_FORMULA_OPTIONS", "Công thức báo cáo") })
-  }, [effectiveDashboardReportCode, menuCode, openWorkspacePath, reportVersion, t, unitDivisor])
+  const handleFormulaSettingsSaved = useCallback(() => {
+    void loadPreview({ showValidationMessage: false })
+  }, [loadPreview])
 
   const openDrillTab = useCallback(
     (targetUrl: string) => {
@@ -1878,6 +1882,20 @@ export default function JournalReportPage({
         ref={voucherEditorHostRef}
         onSaved={() => void loadPreview({ showValidationMessage: false })}
       />
+      {formulaOptionsVisible ? (
+        <Suspense fallback={null}>
+          <ReportFormulaOptionsPopup
+            layout="popup"
+            fullScreen={true}
+            visible={true}
+            reportCode={effectiveDashboardReportCode}
+            reportVersion={reportVersion}
+            previewParams={formulaPreviewParams}
+            onClose={handleCloseFormulaSettings}
+            onSaved={handleFormulaSettingsSaved}
+          />
+        </Suspense>
+      ) : null}
     </DxPage>
   )
 }

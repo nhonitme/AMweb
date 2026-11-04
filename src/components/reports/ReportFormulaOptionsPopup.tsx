@@ -21,6 +21,7 @@ import { LanguageContext } from "@/lib/i18nLoader"
 import { FormulaActionBar } from "./FormulaActionBar"
 import { FormulaDetailEditor } from "./FormulaDetailEditor"
 import { FormulaListGrid } from "./FormulaListGrid"
+import "./reportFormulaOptionsPopup.css"
 import {
   EMPTY_ACCOUNT_PREFIXES,
   buildDraftSignature,
@@ -40,6 +41,8 @@ import {
 type ReportFormulaOptionsPopupProps = {
   visible?: boolean
   layout?: "popup" | "page"
+  /** Full-viewport modal. Used by the dedicated formula-options route. */
+  fullScreen?: boolean
   reportCode: string
   reportVersion?: string | null
   previewParams?: FormulaOptionPreviewParams
@@ -50,6 +53,7 @@ type ReportFormulaOptionsPopupProps = {
 export default function ReportFormulaOptionsPopup({
   visible = true,
   layout = "popup",
+  fullScreen = false,
   reportCode,
   reportVersion,
   previewParams,
@@ -90,7 +94,7 @@ export default function ReportFormulaOptionsPopup({
   const [companyCd, setCompanyCd] = useState("")
   const [selectedItemKey, setSelectedItemKey] = useState("")
   const [lineFilter, setLineFilter] = useState("")
-  const [loading, setLoading] = useState(() => layout === "page")
+  const [loading, setLoading] = useState(true)
   const [optionsLoaded, setOptionsLoaded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [previewLoading, setPreviewLoading] = useState(false)
@@ -473,17 +477,19 @@ export default function ReportFormulaOptionsPopup({
           ? t("CASHFLOW_FORMULA_CONFIG_INDIRECT", "Khai báo chỉ tiêu — BCLCTT phương pháp gián tiếp")
           : t("CASHFLOW_FORMULA_CONFIG_DIRECT", "Khai báo chỉ tiêu — BCLCTT phương pháp trực tiếp")
 
+  const showPageChrome = layout === "page" || fullScreen
+
   useEffect(() => {
-    if (layout !== "page") {
+    if (!showPageChrome) {
       return
     }
 
     document.title = title
-  }, [layout, title])
+  }, [showPageChrome, title])
 
   const editor = (
-      <div className={`flex min-h-0 flex-col gap-4 ${layout === "page" ? "h-full p-4" : "h-full"}`}>
-        {layout === "page" ? (
+      <div className={`flex min-h-0 flex-col gap-4 ${showPageChrome ? "h-full p-4" : "h-full"}`}>
+        {showPageChrome ? (
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-3">
             <div>
               <div className="flex flex-wrap items-center gap-2">
@@ -638,20 +644,28 @@ export default function ReportFormulaOptionsPopup({
       </div>
   )
 
-  if (layout === "page") {
+  if (layout === "page" && !fullScreen) {
     return editor
   }
 
   return (
     <Popup
       visible={visible}
-      title={title}
-      showTitle={true}
+      title={fullScreen ? undefined : title}
+      showTitle={!fullScreen}
+      showCloseButton={!fullScreen}
+      fullScreen={fullScreen}
       dragEnabled={false}
+      resizeEnabled={false}
       hideOnOutsideClick={false}
-      width="min(1440px, calc(100vw - 2rem))"
-      maxWidth={1440}
-      height="min(88vh, 920px)"
+      shading={true}
+      width={fullScreen ? "100vw" : "min(1440px, calc(100vw - 2rem))"}
+      maxWidth={fullScreen ? "100vw" : 1440}
+      height={fullScreen ? "100vh" : "min(88vh, 920px)"}
+      maxHeight={fullScreen ? "100vh" : undefined}
+      container={fullScreen ? "body" : undefined}
+      position={fullScreen ? { my: "center", at: "center", of: window } : undefined}
+      wrapperAttr={fullScreen ? { class: "report-formula-options-popup report-formula-options-popup--fullscreen" } : { class: "report-formula-options-popup" }}
       onHiding={onClose}
     >
       {editor}
