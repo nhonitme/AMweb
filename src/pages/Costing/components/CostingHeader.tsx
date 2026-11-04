@@ -1,10 +1,9 @@
 /**
- * Header trang G-K: tiêu đề, chọn kỳ, nút Kiểm tra đầu vào / Lịch sử / Đặt lại demo.
+ * Header trang G-K: chọn kỳ, khởi tạo / đồng bộ, rồi Kiểm tra đầu vào và Lịch sử.
  */
 
 import Button from "devextreme-react/button";
 import SelectBox from "devextreme-react/select-box";
-import type { PeriodMonthStatus } from "../types/productionCostingTypes";
 
 function periodOptions(selected: string): Array<{ value: string; text: string }> {
   const now = new Date();
@@ -23,37 +22,28 @@ function periodOptions(selected: string): Array<{ value: string; text: string }>
 
 type CostingHeaderProps = {
   periodYm: string;
-  monthStatus: PeriodMonthStatus;
   busy: boolean;
   t: (key: string, fallback: string) => string;
   onChangePeriod: (periodYm: string) => void;
+  onEnsurePeriod: () => void;
+  onSyncObjects: () => void;
   onOpenPrerequisite: () => void;
   onOpenHistory: () => void;
 };
 
 export function CostingHeader({
   periodYm,
-  monthStatus,
   busy,
   t,
   onChangePeriod,
+  onEnsurePeriod,
+  onSyncObjects,
   onOpenPrerequisite,
   onOpenHistory,
 }: CostingHeaderProps) {
   return (
     <div className="gk-header">
-      <div>
-        <h1>{t("GK_PAGE_TITLE", "Quy trình tính giá thành giản đơn")}</h1>
-        <div className="gk-muted">
-          {t(
-            "GK_PAGE_SUBTITLE",
-            "Một màn hình từ khóa sổ bước 1 đến bước 3 · Dùng lại chức năng khóa sổ B-I, không chuyển trang",
-          )}
-          {" · "}
-          {t("GK_PERIOD_STATUS", "Trạng thái kỳ")}: <strong>{monthStatus}</strong>
-        </div>
-      </div>
-      <div className="gk-header-actions">
+      <div className="gk-header-lead">
         <div className="gk-period-group">
           <span>{t("GK_PERIOD", "Kỳ kế toán")}</span>
           <SelectBox
@@ -70,6 +60,20 @@ export function CostingHeader({
             }}
           />
         </div>
+        <Button
+          text={t("GK_PERIOD_ENSURE", "Khởi tạo kỳ")}
+          stylingMode="outlined"
+          disabled={busy}
+          onClick={onEnsurePeriod}
+        />
+        <Button
+          text={t("GK_SYNC_OBJECTS", "Đồng bộ đối tượng từ nhập kho")}
+          stylingMode="outlined"
+          disabled={busy}
+          onClick={onSyncObjects}
+        />
+      </div>
+      <div className="gk-header-actions">
         <Button
           text={t("GK_CHECK_INPUT", "Kiểm tra đầu vào")}
           stylingMode="outlined"

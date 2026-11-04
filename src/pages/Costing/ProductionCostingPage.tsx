@@ -5,7 +5,6 @@
 
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import LoadPanel from "devextreme-react/load-panel";
-import Button from "devextreme-react/button";
 import notify from "devextreme/ui/notify";
 import { LanguageContext } from "@/lib/i18nLoader";
 import { getCurrentCompanyCd } from "@/lib/login";
@@ -223,21 +222,13 @@ export default function ProductionCostingPage() {
     <div className="gk-page">
       <LoadPanel visible={busy} showIndicator showPane shading={false} />
 
-      <div className="gk-demo-banner" role="status">
-        <span>{overview.statusMessage || t("GK_DB_STATUS", "Dữ liệu lấy từ cơ sở dữ liệu của công ty.")}</span>
-        {!overview.periodExists ? (
-          <Button text={t("GK_PERIOD_ENSURE", "Khởi tạo kỳ")} disabled={busy} onClick={() => void handleEnsurePeriod()} />
-        ) : (
-          <Button text={t("GK_SYNC_OBJECTS", "Đồng bộ đối tượng từ nhập kho")} disabled={busy} onClick={() => void handleSyncObjects()} />
-        )}
-      </div>
-
       <CostingHeader
         periodYm={overview.periodYm}
-        monthStatus={overview.monthStatus}
         busy={busy}
         t={t}
         onChangePeriod={(p) => void handleChangePeriod(p)}
+        onEnsurePeriod={() => void handleEnsurePeriod()}
+        onSyncObjects={() => void handleSyncObjects()}
         onOpenPrerequisite={() => void handleSelectStep(0)}
         onOpenHistory={() => setHistoryOpen(true)}
       />
