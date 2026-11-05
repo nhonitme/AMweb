@@ -63,7 +63,6 @@ export function configureReportViewerRequests(): void {
   reportViewerRequestsConfigured = true;
 }
 
-// Override DevExpress export to use the shared Save As flow.
 export function patchReportViewerSaveAs(
   viewerInstance: unknown,
   resolveFileName?: (fileMetadata: ReportExportFileMetadata) => string,

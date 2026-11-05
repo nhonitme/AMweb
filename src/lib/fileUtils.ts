@@ -1,4 +1,3 @@
-import { custom } from "devextreme/ui/dialog"
 import { DownloadQueue, type DownloadRequest } from "./downloadQueue"
 import { getCurrentLang, resolveLanguageLabel } from "@/utils/language"
 import { readGlobalStorageItem } from "@/lib/globalStorageCache"
@@ -6,12 +5,6 @@ import { readGlobalStorageItem } from "@/lib/globalStorageCache"
 function translate(key: string, fallback: string): string {
   const labels = readGlobalStorageItem<Record<string, string>>("language-labels", getCurrentLang())
   return resolveLanguageLabel(labels, key) ?? fallback
-}
-
-type SavePickerWindow = Window & {
-  showSaveFilePicker?: (options: { suggestedName: string }) => Promise<{
-    createWritable: () => Promise<{ write: (blob: Blob) => Promise<void>; close: () => Promise<void>; abort: () => Promise<void> }>
-  }>
 }
 
 export const downloadQueue = new DownloadQueue(saveBlobDirect)
@@ -32,7 +25,8 @@ export function downloadUrlFile(url: string, fileName: string): Promise<boolean>
     return response.blob()
   } })
 }
-function downloadBlobLegacy(blob: Blob, fileName: string): boolean {
+
+function saveBlobDirect(blob: Blob, fileName: string): Promise<boolean> {
   const url = URL.createObjectURL(blob)
   const link = document.createElement("a")
   link.href = url
@@ -40,47 +34,9 @@ function downloadBlobLegacy(blob: Blob, fileName: string): boolean {
   try {
     document.body.appendChild(link)
     link.click()
-    return true
+    return Promise.resolve(true)
   } finally {
     link.remove()
-    // Give the browser time to start reading the blob before releasing it.
     window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
   }
 }
-
-function saveBlobDirect(blob: Blob, fileName: string): Promise<boolean> {
-  const save = async () => {
-    try {
-      const picker = (window as SavePickerWindow).showSaveFilePicker
-      if (!picker) return downloadBlobLegacy(blob, fileName)
-      if (!navigator.userActivation?.isActive) {
-        const escapedName = fileName.replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]!))
-        const dialog = custom({
-          title: translate("DOWNLOAD_SAVE_AS", "Lưu tệp thành"),
-          messageHtml: escapedName,
-          buttons: [
-            { text: translate("DOWNLOAD_SAVE", "Lưu"), onClick: () => true },
-            { text: translate("DOWNLOAD_CANCEL", "Hủy"), onClick: () => false },
-          ],
-        })
-        if (!await dialog.show()) return false
-      }
-      const handle = await picker.call(window, { suggestedName: fileName })
-      const writer = await handle.createWritable()
-      try {
-        await writer.write(blob)
-        await writer.close()
-      } catch (error) {
-        await writer.abort().catch(() => undefined)
-        throw error
-      }
-      return true
-    } catch (error) {
-      const isAbort = error instanceof DOMException && error.name === "AbortError"
-      if (isAbort) return false
-      return downloadBlobLegacy(blob, fileName)
-    }
-  }
-  return save()
-}
-
