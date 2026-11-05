@@ -4,65 +4,34 @@ import { bankLookupStore } from "@/components/lookup/bankLookupStore"
 import { useDecimalColumnFormats } from "@/hooks/useDecimalColumnFormats"
 import type { BeforeStateBank } from "@/types/openingBalance"
 import type { BankInfo } from "@/types/bankInfo"
-import { getCurrentLangCode } from "@/utils/language"
 
 type Props = {
   t: (key: string, fallback?: string) => string
 }
 
-type BeforeStateStringValueField = {
-  [K in keyof BeforeStateBank]: BeforeStateBank[K] extends string | null | undefined ? K : never
-}[keyof BeforeStateBank]
-
-type AccountNameField = Extract<
-  BeforeStateStringValueField,
-  "ACC_NM_VIET" | "ACC_NM_ENG" | "ACC_NM_KOR" | "ACC_NM_CHINA"
->
-
-type BankNameField = Extract<
-  BeforeStateStringValueField,
-  "BANK_NM_VIET" | "BANK_NM_ENG" | "BANK_NM_KOR" | "BANK_NM_CHINA"
->
-
-function getAccountNameField(): AccountNameField {
-  const langCode = getCurrentLangCode()
-
-  switch (langCode) {
-    case "ENG":
-      return "ACC_NM_ENG"
-    case "KOR":
-      return "ACC_NM_KOR"
-    case "CHN":
-    case "THA":
-      return "ACC_NM_CHINA"
-    case "VIET":
-    default:
-      return "ACC_NM_VIET"
-  }
+type LocalizedNameColumn<TField extends string> = {
+  dataField: TField
+  captionKey: string
+  captionFallback: string
 }
 
-function getBankNameField(): BankNameField {
-  const langCode = getCurrentLangCode()
+const accountNameColumns: LocalizedNameColumn<"ACC_NM_VIET" | "ACC_NM_ENG" | "ACC_NM_KOR" | "ACC_NM_CHINA">[] = [
+  { dataField: "ACC_NM_VIET", captionKey: "ACCTITLE_NM", captionFallback: "Tên tài khoản" },
+  { dataField: "ACC_NM_ENG", captionKey: "ACCTITLE_NM_ENG", captionFallback: "Tên tài khoản (ENG)" },
+  { dataField: "ACC_NM_KOR", captionKey: "ACCTITLE_NM_KOR", captionFallback: "Tên tài khoản (KOR)" },
+  { dataField: "ACC_NM_CHINA", captionKey: "ACCTITLE_NM_CHINA", captionFallback: "Tên tài khoản (CHN)" },
+]
 
-  switch (langCode) {
-    case "ENG":
-      return "BANK_NM_ENG"
-    case "KOR":
-      return "BANK_NM_KOR"
-    case "CHN":
-    case "THA":
-      return "BANK_NM_CHINA"
-    case "VIET":
-    default:
-      return "BANK_NM_VIET"
-  }
-}
+const bankNameColumns: LocalizedNameColumn<"BANK_NM_VIET" | "BANK_NM_ENG" | "BANK_NM_KOR" | "BANK_NM_CHINA">[] = [
+  { dataField: "BANK_NM_VIET", captionKey: "BANK_NM", captionFallback: "Tên ngân hàng" },
+  { dataField: "BANK_NM_ENG", captionKey: "BANK_NM_ENG", captionFallback: "Tên ngân hàng (ENG)" },
+  { dataField: "BANK_NM_KOR", captionKey: "BANK_NM_KOR", captionFallback: "Tên ngân hàng (KOR)" },
+  { dataField: "BANK_NM_CHINA", captionKey: "BANK_NM_CHINA", captionFallback: "Tên ngân hàng (CHN)" },
+]
 
 export function useOpeningBalanceBankColumns(props: Props): React.JSX.Element {
   const { t } = props
   const { getFormat } = useDecimalColumnFormats()
-  const accountNameField = getAccountNameField()
-  const bankNameField = getBankNameField()
 
   return (
     <>
@@ -104,13 +73,16 @@ export function useOpeningBalanceBankColumns(props: Props): React.JSX.Element {
         <RequiredRule message={t("ACC_CD_REQUIRED", "Mã tài khoản không được để trống")} />
       </Column>
 
-      <Column
-        dataField={accountNameField}
-        caption={t("ACCTITLE_NM", "Tên tài khoản")}
-        minWidth={220}
-        allowEditing={false}
-        editorOptions={{ showUndoButton: false }}
-      />
+      {accountNameColumns.map((column) => (
+        <Column
+          key={column.dataField}
+          dataField={column.dataField}
+          caption={t(column.captionKey, column.captionFallback)}
+          minWidth={220}
+          allowEditing={false}
+          editorOptions={{ showUndoButton: false }}
+        />
+      ))}
 
       <Column
         dataField="BANK_CD"
@@ -121,13 +93,16 @@ export function useOpeningBalanceBankColumns(props: Props): React.JSX.Element {
         <RequiredRule message={t("BANK_CD_REQUIRED", "Mã ngân hàng không được để trống")} />
       </Column>
 
-      <Column
-        dataField={bankNameField}
-        caption={t("BANK_NM", "Tên ngân hàng")}
-        minWidth={220}
-        allowEditing={false}
-        editorOptions={{ showUndoButton: false }}
-      />
+      {bankNameColumns.map((column) => (
+        <Column
+          key={column.dataField}
+          dataField={column.dataField}
+          caption={t(column.captionKey, column.captionFallback)}
+          minWidth={220}
+          allowEditing={false}
+          editorOptions={{ showUndoButton: false }}
+        />
+      ))}
 
       <Column
         dataField="FC_TYPE"

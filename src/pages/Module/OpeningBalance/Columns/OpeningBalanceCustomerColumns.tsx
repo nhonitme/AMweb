@@ -4,65 +4,34 @@ import { customerLookupStore } from "@/components/lookup/customerLookupStore"
 import { useDecimalColumnFormats } from "@/hooks/useDecimalColumnFormats"
 import type { BeforeStateCustomer } from "@/types/openingBalance"
 import type { CustomerExt } from "@/types/customerExt"
-import { getCurrentLangCode } from "@/utils/language"
 
 type Props = {
   t: (key: string, fallback?: string) => string
 }
 
-type BeforeStateStringValueField = {
-  [K in keyof BeforeStateCustomer]: BeforeStateCustomer[K] extends string | null | undefined ? K : never
-}[keyof BeforeStateCustomer]
-
-type AccountNameField = Extract<
-  BeforeStateStringValueField,
-  "ACC_NM_VIET" | "ACC_NM_ENG" | "ACC_NM_KOR" | "ACC_NM_CHINA"
->
-
-type CustomerNameField = Extract<
-  BeforeStateStringValueField,
-  "CUSTOMER_NM_VIET" | "CUSTOMER_NM_ENG" | "CUSTOMER_NM_KOR" | "CUSTOMER_NM_CHINA"
->
-
-function getAccountNameField(): AccountNameField {
-  const langCode = getCurrentLangCode()
-
-  switch (langCode) {
-    case "ENG":
-      return "ACC_NM_ENG"
-    case "KOR":
-      return "ACC_NM_KOR"
-    case "CHN":
-    case "THA":
-      return "ACC_NM_CHINA"
-    case "VIET":
-    default:
-      return "ACC_NM_VIET"
-  }
+type LocalizedNameColumn<TField extends string> = {
+  dataField: TField
+  captionKey: string
+  captionFallback: string
 }
 
-function getCustomerNameField(): CustomerNameField {
-  const langCode = getCurrentLangCode()
+const accountNameColumns: LocalizedNameColumn<"ACC_NM_VIET" | "ACC_NM_ENG" | "ACC_NM_KOR" | "ACC_NM_CHINA">[] = [
+  { dataField: "ACC_NM_VIET", captionKey: "ACCTITLE_NM", captionFallback: "Tên tài khoản" },
+  { dataField: "ACC_NM_ENG", captionKey: "ACCTITLE_NM_ENG", captionFallback: "Tên tài khoản (ENG)" },
+  { dataField: "ACC_NM_KOR", captionKey: "ACCTITLE_NM_KOR", captionFallback: "Tên tài khoản (KOR)" },
+  { dataField: "ACC_NM_CHINA", captionKey: "ACCTITLE_NM_CHINA", captionFallback: "Tên tài khoản (CHN)" },
+]
 
-  switch (langCode) {
-    case "ENG":
-      return "CUSTOMER_NM_ENG"
-    case "KOR":
-      return "CUSTOMER_NM_KOR"
-    case "CHN":
-    case "THA":
-      return "CUSTOMER_NM_CHINA"
-    case "VIET":
-    default:
-      return "CUSTOMER_NM_VIET"
-  }
-}
+const customerNameColumns: LocalizedNameColumn<"CUSTOMER_NM_VIET" | "CUSTOMER_NM_ENG" | "CUSTOMER_NM_KOR" | "CUSTOMER_NM_CHINA">[] = [
+  { dataField: "CUSTOMER_NM_VIET", captionKey: "CUSTOMER_NM", captionFallback: "Tên khách hàng" },
+  { dataField: "CUSTOMER_NM_ENG", captionKey: "CUSTOMER_NM_ENG", captionFallback: "Tên khách hàng (ENG)" },
+  { dataField: "CUSTOMER_NM_KOR", captionKey: "CUSTOMER_NM_KOR", captionFallback: "Tên khách hàng (KOR)" },
+  { dataField: "CUSTOMER_NM_CHINA", captionKey: "CUSTOMER_NM_CHINA", captionFallback: "Tên khách hàng (CHN)" },
+]
 
 export function useOpeningBalanceCustomerColumns(props: Props): React.JSX.Element {
   const { t } = props
   const { getFormat } = useDecimalColumnFormats()
-  const accountNameField = getAccountNameField()
-  const customerNameField = getCustomerNameField()
 
   return (
     <>
@@ -96,13 +65,16 @@ export function useOpeningBalanceCustomerColumns(props: Props): React.JSX.Elemen
         <RequiredRule message={t("ACC_CD_REQUIRED", "Mã tài khoản không được để trống")} />
       </Column>
 
-      <Column
-        dataField={accountNameField}
-        caption={t("ACCTITLE_NM", "Tên tài khoản")}
-        minWidth={220}
-        allowEditing={false}
-        editorOptions={{ showUndoButton: false }}
-      />
+      {accountNameColumns.map((column) => (
+        <Column
+          key={column.dataField}
+          dataField={column.dataField}
+          caption={t(column.captionKey, column.captionFallback)}
+          minWidth={220}
+          allowEditing={false}
+          editorOptions={{ showUndoButton: false }}
+        />
+      ))}
 
       <Column
         dataField="CUSTOMER_CD"
@@ -113,13 +85,16 @@ export function useOpeningBalanceCustomerColumns(props: Props): React.JSX.Elemen
         <RequiredRule message={t("CUSTOMER_CD_REQUIRED", "Mã khách hàng không được để trống")} />
       </Column>
 
-      <Column
-        dataField={customerNameField}
-        caption={t("CUSTOMER_NM", "Tên khách hàng")}
-        minWidth={220}
-        allowEditing={false}
-        editorOptions={{ showUndoButton: false }}
-      />
+      {customerNameColumns.map((column) => (
+        <Column
+          key={column.dataField}
+          dataField={column.dataField}
+          caption={t(column.captionKey, column.captionFallback)}
+          minWidth={220}
+          allowEditing={false}
+          editorOptions={{ showUndoButton: false }}
+        />
+      ))}
 
       <Column
         dataField="FC_TYPE"

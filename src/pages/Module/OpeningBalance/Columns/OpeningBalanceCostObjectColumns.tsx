@@ -4,65 +4,34 @@ import { departmentLookupStore } from "@/components/lookup/departmentLookupStore
 import { useDecimalColumnFormats } from "@/hooks/useDecimalColumnFormats"
 import type { BeforeStateDepartment } from "@/types/openingBalance"
 import type { DepartmentInfo } from "@/types/departmentInfo"
-import { getCurrentLangCode } from "@/utils/language"
 
 type Props = {
   t: (key: string, fallback?: string) => string
 }
 
-type BeforeStateStringValueField = {
-  [K in keyof BeforeStateDepartment]: BeforeStateDepartment[K] extends string | null | undefined ? K : never
-}[keyof BeforeStateDepartment]
-
-type AccountNameField = Extract<
-  BeforeStateStringValueField,
-  "ACC_NM_VIET" | "ACC_NM_ENG" | "ACC_NM_KOR" | "ACC_NM_CHINA"
->
-
-type DepartmentNameField = Extract<
-  BeforeStateStringValueField,
-  "DEP_NM_VIET" | "DEP_NM_ENG" | "DEP_NM_KOR" | "DEP_NM_CHINA"
->
-
-function getAccountNameField(): AccountNameField {
-  const langCode = getCurrentLangCode()
-
-  switch (langCode) {
-    case "ENG":
-      return "ACC_NM_ENG"
-    case "KOR":
-      return "ACC_NM_KOR"
-    case "CHN":
-    case "THA":
-      return "ACC_NM_CHINA"
-    case "VIET":
-    default:
-      return "ACC_NM_VIET"
-  }
+type LocalizedNameColumn<TField extends string> = {
+  dataField: TField
+  captionKey: string
+  captionFallback: string
 }
 
-function getDepartmentNameField(): DepartmentNameField {
-  const langCode = getCurrentLangCode()
+const accountNameColumns: LocalizedNameColumn<"ACC_NM_VIET" | "ACC_NM_ENG" | "ACC_NM_KOR" | "ACC_NM_CHINA">[] = [
+  { dataField: "ACC_NM_VIET", captionKey: "ACCTITLE_NM", captionFallback: "Tên tài khoản" },
+  { dataField: "ACC_NM_ENG", captionKey: "ACCTITLE_NM_ENG", captionFallback: "Tên tài khoản (ENG)" },
+  { dataField: "ACC_NM_KOR", captionKey: "ACCTITLE_NM_KOR", captionFallback: "Tên tài khoản (KOR)" },
+  { dataField: "ACC_NM_CHINA", captionKey: "ACCTITLE_NM_CHINA", captionFallback: "Tên tài khoản (CHN)" },
+]
 
-  switch (langCode) {
-    case "ENG":
-      return "DEP_NM_ENG"
-    case "KOR":
-      return "DEP_NM_KOR"
-    case "CHN":
-    case "THA":
-      return "DEP_NM_CHINA"
-    case "VIET":
-    default:
-      return "DEP_NM_VIET"
-  }
-}
+const departmentNameColumns: LocalizedNameColumn<"DEP_NM_VIET" | "DEP_NM_ENG" | "DEP_NM_KOR" | "DEP_NM_CHINA">[] = [
+  { dataField: "DEP_NM_VIET", captionKey: "DEP_NM", captionFallback: "Tên đối tượng THCP" },
+  { dataField: "DEP_NM_ENG", captionKey: "DEP_NM_ENG", captionFallback: "Tên đối tượng THCP (ENG)" },
+  { dataField: "DEP_NM_KOR", captionKey: "DEP_NM_KOR", captionFallback: "Tên đối tượng THCP (KOR)" },
+  { dataField: "DEP_NM_CHINA", captionKey: "DEP_NM_CHINA", captionFallback: "Tên đối tượng THCP (CHN)" },
+]
 
 export function useOpeningBalanceCostObjectColumns(props: Props): React.JSX.Element {
   const { t } = props
   const { getFormat } = useDecimalColumnFormats()
-  const accountNameField = getAccountNameField()
-  const departmentNameField = getDepartmentNameField()
 
   return (
     <>
@@ -104,13 +73,16 @@ export function useOpeningBalanceCostObjectColumns(props: Props): React.JSX.Elem
         <RequiredRule message={t("ACC_CD_REQUIRED", "Mã tài khoản không được để trống")} />
       </Column>
 
-      <Column
-        dataField={accountNameField}
-        caption={t("ACCTITLE_NM", "Tên tài khoản")}
-        minWidth={220}
-        allowEditing={false}
-        editorOptions={{ showUndoButton: false }}
-      />
+      {accountNameColumns.map((column) => (
+        <Column
+          key={column.dataField}
+          dataField={column.dataField}
+          caption={t(column.captionKey, column.captionFallback)}
+          minWidth={220}
+          allowEditing={false}
+          editorOptions={{ showUndoButton: false }}
+        />
+      ))}
 
       <Column
         dataField="DEPARTMENT_CD"
@@ -121,13 +93,16 @@ export function useOpeningBalanceCostObjectColumns(props: Props): React.JSX.Elem
         <RequiredRule message={t("DEPARTMENT_CD_REQUIRED", "Mã đối tượng THCP không được để trống")} />
       </Column>
 
-      <Column
-        dataField={departmentNameField}
-        caption={t("DEP_NM", "Tên đối tượng THCP")}
-        minWidth={220}
-        allowEditing={false}
-        editorOptions={{ showUndoButton: false }}
-      />
+      {departmentNameColumns.map((column) => (
+        <Column
+          key={column.dataField}
+          dataField={column.dataField}
+          caption={t(column.captionKey, column.captionFallback)}
+          minWidth={220}
+          allowEditing={false}
+          editorOptions={{ showUndoButton: false }}
+        />
+      ))}
 
       <Column
         dataField="FC_TYPE"
