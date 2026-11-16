@@ -785,7 +785,7 @@ export default function FixedAssetEditorPopup({
                         dataField="ORIGINAL_AMT"
                         label={{ text: t('ORIGINAL_AMT', 'Nguyên giá') }}
                         editorType="dxNumberBox"
-                        editorOptions={createOutlinedEditorOptions({ min: 0, format: '#,##0.##' })}
+                        editorOptions={createOutlinedEditorOptions({ min: 0, format: '#,##0' })}
                       />
                       <Item
                         dataField="STATUS"
@@ -885,7 +885,7 @@ export default function FixedAssetEditorPopup({
                       dataField="ACCUM_DEPRE_AMT"
                       label={{ text: t('ACCUM_DEPRE_AMT', 'HM lũy kế') }}
                       editorType="dxNumberBox"
-                      editorOptions={createOutlinedEditorOptions({ min: 0, format: '#,##0.##' })}
+                      editorOptions={createOutlinedEditorOptions({ min: 0, format: '#,##0' })}
                     />
                     <Item
                       dataField="REMAIN_DEPRE_AMT"
@@ -893,7 +893,7 @@ export default function FixedAssetEditorPopup({
                       editorType="dxNumberBox"
                       editorOptions={createOutlinedEditorOptions({
                         min: 0,
-                        format: '#,##0.##',
+                        format: '#,##0',
                         readOnly: true,
                         focusStateEnabled: false,
                         tabIndex: -1,
@@ -903,19 +903,19 @@ export default function FixedAssetEditorPopup({
                       dataField="FIRST_DEPRE_AMT"
                       label={{ text: t('FIRST_DEPRE_AMT', 'KH đầu') }}
                       editorType="dxNumberBox"
-                      editorOptions={createOutlinedEditorOptions({ min: 0, format: '#,##0.##' })}
+                      editorOptions={createOutlinedEditorOptions({ min: 0, format: '#,##0' })}
                     />
                     <Item
                       dataField="NORMAL_DEPRE_AMT"
                       label={{ text: t('NORMAL_DEPRE_AMT', 'KH giữa') }}
                       editorType="dxNumberBox"
-                      editorOptions={createOutlinedEditorOptions({ min: 0, format: '#,##0.##' })}
+                      editorOptions={createOutlinedEditorOptions({ min: 0, format: '#,##0' })}
                     />
                     <Item
                       dataField="LAST_DEPRE_AMT"
                       label={{ text: t('LAST_DEPRE_AMT', 'KH cuối') }}
                       editorType="dxNumberBox"
-                      editorOptions={createOutlinedEditorOptions({ min: 0, format: '#,##0.##' })}
+                      editorOptions={createOutlinedEditorOptions({ min: 0, format: '#,##0' })}
                     />
                   </Tab>
                 </TabbedItem>

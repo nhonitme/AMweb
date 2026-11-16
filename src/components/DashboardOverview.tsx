@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react"
+import React, { useCallback, useContext, useEffect, useRef, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { Bar, Line } from "react-chartjs-2"
 import {
@@ -16,6 +16,8 @@ import Button from "devextreme-react/button"
 import DataGrid, { Column, Paging, Scrolling } from "devextreme-react/data-grid"
 import notify from "devextreme/ui/notify"
 import { getDashboardOverview } from "@/api/dashboardApi"
+import { overviewLabel } from "@/components/overview/overviewLabels"
+import { LanguageContext } from "@/lib/i18nLoader"
 import DateRangeBox from "@/components/toolbar/DateRangeBox"
 import { createCurrentQuarterDateRange } from "@/lib/dateRangeDefaults"
 import { formatDateToYmd, formatYmdForDisplay, normalizeYmd } from "@/pages/Accounting/accountingDateUtils"
@@ -196,6 +198,11 @@ export default function DashboardOverview() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const companyCd = getCurrentCompanyCd()
+  const { translate } = useContext(LanguageContext)
+  const ov = useCallback(
+    (text: string) => overviewLabel(translate, text),
+    [translate],
+  )
 
   const [filter, setFilter] = useState<DashboardFilter>(() => getDefaultFilter())
   const [fromDate, setFromDate] = useState<Date | null>(() => normalizeYmd(filter.fromYmd))
@@ -281,7 +288,7 @@ export default function DashboardOverview() {
   const applyFilter = useCallback(() => {
     const nextFilter = buildFilterFromDates(fromDate, toDate)
     if (!nextFilter) {
-      notify("Từ ngày phải nhỏ hơn hoặc bằng Đến ngày", "warning", 2500)
+      notify(ov("Từ ngày phải nhỏ hơn hoặc bằng Đến ngày"), "warning", 2500)
       return
     }
     const unchanged =
@@ -294,7 +301,7 @@ export default function DashboardOverview() {
       return
     }
     setFilter(nextFilter)
-  }, [filter, fromDate, loadAll, toDate])
+  }, [filter, fromDate, loadAll, ov, toDate])
 
   useEffect(() => {
     mountedRef.current = true
@@ -412,8 +419,8 @@ export default function DashboardOverview() {
           <DateRangeBox
             fromDate={fromDate}
             toDate={toDate}
-            fromPlaceholder="Từ ngày"
-            toPlaceholder="Đến ngày"
+            fromPlaceholder={ov("Từ ngày")}
+            toPlaceholder={ov("Đến ngày")}
             labelMode="floating"
             variant="grouped"
             onFromDateChange={setFromDate}
@@ -423,7 +430,7 @@ export default function DashboardOverview() {
             className="flex flex-nowrap items-center gap-2"
           />
           <Button
-            text="Áp dụng"
+            text={ov("Áp dụng")}
             type="default"
             stylingMode="contained"
             onClick={applyFilter}
@@ -431,7 +438,7 @@ export default function DashboardOverview() {
             disabled={loading}
           />
           {loading && (
-            <span className="text-xs font-medium text-blue-600">Loading...</span>
+            <span className="text-xs font-medium text-blue-600">{ov("Đang tải…")}</span>
           )}
         </div>
       </div>
@@ -476,10 +483,10 @@ export default function DashboardOverview() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <SectionCard title={`Doanh thu – Chi phí theo tháng (${filter.year})`}>
+        <SectionCard title={ov("Doanh thu – Chi phí theo tháng ({0})").replaceAll("{0}", filter.year)}>
           <Bar data={barChartData} options={chartOptions} height={110} />
         </SectionCard>
-        <SectionCard title={`Lợi nhuận theo tháng (${filter.year})`}>
+        <SectionCard title={ov("Lợi nhuận theo tháng ({0})").replaceAll("{0}", filter.year)}>
           <Line data={lineChartData} options={chartOptions} height={110} />
         </SectionCard>
       </div>
@@ -568,7 +575,7 @@ export default function DashboardOverview() {
                 <div>Tổng: <span className="font-semibold text-gray-800">{fmtFull(totalReceivables)}</span></div>
                 <div>Quá hạn: <span className="font-semibold text-red-600">{fmtFull(overdueReceivables)}</span></div>
               </div>
-              <SectionLink label="Xem chi tiết" onClick={() => goToAppPath(DASHBOARD_ROUTES.arAging)} />
+              <SectionLink label={ov("Xem chi tiết")} onClick={() => goToAppPath(DASHBOARD_ROUTES.arAging)} />
             </div>
           }
         >
@@ -621,7 +628,7 @@ export default function DashboardOverview() {
                 <div>Tổng: <span className="font-semibold text-gray-800">{fmtFull(totalPayables)}</span></div>
                 <div>Quá hạn: <span className="font-semibold text-red-600">{fmtFull(overduePayables)}</span></div>
               </div>
-              <SectionLink label="Xem chi tiết" onClick={() => goToAppPath(DASHBOARD_ROUTES.purchaseJournal)} />
+              <SectionLink label={ov("Xem chi tiết")} onClick={() => goToAppPath(DASHBOARD_ROUTES.purchaseJournal)} />
             </div>
           }
         >
@@ -670,7 +677,7 @@ export default function DashboardOverview() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <SectionCard
           title="Trạng thái khóa sổ"
-          action={<SectionLink label="Xem chi tiết" onClick={() => goToAppPath(DASHBOARD_ROUTES.periodLock)} />}
+          action={<SectionLink label={ov("Xem chi tiết")} onClick={() => goToAppPath(DASHBOARD_ROUTES.periodLock)} />}
         >
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -719,7 +726,7 @@ export default function DashboardOverview() {
 
         <SectionCard
           title="Hạn nộp báo cáo thuế"
-          action={<SectionLink label="Tờ khai VAT" onClick={() => goToAppPath(DASHBOARD_ROUTES.vatDeclaration)} />}
+          action={<SectionLink label={ov("Tờ khai VAT")} onClick={() => goToAppPath(DASHBOARD_ROUTES.vatDeclaration)} />}
         >
           {taxDeadlines.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-4">Không có dữ liệu</p>
@@ -742,7 +749,7 @@ export default function DashboardOverview() {
       </div>
 
       <SectionCard
-        title="Chứng từ gần đây"
+        title={ov("Chứng từ gần đây")}
         sectionRef={recentVouchersRef}
         action={
           <div className="flex gap-1">
@@ -756,7 +763,7 @@ export default function DashboardOverview() {
                     : "text-gray-500 border-gray-200 hover:bg-gray-100"
                 }`}
               >
-                {s === "ALL" ? "Tất cả" : s === "PENDING" ? "Chưa ghi" : s === "CONFIRMED" ? "Đã xác nhận" : "Đã khóa"}
+                {s === "ALL" ? ov("Tất cả") : s === "PENDING" ? ov("Chưa ghi") : s === "CONFIRMED" ? ov("Đã xác nhận") : ov("Đã khóa")}
               </button>
             ))}
           </div>
@@ -770,7 +777,7 @@ export default function DashboardOverview() {
           rowAlternationEnabled
           hoverStateEnabled
           height={280}
-          noDataText="Không có chứng từ"
+          noDataText={ov("Không có chứng từ")}
           onRowClick={(e) => {
             const row = e.data as DashboardRecentVoucher | undefined
             if (row) handleOpenRecentVoucher(row)
@@ -778,20 +785,20 @@ export default function DashboardOverview() {
         >
           <Paging pageSize={20} />
           <Scrolling mode="virtual" />
-          <Column dataField="ChitYmd" caption="Ngày CT" width={90}
+          <Column dataField="ChitYmd" caption={ov("Ngày CT")} width={90}
             cellRender={({ data }: { data: DashboardRecentVoucher }) =>
               <span>{formatYmdForDisplay(data.ChitYmd)}</span>
             }
           />
-          <Column dataField="ChitNo"   caption="Số CT"  width={110} />
-          <Column dataField="ChitCd"   caption="Loại"   width={80}  />
-          <Column dataField="Description" caption="Diễn giải" minWidth={160} />
-          <Column dataField="Amount" caption="Số tiền" width={120} alignment="right"
+          <Column dataField="ChitNo"   caption={ov("Số CT")}  width={110} />
+          <Column dataField="ChitCd"   caption={ov("Loại")}   width={80}  />
+          <Column dataField="Description" caption={ov("Diễn giải")} minWidth={160} />
+          <Column dataField="Amount" caption={ov("Số tiền")} width={120} alignment="right"
             cellRender={({ data }: { data: DashboardRecentVoucher }) =>
               <span>{fmtFull(data.Amount)}</span>
             }
           />
-          <Column dataField="Status" caption="Trạng thái" width={110}
+          <Column dataField="Status" caption={ov("Trạng thái")} width={110}
             cellRender={({ data }: { data: DashboardRecentVoucher }) => {
               const styles: Record<string, string> = {
                 LOCKED:    "bg-green-100 text-green-700",
@@ -799,9 +806,9 @@ export default function DashboardOverview() {
                 PENDING:   "bg-amber-100 text-amber-700",
               }
               const labels: Record<string, string> = {
-                LOCKED:    "Đã khóa",
-                CONFIRMED: "Đã xác nhận",
-                PENDING:   "Chưa ghi sổ",
+                LOCKED:    ov("Đã khóa"),
+                CONFIRMED: ov("Đã xác nhận"),
+                PENDING:   ov("Chưa ghi sổ"),
               }
               return (
                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${styles[data.Status] ?? "bg-gray-100 text-gray-500"}`}>

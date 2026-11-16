@@ -595,7 +595,7 @@ function PitEditorBody({
       subtitle={
         kind === "certificate"
           ? undefined
-          : `${t("PIT_SUBTITLE_FORM", "Mẫu số")} ${documentInfo.Form}${document?.DOC_NO ? ` · ${t("PIT_SUBTITLE_NO", "Số")} ${document.DOC_NO}` : ""}`
+          : `${formatPitMessage(t("PIT_SUBTITLE_FORM", "Mẫu số {0}"), documentInfo.Form)}${document?.DOC_NO ? ` · ${formatPitMessage(t("PIT_SUBTITLE_NO", "Số {0}"), document.DOC_NO)}` : ""}`
       }
       loading={busy}
       closeDisabled={busy}
@@ -688,12 +688,6 @@ function PitEditorBody({
                   <PitCertificateHeaderFields renderField={fieldInput} />
                 </div>
               </EInvoiceEditorSection>
-            </div>
-          )}
-          {kind !== "certificate" && (
-            <div className="pit-heading">
-              <strong>Mẫu số {documentInfo.Form}</strong>
-              {document?.DOC_NO ? <span>Số {document.DOC_NO}</span> : null}
             </div>
           )}
           {kind === "certificate" && (

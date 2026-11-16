@@ -8,7 +8,7 @@ import Button from "devextreme-react/button";
 import CheckBox from "devextreme-react/check-box";
 import notify from "devextreme/ui/notify";
 import { toggleProductionCostObject } from "@/api/productionCostingApi";
-import { Notice, StepShell, type PanelCommonProps } from "./costingPanelShared";
+import { formatGkMessage, Notice, StepShell, type PanelCommonProps } from "./costingPanelShared";
 
 export function CostingPrerequisitePanel({
   overview,
@@ -62,9 +62,12 @@ export function CostingPrerequisitePanel({
   const handleValidate = () => {
     if (errorCount > 0) {
       notify(
-        t(
-          "GK_PREREQ_HAS_ERROR",
-          `Có ${errorCount} cảnh báo lỗi. Không ghi nhận giá thành cho TP thiếu đối tượng.`,
+        formatGkMessage(
+          t(
+            "GK_PREREQ_HAS_ERROR",
+            "Có {0} cảnh báo lỗi. Không ghi nhận giá thành cho TP thiếu đối tượng.",
+          ),
+          errorCount,
         ),
         "warning",
         3500,
@@ -113,7 +116,7 @@ export function CostingPrerequisitePanel({
         </div>
         <span className={`gk-pill ${errorCount ? "error" : "done"}`}>
           {errorCount
-            ? t("GK_WARN_COUNT", `${errorCount} cảnh báo`)
+            ? formatGkMessage(t("GK_WARN_COUNT", "{0} cảnh báo"), errorCount)
             : t("GK_NO_ERROR", "Không lỗi chặn")}
         </span>
       </div>
@@ -124,7 +127,7 @@ export function CostingPrerequisitePanel({
           <div className="num">{overview.stats.objectCount}</div>
         </div>
         <div className="gk-mini tinted">
-          <div className="title">{t("GK_STAT_RECEIPTS", "Phiếu nhập TP")}</div>
+          <div className="title">{t("GK_STAT_RECEIPTS_FG", "Phiếu nhập TP")}</div>
           <div className="num">{overview.stats.receiptCount}</div>
         </div>
       </div>

@@ -8,8 +8,10 @@ import notify from 'devextreme/ui/notify'
 import type dxDataGrid from 'devextreme/ui/data_grid'
 import type {
   ColumnButtonClickEvent,
+  FocusedRowChangedEvent,
   InitializedEvent,
   RowDblClickEvent,
+  SelectionChangedEvent,
 } from 'devextreme/ui/data_grid'
 
 import {
@@ -21,6 +23,7 @@ import {
 } from '@/api/fixedAssetApi'
 import { getApiErrorMessage } from '@/api/apiTypes'
 import { BaseDataGrid } from '@/components/datagrid/BaseDataGrid'
+import DetailGrid from '@/components/datagrid/DetailGrid'
 import MasterDataPageLayout from '@/components/datagrid/MasterDataPageLayout'
 import { GridToolbar } from '@/components/toolbar/GridToolbar'
 import BaseExcelImportPopup from '@/components/forms/BaseExcelImportPopup'
@@ -34,13 +37,15 @@ import { LanguageContext } from '@/lib/i18nLoader'
 import { useSysCodes } from '@/lib/sysCodeContext'
 import { getCurrentCompanyCd } from '@/lib/login'
 import { normalizeMessageLanguageKey } from '@/utils/language'
-import type { FixedAssetGridRow, FixedAssetListItem } from '@/types/fixedAsset'
+import type { FixedAssetAllocationRow, FixedAssetGridRow, FixedAssetListItem } from '@/types/fixedAsset'
 
 import { useFixedAssetColumns } from './Columns/FixedAssetColumns'
 import { useFixedAssetImportConfig } from './Columns/FixedAssetImportConfig'
+import { useFixedAssetRegisterDetailColumns } from './Columns/FixedAssetRegisterDetailColumns'
 import {
   FIXED_ASSET_MASTER_GRID_ID,
   FIXED_ASSET_MENU_CODE,
+  FIXED_ASSET_REGISTER_DETAIL_GRID_ID,
   FIXED_ASSET_SCREEN_CD,
 } from './Columns/fixedAssetGridIds'
 import FixedAssetEditorPopup from './components/FixedAssetEditorPopup'
@@ -53,6 +58,7 @@ import {
   createDefaultFixedAssetRow,
   createRowKey,
   mergeDetailFieldsIntoGridRow,
+  normalizeAllocationRows,
   normalizeFixedAssetYmdFields,
   validateFixedAssetRow,
 } from './fixedAssetUtils'
@@ -68,7 +74,13 @@ import './FixedAssetPage.scss'
 
 const screenCd = FIXED_ASSET_SCREEN_CD
 const masterGridId = FIXED_ASSET_MASTER_GRID_ID
+const detailGridId = FIXED_ASSET_REGISTER_DETAIL_GRID_ID
 const menuCode = FIXED_ASSET_MENU_CODE
+
+const resolveAssetId = (row: FixedAssetGridRow | null | undefined): number | null => {
+  const assetId = Number(row?.ASSET_ID ?? 0)
+  return Number.isFinite(assetId) && assetId > 0 ? assetId : null
+}
 
 const mapListToGridRows = (items: FixedAssetListItem[]): FixedAssetGridRow[] =>
   items.map((item) =>
@@ -104,9 +116,19 @@ const buildDuplicateRow = (source: FixedAssetGridRow): FixedAssetGridRow =>
 export default function FixedAssetPage() {
   const exportName = useMenuExportName(menuCode)
   const gridRef = useRef<dxDataGrid<FixedAssetGridRow, number> | null>(null)
+  const detailGridRef = useRef<dxDataGrid<FixedAssetAllocationRow, string | number> | null>(null)
   const detailPromiseRef = useRef<Map<number, Promise<FixedAssetGridRow>>>(new Map())
+  const selectedAssetIdRef = useRef<number | null>(null)
+  const detailLoadSeqRef = useRef(0)
+  const pendingFocusIdRef = useRef<number | null>(null)
+  const focusApplyAttemptsRef = useRef(0)
+  const allocationCacheRef = useRef<Map<number, FixedAssetAllocationRow[]>>(new Map())
 
   const [rows, setRows] = useState<FixedAssetGridRow[]>([])
+  const [selectedAssetId, setSelectedAssetId] = useState<number | null>(null)
+  const [detailRows, setDetailRows] = useState<FixedAssetAllocationRow[]>([])
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [isMasterSearchActive, setIsMasterSearchActive] = useState(false)
   const [statusFilterDraft, setStatusFilterDraft] = useState(() => createEmptyFixedAssetListFilters().status)
   const [accFilterDraft, setAccFilterDraft] = useState(() => createEmptyFixedAssetListFilters().accCd)
   const [appliedFilters, setAppliedFilters] = useState<FixedAssetListFilters>(createEmptyFixedAssetListFilters())
@@ -174,11 +196,99 @@ export default function FixedAssetPage() {
     'Failed to load fixed assets',
   )
 
+  const loadSelectedAllocations = useCallback(async (row: FixedAssetGridRow | null) => {
+    const seq = detailLoadSeqRef.current + 1
+    detailLoadSeqRef.current = seq
+    const assetId = resolveAssetId(row)
+
+    if (!row || assetId == null) {
+      setDetailRows([])
+      setDetailLoading(false)
+      return
+    }
+
+    const cached = allocationCacheRef.current.get(assetId)
+    if (cached) {
+      setDetailRows(cached)
+      setDetailLoading(false)
+      return
+    }
+
+    setDetailRows([])
+    setDetailLoading(true)
+
+    try {
+      const detail = await getFixedAssetById(assetId)
+      if (seq !== detailLoadSeqRef.current) {
+        return
+      }
+
+      const companyCd = detail.ASSET.COMPANY_CD || row.COMPANY_CD
+      const allocations = normalizeAllocationRows(detail.ALLOCATIONS, companyCd, assetId).filter(
+        (item) => !item.ISDEL,
+      )
+      allocationCacheRef.current.set(assetId, allocations)
+      setDetailRows(allocations)
+    } catch (error) {
+      if (seq !== detailLoadSeqRef.current) {
+        return
+      }
+
+      console.error('Load fixed asset allocations failed', error)
+      setDetailRows([])
+      notify(
+        getApiErrorMessage(error, tRef.current('LOAD_FAILED', 'Không tải được chi tiết tài sản.')),
+        'error',
+        3000,
+      )
+    } finally {
+      if (seq === detailLoadSeqRef.current) {
+        setDetailLoading(false)
+      }
+    }
+  }, [])
+
+  const showAssetDetail = useCallback(
+    (row: FixedAssetGridRow | null) => {
+      const assetId = resolveAssetId(row)
+      if (assetId === selectedAssetIdRef.current) {
+        return
+      }
+
+      selectedAssetIdRef.current = assetId
+      setSelectedAssetId(assetId)
+      void loadSelectedAllocations(assetId ? row : null)
+    },
+    [loadSelectedAllocations],
+  )
+
   useEffect(() => {
     detailPromiseRef.current.clear()
-    setRows(mapListToGridRows(fixedAssetItems))
+    allocationCacheRef.current.clear()
+    const nextRows = mapListToGridRows(fixedAssetItems)
+    setRows(nextRows)
     gridRef.current?.clearSelection()
-  }, [fixedAssetItems])
+
+    const next =
+      nextRows.find((item) => resolveAssetId(item) === selectedAssetIdRef.current) ??
+      nextRows[0] ??
+      null
+    const nextId = resolveAssetId(next)
+    pendingFocusIdRef.current = nextId
+    focusApplyAttemptsRef.current = 0
+    selectedAssetIdRef.current = nextId
+    setSelectedAssetId(nextId)
+    void loadSelectedAllocations(next)
+  }, [fixedAssetItems, loadSelectedAllocations])
+
+  useEffect(() => {
+    const assetId = pendingFocusIdRef.current
+    if (assetId == null) {
+      return
+    }
+
+    gridRef.current?.option('focusedRowKey', assetId)
+  }, [rows])
 
   const loadData = useCallback(async () => {
     try {
@@ -528,18 +638,97 @@ export default function FixedAssetPage() {
 
   const handleGridInitialized = useCallback((event: InitializedEvent<FixedAssetGridRow, number>) => {
     gridRef.current = event.component ?? null
+    const assetId = pendingFocusIdRef.current ?? selectedAssetIdRef.current
+    if (assetId != null && event.component) {
+      event.component.option('focusedRowKey', assetId)
+    }
   }, [])
+
+  const handleMasterContentReady = useCallback(() => {
+    const assetId = pendingFocusIdRef.current
+    if (assetId == null) {
+      return
+    }
+
+    const currentKey = Number(gridRef.current?.option('focusedRowKey'))
+    if (currentKey === assetId) {
+      pendingFocusIdRef.current = null
+      focusApplyAttemptsRef.current = 0
+      return
+    }
+
+    if (focusApplyAttemptsRef.current >= 8) {
+      pendingFocusIdRef.current = null
+      return
+    }
+
+    focusApplyAttemptsRef.current += 1
+    gridRef.current?.option('focusedRowKey', assetId)
+  }, [])
+
+  const handleDetailGridInitialized = useCallback(
+    (event: InitializedEvent<FixedAssetAllocationRow, string | number>) => {
+      detailGridRef.current = event.component ?? null
+    },
+    [],
+  )
+
+  const handleSelectionChanged = useCallback(
+    (event: SelectionChangedEvent<FixedAssetGridRow, number>) => {
+      const selected = event.selectedRowsData
+      if (!selected.length) {
+        return
+      }
+
+      const lastKey = event.currentSelectedRowKeys[event.currentSelectedRowKeys.length - 1]
+      const row =
+        lastKey != null
+          ? (selected.find((item) => item.ASSET_ID == lastKey) ?? selected[0])
+          : selected[0]
+      if (!row) {
+        return
+      }
+
+      pendingFocusIdRef.current = null
+      const assetId = resolveAssetId(row)
+      if (assetId != null) {
+        gridRef.current?.option('focusedRowKey', assetId)
+      }
+      showAssetDetail(row)
+    },
+    [showAssetDetail],
+  )
+
+  const handleFocusedRowChanged = useCallback(
+    (event: FocusedRowChangedEvent<FixedAssetGridRow, number>) => {
+      const row = event.row?.data
+      if (!row) {
+        return
+      }
+
+      const assetId = resolveAssetId(row)
+      const pendingFocusId = pendingFocusIdRef.current
+      if (pendingFocusId != null && assetId !== pendingFocusId) {
+        return
+      }
+
+      showAssetDetail(row)
+    },
+    [showAssetDetail],
+  )
 
   const handleAccFilterChange = useCallback((value: string) => {
     setAccFilterDraft(value)
   }, [])
 
   const columnsNode = useFixedAssetColumns({ statusCodes })
+  const detailColumnsNode = useFixedAssetRegisterDetailColumns()
 
   return (
     <DxPage>
       <MasterDataPageLayout
         className="fixed-asset-page"
+        contentClassName="flex flex-col"
         toolbar={
           <GridToolbar
             gridRef={gridRef}
@@ -560,6 +749,7 @@ export default function FixedAssetPage() {
                 translate={t}
               />
             }
+            onSearchStateChange={(_value, active) => setIsMasterSearchActive(active)}
           />
         }
         overlays={
@@ -575,7 +765,9 @@ export default function FixedAssetPage() {
           />
         }
       >
-        <div className="fixed-asset-page__grid">
+        <div className="flex h-full min-h-0 flex-col gap-1">
+          <div className="relative min-h-0 flex-[0_0_58%]">
+            <div className="fixed-asset-page__grid">
           <BaseDataGrid<FixedAssetGridRow>
           enableModifierSelection
           enableDragSelection
@@ -585,6 +777,9 @@ export default function FixedAssetPage() {
             gridId={masterGridId}
             onAdd={handleOpenAdd}
             onInitialized={handleGridInitialized}
+            onContentReady={handleMasterContentReady}
+            onSelectionChanged={handleSelectionChanged}
+            onFocusedRowChanged={handleFocusedRowChanged}
             onRowDblClick={handleRowDblClick}
             onContextMenuUpdate={handleOpenEdit}
             onContextMenuCopy={handleDuplicate}
@@ -634,6 +829,40 @@ export default function FixedAssetPage() {
             shadingColor="rgba(0, 0, 0, 0.15)"
             position={{ of: '.fixed-asset-page__grid' }}
           />
+            </div>
+          </div>
+
+          <div className="fixed-asset-page__detail relative min-h-0 flex-1 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+            <div className="relative h-full">
+              <DetailGrid<FixedAssetAllocationRow>
+                dataSource={detailRows}
+                keyExpr="ROW_KEY"
+                height="100%"
+                screenCd={screenCd}
+                gridId={detailGridId}
+                persistColumnSettings
+                onInitialized={handleDetailGridInitialized}
+                searchVisible={isMasterSearchActive}
+                showSearchButton={false}
+                suppressEmptyOverlay={detailLoading}
+                noDataText={
+                  selectedAssetId
+                    ? t('NO_DETAIL_DATA', 'Không có dữ liệu chi tiết')
+                    : t('SELECT_ROW_TO_VIEW_DETAIL', 'Chọn một dòng để xem chi tiết')
+                }
+              >
+                {detailColumnsNode}
+              </DetailGrid>
+            </div>
+            <LoadPanel
+              visible={detailLoading}
+              showIndicator
+              showPane
+              shading
+              shadingColor="rgba(255, 255, 255, 0.55)"
+              position={{ of: '.fixed-asset-page__detail' }}
+            />
+          </div>
         </div>
       </MasterDataPageLayout>
 

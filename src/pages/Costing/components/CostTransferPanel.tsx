@@ -7,7 +7,7 @@ import DataGrid, { Column, Paging, Summary, TotalItem } from "devextreme-react/d
 import Button from "devextreme-react/button";
 import { confirm } from "devextreme/ui/dialog";
 import { checkCostTransferPreconditions, lockCostTransferTo154 } from "@/api/productionCostingApi";
-import { formatMoney, Notice, StepShell, type PanelCommonProps } from "./costingPanelShared";
+import { formatGkMessage, formatMoney, Notice, StepShell, type PanelCommonProps } from "./costingPanelShared";
 import { CostingCompareTable } from "./CostingCompareTable";
 
 type TabKey = "check" | "ledger" | "entries";
@@ -185,9 +185,9 @@ export function CostTransferPanel({
             <span>{t("GK_NO_154_632", "Không sinh 154 → 632")}</span>
           </div>
           <Notice type="info">
-            {t(
-              "GK_STEP3_TOTAL",
-              `Tổng kết chuyển dự kiến: ${formatMoney(overview.aggregateRows.reduce((s, r) => s + r.periodCost, 0))} đ`,
+            {formatGkMessage(
+              t("GK_STEP3_TOTAL", "Tổng kết chuyển dự kiến: {0} đ"),
+              formatMoney(overview.aggregateRows.reduce((s, r) => s + r.periodCost, 0)),
             )}
           </Notice>
         </div>

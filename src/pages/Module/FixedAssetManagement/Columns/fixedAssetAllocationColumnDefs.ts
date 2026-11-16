@@ -143,7 +143,7 @@ export const FIXED_ASSET_ALLOCATION_COLUMN_DEFS: readonly FaColumnDef[] = [
     defaultVisible: true,
     defaultWidth: 110,
     dataType: 'number',
-    format: '#,##0.####',
+    format: '#,##0',
   },
   {
     fieldName: 'FIRST_ALLOC_AMT',
@@ -152,7 +152,7 @@ export const FIXED_ASSET_ALLOCATION_COLUMN_DEFS: readonly FaColumnDef[] = [
     defaultVisible: true,
     defaultWidth: 120,
     dataType: 'number',
-    format: '#,##0.##',
+    format: '#,##0',
   },
   {
     fieldName: 'NORMAL_ALLOC_AMT',
@@ -161,7 +161,7 @@ export const FIXED_ASSET_ALLOCATION_COLUMN_DEFS: readonly FaColumnDef[] = [
     defaultVisible: true,
     defaultWidth: 120,
     dataType: 'number',
-    format: '#,##0.##',
+    format: '#,##0',
   },
   {
     fieldName: 'LAST_ALLOC_AMT',
@@ -170,7 +170,7 @@ export const FIXED_ASSET_ALLOCATION_COLUMN_DEFS: readonly FaColumnDef[] = [
     defaultVisible: true,
     defaultWidth: 120,
     dataType: 'number',
-    format: '#,##0.##',
+    format: '#,##0',
   },
   {
     fieldName: 'DEBIT_ACCT_CD',

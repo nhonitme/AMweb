@@ -6,6 +6,7 @@ import Popup from "devextreme-react/popup";
 import Button from "devextreme-react/button";
 import DataGrid, { Column, Paging, Scrolling } from "devextreme-react/data-grid";
 import type { CostingStepHistoryItem } from "../types/productionCostingTypes";
+import { formatGkMessage } from "./costingPanelShared";
 
 type CostingStepHistoryPopupProps = {
   visible: boolean;
@@ -15,13 +16,14 @@ type CostingStepHistoryPopupProps = {
   onClose: () => void;
 };
 
-const ACTION_LABEL: Record<string, string> = {
-  EXECUTE: "Thực hiện",
-  REOPEN: "Mở lại",
-  PREVIEW: "Tính lại",
-  CONFIRM: "Xác nhận",
-  ERROR: "Lỗi",
-};
+function actionLabel(action: string, t: (key: string, fallback: string) => string): string {
+  if (action === "EXECUTE") return t("GK_ACT_EXECUTE", "Thực hiện");
+  if (action === "REOPEN") return t("GK_ACT_REOPEN", "Mở lại");
+  if (action === "PREVIEW") return t("GK_ACT_PREVIEW", "Tính lại");
+  if (action === "CONFIRM") return t("GK_ACT_CONFIRM", "Xác nhận");
+  if (action === "ERROR") return t("GK_ACT_ERROR", "Lỗi");
+  return action;
+}
 
 export function CostingStepHistoryPopup({
   visible,
@@ -40,7 +42,7 @@ export function CostingStepHistoryPopup({
       showCloseButton
       title={
         stepIndex
-          ? t("GK_STEP_HISTORY_TITLE", `Lịch sử bước ${stepIndex}`)
+          ? formatGkMessage(t("GK_STEP_HISTORY_TITLE", "Lịch sử bước {0}"), stepIndex)
           : t("GK_ALL_HISTORY", "Lịch sử toàn bộ bước")
       }
       width={900}
@@ -54,7 +56,7 @@ export function CostingStepHistoryPopup({
           dataField="action"
           caption={t("GK_ACTION", "Hành động")}
           width={100}
-          calculateCellValue={(r: CostingStepHistoryItem) => ACTION_LABEL[r.action] ?? r.action}
+          calculateCellValue={(r: CostingStepHistoryItem) => actionLabel(r.action, t)}
         />
         <Column dataField="status" caption={t("STATUS", "Trạng thái")} width={100} />
         <Column dataField="resultBefore" caption={t("GK_BEFORE", "Kết quả trước")} />

@@ -1,7 +1,24 @@
 import { normalizeGridSettingKey, normalizeGridSettingText } from '@/lib/gridSettingCache'
 import { resolveSysGridColumnDisplayCaption } from '@/lib/gridColumnSettingUtils'
 import { isTechnicalIdColumnName } from '@/components/datagrid/gridColumnSettingRender'
+import { formatNumber } from 'devextreme/localization'
 import type { SysGridColumn } from '@/types/sysGridColumnSetting'
+
+/** Integer display for money columns on the fixed-asset register menu. */
+export const FA_INTEGER_NUMBER_FORMAT = '#,##0'
+
+export function isFaMoneyField(fieldName: string): boolean {
+  return fieldName.trim().toUpperCase().endsWith('_AMT')
+}
+
+export function formatFaGridInteger(value: unknown): string {
+  if (value == null || value === '') {
+    return ''
+  }
+
+  const number = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(number) ? formatNumber(number, FA_INTEGER_NUMBER_FORMAT) : ''
+}
 
 /** Optional runtime overrides — catalog/order/visible come from sys_grid_column (+ setting). */
 export type FaColumnBehavior = {

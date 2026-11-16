@@ -8,7 +8,7 @@ import DataGrid, { Column, Paging, Summary, TotalItem } from "devextreme-react/d
 import Button from "devextreme-react/button";
 import { confirm } from "devextreme/ui/dialog";
 import { confirmValuation, previewValuation } from "@/api/productionCostingApi";
-import { formatMoney, Notice, StepShell, type PanelCommonProps } from "./costingPanelShared";
+import { formatGkMessage, formatMoney, Notice, StepShell, type PanelCommonProps } from "./costingPanelShared";
 import { CostingCompareTable } from "./CostingCompareTable";
 
 type TabKey = "export" | "diff" | "reconcile";
@@ -129,9 +129,10 @@ export function CostValuationPanel({
           <div className="num">{overview.doneFlags[3] ? `${formatMoney(proposedTotal)} đ` : "—"}</div>
           <div className="small">
             {overview.doneFlags[3]
-              ? t(
-                  "GK_VS_NAIVE",
-                  `Nếu nhân đơn giá kỳ: ${formatMoney(naiveTotal)} đ (chênh ${formatMoney(naiveTotal - proposedTotal)})`,
+              ? formatGkMessage(
+                  t("GK_VS_NAIVE", "Nếu nhân đơn giá kỳ: {0} đ (chênh {1})"),
+                  formatMoney(naiveTotal),
+                  formatMoney(naiveTotal - proposedTotal),
                 )
               : t("GK_NEED_STEP4", "Cần hoàn tất bước 4")}
           </div>
@@ -189,8 +190,8 @@ export function CostValuationPanel({
         <div>
           <div className="gk-sectiontitle">{t("GK_ENTRY_COGS", "Bút toán xuất bán thành phẩm")}</div>
           <div className="gk-workflow">
-            <span className="mark">Nợ 632</span>
-            <span className="mark">Có 155</span>
+            <span className="mark">{t("GK_DR_632", "Nợ 632")}</span>
+            <span className="mark">{t("GK_CR_155", "Có 155")}</span>
             <span>{t("GK_NO_NEW_SALE", "Không tạo phiếu bán mới")}</span>
           </div>
         </div>

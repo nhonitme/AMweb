@@ -21,6 +21,7 @@ import type {
   CostingStepIndex,
   ProductionCostingOverview,
 } from "./types/productionCostingTypes";
+import { formatGkMessage } from "./components/costingPanelShared";
 import { CostingHeader } from "./components/CostingHeader";
 import { CostingStepNavigator } from "./components/CostingStepNavigator";
 import { CostingHistoryPopup } from "./components/CostingHistoryPopup";
@@ -199,7 +200,12 @@ export default function ProductionCostingPage() {
       refresh(next);
       setReopenOpen(false);
       setReopenInfo(null);
-      showSuccess(t("GK_REOPEN_OK", `Đã mở lại bước ${reopenInfo.stepIndex}. Số liệu cũ được giữ.`));
+      showSuccess(
+        formatGkMessage(
+          t("GK_REOPEN_OK", "Đã mở lại bước {0}. Số liệu cũ được giữ."),
+          reopenInfo.stepIndex,
+        ),
+      );
     } catch (err) {
       showError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -292,13 +298,13 @@ export default function ProductionCostingPage() {
             <div className="gk-cardbody">
               <div className="gk-workflow">
                 <span className={overview.doneFlags[0] ? "mark" : ""}>
-                  Bước 1: {overview.stepStatuses[0]}
+                  {t("GK_FLOW_STEP1", "Bước 1")}: {overview.stepStatuses[0]}
                 </span>
                 <span className={overview.doneFlags[2] ? "mark" : ""}>
-                  Bước 2: {overview.stepStatuses[2]}
+                  {t("GK_FLOW_STEP2", "Bước 2")}: {overview.stepStatuses[2]}
                 </span>
                 <span className={overview.doneFlags[5] ? "mark" : ""}>
-                  Bước 3: {overview.stepStatuses[5]}
+                  {t("GK_FLOW_STEP3", "Bước 3")}: {overview.stepStatuses[5]}
                 </span>
                 <span>
                   {t("GK_MONTH", "Tháng")}: {overview.monthStatus}

@@ -7,7 +7,7 @@ import DataGrid, { Column, Paging } from "devextreme-react/data-grid";
 import Button from "devextreme-react/button";
 import { confirm } from "devextreme/ui/dialog";
 import { reloadProductionCosting, runProductionCostingStep1 } from "@/api/productionCostingApi";
-import { formatMoney, Notice, StepShell, type PanelCommonProps } from "./costingPanelShared";
+import { formatGkMessage, formatMoney, Notice, StepShell, type PanelCommonProps } from "./costingPanelShared";
 
 export function FaPrepaidLockPanel({
   overview,
@@ -74,7 +74,12 @@ export function FaPrepaidLockPanel({
                   const next = await reloadProductionCosting();
                   onRefresh(next);
                   setChecked(true);
-                  onSuccess(t("GK_STEP1_CHECK_OK", `Trạng thái B1 trên DB: ${next.stepStatuses[0]}.`));
+                  onSuccess(
+                    formatGkMessage(
+                      t("GK_STEP1_CHECK_OK", "Trạng thái B1 trên DB: {0}."),
+                      next.stepStatuses[0],
+                    ),
+                  );
                 } catch (err) {
                   onError(err instanceof Error ? err.message : String(err));
                 } finally {
@@ -119,12 +124,12 @@ export function FaPrepaidLockPanel({
         <div className="gk-mini tinted">
           <div className="title">{t("GK_FA_DEPR", "Khấu hao TSCĐ")}</div>
           <div className="num">{formatMoney(overview.faRows[0]?.amount ?? 0)} đ</div>
-          <div className="small">Nợ 627 / Có 214</div>
+          <div className="small">{t("GK_DR_627_CR_214", "Nợ 627 / Có 214")}</div>
         </div>
         <div className="gk-mini tinted">
           <div className="title">{t("GK_PREPAID", "Phân bổ CPTT")}</div>
           <div className="num">{formatMoney(overview.faRows[1]?.amount ?? 0)} đ</div>
-          <div className="small">Nợ 627 / Có 242</div>
+          <div className="small">{t("GK_DR_627_CR_242", "Nợ 627 / Có 242")}</div>
         </div>
       </div>
 
@@ -166,9 +171,9 @@ export function FaPrepaidLockPanel({
 
       <Notice type={locked ? "good" : runStatus === "REOPENED" ? "warn" : "info"}>
         {locked
-          ? t(
-              "GK_STEP1_DONE_MSG",
-              `B1 trên DB đang DONE. Tổng xem trước ${formatMoney(faTotal)} đ.`,
+          ? formatGkMessage(
+              t("GK_STEP1_DONE_MSG", "B1 trên DB đang DONE. Tổng xem trước {0} đ."),
+              formatMoney(faTotal),
             )
           : runStatus === "REOPENED"
             ? t(

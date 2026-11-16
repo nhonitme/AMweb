@@ -1,4 +1,5 @@
-import { memo, useEffect, useMemo, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useState } from "react"
+
 import Form, { GroupItem, Item as FormItem } from "devextreme-react/form"
 import SelectBox from "devextreme-react/select-box"
 
@@ -104,6 +105,58 @@ function EInvoiceHeaderSection({ vm }: EInvoiceHeaderSectionProps) {
       setBuyerExtendedOpen(true)
     }
   }, [hasBuyerExtendedData])
+  const renderCustomer = useCallback(() => (
+    <EInvoiceBuyerCustomerLookup
+      value={formData.BUYER_CUSTOMER_ID > 0 ? formData.BUYER_CUSTOMER_ID : null}
+      onChange={handleBuyerCustomerChange}
+      readOnly={isReadOnly}
+      placeholder={t("CustomerSelect", "Select customer")}
+      popupTitle={t("CustomerSelect", "Select customer")}
+      buttonHint={t("LIST_CUSTOMER", "Open customer list")}
+    />
+  ), [formData.BUYER_CUSTOMER_ID, handleBuyerCustomerChange, isReadOnly, t])
+
+  const handleTaxCodeChange = useCallback((nextValue: string) => {
+    handleFieldDataChanged({ dataField: "NMUA_MST", value: nextValue })
+  }, [handleFieldDataChanged])
+
+  const renderTaxCode = useCallback(() => (
+    <TaxCodeLookupField
+      value={formData.NMUA_MST}
+      readOnly={isReadOnly}
+      onValueChange={handleTaxCodeChange}
+      onLookupApply={handleBuyerTaxLookupApply}
+    />
+  ), [formData.NMUA_MST, isReadOnly, handleTaxCodeChange, handleBuyerTaxLookupApply])
+
+  const toggleBuyerExtended = useCallback(() => setBuyerExtendedOpen((open) => !open), [])
+  const renderBuyerToggle = useCallback(() => (
+    <button
+      type="button"
+      className="einvoice-editor__buyer-toggle"
+      onClick={toggleBuyerExtended}
+      aria-expanded={buyerExtendedOpen}
+    >
+      <span
+        className={`einvoice-editor__buyer-toggle-icon ${buyerExtendedOpen ? "is-open" : ""}`}
+        aria-hidden="true"
+      >
+        ▶
+      </span>
+      {t("BUYER_EXTENDED_INFO", "Thông tin mở rộng")}
+    </button>
+  ), [buyerExtendedOpen, toggleBuyerExtended, t])
+
+  const renderPaymentMethod = useCallback(() => (
+    <EInvoicePaymentMethodLookup
+      value={formData.HTTTOAN}
+      onChange={handlePaymentMethodChange}
+      readOnly={isReadOnly}
+      placeholder={t("PAYMENT_METHOD_SELECT", "Select payment method")}
+      popupTitle={t("PAYMENT_METHOD_SELECT", "Select payment method")}
+      buttonHint={t("PAYMENT_METHOD_LOOKUP", "Open payment method list")}
+    />
+  ), [formData.HTTTOAN, handlePaymentMethodChange, isReadOnly, t])
 
   return (
     <>
@@ -149,6 +202,7 @@ function EInvoiceHeaderSection({ vm }: EInvoiceHeaderSectionProps) {
         <div className="einvoice-editor__section-body am-einvoice-editor-form">
           <Form
             formData={formData}
+
             labelLocation="top"
             readOnly={isReadOnly}
             onFieldDataChanged={handleFieldDataChanged}
@@ -165,16 +219,7 @@ function EInvoiceHeaderSection({ vm }: EInvoiceHeaderSectionProps) {
                   <FormItem
                     label={{ text: t("CUSTOMER", "Customer") }}
                     colSpan={3}
-                    render={() => (
-                      <EInvoiceBuyerCustomerLookup
-                        value={formData.BUYER_CUSTOMER_ID > 0 ? formData.BUYER_CUSTOMER_ID : null}
-                        onChange={handleBuyerCustomerChange}
-                        readOnly={isReadOnly}
-                        placeholder={t("CustomerSelect", "Select customer")}
-                        popupTitle={t("CustomerSelect", "Select customer")}
-                        buttonHint={t("LIST_CUSTOMER", "Open customer list")}
-                      />
-                    )}
+                    render={renderCustomer}
                   />
                 ) : null}
                 <FormItem
@@ -184,14 +229,7 @@ function EInvoiceHeaderSection({ vm }: EInvoiceHeaderSectionProps) {
                 />
                 <FormItem
                   label={{ text: t("NMUA_MST", "Tax code") }}
-                  render={() => (
-                    <TaxCodeLookupField
-                      value={formData.NMUA_MST}
-                      readOnly={isReadOnly}
-                      onValueChange={(nextValue) => handleFieldDataChanged({ dataField: "NMUA_MST", value: nextValue })}
-                      onLookupApply={handleBuyerTaxLookupApply}
-                    />
-                  )}
+                  render={renderTaxCode}
                 />
                 <FormItem
                   dataField="NMUA_DCHI"
@@ -211,22 +249,7 @@ function EInvoiceHeaderSection({ vm }: EInvoiceHeaderSectionProps) {
                     <FormItem
                       colSpan={3}
                       label={{ visible: false }}
-                      render={() => (
-                        <button
-                          type="button"
-                          className="einvoice-editor__buyer-toggle"
-                          onClick={() => setBuyerExtendedOpen((open) => !open)}
-                          aria-expanded={buyerExtendedOpen}
-                        >
-                          <span
-                            className={`einvoice-editor__buyer-toggle-icon ${buyerExtendedOpen ? "is-open" : ""}`}
-                            aria-hidden="true"
-                          >
-                            ▶
-                          </span>
-                          {t("BUYER_EXTENDED_INFO", "Thông tin mở rộng")}
-                        </button>
-                      )}
+                      render={renderBuyerToggle}
                     />
                     <FormItem
                       dataField="NMUA_HVTNMHANG"
@@ -417,16 +440,7 @@ function EInvoiceHeaderSection({ vm }: EInvoiceHeaderSectionProps) {
                 {!isWarehouseForm ? (
                   <FormItem
                     label={{ text: t("HTTTOAN", "Payment method") }}
-                    render={() => (
-                      <EInvoicePaymentMethodLookup
-                        value={formData.HTTTOAN}
-                        onChange={handlePaymentMethodChange}
-                        readOnly={isReadOnly}
-                        placeholder={t("PAYMENT_METHOD_SELECT", "Select payment method")}
-                        popupTitle={t("PAYMENT_METHOD_SELECT", "Select payment method")}
-                        buttonHint={t("PAYMENT_METHOD_LOOKUP", "Open payment method list")}
-                      />
-                    )}
+                    render={renderPaymentMethod}
                   />
                 ) : null}
               </GroupItem>

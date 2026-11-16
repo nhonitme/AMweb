@@ -31,7 +31,7 @@ function statusLabel(
   if (st === "PROCESSING") return t("GK_STATUS_PROCESSING", "… Đang xử lý");
   if (st === "ERROR") return t("GK_STATUS_ERROR", "✕ Lỗi");
   if (index0 > 0 && stepStatuses[index0 - 1] !== "DONE") {
-    return t("GK_STATUS_WAIT", "◷ Chờ bước trước");
+    return t("GK_STATUS_WAIT_MARK", "◷ Chờ bước trước");
   }
   if (activeStep === ((index0 + 1) as CostingStepIndex)) return t("GK_STATUS_VIEWING", "● Đang xem");
   return t("GK_STATUS_READY", "○ Chưa thực hiện");
@@ -86,14 +86,14 @@ export function CostingStepNavigator({
         })}
       </div>
 
-      <div className="gk-side-tip">
-        <strong>{t("GK_SIDE_TIP_TITLE", "Làm việc hoàn toàn trong G-K")}</strong>
+      {/* <div className="gk-side-tip">
+        <strong>{t("GK_SIDE_TIP_TITLE", "Làm việc hoàn toàn trong G-K")}</strong> 
         <br />
         {t(
           "GK_SIDE_TIP_BODY",
           "Bước 1 và 6 dùng PeriodLock. Các bước còn lại gọi /api/production-cost.",
         )}
-      </div>
+      </div> */}
 
       <div className="gk-sidenav-foot">
         <b>{t("GK_MODE", "Chế độ")}:</b> {t("GK_MODE_SIMPLE", "Giá thành giản đơn")}

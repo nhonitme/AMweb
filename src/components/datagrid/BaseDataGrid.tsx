@@ -316,6 +316,7 @@ export function BaseDataGrid<T>({
         const hasToolbarAdd = typeof getGridToolbarAddHandler(grid) === "function";
         const hasPropAdd = typeof onAddRef.current === "function";
 
+
         setIsGridEmpty(empty);
         setEmptyAddAvailable(empty && (hasToolbarAdd || hasPropAdd));
     }, []);
@@ -950,7 +951,7 @@ export function BaseDataGrid<T>({
 
             </DataGrid>
             {emptyAddAvailable && isGridEmpty ? (
-                <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-4">
+                <div className="data-grid-empty-overlay pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-4">
                     <div className="pointer-events-auto">
                         <GridEmptyAddButton
                             label={t("lblAddNew", "Thêm mới")}

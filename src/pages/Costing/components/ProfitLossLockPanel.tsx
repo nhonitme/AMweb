@@ -80,7 +80,7 @@ export function ProfitLossLockPanel({
       rightActions={
         <>
           <Button
-            text={t("GK_CHECK", "Kiểm tra điều kiện")}
+            text={t("GK_CHECK_CONDITIONS", "Kiểm tra điều kiện")}
             stylingMode="outlined"
             disabled={busy || locked || waiting}
             onClick={() => void runCheck()}
@@ -123,8 +123,8 @@ export function ProfitLossLockPanel({
         {(
           [
             ["check", t("GK_TAB_CHECK", "Điều kiện")],
-            ["entries", t("GK_TAB_ENTRIES", "Bút toán")],
-            ["result", t("GK_TAB_RESULT", "Kết quả")],
+            ["entries", t("GK_TAB_JOURNAL", "Bút toán")],
+            ["result", t("GK_TAB_OUTCOME", "Kết quả")],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -153,10 +153,10 @@ export function ProfitLossLockPanel({
         <div>
           <div className="gk-sectiontitle">{t("GK_PL_WORKFLOW", "Nghiệp vụ kết chuyển dùng chung")}</div>
           <div className="gk-workflow">
-            <span className="mark">Doanh thu 511 → 911</span>
-            <span className="mark">Giá vốn 632 → 911</span>
-            <span className="mark">Chi phí khác → 911</span>
-            <span className="mark">911 → 4212</span>
+            <span className="mark">{t("GK_REV_511_911", "Doanh thu 511 → 911")}</span>
+            <span className="mark">{t("GK_COGS_632_911", "Giá vốn 632 → 911")}</span>
+            <span className="mark">{t("GK_OTHER_EXP_911", "Chi phí khác → 911")}</span>
+            <span className="mark">{t("GK_911_4212", "911 → 4212")}</span>
           </div>
         </div>
       ) : null}
@@ -164,13 +164,13 @@ export function ProfitLossLockPanel({
       {tab === "result" ? (
         <div className="gk-workflow">
           <span className={overview.doneFlags[0] ? "mark" : ""}>
-            Bước 1: {overview.faPrepaidStatus}
+            {t("GK_FLOW_STEP1", "Bước 1")}: {overview.faPrepaidStatus}
           </span>
           <span className={overview.doneFlags[2] ? "mark" : ""}>
-            Bước 2: {overview.cogsSummaryStatus}
+            {t("GK_FLOW_STEP2", "Bước 2")}: {overview.cogsSummaryStatus}
           </span>
           <span className={overview.doneFlags[5] ? "mark" : ""}>
-            Bước 3: {overview.profitLossStatus}
+            {t("GK_FLOW_STEP3", "Bước 3")}: {overview.profitLossStatus}
           </span>
           <span>
             {t("GK_MONTH", "Tháng")}: {overview.monthStatus}

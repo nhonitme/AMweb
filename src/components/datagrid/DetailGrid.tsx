@@ -66,6 +66,8 @@ interface DetailGridProps<TData> {
   runtimeColumnFormatAliases?: Readonly<Record<string, string>>
   /** Temporary visibility of the IO list foreign-currency columns. */
   contextualColumnVisibility?: ContextualColumnVisibility
+  /** Hide the empty-state overlay while a parent is still loading rows. */
+  suppressEmptyOverlay?: boolean
 }
 
 export function DetailGrid<TData>({
@@ -86,6 +88,7 @@ export function DetailGrid<TData>({
   runtimeColumnVisibility,
   runtimeColumnFormatAliases,
   contextualColumnVisibility,
+  suppressEmptyOverlay = false,
 }: DetailGridProps<TData>) {
   const gridRef = useRef<dxDataGrid<TData, string | number> | null>(null)
   const { translate } = useContext(LanguageContext) as {
@@ -319,7 +322,7 @@ export function DetailGrid<TData>({
       <Scrolling mode="standard" useNative={false} showScrollbar="always" />
       {renderedChildren}
     </DataGrid>
-    {isEmpty ? (
+    {isEmpty && !suppressEmptyOverlay ? (
       <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-4">
         <div className="pointer-events-auto">
           <GridEmptyAddButton title={emptyStateText} />

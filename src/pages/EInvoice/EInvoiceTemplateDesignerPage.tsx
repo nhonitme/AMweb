@@ -36,6 +36,8 @@ export default function EInvoiceTemplateDesignerPage() {
   const sellerId = positiveId(searchParams.get("sellerId"))
   const { data: sellerData } = useEInvoiceSettingSellersQuery()
 
+
+
   const templates = useMemo(
     () =>
       (sellerData ?? [])

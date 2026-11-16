@@ -8,7 +8,7 @@ import Popup from "devextreme-react/popup";
 import Button from "devextreme-react/button";
 import TextArea from "devextreme-react/text-area";
 import type { CostingReopenInfo } from "../types/productionCostingTypes";
-import { Notice } from "./costingPanelShared";
+import { formatGkMessage, Notice } from "./costingPanelShared";
 
 type CostingReopenPopupProps = {
   visible: boolean;
@@ -47,7 +47,7 @@ export function CostingReopenPopup({
       onHiding={onClose}
       dragEnabled
       showCloseButton
-      title={t("GK_REOPEN_TITLE", `Mở lại bước ${info.stepIndex}`)}
+      title={formatGkMessage(t("GK_REOPEN_TITLE", "Mở lại bước {0}"), info.stepIndex)}
       width={640}
       height="auto"
       maxHeight="90vh"
@@ -62,7 +62,7 @@ export function CostingReopenPopup({
             <div className="small">{info.stepCode}</div>
           </div>
           <div className="gk-mini">
-            <div className="title">{t("GK_PERIOD", "Kỳ / Công ty")}</div>
+            <div className="title">{t("GK_PERIOD_COMPANY", "Kỳ / Công ty")}</div>
             <div className="num" style={{ fontSize: 14 }}>
               {info.periodYm} / {info.companyCd}
             </div>

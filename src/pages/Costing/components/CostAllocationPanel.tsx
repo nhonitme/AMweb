@@ -29,11 +29,6 @@ import { CostingCompareTable } from "./CostingCompareTable";
 
 type TabKey = "pool" | "products";
 
-const ALLOCATE_OPTIONS: Array<{ value: AllocateType; text: string }> = [
-  { value: 0, text: "Theo NVL chính (Nợ 621 / Có 152)" },
-  { value: 1, text: "Theo SL thành phẩm nhập kho (Nợ 155 / Có 154)" },
-];
-
 export function CostAllocationPanel({
   overview,
   busy,
@@ -187,7 +182,10 @@ export function CostAllocationPanel({
       <div className="gk-toolbar" style={{ flexWrap: "wrap", gap: 12 }}>
         <div className="gk-toolleft" style={{ flexWrap: "wrap", gap: 16, alignItems: "center" }}>
           <RadioGroup
-            items={ALLOCATE_OPTIONS}
+            items={[
+              { value: 0, text: t("GK_ALLOC_NVL", "Theo NVL chính (Nợ 621 / Có 152)") },
+              { value: 1, text: t("GK_ALLOC_FG_QTY", "Theo SL thành phẩm nhập kho (Nợ 155 / Có 154)") },
+            ]}
             value={overview.allocateType}
             valueExpr="value"
             displayExpr="text"

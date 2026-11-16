@@ -1,5 +1,6 @@
-import { Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { Suspense, memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import notify from "devextreme/ui/notify"
+
 import { useLocation, useNavigate } from "react-router-dom"
 import { Column } from "devextreme-react/data-grid"
 import LoadPanel from "devextreme-react/load-panel"
@@ -128,6 +129,7 @@ type EInvoiceListQueryState = {
 type InvoiceStatusActionKey = "edit-mail" | "mail-history" | "transmission-history"
 
 const EINVOICE_COPY_EXCLUDE_FIELDS = ["INVOICE_ID", "COMPANY_CD", "DETAILS", "MTRACUU"]
+const EInvoiceManageGrid = memo(PageGrid<EInvoice>)
 
 function trimGridCellText(value: unknown): string {
     return String(value ?? "").trim()
@@ -639,6 +641,7 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
             const resolvedPageNumber = resolvePageNumber(targetPage)
             const resolvedPageSize = resolvePageSize(targetPageSize)
 
+
             setKeyword(query.keyword)
             setAdvancedApplied(query.filters)
             setAdvancedDraft(cloneEInvoiceAdvancedFilters(query.filters))
@@ -752,6 +755,7 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
         if (!isListError || !listError) {
             return
         }
+
 
         notify(getApiErrorMessage(listError, t("LOAD_FAILED", "Tải thất bại")), "error", 4000)
     }, [isListError, listError, listFetchEnabled, t])
@@ -1564,6 +1568,7 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
             return
         }
 
+
         if (initialPagingEventsSuppressedRef.current) {
             return
         }
@@ -1735,7 +1740,8 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
 
                 <div className="relative min-h-0 flex-1 overflow-hidden">
                     <EInvoiceTableShell className="h-full">
-                        <PageGrid<EInvoice>
+
+                        <EInvoiceManageGrid
                             dataSource={dataSource}
                             keyExpr="INVOICE_ID"
                             screenCd={screenCd}
@@ -1758,7 +1764,8 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
                             onOptionChanged={handleOptionChanged}
                         >
                             {gridChildren}
-                        </PageGrid>
+                        </EInvoiceManageGrid>
+
                     </EInvoiceTableShell>
 
                     <LoadPanel

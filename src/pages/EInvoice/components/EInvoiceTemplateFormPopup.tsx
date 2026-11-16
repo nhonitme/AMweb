@@ -72,7 +72,7 @@ function createEmptyValues(): EInvoiceTemplateFormValues {
     KHMSHDON: "1",
     KHHDON: composeKhhdon(khhdonParts),
     FROM_SHDON: "1",
-    TO_SHDON: "",
+    TO_SHDON: "50",
     USE_MULTI_TAX_RATE: 0,
     XSL_FILE_NAME: "",
   }
@@ -109,6 +109,7 @@ export default function EInvoiceTemplateFormPopup({
   const [loaiOptions, setLoaiOptions] = useState<EInvoiceKhhdonPartOption[]>(() => buildEInvoiceKhhdonLoaiOptions([], t))
   const [loadingSamples, setLoadingSamples] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [customToNumber, setCustomToNumber] = useState(false)
 
   useEffect(() => {
     if (!visible) return
@@ -118,6 +119,7 @@ export default function EInvoiceTemplateFormPopup({
         ? fromTemplate(template)
         : createEmptyValues()
     setValues(nextValues)
+    setCustomToNumber(!["50", "100", "200"].includes(nextValues.TO_SHDON))
     setKhhdonParts(parseKhhdonParts(nextValues.KHHDON))
   }, [visible, isCreate, template])
 
@@ -191,6 +193,15 @@ export default function EInvoiceTemplateFormPopup({
   }
 
   const handleSave = async () => {
+    const toNumber = normalizeText(values.TO_SHDON)
+    if (!toNumber) {
+      notify(t("TO_SHDON_REQUIRED", "Hãy nhập đến số"), "warning", 3000)
+      return
+    }
+    if (!/^\d{1,8}$/.test(toNumber) || Number(toNumber) < 1) {
+      notify(t("TO_SHDON_INVALID", "Đến số phải là số nguyên từ 1 đến 99999999"), "warning", 3000)
+      return
+    }
     if (!normalizeText(values.KHMSHDON)) {
       notify(t("KHMSHDON_REQUIRED", "Hãy chọn mẫu số hóa đơn"), "warning", 3000)
       return
@@ -236,7 +247,7 @@ export default function EInvoiceTemplateFormPopup({
         KHMSHDON: khms,
         KHHDON: khhdon,
         FROM_SHDON: normalizeText(values.FROM_SHDON) || "1",
-        TO_SHDON: normalizeText(values.TO_SHDON) || null,
+        TO_SHDON: toNumber,
         USE_MULTI_TAX_RATE: values.USE_MULTI_TAX_RATE,
         XSL_FILE_NAME: isCreate ? normalizeText(values.XSL_FILE_NAME) : null,
       })
@@ -399,14 +410,39 @@ export default function EInvoiceTemplateFormPopup({
                 />
               </label>
               <label className="block text-xs">
-                <span className="mb-1 block font-medium">{t("TO_SHDON", "Đến số")}</span>
-                <TextBox
-                  value={values.TO_SHDON}
-                  maxLength={8}
+                <span className="mb-1 block font-medium">{t("TO_SHDON", "Đến số")} *</span>
+                <SelectBox
+                  dataSource={[
+                    { value: "50", text: "50" },
+                    { value: "100", text: "100" },
+                    { value: "200", text: "200" },
+                    { value: "other", text: t("OTHER", "Khác") },
+                  ]}
+                  value={customToNumber ? "other" : values.TO_SHDON}
+                  valueExpr="value"
+                  displayExpr="text"
                   stylingMode="outlined"
                   disabled={saving}
-                  onValueChanged={(event) => patch({ TO_SHDON: String(event.value ?? "") })}
+                  onValueChanged={(event) => {
+                    if (!event.event) return
+                    const custom = event.value === "other"
+                    setCustomToNumber(custom)
+                    patch({ TO_SHDON: custom ? "" : String(event.value ?? "") })
+                  }}
                 />
+                {customToNumber && (
+                  <div className="mt-2">
+                    <TextBox
+                      value={values.TO_SHDON}
+                      maxLength={8}
+                      stylingMode="outlined"
+                      disabled={saving}
+                      placeholder={t("TO_SHDON_REQUIRED", "Hãy nhập đến số")}
+                      inputAttr={{ "aria-label": t("TO_SHDON", "Đến số"), "aria-required": "true", inputMode: "numeric" }}
+                      onValueChanged={(event) => patch({ TO_SHDON: String(event.value ?? "") })}
+                    />
+                  </div>
+                )}
               </label>
             </div>
             <div className="pt-1">

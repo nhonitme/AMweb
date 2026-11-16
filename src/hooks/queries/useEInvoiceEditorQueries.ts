@@ -23,6 +23,7 @@ export function useEInvoiceSellersQuery(khhdon = "", enabled = true) {
     queryFn: () => loadEInvoiceSellers({ khhdon: normalizedKhhdon, includeAllTemplates: true }),
     enabled: enabled && Boolean(companyCd),
     staleTime: STALE_TIME.MASTER,
+    refetchOnMount: false,
   })
 }
 
@@ -46,6 +47,7 @@ export function useEInvoiceUserSettingDefaultsQuery(enabled = true) {
     queryFn: () => loadEInvoiceUserSettingDefaults(companyCd, true),
     enabled: enabled && Boolean(companyCd),
     staleTime: STALE_TIME.USER_SETTING,
+    refetchOnMount: false,
   })
 }
 

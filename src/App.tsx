@@ -65,6 +65,7 @@ import {
     useWorkspaceTabsController,
 } from '@/components/workspaceTabs/WorkspaceTabs';
 
+
 const DashboardPage = lazy(() => import('./components/DashboardPage'));
 const HelpSupportPage = lazy(() => import('./components/HelpSupportPage'));
 const UiGuidelinesDevPage = lazy(() => import('./pages/Help/UiGuidelinesDevPage'));
@@ -139,6 +140,7 @@ const PublicEInvoiceMinuteLookupPage = lazy(() => import('./pages/EInvoice/Publi
 const EInvoiceDeclarationPage = lazy(() => import('./pages/EInvoice/EInvoiceDeclarationPage'));
 const EInvoiceSettingPage = lazy(() => import('./pages/EInvoice/EInvoiceSettingPage'));
 const EInvoiceTemplateDesignerPage = lazy(() => import('./pages/EInvoice/EInvoiceTemplateDesignerPage'));
+
 const EInvoiceErrorNoticePage = lazy(() => import('./pages/EInvoice/EInvoiceErrorNoticePage'));
 const EInvoiceMinutesPage = lazy(() => import('./pages/EInvoice/EInvoiceMinutesPage'));
 

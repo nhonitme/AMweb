@@ -24,22 +24,10 @@ import {
   setWipMethod,
 } from "@/api/productionCostingApi";
 import type { WipDetailRow, WipMethod } from "../types/productionCostingTypes";
-import { formatMoney, Notice, StepShell, type PanelCommonProps } from "./costingPanelShared";
+import { formatGkMessage, formatMoney, Notice, StepShell, type PanelCommonProps } from "./costingPanelShared";
 import { CostingCompareTable } from "./CostingCompareTable";
 
 type TabKey = "aggregate" | "wip" | "receipt" | "result";
-
-const WIP_METHOD_OPTIONS: Array<{ value: WipMethod; text: string }> = [
-  { value: "PERCENT_COMPLETED", text: "Theo NVL chính – Hoàn thành (%)" },
-  { value: "CLOSING_WIP_QUANTITY", text: "Theo NVL chính – Số lượng dở dang cuối kỳ" },
-];
-
-const PRESET_OPTIONS = [
-  { value: "standard", text: "Chuẩn (mặc định)" },
-  { value: "sl_tp_sx_p08", text: "SL TP SX — p=0.8" },
-  { value: "sl_tp_sx_p07", text: "SL TP SX — p=0.7" },
-  { value: "id2720_p05", text: "ID2720 — tách 621/62N p=0.5" },
-];
 
 export function CostCalculationPanel({
   overview,
@@ -78,9 +66,12 @@ export function CostCalculationPanel({
           return;
         }
         const ok = await confirm(
-          t(
-            "GK_STEP4_CONFIRM",
-            `Xác nhận lưu snapshot giá thành của ${overview.receiptRows.length} phiếu INPUT_ID? Bước này chưa cập nhật kho.`,
+          formatGkMessage(
+            t(
+              "GK_STEP4_CONFIRM",
+              "Xác nhận lưu snapshot giá thành của {0} phiếu INPUT_ID? Bước này chưa cập nhật kho.",
+            ),
+            overview.receiptRows.length,
           ),
           t("GK_STEP4_TITLE", "Tính & ghi nhận giá thành"),
         );
@@ -199,7 +190,10 @@ export function CostCalculationPanel({
       <div className="gk-toolbar" style={{ flexWrap: "wrap", gap: 12 }}>
         <div className="gk-toolleft" style={{ flexWrap: "wrap", gap: 16, alignItems: "center" }}>
           <RadioGroup
-            items={WIP_METHOD_OPTIONS}
+            items={[
+              { value: "PERCENT_COMPLETED", text: t("GK_WIP_METHOD_PCT", "Theo NVL chính – Hoàn thành (%)") },
+              { value: "CLOSING_WIP_QUANTITY", text: t("GK_WIP_METHOD_QTY", "Theo NVL chính – Số lượng dở dang cuối kỳ") },
+            ]}
             value={method}
             valueExpr="value"
             displayExpr="text"
@@ -214,7 +208,12 @@ export function CostCalculationPanel({
           <label className="gk-rate-field">
             {t("GK_WIP_PRESET", "Cấu hình đặc biệt (demo)")}
             <SelectBox
-              items={PRESET_OPTIONS}
+              items={[
+                { value: "standard", text: t("GK_WIP_PRESET_STD", "Chuẩn (mặc định)") },
+                { value: "sl_tp_sx_p08", text: t("GK_WIP_PRESET_P08", "SL TP SX — p=0.8") },
+                { value: "sl_tp_sx_p07", text: t("GK_WIP_PRESET_P07", "SL TP SX — p=0.7") },
+                { value: "id2720_p05", text: t("GK_WIP_PRESET_ID2720", "ID2720 — tách 621/62N p=0.5") },
+              ]}
               value={overview.incompleteConfig.presetKey}
               valueExpr="value"
               displayExpr="text"
@@ -264,7 +263,7 @@ export function CostCalculationPanel({
           <Column dataField="amount6212" caption="6212" dataType="number" format="#,##0" width={90} />
           <Column dataField="amount622" caption="622" dataType="number" format="#,##0" width={100} />
           <Column dataField="amount627" caption="627" dataType="number" format="#,##0" width={100} />
-          <Column dataField="amount154Direct" caption="154 TT" dataType="number" format="#,##0" width={90} />
+          <Column dataField="amount154Direct" caption={t("AMOUNT_154", "154 TT")} dataType="number" format="#,##0" width={90} />
           <Column dataField="periodCost" caption={t("PERIOD_COST", "CP kỳ")} dataType="number" format="#,##0" width={110} />
           <Column dataField="openingWip" caption={t("OPEN_WIP", "DD đầu")} dataType="number" format="#,##0" width={110} />
           <Column dataField="closingWip" caption={t("CLOSE_WIP", "DD cuối")} dataType="number" format="#,##0" width={110} />
@@ -431,13 +430,13 @@ export function CostCalculationPanel({
           <Column dataField="finishedQty" caption={t("QTY_FINISHED", "SL HT")} dataType="number" width={80} />
           <Column
             dataField="finishedCost"
-            caption={t("TOTAL_COST", "Giá thành HT")}
+            caption={t("GK_FG_COST", "Giá thành HT")}
             dataType="number"
             format="#,##0"
             width={120}
           />
           <Column dataField="inventoryNo" caption={t("INVENTORY_NO", "Số phiếu NK")} width={140} />
-          <Column dataField="qty" caption={t("QTY", "SL phiếu")} dataType="number" width={80} />
+          <Column dataField="qty" caption={t("GK_SLIP_QTY", "SL phiếu")} dataType="number" width={80} />
           <Column
             dataField="oldUnitPrice"
             caption={t("OLD_UNIT", "Đơn giá cũ")}
@@ -509,9 +508,9 @@ export function CostCalculationPanel({
 
       <Notice type={locked ? "good" : overview.costPreviewed ? "info" : "warn"}>
         {locked
-          ? t(
-              "GK_STEP4_DONE",
-              `Snapshot giá thành ${formatMoney(overview.aggregateRows.reduce((s, r) => s + r.finishedCost, 0))} đ. Kho chưa đổi ở bước này.`,
+          ? formatGkMessage(
+              t("GK_STEP4_DONE", "Snapshot giá thành {0} đ. Kho chưa đổi ở bước này."),
+              formatMoney(overview.aggregateRows.reduce((s, r) => s + r.finishedCost, 0)),
             )
           : overview.costPreviewed
             ? t("GK_STEP4_PREVIEWED", "Đã tính thử — chưa ghi đè. Xác nhận mới cập nhật đơn giá chính thức.")

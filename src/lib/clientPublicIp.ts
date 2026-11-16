@@ -99,6 +99,7 @@ export function attachClientPublicIpInterceptor(instance: AxiosInstance): void {
     if (ip) {
       config.headers.set(CLIENT_IP_HEADER, ip);
     }
+
     return config;
   });
 }

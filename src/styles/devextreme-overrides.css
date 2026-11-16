@@ -337,6 +337,12 @@
   position: relative;
 }
 
+/* DX paints rows before React commits the empty-state update from contentReady.
+   Hide the stale overlay in that same paint, including its Add button. */
+.data-grid-container:has(.dx-datagrid-rowsview .dx-data-row) > .data-grid-empty-overlay {
+  display: none;
+}
+
 /* Shared subtle cell separators for every DevExtreme DataGrid and TreeList. */
 .dx-datagrid .dx-datagrid-headers .dx-row > td,
 .dx-treelist .dx-treelist-headers .dx-row > td {

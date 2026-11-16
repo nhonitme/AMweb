@@ -28,6 +28,14 @@ export function formatMoney(value: number): string {
   return moneyFmt.format(Math.round(Number(value) || 0));
 }
 
+/** Thay {0}, {1}, … trong câu dịch. Giá trị không bị hiểu là biểu thức thay thế. */
+export function formatGkMessage(message: string, ...values: Array<string | number>): string {
+  return message.replace(/\{(\d+)\}/g, (placeholder, index: string) => {
+    const value = values[Number(index)];
+    return value === undefined ? placeholder : String(value);
+  });
+}
+
 type StepShellProps = {
   stepNo: string;
   /** Bước 1–6; bỏ trống với bước 0 (kiểm tra đầu vào). */

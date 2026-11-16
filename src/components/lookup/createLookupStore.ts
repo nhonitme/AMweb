@@ -95,6 +95,7 @@ export function createLookupStore<T extends object, K extends Extract<keyof T, s
 
   return {
     store,
+    loadRows: loadRowsOnce,
     clearCache: () => {
       cacheToken = readCacheToken()
       resetCache()

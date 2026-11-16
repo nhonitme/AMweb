@@ -109,6 +109,10 @@ function OffsetControls({
   onChangeX: (value: number) => void
   onChangeY: (value: number) => void
 }) {
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
   return (
     <>
 <NumberControl label={t("OFFSET_X", "Trái / phải (px)")} value={offsetX} min={-200} max={200} signed onChange={onChangeX} />
@@ -187,13 +191,13 @@ export default function EInvoiceTemplateDesignerPopup({
           transformResponse: [(data) => data],
           params: { xslId, designId: resolvedDesignId },
         })
-        .catch(() =>
-          axios.get<string>(`${API_BASE_URL}/EInvoiceSetting/sellers/${sellerId}/preview/html`, {
+        .catch(() => {
+          return axios.get<string>(`${API_BASE_URL}/EInvoiceSetting/sellers/${sellerId}/preview/html`, {
             responseType: "text",
             transformResponse: [(data) => data],
             params: { xslId },
-          }),
-        )
+          })
+        })
       const html = typeof response.data === "string" ? response.data : String(response.data ?? "")
       setPreviewHtml(html)
     } catch (error) {
@@ -256,29 +260,6 @@ export default function EInvoiceTemplateDesignerPopup({
   }, [])
 
 
-  useEffect(() => {
-    if (xslId <= 0) {
-      setActiveDesignId(0)
-      setPreviewHtml("")
-      setDesigns([])
-      return
-    }
-    setLoading(true)
-    setPreviewHtml("")
-    void getEInvoiceTemplateDesignerDesigns(xslId)
-      .then(designList => {
-        setDesigns(designList.data)
-        const preferred =
-          [...designList.data].sort((a, b) => a.DESIGN_ID - b.DESIGN_ID)[0]?.DESIGN_ID ?? 0
-        setActiveDesignId(preferred)
-        syncSettingsFromDesign(designList.data.find(design => design.DESIGN_ID === preferred))
-      })
-      .catch(() => {
-        setDesigns([])
-        notify("Không tải được danh sách mẫu hóa đơn", "error", 3500)
-      })
-      .finally(() => setLoading(false))
-  }, [xslId, sellerId])
 
   useEffect(() => {
     const design = designs.find(item => item.DESIGN_ID === activeDesignId)

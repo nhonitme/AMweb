@@ -85,6 +85,7 @@ export function CostingHeader({
           stylingMode="outlined"
           disabled={busy}
           onClick={onOpenHistory}
+          visible={false}
         />
       </div>
     </div>

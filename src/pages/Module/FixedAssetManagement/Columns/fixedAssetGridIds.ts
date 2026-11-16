@@ -2,4 +2,6 @@
 export const FIXED_ASSET_SCREEN_CD = '/module/fixed-asset-management'
 export const FIXED_ASSET_MASTER_GRID_ID = 'fixed-asset-grid'
 export const FIXED_ASSET_ALLOCATION_GRID_ID = 'fixed-asset-allocation-editor-grid'
+/** Read-only allocation lines under the register list. Catalog: sys_grid_column. */
+export const FIXED_ASSET_REGISTER_DETAIL_GRID_ID = 'fixed-asset-register-detail-grid'
 export const FIXED_ASSET_MENU_CODE = 'FA_REGISTER'

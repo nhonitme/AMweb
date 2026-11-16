@@ -23,7 +23,13 @@ import {
   calcAllocAmountsFromRate,
   type DepreciationHeaderAmounts,
 } from '../fixedAssetAllocationCalc'
-import { resolveFaColumns, type FaResolvedColumn } from './faColumnLayout'
+import {
+  FA_INTEGER_NUMBER_FORMAT,
+  formatFaGridInteger,
+  isFaMoneyField,
+  resolveFaColumns,
+  type FaResolvedColumn,
+} from './faColumnLayout'
 import { FIXED_ASSET_ALLOCATION_COLUMN_DEFS } from './fixedAssetAllocationColumnDefs'
 import { FIXED_ASSET_ALLOCATION_GRID_ID } from './fixedAssetGridIds'
 
@@ -277,7 +283,22 @@ export function useFixedAssetAllocationColumns({
             <Column
               key={column.fieldName}
               {...base}
+              dataType="number"
+              format={FA_INTEGER_NUMBER_FORMAT}
+              customizeText={(cellInfo: AllocationCellInfo) => formatFaGridInteger(cellInfo.value)}
               setCellValue={setAllocRateCellValue}
+            />
+          )
+        }
+
+        if (isFaMoneyField(column.fieldName)) {
+          return (
+            <Column
+              key={column.fieldName}
+              {...base}
+              dataType="number"
+              format={FA_INTEGER_NUMBER_FORMAT}
+              customizeText={(cellInfo: AllocationCellInfo) => formatFaGridInteger(cellInfo.value)}
             />
           )
         }

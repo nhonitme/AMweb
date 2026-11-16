@@ -1,4 +1,5 @@
 import Button from "devextreme-react/button"
+
 import CheckBox from "devextreme-react/check-box"
 import DataGrid, { Column, ColumnFixing, Editing, RequiredRule, Scrolling } from "devextreme-react/data-grid"
 
@@ -154,6 +155,7 @@ export default function EInvoiceDetailGridSection({ vm }: EInvoiceDetailGridSect
           onInitialized={(event) => {
             detailGridRef.current = event.component ?? null
           }}
+
           onSaved={handleDetailSaved}
           onCellClick={handleDetailCellClick}
           onFocusedCellChanged={handleDetailFocusedCellChanged}

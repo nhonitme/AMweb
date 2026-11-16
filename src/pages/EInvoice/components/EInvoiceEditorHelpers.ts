@@ -1,7 +1,7 @@
 import React, { type ReactElement } from "react"
 import type dxDataGrid from "devextreme/ui/data_grid"
 
-import { fetchCustomerLookup } from "@/api/lookupApi"
+import { loadCachedCustomerLookup } from "@/components/lookup/customerLookupStore"
 import { LookupGridCellEditor } from "@/components/lookup/LookupGridCellDisplay"
 import { currencyLookupStore, type CurrencyLookupItem } from "@/components/lookup/currencyLookupStore"
 import { DEFAULT_CURRENCY_CODE } from "@/lib/currency"
@@ -140,7 +140,7 @@ export async function resolveBuyerCustomerId(invoice: EInvoice): Promise<number>
     return 0
   }
 
-  const customers = await fetchCustomerLookup()
+  const customers = await loadCachedCustomerLookup()
   if (customerCd) {
     const matched = customers.find((item) => String(item.CUSTOMER_CD ?? "").trim() === customerCd)
     if (matched) {

@@ -9,7 +9,7 @@ export type VatInvoiceColumn = {
 }
 
 export const VAT_INVOICE_COLUMNS: readonly VatInvoiceColumn[] = [
-  { field: "tdlap", caption: "Ngày hóa đơn", width: 115, type: "date" },
+  { field: "tdlap", caption: "Ngày lập", width: 115, type: "date" },
   { field: "khmshdon", caption: "Mẫu số", width: 90 },
   { field: "khmshdon_ten", caption: "Loại hóa đơn", width: 160 },
   { field: "khhdon", caption: "Ký hiệu", width: 100 },

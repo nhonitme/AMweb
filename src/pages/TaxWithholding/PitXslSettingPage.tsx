@@ -2,6 +2,7 @@ import { useCallback, useContext, useMemo, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import Button from "devextreme-react/button"
 import NumberBox from "devextreme-react/number-box"
+import SelectBox from "devextreme-react/select-box"
 import LoadPanel from "devextreme-react/load-panel"
 import TextBox from "devextreme-react/text-box"
 import { Column } from "devextreme-react/data-grid"
@@ -40,7 +41,7 @@ function emptyEditor(): EditorState {
     TEMPLATE_NM: "",
     SERIES: `CT${yy}AA`,
     FROM_DOC_NO: 1,
-    TO_DOC_NO: null,
+    TO_DOC_NO: 50,
   }
 }
 
@@ -51,6 +52,7 @@ export default function PitXslSettingPage() {
   const [busy, setBusy] = useState(false)
   const [selected, setSelected] = useState<PitXslTemplate | null>(null)
   const [editor, setEditor] = useState<EditorState | null>(null)
+  const [customToNumber, setCustomToNumber] = useState(false)
   const popupScopeId = usePopupShortcutScopeId("pit-xsl-setting")
   usePitSaveShortcut(save, !busy && Boolean(editor), popupScopeId, Boolean(editor), {
     onClose: () => {
@@ -90,6 +92,7 @@ export default function PitXslSettingPage() {
   async function openEdit(row: PitXslTemplate) {
     await run(async () => {
       const detail = await pitXslApi.get(row.XSL_ID)
+      setCustomToNumber(![50, 100, 200].includes(detail.TO_DOC_NO ?? 0))
       setEditor({
         xslId: detail.XSL_ID,
         TEMPLATE_NM: detail.TEMPLATE_NM || "",
@@ -102,6 +105,14 @@ export default function PitXslSettingPage() {
 
   async function save() {
     if (!editor) return
+    if (editor.TO_DOC_NO == null) {
+      notify(t("TO_DOC_NO_REQUIRED", "Hãy nhập đến số"), "warning", 3000)
+      return
+    }
+    if (!Number.isInteger(editor.TO_DOC_NO) || editor.TO_DOC_NO < 1 || editor.TO_DOC_NO > 99999999) {
+      notify(t("TO_DOC_NO_INVALID", "Đến số phải là số nguyên từ 1 đến 99999999"), "warning", 3000)
+      return
+    }
     const series = editor.SERIES.trim().toUpperCase()
     if (!/^CT\d{2}[A-Z]{2}$/.test(series)) {
       notify("Ký hiệu phải là CT + hai số năm + hai chữ in hoa (ví dụ CT26AA)", "warning", 4000)
@@ -113,7 +124,7 @@ export default function PitXslSettingPage() {
         TEMPLATE_NM: editor.TEMPLATE_NM.trim() || `Chứng từ khấu trừ TNCN · ${series}`,
         SERIES: series,
         FROM_DOC_NO: editor.FROM_DOC_NO || 1,
-        TO_DOC_NO: editor.TO_DOC_NO && editor.TO_DOC_NO > 0 ? editor.TO_DOC_NO : null,
+        TO_DOC_NO: editor.TO_DOC_NO,
       }
       if (editor.xslId > 0) await pitXslApi.update(editor.xslId, body)
       else await pitXslApi.create({ ...body, IS_ACTIVE: 0 })
@@ -213,7 +224,10 @@ export default function PitXslSettingPage() {
         <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
           <GridToolbar
             gridRef={gridRef}
-            onAdd={() => setEditor(emptyEditor())}
+            onAdd={() => {
+              setCustomToNumber(false)
+              setEditor(emptyEditor())
+            }}
             onRefresh={() => void refresh()}
             onDelete={() => void remove()}
             deleteDisabled={busy || !selected || selected.IS_DEFAULT === 1}
@@ -330,21 +344,43 @@ export default function PitXslSettingPage() {
                     />
                   </label>
                   <label>
-                    Đến số
-                    <NumberBox
-                      value={editor.TO_DOC_NO ?? undefined}
-                      min={1}
-                      max={99999999}
-                      placeholder={t("SERIES_LIMIT_HINT", "Không giới hạn")}
-                      showClearButton
-                      showSpinButtons
-                      onValueChanged={(e) =>
-                        setEditor({
-                          ...editor,
-                          TO_DOC_NO: e.value == null || e.value === "" ? null : Number(e.value),
-                        })
-                      }
+                    Đến số *
+                    <SelectBox
+                      dataSource={[
+                        { value: 50, text: "50" },
+                        { value: 100, text: "100" },
+                        { value: 200, text: "200" },
+                        { value: "other", text: t("OTHER", "Khác") },
+                      ]}
+                      value={customToNumber ? "other" : editor.TO_DOC_NO}
+                      valueExpr="value"
+                      displayExpr="text"
+                      disabled={busy}
+                      onValueChanged={(e) => {
+                        if (!e.event) return
+                        const custom = e.value === "other"
+                        setCustomToNumber(custom)
+                        setEditor({ ...editor, TO_DOC_NO: custom ? null : Number(e.value) })
+                      }}
                     />
+                    {customToNumber && (
+                      <div className="mt-2">
+                        <NumberBox
+                          value={editor.TO_DOC_NO ?? null}
+                          min={1}
+                          max={99999999}
+                          placeholder={t("TO_DOC_NO_REQUIRED", "Hãy nhập đến số")}
+                          disabled={busy}
+                          inputAttr={{ "aria-label": t("TO_DOC_NO", "Đến số"), "aria-required": "true" }}
+                          onValueChanged={(e) =>
+                            setEditor({
+                              ...editor,
+                              TO_DOC_NO: e.value == null || e.value === "" ? null : Number(e.value),
+                            })
+                          }
+                        />
+                      </div>
+                    )}
                   </label>
                 </div>
               </EInvoiceEditorSection>

@@ -1,4 +1,5 @@
 import { handleMobileDeviceError, isMobileDeviceBlocked } from "@/lib/mobileDevicePolicy";
+
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import API_BASE_URL from "../config/apiConfig";
 import { API_REQUEST_TIMEOUT_MS } from "../config/httpConfig";
@@ -124,6 +125,7 @@ axios.interceptors.request.use((config) => {
   }
 
   normalizeRequestData(config);
+
   return config;
 });
 

@@ -11,6 +11,9 @@ import { SYSTEM_GRID_TEMPLATE_ID } from '@/types/sysGridColumnSetting'
 
 import { getFaStatusDisplayText, normalizeFixedAssetStatus } from '../fixedAssetStatus'
 import {
+  formatFaGridInteger,
+  FA_INTEGER_NUMBER_FORMAT,
+  isFaMoneyField,
   resolveFaColumnsFromSysGrid,
   type FaColumnBehavior,
   type FaResolvedColumn,
@@ -111,6 +114,18 @@ export const useFixedAssetColumns: React.FC<FixedAssetColumnsProps> = ({
               key={column.fieldName}
               {...base}
               calculateCellValue={calculateStatusText}
+            />
+          )
+        }
+
+        if (isFaMoneyField(column.fieldName)) {
+          return (
+            <Column
+              key={column.fieldName}
+              {...base}
+              dataType="number"
+              format={FA_INTEGER_NUMBER_FORMAT}
+              customizeText={(cell) => formatFaGridInteger(cell.value)}
             />
           )
         }

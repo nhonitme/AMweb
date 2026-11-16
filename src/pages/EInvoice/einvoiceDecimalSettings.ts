@@ -14,6 +14,7 @@ import type {
 export type EInvoiceDecimalFormat = LocalizationFormat
 
 const DEFAULT_APPLY_TARGET_PRIORITIES: EInvoiceDecimalApplyTarget[] = ["UI", "TAX_XML", "INTERNAL_REPORT"]
+const EMPTY_DECIMAL_RULES: EInvoiceDecimalSetting[] = []
 
 export interface EInvoiceDecimalResolver {
   rules: EInvoiceDecimalSetting[]
@@ -253,7 +254,7 @@ export function useEInvoiceDecimalResolver(
     return [applyTarget]
   }, [applyTarget])
 
-  const { data: rules = [], dataUpdatedAt } = useEInvoiceSettingDecimalsQuery(normalizedXslId, true, {
+  const { data: rules = EMPTY_DECIMAL_RULES, dataUpdatedAt } = useEInvoiceSettingDecimalsQuery(normalizedXslId, true, {
     includeInactive: false,
   })
 

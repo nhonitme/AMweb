@@ -1,4 +1,5 @@
 import EditorActionToolbar from "@/components/toolbar/EditorActionToolbar"
+
 import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import Button from "devextreme-react/button"
@@ -261,14 +262,16 @@ export default function EInvoiceEditorPopupContent({
   onSign,
 }: EInvoiceEditorPopupProps) {
   const lookupPopupHost = useLookupPopupHost()
+
   const queryClient = useQueryClient()
   const popupShortcutScopeId = usePopupShortcutScopeId("einvoice-editor")
   const companyCd = getCurrentCompanyCd()
+  const [formData, setFormData] = useState<EInvoiceFormData>(() => createInvoiceFormData(companyCd))
   const detailGridRef = useRef<dxDataGrid<EInvoiceDetailRow, GridKey> | null>(null)
   const detailGridContainerRef = useRef<HTMLDivElement | null>(null)
   const editorScrollContainerRef = useRef<HTMLDivElement | null>(null)
   const currentDetailRowKeyRef = useRef<string | null>(null)
-  const formDataRef = useRef<EInvoiceFormData>(createInvoiceFormData(companyCd))
+  const formDataRef = useRef<EInvoiceFormData>(formData)
   const headerStampRef = useRef("")
   const headerFormDataRef = useRef<EInvoiceFormData>(formDataRef.current)
   const manualTotalOverridesRef = useRef<Partial<Record<string, unknown>>>({})
@@ -282,11 +285,13 @@ export default function EInvoiceEditorPopupContent({
   const fetchInvoiceId = copyFromInvoiceId > 0 ? copyFromInvoiceId : invoiceId
   const editorSessionId = `${invoiceIdProp}:${copyFromInvoiceId}:${initialInvoice ? "prefetch" : "fetch"}`
   const [saving, setSaving] = useState(false)
-  const [formData, setFormData] = useState<EInvoiceFormData>(() => createInvoiceFormData(companyCd))
+  const [buyerSource, setBuyerSource] = useState<EInvoice | null>(null)
   const [editorSessionKey, setEditorSessionKey] = useState(0)
   const [tchatOptions, setTchatOptions] = useState<EinvTchatLookupItem[]>([])
   const [lhhdtrungOptions, setLhhdtrungOptions] = useState<EinvLhhdtrungLookupItem[]>([])
   const [tchdonOptions, setTchdonOptions] = useState<SysCode[]>([])
+  const [editorCodesReady, setEditorCodesReady] = useState(false)
+  const [editorShellPainted, setEditorShellPainted] = useState(false)
   const [detailImportVisible, setDetailImportVisible] = useState(false)
   const [detailImportLoading, setDetailImportLoading] = useState(false)
   const [formHydrating, setFormHydrating] = useState(false)
@@ -324,15 +329,35 @@ export default function EInvoiceEditorPopupContent({
   const {
     data: invoiceData,
     isLoading: invoiceLoading,
+    isFetching: invoiceFetching,
     isError: invoiceError,
     error: invoiceLoadError,
     refetch: refetchInvoice,
   } = useEInvoiceDetailQuery(fetchInvoiceId, visible && needsInvoiceFetch)
-  const loading =
+  const editorContentReady = editorShellPainted && editorCodesReady &&
+    hydratedSessionRef.current === editorSessionId
+  const dataLoading =
     sellersLoading ||
     userDefaultsLoading ||
-    formHydrating ||
-    (needsInvoiceFetch && invoiceLoading)
+    (needsInvoiceFetch && (invoiceLoading || invoiceFetching))
+  const loading = dataLoading || formHydrating || !editorContentReady
+
+  useEffect(() => {
+    if (!visible) {
+      setEditorShellPainted(false)
+      return
+    }
+    let secondFrame = 0
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => {
+        setEditorShellPainted(true)
+      })
+    })
+    return () => {
+      cancelAnimationFrame(firstFrame)
+      cancelAnimationFrame(secondFrame)
+    }
+  }, [visible])
 
   const { translate, lang } = useContext(LanguageContext) as {
     translate: (key: string, fallback?: string) => string
@@ -447,6 +472,8 @@ export default function EInvoiceEditorPopupContent({
     [formData.DETAILS],
   )
   const isBusy = loading || saving || detailImportLoading
+  const showLoadingIndicator = dataLoading || saving || detailImportLoading
+
   const isReadOnly = readOnly || (isUpdate && isEInvoiceSigned(formData))
   const canEditInvoiceDate = !isReadOnly && !cashRegister
   const canSave = visible && !isBusy && !isReadOnly
@@ -480,22 +507,31 @@ export default function EInvoiceEditorPopupContent({
       return
     }
 
-    grid.columnOption("SPECIAL_SUMMARY", "visible", hasSpecialDetailColumn)
-    grid.columnOption("TLCKHAU", "visible", !isWarehouseForm && userEditorSettings.showDiscountColumns)
-    grid.columnOption("STCKHAU", "visible", !isWarehouseForm && userEditorSettings.showDiscountColumns)
-    grid.columnOption("TSUAT", "visible", !withoutTaxRate && useMultiTaxRate)
-    grid.columnOption("TTHUE", "visible", !isWarehouseForm && !withoutTaxRate && useMultiTaxRate)
-    grid.columnOption("TSAUTHUE", "visible", !isWarehouseForm && !withoutTaxRate && useMultiTaxRate)
-    grid.columnOption("DGIA_VND", "visible", !isWarehouseForm && isForeignCurrency)
-    grid.columnOption("AFTER_TAX_UNIT_PRICE", "visible", !isWarehouseForm && userEditorSettings.afterTaxPrice && !withoutTaxRate)
-    grid.columnOption("THTIEN_VND", "visible", !isWarehouseForm && isForeignCurrency)
-    grid.columnOption("STCKHAU_VND", "visible", !isWarehouseForm && userEditorSettings.showDiscountColumns && isForeignCurrency)
-    grid.columnOption("SLTHUCNHAP", "visible", isWarehouseInternal)
-    grid.columnOption("SLUONG", "caption", isWarehouseInternal ? t("SLTHUCXUAT", "Actual export") : t("SLUONG", "Quantity"))
-    grid.columnOption("THTIEN", "allowEditing", !isReadOnly && (!userEditorSettings.autoCalcAmount || userEditorSettings.autoCalcPriceFromBeforeTaxAmount))
-    grid.columnOption("TTHUE", "allowEditing", !isReadOnly && !userEditorSettings.autoCalcTax)
-    grid.columnOption("TSAUTHUE", "allowEditing", !isReadOnly && (!userEditorSettings.autoCalcTax || userEditorSettings.autoCalcPriceFromAfterTaxAmount))
-  }, [hasSpecialDetailColumn, isForeignCurrency, isReadOnly, isWarehouseForm, isWarehouseInternal, t, useMultiTaxRate, userEditorSettings.afterTaxPrice, userEditorSettings.autoCalcAmount, userEditorSettings.autoCalcPriceFromAfterTaxAmount, userEditorSettings.autoCalcPriceFromBeforeTaxAmount, userEditorSettings.autoCalcTax, userEditorSettings.showDiscountColumns, withoutTaxRate])
+    const setColumnOption = (column: string, option: string, value: boolean | string) => {
+      if (grid.columnOption(column, option) === value) return
+      grid.columnOption(column, option, value)
+    }
+    grid.beginUpdate()
+    try {
+      setColumnOption("SPECIAL_SUMMARY", "visible", hasSpecialDetailColumn)
+      setColumnOption("TLCKHAU", "visible", !isWarehouseForm && userEditorSettings.showDiscountColumns)
+      setColumnOption("STCKHAU", "visible", !isWarehouseForm && userEditorSettings.showDiscountColumns)
+      setColumnOption("TSUAT", "visible", !withoutTaxRate && useMultiTaxRate)
+      setColumnOption("TTHUE", "visible", !isWarehouseForm && !withoutTaxRate && useMultiTaxRate)
+      setColumnOption("TSAUTHUE", "visible", !isWarehouseForm && !withoutTaxRate && useMultiTaxRate)
+      setColumnOption("DGIA_VND", "visible", !isWarehouseForm && isForeignCurrency)
+      setColumnOption("AFTER_TAX_UNIT_PRICE", "visible", !isWarehouseForm && userEditorSettings.afterTaxPrice && !withoutTaxRate)
+      setColumnOption("THTIEN_VND", "visible", !isWarehouseForm && isForeignCurrency)
+      setColumnOption("STCKHAU_VND", "visible", !isWarehouseForm && userEditorSettings.showDiscountColumns && isForeignCurrency)
+      setColumnOption("SLTHUCNHAP", "visible", isWarehouseInternal)
+      setColumnOption("SLUONG", "caption", isWarehouseInternal ? t("SLTHUCXUAT", "Actual export") : t("SLUONG", "Quantity"))
+      setColumnOption("THTIEN", "allowEditing", !isReadOnly && (!userEditorSettings.autoCalcAmount || userEditorSettings.autoCalcPriceFromBeforeTaxAmount))
+      setColumnOption("TTHUE", "allowEditing", !isReadOnly && !userEditorSettings.autoCalcTax)
+      setColumnOption("TSAUTHUE", "allowEditing", !isReadOnly && (!userEditorSettings.autoCalcTax || userEditorSettings.autoCalcPriceFromAfterTaxAmount))
+    } finally {
+      grid.endUpdate()
+    }
+  }, [editorContentReady, hasSpecialDetailColumn, isForeignCurrency, isReadOnly, isWarehouseForm, isWarehouseInternal, t, useMultiTaxRate, userEditorSettings.afterTaxPrice, userEditorSettings.autoCalcAmount, userEditorSettings.autoCalcPriceFromAfterTaxAmount, userEditorSettings.autoCalcPriceFromBeforeTaxAmount, userEditorSettings.autoCalcTax, userEditorSettings.showDiscountColumns, withoutTaxRate])
 
   useEffect(() => {
     const grid = detailGridRef.current
@@ -503,16 +539,21 @@ export default function EInvoiceEditorPopupContent({
       return
     }
 
-    DETAIL_LIVE_INPUT_FIELDS.forEach((fieldKey) => {
-      const fallbackPrecision =
-        fieldKey === "SLUONG"
-          ? getEInvoiceQuantityFallbackPrecision()
-          : fieldKey === "TLCKHAU"
-            ? getEInvoiceDiscountRateFallbackPrecision()
-            : moneyFallbackPrecision
-      grid.columnOption(fieldKey, "editorOptions", getDetailNumberEditorOptions(fieldKey, fallbackPrecision))
-    })
-  }, [getDetailNumberEditorOptions, isAdjustmentInvoice, moneyFallbackPrecision])
+    grid.beginUpdate()
+    try {
+      DETAIL_LIVE_INPUT_FIELDS.forEach((fieldKey) => {
+        const fallbackPrecision =
+          fieldKey === "SLUONG"
+            ? getEInvoiceQuantityFallbackPrecision()
+            : fieldKey === "TLCKHAU"
+              ? getEInvoiceDiscountRateFallbackPrecision()
+              : moneyFallbackPrecision
+        grid.columnOption(fieldKey, "editorOptions", getDetailNumberEditorOptions(fieldKey, fallbackPrecision))
+      })
+    } finally {
+      grid.endUpdate()
+    }
+  }, [editorContentReady, getDetailNumberEditorOptions, isAdjustmentInvoice, moneyFallbackPrecision])
 
   const summaryItems = useMemo(
     () => [
@@ -574,9 +615,22 @@ export default function EInvoiceEditorPopupContent({
   } = useShortcutHelp(shortcutActions)
 
   useEffect(() => {
-    void getCachedSysCodes("EINV_TCHAT").then(setTchatOptions)
-    void getCachedSysCodes(LHHDTRUNG_CODE_TYPE).then(setLhhdtrungOptions)
-    void getCachedSysCodes(EINV_TCHDON_CODE_TYPE).then(setTchdonOptions)
+    let cancelled = false
+    void Promise.all([
+      getCachedSysCodes("EINV_TCHAT"),
+      getCachedSysCodes(LHHDTRUNG_CODE_TYPE),
+      getCachedSysCodes(EINV_TCHDON_CODE_TYPE),
+    ]).then(([tchat, lhhdtrung, tchdon]) => {
+      if (cancelled) return
+      setTchatOptions(tchat)
+      setLhhdtrungOptions(lhhdtrung)
+      setTchdonOptions(tchdon)
+      setEditorCodesReady(true)
+    }).catch(() => {
+      if (cancelled) return
+      setEditorCodesReady(true)
+    })
+    return () => { cancelled = true }
   }, [])
 
   const lhhdtrungDisplayOptions = useMemo(
@@ -640,133 +694,119 @@ export default function EInvoiceEditorPopupContent({
       return
     }
 
-    if (needsInvoiceFetch && invoiceLoading) {
+    if (needsInvoiceFetch && (invoiceLoading || invoiceFetching)) {
       return
     }
 
-    let cancelled = false
+    setFormHydrating(true)
+    manualTotalOverridesRef.current = {}
+    let hydrated = false
+    try {
+      userSettingDefaultsRef.current = userDefaults
+      setUserEditorSettings(userDefaults)
 
-    const hydrateForm = async () => {
-      setFormHydrating(true)
-      manualTotalOverridesRef.current = {}
-      let hydrated = false
-      try {
-        userSettingDefaultsRef.current = userDefaults
-        setUserEditorSettings(userDefaults)
+      if (sellerOptions.length === 0) {
+        notify(t("SELLER_NOT_CONFIGURED", "E-invoice seller is not configured"), "warning", 4000)
+        return
+      }
 
-        if (sellerOptions.length === 0) {
-          notify(t("SELLER_NOT_CONFIGURED", "E-invoice seller is not configured"), "warning", 4000)
-          return
+      const applyInvoiceSource = (sourceInvoice: EInvoice) => {
+        const seller =
+          findEInvoiceSellerByXslId(sellerOptions, sourceInvoice.XSL_ID) ??
+          findEInvoiceSeller(sellerOptions, sourceInvoice.KHHDON, sourceInvoice.KHMSHDON)
+
+        if (isEInvoiceNq204Active(sourceInvoice) && Number(sourceInvoice.TGTKHAC ?? 0) > 0) {
+          manualTotalOverridesRef.current.TGTKHAC = Number(sourceInvoice.TGTKHAC)
         }
 
-        const applyInvoiceSource = async (sourceInvoice: EInvoice) => {
-          const seller =
-            findEInvoiceSellerByXslId(sellerOptions, sourceInvoice.XSL_ID) ??
-            findEInvoiceSeller(sellerOptions, sourceInvoice.KHHDON, sourceInvoice.KHMSHDON)
-          const buyerCustomerId = await resolveBuyerCustomerId(sourceInvoice)
-          if (cancelled) {
-            return
-          }
-
-          if (isEInvoiceNq204Active(sourceInvoice) && Number(sourceInvoice.TGTKHAC ?? 0) > 0) {
-            manualTotalOverridesRef.current.TGTKHAC = Number(sourceInvoice.TGTKHAC)
-          }
-
-          setFormData({
-            ...applyWarehouseFieldsToInvoice(
-              recalculateInvoiceTotals(
-                applySellerToEInvoice(sourceInvoice, seller),
-                decimalResolverRef.current,
-                resolveEInvoiceCalcSettings(userDefaults, resolveEInvoiceFormTchdon(sourceInvoice)),
-                {
-                  preferInvoiceReduction: manualTotalOverridesRef.current.TGTKHAC !== undefined,
-                  defaultVatRate: userDefaults.defaultVatRate,
-                },
-              ),
-            ),
-            BUYER_CUSTOMER_ID: buyerCustomerId,
-            TEMPLATE_XSL_ID: resolveEInvoiceTemplateXslId(sellerOptions, sourceInvoice),
-          })
-          setNq204ReductionActive(isEInvoiceNq204Active(sourceInvoice))
-          hydrated = true
-        }
-
-        if (!isUpdate) {
-          if (copyFromInvoiceId > 0) {
-            if (!invoiceData) {
-              return
-            }
-
-            const copied = createEInvoiceCopy(normalizeEInvoice(invoiceData, companyCd), companyCd)
-            await applyInvoiceSource(copied)
-            return
-          }
-
-          if (initialInvoice) {
-            await applyInvoiceSource(initialInvoice)
-            return
-          }
-
-          const defaultSeller = findEInvoiceSeller(sellerOptions)
-          if (cancelled) {
-            return
-          }
-
-          setFormData(
+        setFormData({
+          ...applyWarehouseFieldsToInvoice(
             recalculateInvoiceTotals(
-              createInvoiceFormData(companyCd, defaultSeller, userDefaults),
+              applySellerToEInvoice(sourceInvoice, seller),
               decimalResolverRef.current,
-              resolveEInvoiceCalcSettings(userDefaults),
+              resolveEInvoiceCalcSettings(userDefaults, resolveEInvoiceFormTchdon(sourceInvoice)),
+              {
+                preferInvoiceReduction: manualTotalOverridesRef.current.TGTKHAC !== undefined,
+                defaultVatRate: userDefaults.defaultVatRate,
+              },
             ),
-          )
-          setNq204ReductionActive(false)
-          hydrated = true
-          return
-        }
+          ),
+          BUYER_CUSTOMER_ID: 0,
+          TEMPLATE_XSL_ID: resolveEInvoiceTemplateXslId(sellerOptions, sourceInvoice),
+        })
+        setNq204ReductionActive(isEInvoiceNq204Active(sourceInvoice))
+        setBuyerSource(sourceInvoice)
+        hydrated = true
+      }
 
-        const sourceInvoice =
-          initialInvoice != null
-            ? normalizeEInvoice(initialInvoice, companyCd)
-            : invoiceData
-              ? normalizeEInvoice(invoiceData, companyCd)
-              : null
-
-        if (!sourceInvoice) {
-          return
-        }
-
-        await applyInvoiceSource(sourceInvoice)
-      } finally {
-        if (!cancelled) {
-          setFormHydrating(false)
-          if (hydrated) {
-            hydratedSessionRef.current = editorSessionId
+      if (!isUpdate) {
+        if (copyFromInvoiceId > 0) {
+          if (!invoiceData) {
+            return
           }
+
+          const copied = createEInvoiceCopy(normalizeEInvoice(invoiceData, companyCd), companyCd)
+          applyInvoiceSource(copied)
+          return
         }
+
+        if (initialInvoice) {
+          applyInvoiceSource(initialInvoice)
+          return
+        }
+
+        const defaultSeller = findEInvoiceSeller(sellerOptions)
+
+        setFormData(
+          recalculateInvoiceTotals(
+            createInvoiceFormData(companyCd, defaultSeller, userDefaults),
+            decimalResolverRef.current,
+            resolveEInvoiceCalcSettings(userDefaults),
+          ),
+        )
+        setNq204ReductionActive(false)
+        setBuyerSource(null)
+        hydrated = true
+        return
+      }
+
+      const sourceInvoice =
+        initialInvoice != null
+          ? normalizeEInvoice(initialInvoice, companyCd)
+          : invoiceData
+            ? normalizeEInvoice(invoiceData, companyCd)
+            : null
+
+      if (!sourceInvoice) {
+        return
+      }
+
+      applyInvoiceSource(sourceInvoice)
+    } finally {
+      setFormHydrating(false)
+      if (hydrated) {
+        hydratedSessionRef.current = editorSessionId
       }
     }
 
-    void hydrateForm()
+    
+  }, [companyCd, copyFromInvoiceId, editorSessionId, initialInvoice, invoiceData, invoiceLoading, invoiceFetching, isUpdate, needsInvoiceFetch, sellerOptions, sellersLoading, t, userDefaults, userDefaultsLoading, visible])
+  useEffect(() => {
+    if (!visible || !buyerSource) return
+    let cancelled = false
 
-    return () => {
-      cancelled = true
-    }
-  }, [
-    companyCd,
-    copyFromInvoiceId,
-    editorSessionId,
-    initialInvoice,
-    invoiceData,
-    invoiceLoading,
-    isUpdate,
-    needsInvoiceFetch,
-    sellerOptions,
-    sellersLoading,
-    t,
-    userDefaults,
-    userDefaultsLoading,
-    visible,
-  ])
+    void resolveBuyerCustomerId(buyerSource).then((buyerCustomerId) => {
+      if (cancelled || buyerCustomerId <= 0) return
+      setFormData((current) => {
+        if (cancelled || current.BUYER_CUSTOMER_ID > 0 ||
+          current.NMUA_MKHANG !== buyerSource.NMUA_MKHANG ||
+          current.NMUA_MST !== buyerSource.NMUA_MST ||
+          current.NMUA_TEN !== buyerSource.NMUA_TEN) return current
+        return { ...current, BUYER_CUSTOMER_ID: buyerCustomerId }
+      })
+    }).catch(() => undefined)
+    return () => { cancelled = true }
+  }, [buyerSource, visible])
 
   const getNq204RecalcOptions = useCallback(
     () => ({
@@ -2346,6 +2386,7 @@ export default function EInvoiceEditorPopupContent({
     formDataRef.current = freshData
     setCurrentInvoiceId(0)
     setFormData(freshData)
+    setBuyerSource(null)
     setEditorSessionKey((current) => current + 1)
   }, [companyCd, decimalResolver, getNq204RecalcOptions, getUserCalcSettings, sellerOptions])
 
@@ -2722,6 +2763,7 @@ export default function EInvoiceEditorPopupContent({
 
   return (
     <>
+
     <Popup
       visible={visible}
       showTitle={false}
@@ -2740,7 +2782,9 @@ export default function EInvoiceEditorPopupContent({
         class: `einvoice-editor-popup ${cashRegister ? "einvoice-pos-popup" : ""} editor-mode--${isUpdate ? "edit" : "add"}`,
       }}
       animation={{ show: { type: "fade", duration: 0 }, hide: { type: "fade", duration: 0 } }}
+
       onHiding={handlePopupHiding}
+
     >
       <div className="einvoice-editor">
         <header className="einvoice-editor__header">
@@ -2767,18 +2811,23 @@ export default function EInvoiceEditorPopupContent({
         </header>
 
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+          {showLoadingIndicator ? (
           <LoadPanel
-            visible={isBusy}
+            visible={true}
             showIndicator={true}
             showPane={true}
             shading={true}
             shadingColor="rgba(15, 23, 42, 0.2)"
+
           />
+          ) : null}
+          {shortcutHelpVisible ? (
           <ShortcutHelpPopup
             visible={shortcutHelpVisible}
             shortcuts={shortcutHelpItems}
             onClose={closeShortcutHelp}
           />
+          ) : null}
           {detailImportVisible ? (
             <EInvoiceDetailExcelImportPopup
               visible={detailImportVisible}
@@ -2821,12 +2870,14 @@ export default function EInvoiceEditorPopupContent({
             />
           ) : null}
 
+          {editorContentReady ? (
           <div ref={editorScrollContainerRef} className="einvoice-editor__body">
             <div key={editorSessionKey} className="einvoice-editor__stack">
           <InvoiceHeaderContainer
             cashRegister={cashRegister}
             ariaLabel={t("POS_INVOICE_BUYER_INFO", "Thông tin hóa đơn và người mua")}
           >
+
           <EInvoiceHeaderSection
             vm={{
               t,
@@ -2857,9 +2908,11 @@ export default function EInvoiceEditorPopupContent({
               handlePaymentMethodChange,
             }}
           />
+
           </InvoiceHeaderContainer>
           {cashRegister && <EInvoicePosProducts disabled={isReadOnly || isBusy} onSelect={handlePosProductSelect} />}
           <div className={cashRegister ? "einvoice-pos-cart" : "einvoice-standard-section"}>
+
           <EInvoiceDetailGridSection
             vm={{
               t,
@@ -2906,9 +2959,11 @@ export default function EInvoiceEditorPopupContent({
               summaryItems,
             }}
           />
+
           </div>
           <div className={cashRegister ? "einvoice-pos-payment" : "einvoice-standard-section"}>
           {cashRegister && <div className="einvoice-pos-total"><span>Tổng thanh toán</span><strong>{Number(formData.TGTTTBSO ?? 0).toLocaleString("vi-VN")} {formData.DVTTE}</strong></div>}
+
           <EInvoiceTotalsSection
             vm={{
               t,
@@ -2931,10 +2986,12 @@ export default function EInvoiceEditorPopupContent({
               isHeaderCommercialDiscountReadOnly: hasDetailCommercialDiscount,
             }}
           />
+
           </div>
             </div>
           </div>
 
+          ) : null}
           <footer className="einvoice-editor__footer">
             <EditorActionToolbar mode={isUpdate ? "edit" : "add"}
               busy={isBusy}
@@ -2957,6 +3014,7 @@ export default function EInvoiceEditorPopupContent({
         </div>
       </div>
     </Popup>
+
     {printOptionsVisible ? (
       <EInvoicePrintOptionsPopup
         visible={printOptionsVisible}
