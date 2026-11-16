@@ -1,5 +1,6 @@
 import { useContext, useMemo } from "react";
 import { useLocation } from "react-router-dom";
+import { normalizeMenuRoutePath } from "@/lib/menuRoutePath";
 
 import { findMenuById, findOverviewMenu, isOverviewPath } from "@/api/menuApi";
 import { useMenuTreeQuery } from "@/hooks/queries/useMenuTreeQuery";
@@ -8,10 +9,6 @@ import { getCompanyCdFromPathname, getCurrentCompanyCd } from "@/lib/login";
 import type { MenuTreeNode } from "@/types/menu";
 import { resolveMenuCaption } from "@/utils/resolveConfigCaption";
 
-// Mirrors App.tsx's own path-scoping/menu-matching logic so any component
-// (not just the top-level layout) can find out which sidebar menu item the
-// current route belongs to. Kept as a self-contained copy rather than an
-// import from App.tsx to avoid coupling this hook to the app shell.
 function stripCompanyPath(pathname: string): string {
   const companyCd = getCompanyCdFromPathname(pathname);
   if (!companyCd) {
@@ -26,7 +23,7 @@ function getActiveMenuFromPath(pathname: string, tree: MenuTreeNode[]): string {
     return findOverviewMenu(tree)?.id ?? "";
   }
 
-  const normalize = (path: string) => (path.endsWith("/") && path !== "/" ? path.slice(0, -1) : path);
+  const normalize = normalizeMenuRoutePath;
   const normalizedPath = normalize(pathname);
 
   const flatten = (nodes: MenuTreeNode[], output: MenuTreeNode[] = []) => {

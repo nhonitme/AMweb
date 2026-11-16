@@ -15,6 +15,7 @@ type EInvoiceMailHistoryPopupProps = {
   title: string
   loading: boolean
   items: EInvoiceEmailHistory[]
+  error?: string
   onClose: () => void
 }
 
@@ -41,6 +42,7 @@ export default function EInvoiceMailHistoryPopup({
   title,
   loading,
   items,
+  error,
   onClose,
 }: EInvoiceMailHistoryPopupProps) {
   const { translate } = useContext(LanguageContext) as {
@@ -76,6 +78,7 @@ export default function EInvoiceMailHistoryPopup({
       onHiding={onClose}
     >
       <div className="relative flex h-full min-h-0 flex-col bg-white p-3">
+        {error ? <div role="alert" className="mb-2 rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700">{error}</div> : null}
         <DataGrid<EInvoiceEmailHistory, GridKey>
           dataSource={items}
           keyExpr="MAIL_ID"

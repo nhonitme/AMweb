@@ -1,5 +1,6 @@
 import { useMemo } from "react"
 import { useLocation } from "react-router-dom"
+import { normalizeMenuRoutePath } from "@/lib/menuRoutePath"
 
 import { useMenuTreeQuery } from "@/hooks/queries/useMenuTreeQuery"
 import { getCompanyCdFromPathname, getCurrentCompanyCd } from "@/lib/login"
@@ -9,7 +10,7 @@ import { useMenuExportName } from "@/hooks/useMenuExportName"
 function resolveCurrentMenuCode(pathname: string, menuTree: MenuTreeNode[]): string {
   const companyCd = getCompanyCdFromPathname(pathname)
   const menuPath = companyCd ? pathname.replace(/^\/app\/[^/]+/i, "") || "/" : pathname
-  const normalizePath = (path: string) => path.endsWith("/") && path !== "/" ? path.slice(0, -1) : path
+  const normalizePath = normalizeMenuRoutePath
   const currentPath = normalizePath(menuPath)
   const candidates: MenuTreeNode[] = []
 

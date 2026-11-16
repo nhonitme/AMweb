@@ -29,6 +29,14 @@ export type UserPermissionRecord = {
   CAN_APPROVE: string;
   ISDEL: string;
   PERMISSION_SOURCE: string;
+  DEFAULT_CAN_VIEW: string;
+  DEFAULT_CAN_ADD: string;
+  DEFAULT_CAN_EDIT: string;
+  DEFAULT_CAN_DELETE: string;
+  DEFAULT_CAN_PRINT: string;
+  DEFAULT_CAN_EXPORT: string;
+  DEFAULT_CAN_IMPORT: string;
+  DEFAULT_CAN_APPROVE: string;
 };
 
 export type UserPermissionUpdatePayload = {
@@ -79,6 +87,14 @@ function normalizeUserPermissionRecord(record: Record<string, unknown>): UserPer
     CAN_APPROVE: normalizePermissionFlag(record.CAN_APPROVE ?? record.canApprove),
     ISDEL: normalizePermissionFlag(record.ISDEL ?? record.isDel),
     PERMISSION_SOURCE: normalizeText(record.PERMISSION_SOURCE ?? record.permissionSource),
+    DEFAULT_CAN_VIEW: normalizePermissionFlag(record.DEFAULT_CAN_VIEW),
+    DEFAULT_CAN_ADD: normalizePermissionFlag(record.DEFAULT_CAN_ADD),
+    DEFAULT_CAN_EDIT: normalizePermissionFlag(record.DEFAULT_CAN_EDIT),
+    DEFAULT_CAN_DELETE: normalizePermissionFlag(record.DEFAULT_CAN_DELETE),
+    DEFAULT_CAN_PRINT: normalizePermissionFlag(record.DEFAULT_CAN_PRINT),
+    DEFAULT_CAN_EXPORT: normalizePermissionFlag(record.DEFAULT_CAN_EXPORT),
+    DEFAULT_CAN_IMPORT: normalizePermissionFlag(record.DEFAULT_CAN_IMPORT),
+    DEFAULT_CAN_APPROVE: normalizePermissionFlag(record.DEFAULT_CAN_APPROVE),
   };
 }
 

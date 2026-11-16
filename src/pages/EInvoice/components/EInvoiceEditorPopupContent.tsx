@@ -146,6 +146,7 @@ import {
   isEInvoiceSalesForm,
   isEInvoiceSellerUseMultiTaxRate,
   isEInvoiceAdjustmentInvoice,
+  isEInvoiceMttIssued,
   isEInvoiceSigned,
   isEInvoiceWithoutTaxRate,
   type EInvoiceCalcSettings,
@@ -257,6 +258,7 @@ export default function EInvoiceEditorPopupContent({
   readOnly = false,
   onClose,
   onSaved,
+  onSign,
 }: EInvoiceEditorPopupProps) {
   const lookupPopupHost = useLookupPopupHost()
   const queryClient = useQueryClient()
@@ -1237,7 +1239,6 @@ export default function EInvoiceEditorPopupContent({
 
     const dataField = String(event.dataField)
 
-    // Tên hàng hóa: TextArea + Alt/Shift+Enter xuống dòng (kiểu Excel).
     if (dataField === "THHDVU") {
       event.editorName = "dxTextArea"
       const currentValue = normalizeSpreadsheetMultilineText(
@@ -2533,6 +2534,37 @@ export default function EInvoiceEditorPopupContent({
     setPrintOptionsVisible(true)
   }, [formData.INVOICE_ID, invoiceId, t])
 
+  const canSignFromPopup = Boolean(
+    onSign
+      && isUpdate
+      && Number(formData.INVOICE_ID ?? invoiceId ?? 0) > 0
+      && !isEInvoiceSigned(formData)
+      && (!cashRegister || isEInvoiceMttIssued(formData)),
+  )
+
+  const handleSign = useCallback(() => {
+    if (!onSign) {
+      return
+    }
+
+    const resolvedInvoiceId = Number(formData.INVOICE_ID ?? invoiceId ?? 0)
+    if (!Number.isFinite(resolvedInvoiceId) || resolvedInvoiceId <= 0) {
+      notify(t("SAVE_BEFORE_SIGN", "Save the record before signing"), "warning", 2500)
+      return
+    }
+
+    if (isEInvoiceSigned(formData)) {
+      return
+    }
+
+    if (cashRegister && !isEInvoiceMttIssued(formData)) {
+      notify(t("MTT_SIGN_NOT_ISSUED", "Phát hành hóa đơn MTT trước khi ký gửi CQT"), "warning", 3000)
+      return
+    }
+
+    void onSign(formData)
+  }, [cashRegister, formData, invoiceId, onSign, t])
+
   const shortcutBindings = useMemo(
     () =>
       createShortcutBindings(
@@ -2905,9 +2937,16 @@ export default function EInvoiceEditorPopupContent({
 
           <footer className="einvoice-editor__footer">
             <EditorActionToolbar mode={isUpdate ? "edit" : "add"}
-              className="einvoice-editor__footer-actions"
               busy={isBusy}
               actions={[
+                {
+                  key: "sign",
+                  text: t("SIGN_SEND_CQT", "Ký và gửi CQT"),
+                  type: "danger",
+                  stylingMode: "contained",
+                  visible: canSignFromPopup,
+                  onClick: handleSign,
+                },
                 { key: "print", text: t("PRINT", "Print"), type: "default", onClick: handlePrint },
                 { key: "save", text: saving ? t("SAVING", "Saving...") : t("SAVE", "Save"), visible: !isReadOnly, onClick: () => { void handleSaveAndClose() } },
                 { key: "saveAndNew", text: t("SAVE_AND_NEW", "Save and create new"), visible: !isReadOnly, type: "success", stylingMode: "contained", onClick: () => { void handleSave(true) } },

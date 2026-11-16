@@ -3,10 +3,9 @@ import { LoadPanel } from "devextreme-react";
 import Button from "devextreme-react/button";
 import DateBox from "devextreme-react/date-box";
 import SelectBox from "devextreme-react/select-box";
-import TabPanel, { Item as TabPanelItem, type TabPanelTypes } from "devextreme-react/tab-panel";
+import TabPanel, { Item as TabPanelItem } from "devextreme-react/tab-panel";
 import TextArea from "devextreme-react/text-area";
 import TextBox from "devextreme-react/text-box";
-import Toolbar, { Item as ToolbarItem } from "devextreme-react/toolbar";
 import { confirm } from "devextreme/ui/dialog";
 import notify from "devextreme/ui/notify";
 import { ChevronDown } from "lucide-react";
@@ -23,6 +22,8 @@ import type { CompanyInfo } from "@/types/companyInfo";
 import CompanyDecimalSettingSection from "./CompanyDecimalSettingSection";
 import CompanySignatureSection from "./CompanySignatureSection";
 import SysCodeSequenceSection from "./SysCodeSequenceSection";
+import EInvoiceMailSettingPanel from "@/pages/EInvoice/components/EInvoiceMailSettingPanel";
+import "@/pages/EInvoice/components/einvoiceSettingPanel.css";
 import { createCompanyInfoFieldGroups, type CompanyInfoFieldConfig } from "./companyInfoFields";
 import { createCompanyInfoSelectOptions } from "./companyInfoOptions";
 
@@ -173,7 +174,7 @@ function FieldShell({
 
 export default function CompanyManagementPage() {
   const [saving, setSaving] = useState(false);
-  const [activeTabIndex, setActiveTabIndex] = useState(0);
+  const [mailSettingsLoading, setMailSettingsLoading] = useState(false);
   const [formData, setFormData, formDataRef] = useStateRef<CompanyInfo>(emptyCompanyInfo);
   const [initialData, setInitialData] = useState<CompanyInfo>(emptyCompanyInfo);
   const initialDataRef = useRef<CompanyInfo>(emptyCompanyInfo);
@@ -220,11 +221,6 @@ export default function CompanyManagementPage() {
     }));
   }, []);
   const selectOptions = useMemo(() => createCompanyInfoSelectOptions(t), [lang, t]);
-
-  const displayName = useMemo(
-    () => formData.COMPANY_NM?.trim() || formData.COMPANY_CD?.trim() || t("COMPANY", "Công ty"),
-    [formData.COMPANY_CD, formData.COMPANY_NM, t],
-  );
 
   const isDirty = useMemo(
     () => serializeCompanyInfo(formData) !== serializeCompanyInfo(initialData),
@@ -337,10 +333,6 @@ export default function CompanyManagementPage() {
       setSaving(false);
     }
   }, [formDataRef, setFormData, t, updateMutation]);
-
-  const handleTabSelectionChanged = useCallback((event: TabPanelTypes.SelectionChangedEvent) => {
-    setActiveTabIndex(event.component.option("selectedIndex") ?? 0);
-  }, []);
 
   const companyLangRevision = useCompanyLangRevision();
 
@@ -502,59 +494,42 @@ export default function CompanyManagementPage() {
     <DxPage>
       <div className="flex h-full min-h-0 flex-col gap-3">
         <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex shrink-0 flex-col gap-2 border-b border-slate-200 px-4 py-3 sm:px-5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                {t("lblCompanyInfo", "Thông tin công ty")}
-              </div>
-
-              <div className="shrink-0">
-            <Toolbar>
-              <ToolbarItem location="after">
-                <Button
-                  icon="refresh"
-                  stylingMode="outlined"
-                  text={t("btnRefresh", "Làm mới")}
-                  onClick={() => void loadData()}
-                />
-              </ToolbarItem>
-              <ToolbarItem location="after">
-                <Button
-                  disabled={!isDirty || saving}
-                  icon="revert"
-                  stylingMode="outlined"
-                  text={t("CANCEL", "Hủy")}
-                  onClick={handleCancel}
-                />
-              </ToolbarItem>
-              <ToolbarItem location="after">
-                <Button
-                  disabled={!isDirty || saving}
-                  icon="save"
-                  stylingMode="contained"
-                  text={saving ? t("SAVING", "Đang lưu...") : t("dxDataGrid-editingSaveRowChanges", "Lưu")}
-                  type="default"
-                  onClick={() => void handleSave()}
-                />
-              </ToolbarItem>
-            </Toolbar>
-              </div>
-            </div>
-
-            <h1 className="text-lg font-semibold leading-snug text-slate-900 break-words sm:text-xl">{displayName}</h1>
-          </div>
-
           <TabPanel
             animationEnabled={true}
             className="min-h-0 flex-1"
             deferRendering={true}
             height="100%"
-            selectedIndex={activeTabIndex}
             swipeEnabled={false}
-            onSelectionChanged={handleTabSelectionChanged}
           >
             <TabPanelItem title={t("lblCompanyInfo", "Hồ sơ công ty")}>
-              <div className="h-full overflow-y-auto p-3 sm:p-4">{profileForm}</div>
+              <div className="flex h-full min-h-0 flex-col">
+                <header className="einvoice-setting-panel__header einvoice-setting-panel__header--actions-only shrink-0">
+                  <div className="einvoice-setting-panel__header-actions">
+                    <Button
+                      icon="refresh"
+                      stylingMode="outlined"
+                      text={t("btnRefresh", "Làm mới")}
+                      onClick={() => void loadData()}
+                    />
+                    <Button
+                      disabled={!isDirty || saving}
+                      icon="revert"
+                      stylingMode="outlined"
+                      text={t("CANCEL", "Hủy")}
+                      onClick={handleCancel}
+                    />
+                    <Button
+                      disabled={!isDirty || saving}
+                      icon="save"
+                      stylingMode="contained"
+                      text={saving ? t("SAVING", "Đang lưu...") : t("dxDataGrid-editingSaveRowChanges", "Lưu")}
+                      type="default"
+                      onClick={() => void handleSave()}
+                    />
+                  </div>
+                </header>
+                <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">{profileForm}</div>
+              </div>
             </TabPanelItem>
             <TabPanelItem title={t("xrTab_TypeSign", "Chữ ký")}>
               <div className="flex h-full min-h-0 flex-col p-3">
@@ -571,6 +546,9 @@ export default function CompanyManagementPage() {
                 <SysCodeSequenceSection />
               </div>
             </TabPanelItem>
+            <TabPanelItem title={t("MAIL_SETTING", "Cấu hình mail")}>
+              <EInvoiceMailSettingPanel onLoadingChange={setMailSettingsLoading} />
+            </TabPanelItem>
           </TabPanel>
         </section>
 
@@ -579,7 +557,7 @@ export default function CompanyManagementPage() {
           shadingColor="rgba(15, 23, 42, 0.2)"
           showIndicator={true}
           showPane={true}
-          visible={loading || saving}
+          visible={loading || saving || mailSettingsLoading}
         />
       </div>
     </DxPage>

@@ -19,12 +19,14 @@ export default function PitTransmissionPopup({
   loading,
   title,
   messages,
+  error,
   onClose,
 }: {
   visible: boolean
   loading: boolean
   title: string
   messages: PitTransmissionMessage[]
+  error?: string
   onClose: () => void
 }) {
   const [xml, setXml] = useState<PitTransmissionMessage | null>(null)
@@ -46,6 +48,7 @@ export default function PitTransmissionPopup({
         onHiding={onClose}
       >
         <div className="relative flex h-full min-h-0 flex-col bg-white p-3">
+          {error ? <div role="alert" className="pit-error mb-2">{error}</div> : null}
           <DataGrid<PitTransmissionMessage, number>
             dataSource={messages}
             keyExpr="RECEIVE_ID"
@@ -63,9 +66,9 @@ export default function PitTransmissionPopup({
               minWidth={230}
               cellRender={(cell: ColumnCellTemplateData<PitTransmissionMessage, number>) => (
                 <div className="leading-tight">
-                  <div className="font-medium text-slate-700">{cell.data.MLTDIEP}</div>
+                  <div className="font-medium text-slate-700">{cell.data?.MLTDIEP}</div>
                   <div className="text-xs text-slate-500">
-                    {cell.data.MLTDIEP_NAME || messageNames[cell.data.MLTDIEP] || ""}
+                    {cell.data?.MLTDIEP_NAME || messageNames[cell.data?.MLTDIEP ?? ""] || ""}
                   </div>
                 </div>
               )}
@@ -77,7 +80,7 @@ export default function PitTransmissionPopup({
               width={90}
               alignment="center"
               cellRender={(cell: ColumnCellTemplateData<PitTransmissionMessage, number>) => (
-                <Button icon="eyeopen" text={t("VIEW", "Xem")} stylingMode="text" onClick={() => setXml(cell.data)} />
+                <Button icon="eyeopen" text={t("VIEW", "Xem")} stylingMode="text" onClick={() => { if (cell.data) setXml(cell.data) }} />
               )}
             />
           </DataGrid>

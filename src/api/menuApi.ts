@@ -11,71 +11,16 @@ import {
 } from "./apiTypes";
 import { getCurrentCompanyCd } from "@/lib/login";
 
-const MENU_TREE_STORAGE_KEY_PREFIX = "menu-tree:v3";
-
-function buildMenuTreeStorageKey(companyCd: string): string {
-  const normalizedCompanyCd = companyCd.trim().toUpperCase() || "DEFAULT";
-  return `${MENU_TREE_STORAGE_KEY_PREFIX}:${normalizedCompanyCd}`;
-}
-
-function readCachedMenuTree(companyCd: string): MenuTreeNode[] | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const cacheKey = buildMenuTreeStorageKey(companyCd);
-  const rawValue = window.localStorage.getItem(cacheKey);
-  if (!rawValue) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(rawValue) as MenuTreeNode[];
-    return Array.isArray(parsed) ? parsed : null;
-  } catch {
-    window.localStorage.removeItem(cacheKey);
-    return null;
-  }
-}
-
-function writeCachedMenuTree(companyCd: string, menuTree: MenuTreeNode[]): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  const cacheKey = buildMenuTreeStorageKey(companyCd);
-  window.localStorage.setItem(cacheKey, JSON.stringify(menuTree));
-}
-
+// Legacy persisted trees are no longer read: product mode and user permissions can change.
 export function clearCachedMenuTree(companyCd?: string): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  if (companyCd) {
-    window.localStorage.removeItem(buildMenuTreeStorageKey(companyCd));
-    menuTreeRequestCache.delete(companyCd);
-    return;
-  }
-
-  const prefix = `${MENU_TREE_STORAGE_KEY_PREFIX}:`;
-  const keysToRemove: string[] = [];
-
-  for (let index = 0; index < window.localStorage.length; index += 1) {
-    const storageKey = window.localStorage.key(index);
-    if (storageKey?.startsWith(prefix)) {
-      keysToRemove.push(storageKey);
+  if (typeof window === "undefined") return;
+  const suffix = companyCd ? ':' + (companyCd.trim().toUpperCase() || 'DEFAULT') : null;
+  for (const key of Object.keys(window.localStorage)) {
+    if (key.startsWith('menu-tree:') && (!suffix || key.endsWith(suffix))) {
+      window.localStorage.removeItem(key);
     }
   }
-
-  for (const storageKey of keysToRemove) {
-    window.localStorage.removeItem(storageKey);
-  }
-
-  menuTreeRequestCache.clear();
 }
-
-const menuTreeRequestCache = new Map<string, Promise<MenuTreeNode[]>>();
 
 type MenuListApiResponse = ApiResponseEnvelope<MenuItem[]>;
 type MenuTreeApiResponse = ApiResponseEnvelope<MenuTreeNodeApi[]>;
@@ -120,55 +65,63 @@ const mapMenuTreeNodeApi = (node: MenuTreeNodeApi): MenuTreeNode => ({
   children: node.CHILDREN?.map(mapMenuTreeNodeApi) ?? [],
 });
 
-export async function fetchMenuTree(): Promise<MenuTreeNode[]> {
-  const companyCd = getCurrentCompanyCd().trim();
+function isMenuRequestCanceled(error: unknown, signal?: AbortSignal): boolean {
+  if (signal?.aborted) {
+    return true;
+  }
+
+  if (axios.isCancel(error)) {
+    return true;
+  }
+
+  if (axios.isAxiosError(error) && error.code === "ERR_CANCELED") {
+    return true;
+  }
+
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return true;
+  }
+
+  return error instanceof Error
+    && (error.name === "CanceledError" || error.name === "AbortError");
+}
+
+export async function fetchMenuTree(companyCd = getCurrentCompanyCd().trim(), signal?: AbortSignal): Promise<MenuTreeNode[]> {
   if (!companyCd) {
     throw new Error("Company context is not ready");
   }
 
-  const cachedTree = readCachedMenuTree(companyCd);
-  if (cachedTree && cachedTree.length > 0) {
-    return cachedTree
-  }
+  try {
+    const resp = await axios.get<MenuTreeApiResponse>(`/companies/${encodeURIComponent(companyCd)}/menu/tree`, {
+      signal,
+      headers: { "Content-Type": "application/json" },
+    });
 
-  const pendingRequest = menuTreeRequestCache.get(companyCd);
-  if (pendingRequest) {
-    return pendingRequest;
-  }
-
-  const request = (async (): Promise<MenuTreeNode[]> => {
-    try {
-      const resp = await axios.get<MenuTreeApiResponse>("/menu/tree", {
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const result = resp.data;
-      if (!isApiSuccessPayload(result)) {
-        if (import.meta.env.DEV) {
-          console.error("Failed to fetch menu tree response", result);
-        }
-
-        throw new Error(getApiEnvelopeMessage(result, "Failed to fetch menu tree"));
-      }
-
-      const rawTree = getApiArrayPayload<MenuTreeNodeApi>(result);
-      const menuTree = rawTree.map(mapMenuTreeNodeApi);
-      writeCachedMenuTree(companyCd, menuTree);
-      return menuTree;
-    } catch (err: unknown) {
+    const result = resp.data;
+    if (!isApiSuccessPayload(result)) {
       if (import.meta.env.DEV) {
-        logApiError("Failed to fetch menu tree request", err);
+        console.error("Failed to fetch menu tree response", result);
       }
 
-      const msg = getApiErrorMessage(err, "Failed to fetch menu tree");
-      throw new Error(msg === "Failed to fetch menu tree" ? msg : `Failed to fetch menu tree: ${msg}`);
-    } finally {
-      menuTreeRequestCache.delete(companyCd);
+      throw new Error(getApiEnvelopeMessage(result, "Failed to fetch menu tree"));
     }
-  })();
 
-  menuTreeRequestCache.set(companyCd, request);
-  return request;
+    const rawTree = getApiArrayPayload<MenuTreeNodeApi>(result);
+    const menuTree = rawTree.map(mapMenuTreeNodeApi);
+    clearCachedMenuTree(companyCd);
+    return menuTree;
+  } catch (err: unknown) {
+    if (isMenuRequestCanceled(err, signal)) {
+      throw err;
+    }
+
+    if (import.meta.env.DEV) {
+      logApiError("Failed to fetch menu tree request", err);
+    }
+
+    const msg = getApiErrorMessage(err, "Failed to fetch menu tree");
+    throw new Error(msg === "Failed to fetch menu tree" ? msg : `Failed to fetch menu tree: ${msg}`);
+  }
 }
 
 export function buildMenuTree(menuItems: MenuItem[]): MenuTreeNode[] {
@@ -272,7 +225,7 @@ export function filterVisibleMenuTree(tree: MenuTreeNode[]): MenuTreeNode[] {
 
 export function findFirstMenuRoutePath(tree: MenuTreeNode[]): string | null {
   for (const node of tree) {
-    if (node.routePath) {
+    if (node.routePath && !node.isDisabled) {
       return node.routePath;
     }
     if (node.children?.length) {

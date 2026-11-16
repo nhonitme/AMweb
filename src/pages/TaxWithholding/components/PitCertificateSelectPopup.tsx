@@ -39,6 +39,9 @@ function parseDateBoxValue(value: unknown): Date | null {
 
 type Props = {
   visible: boolean
+  title?: string
+  taxpayerTaxCode?: string
+  excludedDocumentIds?: number[]
   excludeDocumentId?: number
   t: (key: string, fallback: string) => string
   onClose: () => void
@@ -47,6 +50,9 @@ type Props = {
 
 export default function PitCertificateSelectPopup({
   visible,
+  title,
+  taxpayerTaxCode = "",
+  excludedDocumentIds,
   excludeDocumentId = 0,
   t,
   onClose,
@@ -79,7 +85,12 @@ export default function PitCertificateSelectPopup({
     enabled: visible,
   })
 
-  const rows = list.data ?? []
+  const rows = useMemo(
+    () => (list.data ?? []).filter((row) =>
+      (!taxpayerTaxCode || row.TAX_CD === taxpayerTaxCode) && !excludedDocumentIds?.includes(row.DOCUMENT_ID),
+    ),
+    [list.data, taxpayerTaxCode, excludedDocumentIds],
+  )
   const loading = list.isLoading || list.isFetching
 
   usePopupEscapeLayer(visible, onClose)
@@ -129,7 +140,7 @@ export default function PitCertificateSelectPopup({
   return (
     <EInvoiceEditorShell
       visible={visible}
-      title={t("SELECT_REF_CERTIFICATE", "Chọn chứng từ gốc")}
+      title={title ?? t("SELECT_REF_CERTIFICATE", "Chọn chứng từ gốc")}
       subtitle={
         selectedRows.length
           ? t("SELECTED_COUNT", "Đã chọn {0}").replace("{0}", String(selectedRows.length))

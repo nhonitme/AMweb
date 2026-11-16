@@ -174,7 +174,7 @@ export default function EInvoiceMinuteLineGridSection({
     <section className="einvoice-editor__section">
       <div className="einvoice-editor__detail-toolbar">
         <div className="einvoice-editor__section-title einvoice-editor__section-title--inline">{title}</div>
-        <Button text={t("ADD_ROW", "Add row")} icon="plus" stylingMode="outlined" disabled={readOnly} onClick={addLine} />
+        <Button text={t("ADD", "Thêm")} icon="plus" stylingMode="outlined" elementAttr={{ class: "einvoice-add-btn" }} disabled={readOnly} onClick={addLine} />
       </div>
       <div className="einvoice-editor__detail-grid">
         <DataGrid<EInvoiceMinuteLine, GridKey>

@@ -167,7 +167,7 @@ export default function EInvoiceTemplateFormPopup({
       })
       .catch((error) => {
         if (!cancelled) {
-          notify(getApiErrorMessage(error, t("XSL_FTP_LOAD_FAILED", "Không tải được danh sách mẫu in")), "error", 4000)
+          notify(getApiErrorMessage(error, t("XSL_FTP_LOAD_FAILED", "Không tải được danh sách mẫu in hóa đơn")), "error", 4000)
         }
       })
       .finally(() => {
@@ -199,7 +199,7 @@ export default function EInvoiceTemplateFormPopup({
     const khhdon = composeKhhdon(khhdonParts)
     if (!isValidKhhdon(khhdon)) {
       notify(
-        t("KHHDON_INVALID", "Ký hiệu HĐ phải đủ 6 ký tự theo mẫu C/K + năm + loại + 2 chữ (vd: C26TYY)"),
+        t("KHHDON_INVALID", "Ký hiệu hóa đơn phải đủ 6 ký tự theo mẫu C/K + năm + loại + 2 chữ (ví dụ: C26TYY)"),
         "warning",
         4500,
       )
@@ -289,7 +289,7 @@ export default function EInvoiceTemplateFormPopup({
         <EInvoiceEditorSection title={t("INVOICE_TEMPLATE_SETTING", "Mẫu hóa đơn")}>
           <div className="grid gap-3">
             <label className="block text-xs">
-              <span className="mb-1 block font-medium">{t("KHMSHDON", "Mẫu số HĐ")}</span>
+              <span className="mb-1 block font-medium">{t("KHMSHDON", "Mẫu số hóa đơn")}</span>
               <SelectBox
                 dataSource={khmshdonOptions}
                 value={values.KHMSHDON || null}
@@ -312,20 +312,14 @@ export default function EInvoiceTemplateFormPopup({
 
             <div className="rounded border border-slate-200 bg-slate-50 p-3">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-medium">{t("KHHDON", "Ký hiệu HĐ")}</span>
+                <span className="text-xs font-medium">{t("KHHDON", "Ký hiệu hóa đơn")}</span>
                 <span className="rounded bg-white px-2 py-0.5 font-mono text-sm font-semibold tracking-wider text-slate-800">
                   {composeKhhdon(khhdonParts) || "------"}
                 </span>
               </div>
-              <p className="mb-3 text-[11px] text-slate-500">
-                {t(
-                  "KHHDON_HINT",
-                  "6 ký tự theo TT 91/2026: [C/K][năm][loại][2 chữ tự đặt]. Ví dụ C26TYY.",
-                )}
-              </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block text-xs">
-                  <span className="mb-1 block font-medium">{t("KHHDON_MCCQT", "Có mã / không mã CQT")}</span>
+                  <span className="mb-1 block font-medium">{t("KHHDON_MCCQT", "Mã cơ quan thuế")}</span>
                   <SelectBox
                     dataSource={mccqtOptions}
                     value={khhdonParts.mccqt || null}
@@ -344,7 +338,7 @@ export default function EInvoiceTemplateFormPopup({
                   />
                 </label>
                 <label className="block text-xs">
-                  <span className="mb-1 block font-medium">{t("KHHDON_YEAR", "Năm lập (2 số)")}</span>
+                  <span className="mb-1 block font-medium">{t("KHHDON_YEAR", "Năm lập")}</span>
                   <TextBox
                     value={khhdonParts.year}
                     maxLength={2}
@@ -354,7 +348,7 @@ export default function EInvoiceTemplateFormPopup({
                   />
                 </label>
                 <label className="block text-xs sm:col-span-2">
-                  <span className="mb-1 block font-medium">{t("KHHDON_LOAI", "Loại hóa đơn (ký tự 4)")}</span>
+                  <span className="mb-1 block font-medium">{t("KHHDON_LOAI", "Loại hóa đơn")}</span>
                   <SelectBox
                     dataSource={loaiOptions}
                     value={khhdonParts.loai || null}
@@ -389,9 +383,6 @@ export default function EInvoiceTemplateFormPopup({
                       patchKhhdonParts({ suffix: letters })
                     }}
                   />
-                  <span className="mt-1 block text-[11px] text-slate-500">
-                    {t("KHHDON_SUFFIX_HINT", "Mặc định YY nếu không cần quản lý mẫu riêng.")}
-                  </span>
                 </label>
               </div>
             </div>
@@ -418,39 +409,6 @@ export default function EInvoiceTemplateFormPopup({
                 />
               </label>
             </div>
-            <label className="block text-xs">
-              <span className="mb-1 block font-medium">{t("XSL_TEMPLATE_NM", "Tên mẫu")}</span>
-              <TextBox
-                value={values.TEMPLATE_NM}
-                maxLength={255}
-                stylingMode="outlined"
-                disabled={saving}
-                onValueChanged={(event) => patch({ TEMPLATE_NM: String(event.value ?? "") })}
-              />
-            </label>
-            {isCreate && (
-              <label className="block text-xs">
-                <span className="mb-1 block font-medium">{t("XSL_FTP_SAMPLE", "Mẫu in hóa đơn")}</span>
-                <SelectBox
-                  dataSource={xslSamples}
-                  value={values.XSL_FILE_NAME || null}
-                  valueExpr="FILE_NAME"
-                  displayExpr="FILE_NAME"
-                  searchEnabled
-                  disabled={saving || loadingSamples}
-                  stylingMode="outlined"
-                  placeholder={loadingSamples ? t("LOADING", "Đang tải...") : t("SELECT_XSL_FTP", "Chọn mẫu in có sẵn")}
-                  onValueChanged={(event) => {
-                    if (!event.event) return
-                    const fileName = String(event.value ?? "")
-                    patch({
-                      XSL_FILE_NAME: fileName,
-                      TEMPLATE_NM: values.TEMPLATE_NM || fileName.replace(/\.(xsl|xslt)$/i, ""),
-                    })
-                  }}
-                />
-              </label>
-            )}
             <div className="pt-1">
               <CheckBox
                 value={values.USE_MULTI_TAX_RATE === 1}

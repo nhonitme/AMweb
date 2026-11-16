@@ -85,7 +85,7 @@
 
   &__delete { order: 1; }
   &__delete:empty { display: none; }
-  .editor-action-toolbar__print { order: 0; }
+  .editor-action-toolbar__sign { order: -1; }
   .editor-action-toolbar__saveAndNew { order: 2; }
   .editor-action-toolbar__save { order: 3; }
   .editor-action-toolbar__close { order: 4; }
@@ -102,6 +102,13 @@
     border-color: #2563eb;
     .dx-icon, .dx-button-text { color: #2563eb; }
     &.dx-state-hover { background: rgba(37, 99, 235, 0.08); }
+  }
+
+  .editor-action-toolbar__sign.dx-button {
+    background: #dc2626;
+    border-color: #dc2626;
+    .dx-icon, .dx-button-text { color: #fff; }
+    &.dx-state-hover { background: #b91c1c; border-color: #b91c1c; }
   }
 
   .editor-action-toolbar__print.dx-button {

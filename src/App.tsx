@@ -10,6 +10,7 @@ import {
 import { BrowserRouter as Router, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import Header from './components/Header';
 import HeaderSubMenu from './components/HeaderSubMenu';
+import { normalizeMenuRoutePath } from '@/lib/menuRoutePath';
 import { useMenuLayout } from './components/menu-layout-provider';
 import LoginPage from './components/LoginPage';
 import ModuleContent from './components/ModuleContent';
@@ -20,6 +21,7 @@ import { useSysCodes } from '@/lib/sysCodeContext';
 import { warmupSysCodesCache } from '@/lib/sysCodeCache';
 import { useSysGridColumnSettings } from '@/lib/sysGridColumnSettingContext';
 import { useMenuTreeQuery } from '@/hooks/queries/useMenuTreeQuery';
+import { menuLandingPath, menuRoutePaths, matchesMenuRoute } from '@/lib/menuProductAccess';
 import {
     filterVisibleMenuTree,
     findFirstMenuRoutePath,
@@ -162,7 +164,7 @@ function getActiveMenuFromPath(pathname: string, tree: MenuTreeNode[]): string {
         return findOverviewMenu(tree)?.id ?? "";
     }
 
-    const normalize = (path: string) => (path.endsWith("/") && path !== "/" ? path.slice(0, -1) : path);
+    const normalize = normalizeMenuRoutePath;
     const normalizedPath = normalize(pathname);
     const candidates: MenuTreeNode[] = [];
 
@@ -275,8 +277,24 @@ function AppContent({ onLogout, licenseExpired }: { onLogout: () => void; licens
     const currentCompanyCd = getCompanyCdFromPathname(location.pathname);
     const {
         data: loadedMenuTree = [],
-        isLoading: menuLoading,
+        isPending: menuPending,
+        isFetching: menuFetching,
+        isSuccess: menuLoaded,
+        isError: menuError,
     } = useMenuTreeQuery(currentCompanyCd ?? "");
+    const menuLoading = menuPending || menuFetching;
+    const menuSnapshotRef = useRef<{ companyCd: string | null; routes: string[] }>({ companyCd: null, routes: [] });
+    const [blockedMenuRoutes, setBlockedMenuRoutes] = useState<string[]>([]);
+    useEffect(() => {
+        if (!menuLoaded) return;
+        const routes = menuRoutePaths(loadedMenuTree);
+        const previous = menuSnapshotRef.current;
+        setBlockedMenuRoutes(blocked => previous.companyCd === currentCompanyCd
+            ? [...new Set([...blocked, ...previous.routes.filter(route => !routes.includes(route))])]
+                .filter(route => !routes.includes(route))
+            : []);
+        menuSnapshotRef.current = { companyCd: currentCompanyCd, routes };
+    }, [currentCompanyCd, loadedMenuTree, menuLoaded]);
     const menuTree = useMemo(
         () => licenseExpired ? loadedMenuTree.map(disableMenuNode) : loadedMenuTree,
         [licenseExpired, loadedMenuTree],
@@ -417,8 +435,8 @@ function AppContent({ onLogout, licenseExpired }: { onLogout: () => void; licens
         return "doc";
     }, [resolveWorkspaceMenu]);
     const resolveDefaultLandingHref = useCallback(() => {
-        return buildAppPath(currentCompanyCd ?? "", "/");
-    }, [currentCompanyCd]);
+        return buildAppPath(currentCompanyCd ?? "", menuLandingPath(loadedMenuTree) ?? "/");
+    }, [currentCompanyCd, loadedMenuTree]);
     const workspaceTabs = useWorkspaceTabsController({
         companyCd: currentCompanyCd ?? "",
         enabled: workspaceTabsEnabled,
@@ -428,6 +446,16 @@ function AppContent({ onLogout, licenseExpired }: { onLogout: () => void; licens
         navigate,
         resolveDefaultLandingHref,
     });
+
+    useEffect(() => {
+        // Close one obsolete tab per render; closeTab uses the current tab snapshot.
+        const obsolete = workspaceTabs.tabs.find(tab => {
+            const path = stripCompanyPath(new URL(tab.href, window.location.origin).pathname);
+            return blockedMenuRoutes.some(route => matchesMenuRoute(path, route))
+                && !menuRoutePaths(loadedMenuTree).some(route => matchesMenuRoute(path, route));
+        });
+        if (obsolete) workspaceTabs.closeTab(obsolete.id);
+    }, [blockedMenuRoutes, loadedMenuTree, workspaceTabs.tabs, workspaceTabs.closeTab]);
 
     useEffect(() => {
         if (isMobile) {
@@ -678,6 +706,11 @@ function AppContent({ onLogout, licenseExpired }: { onLogout: () => void; licens
                                     tabLocation={workspaceScreen.location}
                                     currentCompanyCd={currentCompanyCd ?? ""}
                                     resolveDefaultLandingHref={resolveDefaultLandingHref}
+                                    menuTree={loadedMenuTree}
+                                    menuLoaded={menuLoaded}
+                                    menuLoading={menuLoading}
+                                    menuError={menuError}
+                                    blockedMenuRoutes={blockedMenuRoutes}
                                 />
                             </WorkspaceTabRouteProvider>
                         </div>
@@ -687,6 +720,11 @@ function AppContent({ onLogout, licenseExpired }: { onLogout: () => void; licens
                                 tabLocation={plainWorkspaceLocation}
                                 currentCompanyCd={currentCompanyCd ?? ""}
                                 resolveDefaultLandingHref={resolveDefaultLandingHref}
+                                menuTree={loadedMenuTree}
+                                menuLoaded={menuLoaded}
+                                menuLoading={menuLoading}
+                                menuError={menuError}
+                                blockedMenuRoutes={blockedMenuRoutes}
                             />
                         </div>
                     )}
@@ -747,6 +785,11 @@ function AppWorkspaceRoutes({
     tabLocation,
     currentCompanyCd,
     resolveDefaultLandingHref,
+    menuTree,
+    menuLoaded,
+    menuLoading,
+    menuError,
+    blockedMenuRoutes,
 }: {
     tabLocation: {
         pathname: string;
@@ -757,7 +800,28 @@ function AppWorkspaceRoutes({
     };
     currentCompanyCd: string;
     resolveDefaultLandingHref: () => string;
+    menuTree: MenuTreeNode[];
+    menuLoaded: boolean;
+    menuLoading: boolean;
+    menuError: boolean;
+    blockedMenuRoutes: string[];
 }) {
+    const path = tabLocation.pathname;
+    const landingPath = menuLandingPath(menuTree);
+    const overview = isOverviewPath(path);
+    const removed = blockedMenuRoutes.some(route => matchesMenuRoute(path, route))
+        && !menuRoutePaths(menuTree).some(route => matchesMenuRoute(path, route));
+    if (overview || removed) {
+        if (!menuLoaded) {
+            if (menuLoading) return <RouteLoading />;
+            if (menuError) return <div role="alert" className="p-4">Không tải được menu. Vui lòng tải lại trang.</div>;
+            return <RouteLoading />;
+        }
+        if (!landingPath) return <div role="status" className="p-4">Chưa được cấp chức năng. Vui lòng liên hệ quản trị viên.</div>;
+        if (removed || (overview && landingPath !== "/")) {
+            return <Navigate to={buildAppPath(currentCompanyCd, landingPath)} replace />;
+        }
+    }
     return (
         <Suspense fallback={<RouteLoading />}>
                     <Routes location={tabLocation}>
@@ -769,7 +833,6 @@ function AppWorkspaceRoutes({
                         <Route path="/cost-center" element={<Navigate to={buildAppPath(currentCompanyCd, "/master/cost-center")} replace />} />
                         <Route path="/master/cost-center" element={<DepartmentManagementPage />} />
                         <Route path="/cost/cost-object" element={<CostObjectSetupPage />} />
-                        {/* G-K Giá thành giản đơn — /api/production-cost */}
                         <Route path="/cost/simple-costing" element={<ProductionCostingPage />} />
                         <Route path="/cost/issue-material" element={<OtherVoucherPage />} />
                         <Route path="/cost/finish-goods-in" element={<OtherVoucherPage />} />

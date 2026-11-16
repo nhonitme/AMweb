@@ -8,10 +8,10 @@ import notify from "devextreme/ui/notify"
 
 import { createDateBoxEditorOptions } from "@/components/forms/dateBoxEditorOptions"
 import { formatYmdForDisplay } from "@/pages/Accounting/accountingDateUtils"
-import type { PitDocument, PitField } from "../types"
+import type { PitDocument } from "../types"
 import PitCertificateSelectPopup from "./PitCertificateSelectPopup"
 
-const SYSTEM_RELATED_TYPE = "8"
+const SYSTEM_RELATED_TYPE = 8
 
 type RelatedIdentityKey = "LHCTLQUAN" | "KHMSCTCLQUAN" | "KHCTCLQUAN" | "SCTCLQUAN" | "NLCTCLQUAN"
 
@@ -37,28 +37,26 @@ export function relatedFieldsFromPitCertificate(row: PitDocument, formCode: stri
   return {
     LHCTLQUAN: SYSTEM_RELATED_TYPE,
     KHMSCTCLQUAN: formCode,
-    KHCTCLQUAN: (row.SERIES || row.DATA?.Fields?.KHCTU || "").trim(),
+    KHCTCLQUAN: (row.SERIES || row.KHCTU || "").trim(),
     SCTCLQUAN: row.DOC_NO != null && row.DOC_NO > 0 ? String(row.DOC_NO) : "",
-    NLCTCLQUAN: toDateText(row.DOC_DATE) || toDateText(row.DATA?.Fields?.NLAP),
+    NLCTCLQUAN: toDateText(row.DOC_DATE) || toDateText(row.NLAP),
   }
 }
 
 type Props = {
-  fields: Record<string, string>
+  fields: PitDocument
   formCode: string
-  relatedFields: PitField[]
   excludeDocumentId?: number
   readOnly?: boolean
   busy?: boolean
   t: (key: string, fallback: string) => string
-  onPatch: (patch: Record<string, string>) => void
+  onPatch: (patch: Partial<PitDocument>) => void
   onPickerVisibleChange?: (open: boolean) => void
 }
 
 export default function PitRelatedCertificatePanel({
   fields,
   formCode,
-  relatedFields,
   excludeDocumentId = 0,
   readOnly = false,
   busy = false,
@@ -68,10 +66,11 @@ export default function PitRelatedCertificatePanel({
 }: Props) {
   const [pickerVisible, setPickerVisible] = useState(false)
   const [isExternal, setIsExternal] = useState(false)
-  const typeOptions = useMemo(
-    () => relatedFields.find((field) => field.Key === "LHCTLQUAN")?.Options?.filter((option) => option.Value !== "") ?? [],
-    [relatedFields],
-  )
+  const typeOptions = [
+    { Value: 1, Label: t("PIT_LCTDT_ND_70", "Theo NĐ 70") },
+    { Value: 7, Label: t("PIT_LCTDT_ND_123", "Theo NĐ 123") },
+    { Value: 8, Label: t("PIT_LCTDT_ND_254", "Theo NĐ 254") },
+  ]
   const relatedDate = useMemo(() => parseRelatedDate(fields.NLCTCLQUAN), [fields.NLCTCLQUAN])
   const dateBoxOptions = useMemo(
     () =>
@@ -95,8 +94,8 @@ export default function PitRelatedCertificatePanel({
   )
 
   const handleFieldChange = useCallback(
-    (key: RelatedIdentityKey | "GCHU", value: string) => {
-      onPatch({ [key]: value })
+    (key: RelatedIdentityKey | "GCHU", value: string | number | null) => {
+      onPatch({ [key]: key === "NLCTCLQUAN" && !value ? null : value })
     },
     [onPatch],
   )
@@ -129,11 +128,11 @@ export default function PitRelatedCertificatePanel({
                 setIsExternal(checked)
                 if (!checked) {
                   onPatch({
-                    LHCTLQUAN: "",
+                    LHCTLQUAN: null,
                     KHMSCTCLQUAN: "",
                     KHCTCLQUAN: "",
                     SCTCLQUAN: "",
-                    NLCTCLQUAN: "",
+                    NLCTCLQUAN: null,
                   })
                 }
               }}
@@ -193,7 +192,7 @@ export default function PitRelatedCertificatePanel({
             labelMode="floating"
             showClearButton={!identityReadOnly}
             disabled={identityReadOnly}
-            onValueChanged={!identityReadOnly ? (event) => handleFieldChange("LHCTLQUAN", String(event.value ?? "")) : undefined}
+            onValueChanged={!identityReadOnly ? (event) => handleFieldChange("LHCTLQUAN", event.value == null ? null : Number(event.value)) : undefined}
           />
           {!isExternal ? (
             <div className="pit-related-panel__pick">

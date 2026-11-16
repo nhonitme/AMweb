@@ -13,7 +13,7 @@ import type { MenuItem } from "@/types/menu";
 import { LanguageContext } from "@/lib/i18nLoader";
 import { getSysCodeDisplayText } from "@/lib/sysCodeUtils";
 
-import { DEFAULT_USER_LEVEL, normalizeUserLevel } from "./userInfoUtils";
+import { DEFAULT_USER_LEVEL, normalizeUserLevel, isValidUserLevel } from "./userInfoUtils";
 import {
   applyPermissionPreset,
   buildLevelDefaultSummaryFlags,
@@ -169,7 +169,7 @@ export function PermissionsDialog({
   const levelOptions = useMemo(() => {
     if (userLevelCodes.length > 0) {
       return [...userLevelCodes]
-        .filter((item) => item.ISDEL !== "1" && item.IS_ACTIVE !== 0)
+        .filter((item) => item.ISDEL !== "1" && item.IS_ACTIVE !== 0 && isValidUserLevel(Number(item.CODE_CD)))
         .sort((a, b) => (a.SORT_ORDER ?? 0) - (b.SORT_ORDER ?? 0))
         .map((item) => ({
           value: Number(item.CODE_CD),
@@ -267,14 +267,15 @@ export function PermissionsDialog({
     setSelectedMenuId(filteredTreeRows[0]?.MENU_ID ?? null);
   }, [filteredTreeRows, isBusy, open]);
 
-  const handleRestoreDefaults = useCallback(() => {
+  const handleApplyRolePreset = useCallback(() => {
+    if (!isValidUserLevel(presetLevel)) return;
     const menuCodes = treeRows.map((row) => row.MENU_CODE);
     const next = applyPermissionPreset(rows, menuCodes, presetLevel);
     onChange(next);
     notify(
       t(
-        "USER_PERMISSION_APPLIED_DEFAULT",
-        "Đã áp dụng quyền mặc định của {0} cho {1} chức năng.",
+        "USER_PERMISSION_APPLIED_ROLE_PRESET",
+        "Đã áp dụng mẫu quyền cấp {0} cho {1} chức năng.",
       )
         .replace("{0}", presetLevelLabel)
         .replace("{1}", String(menuCodes.length)),
@@ -357,7 +358,7 @@ export function PermissionsDialog({
                   }
 
                   const numericValue = Number(event.value);
-                  if (Number.isFinite(numericValue) && numericValue > 0) {
+                  if (isValidUserLevel(numericValue)) {
                     setPresetLevel(numericValue);
                   }
                 }}
@@ -366,7 +367,7 @@ export function PermissionsDialog({
 
             <div className="min-w-0 flex-1">
               <div className="mb-1 text-xs font-medium text-slate-600">
-                {t("USER_PERMISSION_DEFAULT_RIGHTS", "Quyền mặc định")}
+                {t("USER_PERMISSION_ROLE_PRESET", "Mẫu quyền theo cấp")}
               </div>
               <FlagSummary flags={levelDefaultFlags} t={t} />
             </div>
@@ -375,13 +376,13 @@ export function PermissionsDialog({
           <Button
             icon="refresh"
             stylingMode="outlined"
-            text={t("USER_PERMISSION_RESTORE_DEFAULT", "Khôi phục quyền mặc định")}
+            text={t("USER_PERMISSION_APPLY_ROLE_PRESET", "Áp dụng mẫu theo cấp")}
             hint={t(
-              "USER_PERMISSION_RESTORE_DEFAULT_HINT",
-              "Gán lại quyền mặc định của cấp đã chọn cho toàn bộ chức năng",
+              "USER_PERMISSION_APPLY_ROLE_PRESET_HINT",
+              "Gán mẫu quyền của cấp đã chọn cho toàn bộ chức năng; lưu thành quyền riêng",
             )}
-            onClick={handleRestoreDefaults}
-            disabled={isBusy || treeRows.length === 0}
+            onClick={handleApplyRolePreset}
+            disabled={isBusy || treeRows.length === 0 || !isValidUserLevel(presetLevel)}
           />
         </div>
 
@@ -443,11 +444,18 @@ export function PermissionsDialog({
                     {selectedRow?.MENU_LABEL ??
                       t("USER_PERMISSION_SELECT_MENU", "Chọn một menu bên trái")}
                   </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    {currentPermission?.RESET_TO_DEFAULT
+                      ? t("USER_PERMISSION_SOURCE_RESET_PENDING", "Sẽ dùng quyền chung sau khi lưu")
+                      : currentPermission?.PERMISSION_SOURCE === "DEFAULT"
+                        ? t("USER_PERMISSION_SOURCE_DEFAULT", "Nguồn: quyền chung")
+                        : t("USER_PERMISSION_SOURCE_OVERRIDE", "Nguồn: quyền riêng")}
+                  </div>
                   {selectedDiffersFromDefault ? (
                     <div className="mt-1 text-xs text-amber-700">
                       {t(
                         "USER_PERMISSION_CUSTOMIZED_HINT",
-                        "Đang khác quyền mặc định của cấp {0}",
+                        "Đang khác mẫu quyền cấp {0}",
                       ).replace("{0}", presetLevelLabel)}
                     </div>
                   ) : null}
@@ -529,24 +537,14 @@ export function PermissionsDialog({
                           />
                         </div>
 
-                        {selectedDiffersFromDefault && selectedPreset ? (
+                        {currentPermission.DEFAULT_FLAGS ? (
                           <Button
                             stylingMode="text"
-                            text={t(
-                              "USER_PERMISSION_RESET_ONE",
-                              "Trả menu này về quyền mặc định",
-                            )}
+                            text={t("USER_PERMISSION_USE_SHARED_DEFAULT", "Dùng quyền chung cho menu này")}
                             onClick={() => {
-                              applyPatchToSelection({
-                                CAN_VIEW: selectedPreset.CAN_VIEW,
-                                CAN_ADD: selectedPreset.CAN_ADD,
-                                CAN_EDIT: selectedPreset.CAN_EDIT,
-                                CAN_DELETE: selectedPreset.CAN_DELETE,
-                                CAN_PRINT: selectedPreset.CAN_PRINT,
-                                CAN_EXPORT: selectedPreset.CAN_EXPORT,
-                                CAN_IMPORT: selectedPreset.CAN_IMPORT,
-                                CAN_APPROVE: selectedPreset.CAN_APPROVE,
-                              });
+                              onChange(rows.map(row => row.MENU_CODE === currentPermission.MENU_CODE
+                                ? { ...row, ...row.DEFAULT_FLAGS, RESET_TO_DEFAULT: true }
+                                : row));
                             }}
                           />
                         ) : null}

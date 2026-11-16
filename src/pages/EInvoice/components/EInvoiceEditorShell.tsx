@@ -1,10 +1,11 @@
-import type { ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import Button from "devextreme-react/button"
 import LoadPanel from "devextreme-react/load-panel"
 import Popup from "devextreme-react/popup"
 import type { HidingEvent, Properties as PopupProperties, ShownEvent } from "devextreme/ui/popup"
 
 import { POPUP_FADE_ANIMATION } from "@/pages/VoucherManagement/components/chitEditorConstants"
+import "@/components/toolbar/EditorActionToolbar.scss"
 
 import "./einvoiceEditor.css"
 
@@ -15,6 +16,7 @@ export type EInvoiceEditorShellProps = {
   width?: string | number
   height?: string | number
   fullScreen?: boolean
+  mode?: "add" | "edit"
   loading?: boolean
   closeDisabled?: boolean
   dragEnabled?: boolean
@@ -36,27 +38,58 @@ export function EInvoiceEditorSection({
   className,
   bodyClassName,
   headerAction,
+  collapsible = false,
+  defaultExpanded = true,
 }: {
   title: string
   children: ReactNode
   className?: string
   bodyClassName?: string
   headerAction?: ReactNode
+  collapsible?: boolean
+  defaultExpanded?: boolean
 }) {
-  if (headerAction) {
+  const [expanded, setExpanded] = useState(defaultExpanded)
+  const showBody = !collapsible || expanded
+  const sectionClassName = [
+    "einvoice-editor__section",
+    collapsible && !expanded ? "einvoice-editor__section--collapsed" : "",
+    className,
+  ].filter(Boolean).join(" ")
+
+  if (collapsible || headerAction) {
     return (
-      <section className={["einvoice-editor__section", className].filter(Boolean).join(" ")}>
+      <section className={sectionClassName}>
         <div className="einvoice-editor__detail-toolbar">
-          <div className="einvoice-editor__section-title einvoice-editor__section-title--inline">{title}</div>
-          {headerAction}
+          {collapsible ? (
+            <button
+              type="button"
+              className="einvoice-editor__section-collapse"
+              aria-expanded={expanded}
+              onClick={() => setExpanded((current) => !current)}
+            >
+              <span
+                className={`einvoice-editor__section-collapse-icon${expanded ? " is-open" : ""}`}
+                aria-hidden="true"
+              >
+                ▶
+              </span>
+              <span className="einvoice-editor__section-title einvoice-editor__section-title--inline">{title}</span>
+            </button>
+          ) : (
+            <div className="einvoice-editor__section-title einvoice-editor__section-title--inline">{title}</div>
+          )}
+          {showBody ? headerAction : null}
         </div>
-        <div className={["einvoice-editor__section-body", bodyClassName].filter(Boolean).join(" ")}>{children}</div>
+        {showBody ? (
+          <div className={["einvoice-editor__section-body", bodyClassName].filter(Boolean).join(" ")}>{children}</div>
+        ) : null}
       </section>
     )
   }
 
   return (
-    <section className={["einvoice-editor__section", className].filter(Boolean).join(" ")}>
+    <section className={sectionClassName}>
       <div className="einvoice-editor__section-title">{title}</div>
       <div className={["einvoice-editor__section-body", bodyClassName].filter(Boolean).join(" ")}>{children}</div>
     </section>
@@ -70,6 +103,7 @@ export default function EInvoiceEditorShell({
   width = "min(1180px, 96vw)",
   height = "min(820px, 94vh)",
   fullScreen = false,
+  mode,
   loading = false,
   closeDisabled = false,
   dragEnabled,
@@ -86,7 +120,11 @@ export default function EInvoiceEditorShell({
 }: EInvoiceEditorShellProps) {
   const mergedWrapperAttr = {
     ...wrapperAttr,
-    class: ["einvoice-editor-popup", wrapperAttr?.class].filter(Boolean).join(" "),
+    class: [
+      "einvoice-editor-popup",
+      mode ? `editor-mode--${mode}` : "",
+      wrapperAttr?.class,
+    ].filter(Boolean).join(" "),
   }
 
   return (

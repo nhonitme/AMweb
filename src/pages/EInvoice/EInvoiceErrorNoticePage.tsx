@@ -26,6 +26,7 @@ import { getApiErrorMessage } from "@/api/apiTypes"
 import { getCompanyInfo } from "@/api/companyInfoApi"
 import PageGrid from "@/components/datagrid/PageGrid"
 import ShortcutHelpPopup from "@/components/shortcuts/ShortcutHelpPopup"
+import EditorActionToolbar from "@/components/toolbar/EditorActionToolbar"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import { useWorkspaceTabs } from "@/components/workspaceTabs/WorkspaceTabs"
 import DxPage from "@/dx/DxPage"
@@ -94,6 +95,7 @@ import { useEInvoiceSigningPluginSetupPrompt } from "./hooks/useEInvoiceSigningP
 import { openEInvoiceErrorNoticePreview } from "./einvoiceErrorNoticePreviewViewer"
 import { openEInvoiceErrorNoticeXmlPreviewWithNotify } from "./einvoiceDocumentXmlViewer"
 import { openEInvoiceTransmissionHtmlPreview } from "./einvoiceTransmissionPreviewViewer"
+import { createEInvoicePrintToolbarItem } from "./einvoicePrintToolbar"
 import { createEInvoiceSignSendCqtToolbarItem } from "./einvoiceSignToolbar"
 import { createEInvoiceSendMailToolbarItem } from "./einvoiceSendMailToolbar"
 
@@ -465,6 +467,8 @@ function ErrorNoticeEditorPopup({ visible, noticeId, initialNotice = null, readO
   const shortcutActions = useMemo(
     () => [
       SHORTCUT_ACTIONS.SAVE,
+      SHORTCUT_ACTIONS.SAVE_AND_CLOSE,
+      SHORTCUT_ACTIONS.PRINT,
       SHORTCUT_ACTIONS.CLOSE,
       SHORTCUT_ACTIONS.ADD_ROW,
       SHORTCUT_ACTIONS.DELETE_ROW,
@@ -545,6 +549,12 @@ function ErrorNoticeEditorPopup({ visible, noticeId, initialNotice = null, readO
           [SHORTCUT_ACTIONS.SAVE]: () => {
             void handleSave()
           },
+          [SHORTCUT_ACTIONS.SAVE_AND_CLOSE]: () => {
+            void handleSave()
+          },
+          [SHORTCUT_ACTIONS.PRINT]: () => {
+            handlePrint()
+          },
           [SHORTCUT_ACTIONS.CLOSE]: () => handleClosePopup(),
           [SHORTCUT_ACTIONS.ADD_ROW]: () => addDetail(),
           [SHORTCUT_ACTIONS.DELETE_ROW]: () => handleDeleteDetailRow(),
@@ -559,6 +569,8 @@ function ErrorNoticeEditorPopup({ visible, noticeId, initialNotice = null, readO
         },
         {
           [SHORTCUT_ACTIONS.SAVE]: { enabled: !readOnly && !loading, allowInInput: true },
+          [SHORTCUT_ACTIONS.SAVE_AND_CLOSE]: { enabled: !readOnly && !loading, allowInInput: true },
+          [SHORTCUT_ACTIONS.PRINT]: { enabled: !loading, allowInInput: true },
           [SHORTCUT_ACTIONS.CLOSE]: { allowInInput: true },
           [SHORTCUT_ACTIONS.ADD_ROW]: { enabled: !readOnly && !loading },
           [SHORTCUT_ACTIONS.DELETE_ROW]: { enabled: !readOnly && !loading },
@@ -570,6 +582,7 @@ function ErrorNoticeEditorPopup({ visible, noticeId, initialNotice = null, readO
       closeShortcutHelp,
       handleClosePopup,
       handleDeleteDetailRow,
+      handlePrint,
       handleSave,
       loading,
       openShortcutHelp,
@@ -595,6 +608,8 @@ function ErrorNoticeEditorPopup({ visible, noticeId, initialNotice = null, readO
     <>
       <EInvoiceEditorShell
         visible={visible}
+        fullScreen
+        mode={noticeId > 0 ? "edit" : "add"}
         title={popupTitle}
         subtitle={formData.MST?.trim() || undefined}
         loading={loading}
@@ -604,11 +619,15 @@ function ErrorNoticeEditorPopup({ visible, noticeId, initialNotice = null, readO
         onClose={handleClosePopup}
         onHiding={handleClosePopup}
         footer={
-          <>
-            <Button text={t("PRINT", "Print")} icon="print" stylingMode="outlined" disabled={loading} onClick={handlePrint} />
-            <Button text={t("CANCEL", "Cancel")} stylingMode="outlined" disabled={loading} onClick={handleClosePopup} />
-            <Button text={t("SAVE", "Save")} icon="save" type="default" stylingMode="contained" disabled={readOnly || loading} onClick={() => void handleSave()} />
-          </>
+          <EditorActionToolbar
+            mode={noticeId > 0 ? "edit" : "add"}
+            busy={loading}
+            actions={[
+              { key: "print", text: t("PRINT", "Print"), onClick: handlePrint },
+              { key: "save", text: t("SAVE", "Save"), visible: !readOnly, onClick: () => { void handleSave() } },
+              { key: "close", text: t("CANCEL", "Cancel"), onClick: handleClosePopup },
+            ]}
+          />
         }
       >
         <EInvoiceEditorSection title={t("TBAO_HEADER", "Thông tin thông báo")}>
@@ -677,7 +696,7 @@ function ErrorNoticeEditorPopup({ visible, noticeId, initialNotice = null, readO
         <section className="einvoice-editor__section">
           <div className="einvoice-editor__detail-toolbar">
             <div className="einvoice-editor__section-title einvoice-editor__section-title--inline">{t("TBAO_DETAIL", "Invoice error details")}</div>
-            <Button icon="add" text={t("ADD_ROW", "Add row")} type="default" stylingMode="contained" disabled={readOnly} onClick={addDetail} />
+            <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" elementAttr={{ class: "einvoice-add-btn" }} disabled={readOnly || loading} onClick={addDetail} />
           </div>
           <div className="einvoice-editor__detail-grid" style={{ minHeight: 280 }}>
             <DataGrid<EInvoiceErrorNoticeDetail, GridKey>
@@ -1342,17 +1361,12 @@ function EInvoiceErrorNoticePage() {
 
   const toolbarItems = useMemo(
     () => [
-      {
-        key: "view-preview",
-        icon: "print",
-        text: t("VIEW", "View"),
-        hint: t("PREVIEW_HINT", "View HTML preview"),
-        stylingMode: "outlined" as const,
-        disabled: loading,
+      createEInvoicePrintToolbarItem(t, {
+        loading,
         onClick: (event) => {
           void handleViewPreview(event)
         },
-      },
+      }),
     ],
     [handleViewPreview, loading, t],
   )

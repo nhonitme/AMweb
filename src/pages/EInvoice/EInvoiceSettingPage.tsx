@@ -46,9 +46,9 @@ import EInvoiceDecimalSettingsPanel from "./components/EInvoiceDecimalSettingsPa
 import "./components/einvoiceSettingPanel.css"
 import EInvoiceSellerInfoPanel from "./components/EInvoiceSellerInfoPanel"
 import { EInvoiceTableShell } from "./components/EInvoiceTableShell"
-import EInvoiceMailSettingPanel from "./components/EInvoiceMailSettingPanel"
 import EInvoiceTemplateFormPopup from "./components/EInvoiceTemplateFormPopup"
 import { openEInvoiceSellerPreview } from "./einvoiceSellerPreviewViewer"
+import { createEInvoicePrintToolbarItem } from "./einvoicePrintToolbar"
 import { confirm } from "devextreme/ui/dialog"
 
 type GridKey = string | number
@@ -414,7 +414,6 @@ export default function EInvoiceSettingPage() {
     const [selectedDecimalTemplateId, setSelectedDecimalTemplateId] = useState(0)
     const [decimalCurrencyScope, setDecimalCurrencyScope] = useState<"VND" | "FC">("VND")
     const [sellerPreviewLoading, setSellerPreviewLoading] = useState(false)
-    const [mailSettingsLoading, setMailSettingsLoading] = useState(false)
     const [templateForm, setTemplateForm] = useState<{ mode: "create" | "edit"; template?: EInvoiceTemplateSetting | null } | null>(null)
 
     const {
@@ -437,7 +436,7 @@ export default function EInvoiceSettingPage() {
     const invalidateDecimals = useEInvoiceSettingDecimalsInvalidate()
     const invalidateSellers = useEInvoiceSettingSellersInvalidate()
     const invalidateUserSettings = useEInvoiceUserSettingsInvalidate()
-    const loading = sellersLoading || sellersFetching || decimalsLoading || decimalsFetching || userSettingsLoading || sellerPreviewLoading || mailSettingsLoading
+    const loading = sellersLoading || sellersFetching || decimalsLoading || decimalsFetching || userSettingsLoading || sellerPreviewLoading
 
     const { translate } = useContext(LanguageContext) as {
         translate?: (key: string, fallback?: string) => string
@@ -475,7 +474,6 @@ export default function EInvoiceSettingPage() {
     useMasterListLoadError(sellersError, sellersLoadError, t, "EInvoiceSettingPage.sellers")
     useMasterListLoadError(decimalsError, decimalsLoadError, t, "EInvoiceSettingPage.decimals")
     const reloadSellers = useCallback(async () => {
-        // Single refresh path: clear session/memory cache then force active query refetch.
         await invalidateSellers()
         templateGridRef.current?.clearSelection?.()
     }, [invalidateSellers])
@@ -598,21 +596,17 @@ export default function EInvoiceSettingPage() {
                 disabled: loading,
                 onClick: handleEditTemplate,
             },
-            {
-                key: "view-preview",
-                icon: "print",
-                text: t("VIEW", "Xem"),
-                hint: t("SELLER_PREVIEW_HINT", "Xem trước mẫu hóa đơn"),
-                stylingMode: "outlined" as const,
-                disabled: loading,
+            createEInvoicePrintToolbarItem(t, {
+                loading,
                 onClick: handleToolbarViewPreview,
-            },
+                hintKey: "SELLER_PREVIEW_HINT",
+                hintFallback: "Xem trước mẫu hóa đơn",
+            }),
             {
                 key: "designer",
                 icon: "preferences",
-                text: t("DESIGN", "Thiết kế"),
                 hint: t("INVOICE_TEMPLATE_DESIGNER", "Thiết kế mẫu hóa đơn"),
-                stylingMode: "outlined" as const,
+                stylingMode: "text" as const,
                 disabled: loading,
                 onClick: handleOpenDesigner,
             },
@@ -682,7 +676,9 @@ export default function EInvoiceSettingPage() {
         }
 
         const normalizedRows = sellerData.map((row) => normalizeSellerRow(row, companyCd))
-        setTemplateRows(sellerData.map((row) => normalizeTemplateRow(row, companyCd)))
+        setTemplateRows(sellerData
+            .filter((row) => normalizePositiveId(row.XSL_ID) > 0)
+            .map((row) => normalizeTemplateRow(row, companyCd)))
         setSellerRows(dedupeSellerRows(normalizedRows))
     }, [companyCd, sellerData])
 
@@ -789,6 +785,7 @@ export default function EInvoiceSettingPage() {
                                 customItems={templateToolbarItems}
                                 showAdd
                                 showDelete
+                                showDateRange={false}
                                 showImport={false}
                                 showExportPdf={false}
                                 showExportXlsx={false}
@@ -805,6 +802,18 @@ export default function EInvoiceSettingPage() {
                                     selectMode="multiple"
                                     onInitialized={handleTemplateGridInitialized}
                                     onRowPrepared={handleTemplateRowPrepared}
+                                    onRowDblClick={(event) => {
+                                        if (!event.data || loading) return
+                                        if (normalizeFlag(event.data.XSL_IS_ACTIVE) === 1) {
+                                            notify(
+                                                t("TEMPLATE_EDIT_PUBLISHED_BLOCKED", "Không sửa được mẫu đã phát hành"),
+                                                "warning",
+                                                4000,
+                                            )
+                                            return
+                                        }
+                                        setTemplateForm({ mode: "edit", template: event.data })
+                                    }}
                                     pageSize={50}
                                 >
                                     <Column
@@ -938,9 +947,6 @@ export default function EInvoiceSettingPage() {
                                 </EInvoiceTableShell>
                             </div>
                         </div>
-                    </TabPanelItem>
-                    <TabPanelItem title={t("MAIL_SETTING", "Cấu hình mail")}>
-                        <EInvoiceMailSettingPanel onLoadingChange={setMailSettingsLoading} />
                     </TabPanelItem>
                 </TabPanel>
                 <LoadPanel shading shadingColor="rgba(15, 23, 42, 0.18)" showIndicator showPane visible={loading} />

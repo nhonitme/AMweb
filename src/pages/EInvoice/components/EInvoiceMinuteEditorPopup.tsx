@@ -10,6 +10,7 @@ import { getApiErrorMessage } from "@/api/apiTypes"
 import { getEInvoice } from "@/api/einvoiceApi"
 import { createEInvoiceMinute, getEInvoiceMinute, updateEInvoiceMinute } from "@/api/einvoiceMinuteApi"
 import ShortcutHelpPopup from "@/components/shortcuts/ShortcutHelpPopup"
+import EditorActionToolbar from "@/components/toolbar/EditorActionToolbar"
 import { LookupPopupProvider } from "@/components/lookup/LookupPopupHost"
 import useShortcutBindings from "@/hooks/useShortcutBindings"
 import useShortcutHelp from "@/hooks/useShortcutHelp"
@@ -46,6 +47,7 @@ import {
 } from "../einvoiceMinuteModel"
 import { useEInvoiceDecimalResolver } from "../einvoiceDecimalSettings"
 import { fieldRequiredMessage } from "../einvoiceI18n"
+import { openEInvoiceMinutePreview } from "../einvoiceMinutePreviewViewer"
 import { DEFAULT_CURRENCY_CODE, normalizeCurrencyCode } from "@/lib/currency"
 import EInvoiceEditorShell, { EInvoiceEditorSection } from "./EInvoiceEditorShell"
 import EInvoiceInvoiceSelectPopup from "./EInvoiceInvoiceSelectPopup"
@@ -298,6 +300,19 @@ export default function EInvoiceMinuteEditorPopup({
         }
     }, [companyCd, onSaved, readOnly, record, t, validateBeforeSave])
 
+    const handlePrint = useCallback(() => {
+        const bbanId = Number(record.BBAN_ID ?? 0)
+        if (!Number.isFinite(bbanId) || bbanId <= 0) {
+            notify(t("SAVE_BEFORE_PRINT", "Save the record before printing"), "warning", 2500)
+            return
+        }
+
+        void openEInvoiceMinutePreview({
+            bbanId,
+            notifyUnableToOpen: (message) => notify(message, "error", 4000),
+        })
+    }, [record.BBAN_ID, t])
+
     const activeReasons = useMemo(
         () => renumberMinuteReasons(record.REASONS.filter((reason) => reason.ISDEL !== 1)),
         [record.REASONS],
@@ -329,6 +344,8 @@ export default function EInvoiceMinuteEditorPopup({
     const shortcutActions = useMemo(
         () => [
             SHORTCUT_ACTIONS.SAVE,
+            SHORTCUT_ACTIONS.SAVE_AND_CLOSE,
+            SHORTCUT_ACTIONS.PRINT,
             SHORTCUT_ACTIONS.CLOSE,
             SHORTCUT_ACTIONS.ADD_ROW,
             SHORTCUT_ACTIONS.DELETE_ROW,
@@ -365,6 +382,12 @@ export default function EInvoiceMinuteEditorPopup({
                     [SHORTCUT_ACTIONS.SAVE]: () => {
                         void saveMinute()
                     },
+                    [SHORTCUT_ACTIONS.SAVE_AND_CLOSE]: () => {
+                        void saveMinute()
+                    },
+                    [SHORTCUT_ACTIONS.PRINT]: () => {
+                        handlePrint()
+                    },
                     [SHORTCUT_ACTIONS.CLOSE]: () => handleClosePopup(),
                     [SHORTCUT_ACTIONS.ADD_ROW]: () => addReason(),
                     [SHORTCUT_ACTIONS.DELETE_ROW]: () => handleDeleteReasonRow(),
@@ -379,6 +402,8 @@ export default function EInvoiceMinuteEditorPopup({
                 },
                 {
                     [SHORTCUT_ACTIONS.SAVE]: { enabled: !readOnly && !loading, allowInInput: true },
+                    [SHORTCUT_ACTIONS.SAVE_AND_CLOSE]: { enabled: !readOnly && !loading, allowInInput: true },
+                    [SHORTCUT_ACTIONS.PRINT]: { enabled: !loading, allowInInput: true },
                     [SHORTCUT_ACTIONS.CLOSE]: { allowInInput: true },
                     [SHORTCUT_ACTIONS.ADD_ROW]: { enabled: !readOnly && !loading },
                     [SHORTCUT_ACTIONS.DELETE_ROW]: { enabled: !readOnly && !loading },
@@ -390,6 +415,7 @@ export default function EInvoiceMinuteEditorPopup({
             closeShortcutHelp,
             handleClosePopup,
             handleDeleteReasonRow,
+            handlePrint,
             loading,
             openShortcutHelp,
             readOnly,
@@ -418,10 +444,10 @@ export default function EInvoiceMinuteEditorPopup({
         <LookupPopupProvider>
             <EInvoiceEditorShell
                 visible={visible}
+                fullScreen
+                mode={record.BBAN_ID > 0 ? "edit" : "add"}
                 title={editorTitle}
                 subtitle={editorSubtitle}
-                width="min(1280px, 98vw)"
-                height="min(920px, 96vh)"
                 loading={loading}
                 closeDisabled={loading}
                 animation={POPUP_FADE_ANIMATION}
@@ -429,10 +455,15 @@ export default function EInvoiceMinuteEditorPopup({
                 onClose={handleClosePopup}
                 onHiding={handleClosePopup}
                 footer={
-                    <>
-                        <Button text={t("CANCEL", "Cancel")} stylingMode="outlined" disabled={loading} onClick={handleClosePopup} />
-                        <Button text={t("SAVE", "Save")} icon="save" type="default" stylingMode="contained" disabled={loading || readOnly} onClick={() => void saveMinute()} />
-                    </>
+                    <EditorActionToolbar
+                        mode={record.BBAN_ID > 0 ? "edit" : "add"}
+                        busy={loading}
+                        actions={[
+                            { key: "print", text: t("PRINT", "Print"), type: "default", onClick: handlePrint },
+                            { key: "save", text: t("SAVE", "Save"), visible: !readOnly, onClick: () => { void saveMinute() } },
+                            { key: "close", text: t("CANCEL", "Cancel"), onClick: handleClosePopup },
+                        ]}
+                    />
                 }
             >
                 <EInvoiceEditorSection title={t("BBAN_GENERAL", "Thông tin biên bản")}>
@@ -520,7 +551,7 @@ export default function EInvoiceMinuteEditorPopup({
                 <EInvoiceEditorSection
                     title={t("BBAN_REASONS", "Lý do điều chỉnh/thay thế")}
                     headerAction={
-                        <Button text={t("ADD_REASON", "Thêm lý do")} icon="plus" stylingMode="outlined" disabled={readOnly} onClick={addReason} />
+                        <Button text={t("ADD", "Thêm")} icon="plus" stylingMode="outlined" elementAttr={{ class: "einvoice-add-btn" }} disabled={readOnly} onClick={addReason} />
                     }
                 >
                     <div className="einvoice-editor__stack">

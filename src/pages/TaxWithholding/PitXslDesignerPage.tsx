@@ -17,6 +17,7 @@ import { LanguageContext } from "@/lib/i18nLoader"
 import { pitXslApi, type PitXslTemplate } from "./pitXslApi"
 import EInvoiceFtpImagePickerPopup from "@/pages/EInvoice/components/EInvoiceFtpImagePickerPopup"
 import type { EInvoiceDesignerImageKind, EInvoiceFtpImageFile } from "@/api/einvoiceSettingApi"
+import usePitSaveShortcut from "./usePitSaveShortcut"
 
 function positiveId(value: unknown) {
   const id = Math.trunc(Number(value ?? 0))
@@ -88,6 +89,7 @@ export default function PitXslDesignerPage() {
     [list.data],
   )
   const canEdit = Boolean(workingXsl.trim()) && !loading
+  usePitSaveShortcut(save, canEdit && Boolean(detail) && !imagePicker)
 
   function selectTemplate(nextXslId: number) {
     const next = new URLSearchParams(searchParams)
@@ -489,6 +491,11 @@ function OffsetControls({
   onChangeX: (value: number) => void
   onChangeY: (value: number) => void
 }) {
+  const { translate } = useContext(LanguageContext) as {
+    translate?: (key: string, fallback?: string) => string
+  }
+  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+
   return (
     <>
 <NumberControl label={t("OFFSET_X", "Trái / phải (px)")} value={offsetX} min={-200} max={200} signed onChange={onChangeX} />

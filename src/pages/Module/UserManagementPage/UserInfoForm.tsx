@@ -9,6 +9,7 @@ import { LanguageContext } from "@/lib/i18nLoader"
 import type { UserInfo } from "@/types/userInfo"
 import { userInfoFields } from "./Columns/UserInfoColumns"
 import UserAvatarField from "./UserAvatarField"
+import { isValidUserLevel } from "./userInfoUtils"
 
 interface UserInfoFormProps {
   value: UserInfo
@@ -42,7 +43,7 @@ const getEditorConfig = (
       editorType: "dxSelectBox",
       editorOptions: {
         ...createSysCodeSelectBoxEditorOptions(
-          userLevelCodes,
+          userLevelCodes.filter((item) => isValidUserLevel(Number(item.CODE_CD))),
           t("SELECT_USER_LEVEL", "Chọn quyền người dùng"),
           t,
           "number",

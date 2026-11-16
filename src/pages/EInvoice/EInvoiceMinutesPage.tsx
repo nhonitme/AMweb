@@ -54,6 +54,7 @@ import { EINV_SIGN_STATUS_CODE_TYPE } from "./einvoiceAdvancedSearch"
 import { useEInvoiceCertificateSigning } from "./hooks/useEInvoiceCertificateSigning"
 import { useEInvoiceSigningPluginSetupPrompt } from "./hooks/useEInvoiceSigningPluginSetupPrompt"
 import { openEInvoiceMinutePreview } from "./einvoiceMinutePreviewViewer"
+import { createEInvoicePrintToolbarItem } from "./einvoicePrintToolbar"
 import { createEInvoiceSignSendCqtToolbarItem } from "./einvoiceSignToolbar"
 import { createEInvoiceSendMailToolbarItem } from "./einvoiceSendMailToolbar"
 import { EInvoiceTableShell } from "./components/EInvoiceTableShell"
@@ -602,17 +603,12 @@ export default function EInvoiceMinutesPage() {
 
   const toolbarItems = useMemo(
     () => [
-      {
-        key: "view-preview",
-        icon: "print",
-        text: t("VIEW", "View"),
-        hint: t("PREVIEW_HINT", "View HTML preview"),
-        stylingMode: "outlined" as const,
-        disabled: loading,
+      createEInvoicePrintToolbarItem(t, {
+        loading,
         onClick: (event) => {
           void handleViewPreview(event)
         },
-      },
+      }),
     ],
     [handleViewPreview, loading, t],
   )

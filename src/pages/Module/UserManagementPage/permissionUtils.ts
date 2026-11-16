@@ -1,3 +1,4 @@
+import { isValidUserLevel } from "./userInfoUtils";
 import { resolveMenuCaption } from "@/utils/resolveConfigCaption";
 
 export const PERMISSION_KEYS = [
@@ -14,6 +15,9 @@ export const PERMISSION_KEYS = [
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
 
 export type PermissionRow = {
+  PERMISSION_SOURCE?: string;
+  RESET_TO_DEFAULT?: boolean;
+  DEFAULT_FLAGS?: Record<PermissionKey, boolean>;
   MENU_CODE: string;
   CAN_VIEW: boolean;
   CAN_ADD: boolean;
@@ -59,6 +63,8 @@ export function isAllowedPermissionValue(value: unknown): boolean {
 export function normalizePermissionRow(row: Record<string, unknown>): PermissionRow {
   return {
     MENU_CODE: String(row.MENU_CODE ?? row.menuCode ?? ""),
+    PERMISSION_SOURCE: String(row.PERMISSION_SOURCE ?? ""),
+    DEFAULT_FLAGS: Object.fromEntries(PERMISSION_KEYS.map(key => [key, isAllowedPermissionValue(row['DEFAULT_' + key])])) as Record<PermissionKey, boolean>,
     CAN_VIEW: isAllowedPermissionValue(row.CAN_VIEW) || isAllowedPermissionValue(row.canView),
     CAN_ADD: isAllowedPermissionValue(row.CAN_ADD) || isAllowedPermissionValue(row.canAdd),
     CAN_EDIT: isAllowedPermissionValue(row.CAN_EDIT) || isAllowedPermissionValue(row.canEdit),
@@ -75,7 +81,8 @@ export function normalizePermissionRows(rows: unknown[]): PermissionRow[] {
 }
 
 export function isPermissionRowEqual(a: PermissionRow, b: PermissionRow): boolean {
-  return PERMISSION_KEYS.every((key) => a[key] === b[key]);
+  return Boolean(a.RESET_TO_DEFAULT) === Boolean(b.RESET_TO_DEFAULT)
+    && PERMISSION_KEYS.every((key) => a[key] === b[key]);
 }
 
 export function hasPermissionChanges(
@@ -114,7 +121,7 @@ export function applyPermissionPatch(
   currentRow: PermissionRow,
   patch: PermissionRowPatch,
 ): PermissionRow {
-  const nextRow: PermissionRow = { ...currentRow };
+  const nextRow: PermissionRow = { ...currentRow, RESET_TO_DEFAULT: false };
 
   PERMISSION_KEYS.forEach((key) => {
     if (typeof patch[key] === "boolean") {
@@ -266,34 +273,13 @@ export function mergePermissionsWithMenuTree(
     };
   });
 
-  const coveredCodes = new Set(visibleMenus.map((item) => item.MENU_CODE));
-  let orphanIndex = 0;
-  for (const permission of permissions) {
-    if (!permission.MENU_CODE || coveredCodes.has(permission.MENU_CODE)) {
-      continue;
-    }
-
-    // Skip group codes that only exist in permission rows.
-    if (/^GRP_/i.test(permission.MENU_CODE)) {
-      continue;
-    }
-
-    orphanIndex += 1;
-    treeRows.push({
-      ...permission,
-      MENU_ID: `orphan:${permission.MENU_CODE}`,
-      PARENT_ID: null,
-      MENU_NAME: permission.MENU_CODE,
-      MENU_LABEL: translateLabel(permission.MENU_CODE, permission.MENU_CODE),
-      SORT_ORDER: 100000 + orphanIndex,
-      CAN_ALL: PERMISSION_KEYS.every((key) => Boolean(permission[key])),
-    });
-  }
-
   treeRows.sort((a, b) => a.SORT_ORDER - b.SORT_ORDER || a.MENU_LABEL.localeCompare(b.MENU_LABEL));
 
   const permissionRows = treeRows.map((row) => ({
     MENU_CODE: row.MENU_CODE,
+    PERMISSION_SOURCE: row.PERMISSION_SOURCE,
+    DEFAULT_FLAGS: row.DEFAULT_FLAGS,
+    RESET_TO_DEFAULT: row.RESET_TO_DEFAULT,
     CAN_VIEW: row.CAN_VIEW,
     CAN_ADD: row.CAN_ADD,
     CAN_EDIT: row.CAN_EDIT,
@@ -337,7 +323,7 @@ export function getDescendantMenuCodes(
   return result;
 }
 
-/** Restricted menus mirror seed_sys_user_permission_by_userlv. */
+/** Explicit role presets only. Profile saves inherit shared defaults without applying a preset. */
 const ADMIN_ONLY_MENUS = new Set(["MD_USER"]);
 const MANAGER_PLUS_MENUS = new Set(["MD_COMPANY", "MD_MANAGEMENT"]);
 
@@ -359,7 +345,11 @@ export function buildPresetPermissionFlags(
   menuCode: string,
   userLevel: number,
 ): Omit<PermissionRow, "MENU_CODE"> {
-  const level = Number.isFinite(userLevel) && userLevel > 0 ? userLevel : 40;
+  if (!isValidUserLevel(userLevel)) {
+    return { CAN_VIEW: false, CAN_ADD: false, CAN_EDIT: false, CAN_DELETE: false,
+      CAN_PRINT: false, CAN_EXPORT: false, CAN_IMPORT: false, CAN_APPROVE: false };
+  }
+  const level = userLevel;
 
   let canView = true;
   let canWrite = level <= 30;
@@ -419,11 +409,12 @@ export function applyPermissionPreset(
   menuCodes: string[],
   userLevel: number,
 ): PermissionRow[] {
+  if (!isValidUserLevel(userLevel)) throw new Error("USERLV không hợp lệ");
   const presetRows = buildPresetPermissionRows(menuCodes, userLevel);
   const presetMap = new Map(presetRows.map((row) => [row.MENU_CODE, row] as const));
   const nextRows = currentRows.map((row) => {
     const preset = presetMap.get(row.MENU_CODE);
-    return preset ? { ...preset } : row;
+    return preset ? { ...row, ...preset, RESET_TO_DEFAULT: false } : row;
   });
 
   for (const preset of presetRows) {

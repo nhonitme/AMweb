@@ -465,7 +465,7 @@ export function ChitEditorPopup({
                     [SHORTCUT_ACTIONS.SAVE]: { enabled: !loading && canSaveDraft, allowInInput: true },
                     [SHORTCUT_ACTIONS.SAVE_AND_NEW]: { enabled: !loading && canSaveDraft && Boolean(onSaveAndNew), allowInInput: true },
                     [SHORTCUT_ACTIONS.SAVE_AND_CLOSE]: { enabled: !loading && canSaveDraft, allowInInput: true },
-                    [SHORTCUT_ACTIONS.PRINT]: { enabled: !loading && Boolean(printReportCode), allowInInput: true },
+                    [SHORTCUT_ACTIONS.PRINT]: { enabled: !loading, allowInInput: true },
                     [SHORTCUT_ACTIONS.CLOSE]: { allowInInput: true },
                     [SHORTCUT_ACTIONS.ADD_ROW]: { enabled: !loading },
                     [SHORTCUT_ACTIONS.DELETE_ROW]: { enabled: !loading },
@@ -718,7 +718,7 @@ export function ChitEditorPopup({
                             } },
                             { key: "save", text: t("TIT_SAVE", "Save"), visible: !readOnly, disabled: !canSaveDraft, onClick: handleSave },
                             { key: "saveAndNew", text: t("SAVE_AND_NEW", "Save and create new"), visible: !readOnly && Boolean(onSaveAndNew), disabled: !canSaveDraft, onClick: () => { void handleSaveAndNew() } },
-                            { key: "print", text: t("PRINT", "Print"), visible: Boolean(printReportCode), onClick: handlePrint },
+                            { key: "print", text: t("PRINT", "Print"), type: "default", onClick: handlePrint },
                             { key: "close", text: t("CANCEL", "Cancel"), onClick: handleClosePopup },
                         ]}
                     />

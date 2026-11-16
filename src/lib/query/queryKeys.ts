@@ -87,7 +87,7 @@ export const queryKeys = {
 
   menu: {
     all: ["menu"] as const,
-    tree: (companyCd: string) => [...queryKeys.menu.all, "tree", companyCd] as const,
+    tree: (companyCd: string, userId = "") => [...queryKeys.menu.all, "tree", companyCd, userId] as const,
   },
 
   openingBalance: {

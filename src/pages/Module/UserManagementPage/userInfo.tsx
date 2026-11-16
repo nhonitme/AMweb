@@ -12,6 +12,7 @@ import { getApiErrorMessage } from "@/api/apiTypes"
 import { type SysCode } from "@/api/sysCodeService"
 import { useSysCodes } from "@/lib/sysCodeContext"
 import { getUserPermissions, updateUserPermission } from "@/api/systemApi"
+import { useMenuTreeInvalidate } from "@/hooks/queries/useMenuTreeQuery"
 import { fetchMenuList } from "@/api/menuApi"
 import DxPage from "@/dx/DxPage"
 import { LanguageContext } from "@/lib/i18nLoader"
@@ -139,6 +140,8 @@ export default function UserManagementPage() {
     () => isUserDraftDirty(formDraft, selectedUser, detailMode),
     [detailMode, formDraft, selectedUser],
   )
+
+  const invalidateMenuTree = useMenuTreeInvalidate()
 
   const loadCurrentUserPermissions = useCallback(async () => {
     const userId = getCurrentUserId()
@@ -298,6 +301,7 @@ export default function UserManagementPage() {
           updateUserPermission({
             USERID: selectedUser.USERID,
             MENU_CODE: row.MENU_CODE,
+            RESET_TO_DEFAULT: row.RESET_TO_DEFAULT === true,
             CAN_VIEW: row.CAN_VIEW ? "1" : "0",
             CAN_ADD: row.CAN_ADD ? "1" : "0",
             CAN_EDIT: row.CAN_EDIT ? "1" : "0",
@@ -315,6 +319,7 @@ export default function UserManagementPage() {
       await loadPermissions(selectedUser.USERID)
       if (selectedUser.USERID === getCurrentUserId()) {
         await loadCurrentUserPermissions()
+        await invalidateMenuTree()
       }
     } catch (error) {
       console.error("Save permissions failed", error)
@@ -322,7 +327,7 @@ export default function UserManagementPage() {
     } finally {
       setPermLoading(false)
     }
-  }, [initialPermissions, loadCurrentUserPermissions, loadPermissions, permissions, permissionsChanged, selectedUser, t])
+  }, [initialPermissions, invalidateMenuTree, loadCurrentUserPermissions, loadPermissions, permissions, permissionsChanged, selectedUser, t])
 
   const handleCancelPermissions = useCallback(() => {
     setPermissions(clonePermissionRows(initialPermissions))

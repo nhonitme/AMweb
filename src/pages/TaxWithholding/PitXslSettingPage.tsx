@@ -1,4 +1,4 @@
-import { useContext, useRef, useState } from "react"
+import { useCallback, useContext, useMemo, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import Button from "devextreme-react/button"
 import NumberBox from "devextreme-react/number-box"
@@ -14,12 +14,15 @@ import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import { useWorkspaceTabs } from "@/components/workspaceTabs/WorkspaceTabs"
 import { EInvoiceTableShell } from "@/pages/EInvoice/components/EInvoiceTableShell"
 import EInvoiceEditorShell, { EInvoiceEditorSection } from "@/pages/EInvoice/components/EInvoiceEditorShell"
+import { createEInvoicePrintToolbarItem } from "@/pages/EInvoice/einvoicePrintToolbar"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { buildAppPath, getCurrentCompanyCd } from "@/lib/login"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { pitXslApi, type PitXslTemplate } from "./pitXslApi"
 import { openPitXslPreview } from "./pitXslPreviewViewer"
 import PitSettingTabs from "./PitSettingTabs"
+import { createPopupShortcutWrapperAttr, usePopupShortcutScopeId } from "@/lib/popupShortcutScope"
+import usePitSaveShortcut from "./usePitSaveShortcut"
 import "./pit.css"
 
 type EditorState = {
@@ -28,9 +31,6 @@ type EditorState = {
   SERIES: string
   FROM_DOC_NO: number
   TO_DOC_NO: number | null
-  LOGO_PATH: string
-  BACKGROUND_PATH: string
-  NEN_PATH: string
 }
 
 function emptyEditor(): EditorState {
@@ -41,9 +41,6 @@ function emptyEditor(): EditorState {
     SERIES: `CT${yy}AA`,
     FROM_DOC_NO: 1,
     TO_DOC_NO: null,
-    LOGO_PATH: "",
-    BACKGROUND_PATH: "",
-    NEN_PATH: "",
   }
 }
 
@@ -54,11 +51,20 @@ export default function PitXslSettingPage() {
   const [busy, setBusy] = useState(false)
   const [selected, setSelected] = useState<PitXslTemplate | null>(null)
   const [editor, setEditor] = useState<EditorState | null>(null)
+  const popupScopeId = usePopupShortcutScopeId("pit-xsl-setting")
+  usePitSaveShortcut(save, !busy && Boolean(editor), popupScopeId, Boolean(editor), {
+    onClose: () => {
+      if (!busy) setEditor(null)
+    },
+  })
   const gridRef = useRef<dxDataGrid<PitXslTemplate, number> | null>(null)
   const { translate } = useContext(LanguageContext) as {
     translate?: (key: string, fallback?: string) => string
   }
-  const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
+  const t = useCallback(
+    (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
+    [translate],
+  )
   const list = useQuery({
     queryKey: ["pit-xsl", company],
     queryFn: () => pitXslApi.list(),
@@ -77,11 +83,8 @@ export default function PitXslSettingPage() {
 
   async function refresh() {
     setSelected(null)
+    gridRef.current?.clearSelection?.()
     await queryClient.invalidateQueries({ queryKey: ["pit-xsl", company] })
-  }
-
-  async function openCreate() {
-    setEditor(emptyEditor())
   }
 
   async function openEdit(row: PitXslTemplate) {
@@ -93,9 +96,6 @@ export default function PitXslSettingPage() {
         SERIES: detail.SERIES || "",
         FROM_DOC_NO: detail.FROM_DOC_NO || 1,
         TO_DOC_NO: detail.TO_DOC_NO ?? null,
-        LOGO_PATH: detail.LOGO_PATH || "",
-        BACKGROUND_PATH: detail.BACKGROUND_PATH || "",
-        NEN_PATH: detail.NEN_PATH || "",
       })
     })
   }
@@ -114,12 +114,9 @@ export default function PitXslSettingPage() {
         SERIES: series,
         FROM_DOC_NO: editor.FROM_DOC_NO || 1,
         TO_DOC_NO: editor.TO_DOC_NO && editor.TO_DOC_NO > 0 ? editor.TO_DOC_NO : null,
-        LOGO_PATH: editor.LOGO_PATH || null,
-        BACKGROUND_PATH: editor.BACKGROUND_PATH || null,
-        NEN_PATH: editor.NEN_PATH || null,
       }
       if (editor.xslId > 0) await pitXslApi.update(editor.xslId, body)
-      else await pitXslApi.create(body)
+      else await pitXslApi.create({ ...body, IS_ACTIVE: 0 })
       setEditor(null)
       await refresh()
       notify("Đã lưu mẫu số ký hiệu", "success", 2500)
@@ -127,34 +124,15 @@ export default function PitXslSettingPage() {
   }
 
   async function remove() {
-    if (!selected) return
+    if (!selected) {
+      notify(t("MSG_NO_ROWS_SELECTED", "Chưa chọn dòng"), "warning", 2500)
+      return
+    }
     if (!(await confirm("Xóa mẫu số ký hiệu đã chọn? (Không xóa được mẫu mặc định hoặc đã dùng)", "Xóa mẫu số ký hiệu"))) return
     await run(async () => {
       await pitXslApi.remove(selected.XSL_ID)
       await refresh()
       notify("Đã xóa mẫu số ký hiệu", "success", 2500)
-    })
-  }
-
-  async function upload(kind: "logo" | "background" | "nen", file?: File | null) {
-    if (!editor || editor.xslId <= 0) {
-      notify("Lưu mẫu trước khi upload ảnh", "warning", 3000)
-      return
-    }
-    if (!file) return
-    await run(async () => {
-      const result = await pitXslApi.uploadImage(editor.xslId, kind, file)
-      setEditor((prev) =>
-        prev
-          ? {
-              ...prev,
-              LOGO_PATH: kind === "logo" ? result.PATH : prev.LOGO_PATH,
-              BACKGROUND_PATH: kind === "background" ? result.PATH : prev.BACKGROUND_PATH,
-              NEN_PATH: kind === "nen" ? result.PATH : prev.NEN_PATH,
-            }
-          : prev,
-      )
-      notify("Đã upload ảnh", "success", 2000)
     })
   }
 
@@ -171,94 +149,122 @@ export default function PitXslSettingPage() {
     })
   }
 
-  function openDesigner() {
+  const handleEditTemplate = useCallback(() => {
+    if (!selected) {
+      notify(t("MSG_NO_ROWS_SELECTED", "Chưa chọn dòng"), "warning", 2500)
+      return
+    }
+    void openEdit(selected)
+  }, [selected, t])
+
+  const handleToolbarViewPreview = useCallback(() => {
+    if (!selected) {
+      notify(t("MSG_NO_ROWS_SELECTED", "Chưa chọn dòng"), "warning", 2500)
+      return
+    }
+    void preview(selected)
+  }, [selected, t])
+
+  const openDesigner = useCallback(() => {
     if (!selected?.XSL_ID) {
-      notify("Chọn một mẫu trước khi thiết kế", "warning", 3000)
+      notify(t("SELECT_TEMPLATE_FIRST", "Chọn một mẫu trước khi thiết kế"), "warning", 3000)
       return
     }
     const query = new URLSearchParams({ xslId: String(selected.XSL_ID) })
     openWorkspacePath(
       buildAppPath(company, `/pit-withholding/xsl-setting/designer?${query.toString()}`),
-      { title: "Thiết kế mẫu chứng từ khấu trừ" },
+      { title: t("DESIGN_PIT_TEMPLATE", "Thiết kế mẫu chứng từ khấu trừ") },
     )
-  }
+  }, [company, openWorkspacePath, selected, t])
+
+  const templateToolbarItems = useMemo(
+    () => [
+      {
+        key: "edit-template",
+        icon: "edit",
+        text: t("EDIT", "Sửa"),
+        hint: t("EDIT_PIT_TEMPLATE", "Sửa mẫu số ký hiệu"),
+        stylingMode: "outlined" as const,
+        disabled: busy,
+        onClick: handleEditTemplate,
+      },
+      createEInvoicePrintToolbarItem(t, {
+        loading: busy,
+        onClick: handleToolbarViewPreview,
+        hintKey: "PREVIEW",
+        hintFallback: "Xem trước mẫu chứng từ",
+      }),
+      {
+        key: "designer",
+        icon: "preferences",
+        hint: t("DESIGN_PIT_TEMPLATE", "Thiết kế mẫu chứng từ khấu trừ"),
+        stylingMode: "text" as const,
+        disabled: busy,
+        onClick: openDesigner,
+      },
+    ],
+    [busy, handleEditTemplate, handleToolbarViewPreview, openDesigner, t],
+  )
 
   return (
     <DxPage>
       <div className="flex h-full min-h-0 flex-col gap-1 overflow-hidden">
         <PitSettingTabs activeTab="xsl" />
-        <GridToolbar
-          gridRef={gridRef}
-          onAdd={() => void openCreate()}
-          onRefresh={() => void refresh()}
-          onDelete={() => void remove()}
-          deleteDisabled={busy || !selected || selected.IS_DEFAULT === 1}
-          showDateRange={false}
-          showSearch
-          showImport={false}
-          showExportPdf={false}
-          showExportXlsx={false}
-          customItems={[
-            {
-              key: "edit",
-              text: "Sửa",
-              icon: "edit",
-              disabled: busy || !selected,
-              onClick: () => selected && void openEdit(selected),
-            },
-            {
-              key: "preview",
-              text: "Xem trước",
-              icon: "eyeopen",
-              disabled: busy || !selected,
-              onClick: () => void preview(selected),
-            },
-            {
-              key: "designer",
-              text: "Thiết kế",
-              icon: "preferences",
-              disabled: busy || !selected,
-              onClick: openDesigner,
-            },
-          ]}
-        />
-        {list.error && (
-          <p role="alert" className="pit-error">
-            {getApiErrorMessage(list.error, "Không tải được danh mục mẫu số ký hiệu")}
-          </p>
-        )}
-        <div className="relative min-h-0 flex-1 overflow-hidden">
-          <EInvoiceTableShell className="h-full">
-          <PageGrid<PitXslTemplate>
-            dataSource={list.data ?? []}
-            keyExpr="XSL_ID"
-            screenCd="/pit-withholding/xsl-setting"
-            gridId="pit-xsl-setting"
-            selectMode="single"
-            onInitialized={(event) => {
-              gridRef.current = (event.component as dxDataGrid<PitXslTemplate, number> | undefined) ?? null
-            }}
-            onSelectionChanged={(e) => setSelected((e.selectedRowsData[0] as PitXslTemplate) ?? null)}
-            onRowDblClick={(e) => {
-              if (e.data && !busy) void openEdit(e.data)
-            }}
-            defaultPageSize={20}
-            showPager
-          >
-            <Column dataField="SERIES" caption={t("SERIES", "Ký hiệu")} width={110} />
-            <Column dataField="TEMPLATE_NM" caption={t("TEMPLATE_NAME", "Tên mẫu")} minWidth={220} />
-            <Column dataField="FROM_DOC_NO" caption={t("FROM_DOC_NO", "Từ số")} width={90} />
-            <Column dataField="TO_DOC_NO" caption={t("TO_DOC_NO", "Đến số")} width={90} />
-          </PageGrid>
-          </EInvoiceTableShell>
-          <LoadPanel visible={busy || list.isLoading || list.isFetching} showIndicator showPane shading />
+        <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
+          <GridToolbar
+            gridRef={gridRef}
+            onAdd={() => setEditor(emptyEditor())}
+            onRefresh={() => void refresh()}
+            onDelete={() => void remove()}
+            deleteDisabled={busy || !selected || selected.IS_DEFAULT === 1}
+            customItems={templateToolbarItems}
+            showAdd
+            showDelete
+            showDateRange={false}
+            showImport={false}
+            showExportPdf={false}
+            showExportXlsx={false}
+            shortcutsEnabled={!editor}
+          />
+          {list.error && (
+            <p role="alert" className="pit-error">
+              {getApiErrorMessage(list.error, "Không tải được danh mục mẫu số ký hiệu")}
+            </p>
+          )}
+          <div className="relative min-h-0 flex-1 overflow-hidden">
+            <EInvoiceTableShell className="h-full">
+              <PageGrid<PitXslTemplate>
+                dataSource={list.data ?? []}
+                keyExpr="XSL_ID"
+                screenCd="/pit-withholding/xsl-setting"
+                gridId="pit-xsl-setting"
+                selectMode="single"
+                onInitialized={(event) => {
+                  gridRef.current = (event.component as dxDataGrid<PitXslTemplate, number> | undefined) ?? null
+                }}
+                onSelectionChanged={(e) => setSelected((e.selectedRowsData[0] as PitXslTemplate) ?? null)}
+                onRowDblClick={(e) => {
+                  if (e.data && !busy) void openEdit(e.data)
+                }}
+                defaultPageSize={20}
+                showPager
+              >
+                <Column dataField="SERIES" caption={t("SERIES", "Ký hiệu")} width={110} />
+                <Column dataField="TEMPLATE_NM" caption={t("TEMPLATE_NAME", "Tên mẫu")} minWidth={220} />
+                <Column dataField="FROM_DOC_NO" caption={t("FROM_DOC_NO", "Từ số")} width={90} />
+                <Column dataField="TO_DOC_NO" caption={t("TO_DOC_NO", "Đến số")} width={90} />
+              </PageGrid>
+            </EInvoiceTableShell>
+            <LoadPanel visible={busy || list.isLoading || list.isFetching} showIndicator showPane shading />
+          </div>
         </div>
 
         <EInvoiceEditorShell
           visible={Boolean(editor)}
+          wrapperAttr={createPopupShortcutWrapperAttr(popupScopeId)}
           title={editor && editor.xslId > 0 ? "Sửa mẫu số ký hiệu 03/TNCN" : "Thêm mẫu số ký hiệu 03/TNCN"}
           width="min(680px, 96vw)"
-          height={editor && editor.xslId > 0 ? "min(620px, 92vh)" : "min(430px, 92vh)"}
+          height="min(430px, 92vh)"
           loading={busy}
           closeDisabled={busy}
           onClose={() => setEditor(null)}
@@ -342,28 +348,9 @@ export default function PitXslSettingPage() {
                   </label>
                 </div>
               </EInvoiceEditorSection>
-              {editor.xslId > 0 && (
-                <EInvoiceEditorSection title={t("PIT_TEMPLATE_IMAGE", "Hình ảnh mẫu in")}>
-                  <div className="grid gap-2">
-                    <div>
-                      Logo: <code>{editor.LOGO_PATH || "(chưa có)"}</code>{" "}
-                      <input type="file" accept="image/*" disabled={busy} onChange={(e) => void upload("logo", e.target.files?.[0])} />
-                    </div>
-                    <div>
-                      Background: <code>{editor.BACKGROUND_PATH || "(chưa có)"}</code>{" "}
-                      <input type="file" accept="image/*" disabled={busy} onChange={(e) => void upload("background", e.target.files?.[0])} />
-                    </div>
-                    <div>
-                      Nền: <code>{editor.NEN_PATH || "(chưa có)"}</code>{" "}
-                      <input type="file" accept="image/*" disabled={busy} onChange={(e) => void upload("nen", e.target.files?.[0])} />
-                    </div>
-                  </div>
-                </EInvoiceEditorSection>
-              )}
             </div>
           )}
         </EInvoiceEditorShell>
-
       </div>
     </DxPage>
   )

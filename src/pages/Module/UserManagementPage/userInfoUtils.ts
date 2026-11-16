@@ -15,45 +15,25 @@ const toBool = (value: string | boolean | undefined | null): boolean => {
   return normalized === "1" || normalized === "Y" || normalized === "TRUE" || normalized === "T"
 }
 
-export const mapLegacyUserLevel = (userLevel: number): number => {
-  if (VALID_USER_LEVELS.includes(userLevel as (typeof VALID_USER_LEVELS)[number])) {
-    return userLevel
-  }
+export const isValidUserLevel = (value: unknown): value is number =>
+  typeof value === "number" && VALID_USER_LEVELS.includes(value as (typeof VALID_USER_LEVELS)[number])
 
-  switch (userLevel) {
-    case 9:
-      return 10
-    case 3:
-      return 20
-    case 2:
-      return 30
-    case 1:
-      return 40
-    default:
-      return DEFAULT_USER_LEVEL
-  }
-}
-
-export const normalizeUserLevel = (userLevel: number | null | undefined): number => {
-  if (typeof userLevel === "number" && Number.isFinite(userLevel) && userLevel > 0) {
-    return mapLegacyUserLevel(userLevel)
-  }
-
-  return DEFAULT_USER_LEVEL
-}
+// Keep invalid response values visible as invalid; never remap them to a valid role.
+export const normalizeUserLevel = (value: number | null | undefined): number =>
+  typeof value === "number" && Number.isFinite(value) ? value : 0
 
 export const deriveRoleCode = (userLevel: number | null | undefined): string => {
-  const level = normalizeUserLevel(userLevel)
-  if (level <= 10) return "ADMIN"
-  if (level <= 20) return "MANAGER"
-  if (level <= 30) return "STAFF"
-  return "VIEW"
+  switch (userLevel) {
+    case 10: return "ADMIN"
+    case 20: return "MANAGER"
+    case 30: return "STAFF"
+    case 40: return "VIEW"
+    default: throw new Error("USERLV: 10 ADMIN, 20 MANAGER, 30 STAFF, 40 VIEW")
+  }
 }
 
 export const normalizeUserInfo = (record: UserInfoApi): UserInfo => {
-  const userLevel = normalizeUserLevel(
-    typeof record.USERLV === "number" && Number.isFinite(record.USERLV) ? record.USERLV : DEFAULT_USER_LEVEL,
-  )
+  const userLevel = normalizeUserLevel(record.USERLV)
 
   return {
     USER_PK_ID: typeof record.USER_PK_ID === "number" ? record.USER_PK_ID : null,
@@ -66,8 +46,8 @@ export const normalizeUserInfo = (record: UserInfoApi): UserInfo => {
     MOBILE_NO: trimText(record.MOBILE_NO),
     AVATAR_URL: trimText(record.AVATAR_URL),
     USERLV: userLevel,
-    USERLV_NAME: "",
-    ROLE_CODE: trimText(record.ROLE_CODE) || deriveRoleCode(userLevel),
+    USERLV_NAME: isValidUserLevel(userLevel) ? "" : "USERLV không hợp lệ",
+    ROLE_CODE: isValidUserLevel(userLevel) ? deriveRoleCode(userLevel) : "",
     DEFAULT_YN: toBool(record.DEFAULT_YN),
     IS_ACTIVE: record.IS_ACTIVE === undefined || record.IS_ACTIVE === null ? true : toBool(record.IS_ACTIVE),
     ISDEL: toBool(record.ISDEL),

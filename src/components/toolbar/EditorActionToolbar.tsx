@@ -4,7 +4,7 @@ import { EDITOR_ACTION_ICONS } from "./editorActionDefaults"
 import "./EditorActionToolbar.scss"
 
 type StandardEditorAction = {
-  key: "save" | "saveAndNew" | "print" | "close" | "copy"
+  key: "save" | "saveAndNew" | "print" | "sign" | "close" | "copy"
   text: string
   icon?: string
   hint?: string
@@ -20,6 +20,10 @@ export type EditorAction = StandardEditorAction | {
   visible?: boolean
   render: ReactNode
 }
+
+const MIDDLE_ACTION_KEYS = new Set(["copy", "print", "sign"])
+const MIDDLE_ACTION_ORDER = ["sign", "copy", "print"] as const
+const RIGHT_ACTION_ORDER = ["delete", "saveAndNew", "save", "close"] as const
 
 type EditorActionToolbarProps = {
   mode?: "add" | "edit"
@@ -37,12 +41,14 @@ export default function EditorActionToolbar({
   return (
     <div className={`editor-action-toolbar ${mode ? `editor-mode--${mode}` : ""} ${className}`}>
       <div className="editor-action-toolbar__middle">
-        {actions.filter(action => action.visible !== false && (action.key === "copy" || action.key === "print"))
-          .sort((a, b) => Number(a.key === "print") - Number(b.key === "print")).map(renderAction)}
+        {actions.filter(action => action.visible !== false && MIDDLE_ACTION_KEYS.has(action.key))
+          .sort((a, b) => MIDDLE_ACTION_ORDER.indexOf(a.key as typeof MIDDLE_ACTION_ORDER[number])
+            - MIDDLE_ACTION_ORDER.indexOf(b.key as typeof MIDDLE_ACTION_ORDER[number])).map(renderAction)}
       </div>
       <div className="editor-action-toolbar__right">
-        {actions.filter(action => action.visible !== false && action.key !== "print" && action.key !== "copy")
-          .sort((a, b) => ["delete", "saveAndNew", "save", "close"].indexOf(a.key) - ["delete", "saveAndNew", "save", "close"].indexOf(b.key)).map(renderAction)}
+        {actions.filter(action => action.visible !== false && !MIDDLE_ACTION_KEYS.has(action.key))
+          .sort((a, b) => RIGHT_ACTION_ORDER.indexOf(a.key as typeof RIGHT_ACTION_ORDER[number])
+            - RIGHT_ACTION_ORDER.indexOf(b.key as typeof RIGHT_ACTION_ORDER[number])).map(renderAction)}
       </div>
       {title ? <div className="editor-action-toolbar__title">{title}</div> : null}
     </div>

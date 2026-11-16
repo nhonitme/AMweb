@@ -101,7 +101,7 @@ function buildCompanyOption(company: AuthCompany): CompanyOption {
   return {
     COMPANY_CD: companyCd,
     COMPANY_NM: companyName,
-    TAX_CD: companyCd,
+    TAX_CD: "",
     displayName: companyName ? `${companyCd} - ${companyName}` : companyCd,
   };
 }
@@ -190,7 +190,6 @@ export default function Header({
     setShowHeaderMenuBar,
   } = useMenuLayout();
   const [session, setSession] = useState<AuthSession | null>(() => getCurrentSession());
-  const [companyTaxCode, setCompanyTaxCode] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [companyDetailsLookup, setCompanyDetailsLookup] = useState<CompanyDetailsLookup>({});
   const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false);
@@ -243,7 +242,7 @@ export default function Header({
     () =>
       companyOptions.map((option) => {
         const details = companyDetailsLookup[option.COMPANY_CD.toUpperCase()];
-        const taxCode = normalizeDisplayText(details?.taxCode) || option.COMPANY_CD;
+        const taxCode = normalizeDisplayText(details?.taxCode);
         const name = normalizeDisplayText(details?.name) || option.COMPANY_NM || option.COMPANY_CD;
 
         return {
@@ -268,10 +267,8 @@ export default function Header({
   );
   const displayMst = useMemo(
     () =>
-      normalizeDisplayText(companyTaxCode) ||
-      normalizeDisplayText(selectedCompanyOption?.COMPANY_CD) ||
-      normalizeDisplayText(currentCompanyCd),
-    [companyTaxCode, currentCompanyCd, selectedCompanyOption?.COMPANY_CD],
+      normalizeDisplayText(companyDetailsLookup[selectedCompanyCd.toUpperCase()]?.taxCode) || "—",
+    [companyDetailsLookup, selectedCompanyCd],
   );
   const displayUserId = useMemo(
     () => normalizeDisplayText(session?.userId),
@@ -356,10 +353,7 @@ export default function Header({
             const response = await getCompanyInfo(companyCd);
             return {
               key: companyCd.toUpperCase(),
-              taxCode:
-                normalizeDisplayText(response.data?.TAX_CD) ||
-                normalizeDisplayText(response.data?.COMPANY_CD) ||
-                companyCd,
+              taxCode: normalizeDisplayText(response.data?.TAX_CD),
               name:
                 normalizeDisplayText(response.data?.COMPANY_NM) ||
                 normalizeDisplayText(company.COMPANY_NM) ||
@@ -368,7 +362,7 @@ export default function Header({
           } catch {
             return {
               key: companyCd.toUpperCase(),
-              taxCode: companyCd,
+              taxCode: "",
               name: normalizeDisplayText(company.COMPANY_NM) || companyCd,
             };
           }
@@ -398,7 +392,6 @@ export default function Header({
     const companyCd = normalizeDisplayText(currentCompanyCd);
 
     if (!companyCd) {
-      setCompanyTaxCode("");
       setCompanyName("");
       return () => {
         isMounted = false;
@@ -412,21 +405,15 @@ export default function Header({
           return;
         }
 
-        const nextTaxCode =
-          normalizeDisplayText(response.data?.TAX_CD) ||
-          normalizeDisplayText(response.data?.COMPANY_CD) ||
-          companyCd;
         const nextCompanyName =
           normalizeDisplayText(response.data?.COMPANY_NM) ||
           normalizeDisplayText(response.data?.COMPANY_NM_EN) ||
           normalizeDisplayText(response.data?.COMPANY_NM_KOR) ||
           companyCd;
 
-        setCompanyTaxCode(nextTaxCode);
         setCompanyName(nextCompanyName);
       } catch {
         if (isMounted) {
-          setCompanyTaxCode(companyCd);
           setCompanyName(companyCd);
         }
       }
@@ -573,7 +560,7 @@ export default function Header({
       </div>
       <div className="am-company-switcher-item__row">
         <span className="am-company-switcher-item__label">{t("TAX_CD", "MST")}</span>
-        <span className="am-company-switcher-item__value">{data.TAX_CD}</span>
+        <span className="am-company-switcher-item__value">{data.TAX_CD || "—"}</span>
       </div>
       <div className="am-company-switcher-item__name">{data.COMPANY_NM}</div>
     </div>

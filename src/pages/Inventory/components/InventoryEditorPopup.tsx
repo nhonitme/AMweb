@@ -38,10 +38,12 @@ import { LanguageContext } from "@/lib/i18nLoader"
 import { useDecimalColumnFormats } from "@/hooks/useDecimalColumnFormats"
 import { isForeignCurrencyCode } from "@/lib/currency"
 import { getSequenceSubmitCode, getVoucherSequencePreviewCode } from "@/lib/codeSequence"
+import ShortcutHelpPopup from "@/components/shortcuts/ShortcutHelpPopup"
 import { createShortcutBindings, type ShortcutHandler } from "@/lib/shortcuts/shortcutBindings"
 import { SHORTCUT_ACTIONS, type ShortcutActionCode } from "@/lib/shortcuts/shortcutDefinitions"
 import { createPopupShortcutWrapperAttr, isPopupShortcutScopeTopMost, usePopupShortcutScopeId } from "@/lib/popupShortcutScope"
 import useShortcutBindings from "@/hooks/useShortcutBindings"
+import useShortcutHelp from "@/hooks/useShortcutHelp"
 import useStateRef from "@/hooks/useStateRef"
 import type { ChitType, InventoryBomSnapshot, InventoryInputLine, InventoryOutputLine, InventoryVoucher } from "@/types/voucher"
 import type { CustomerExt } from "@/types/customerExt"
@@ -223,92 +225,6 @@ export default function InventoryEditorPopup({
       setColumnSettingsTabs(createColumnSettingTabs(items, false))
     })
   }, [activeColumnSettingStateRef, activeGridRef, createColumnSettingTabs])
-
-  // TEMP disabled: link via accounting voucher list instead of create-from-source (restore later).
-  // Do not delete this block — uncomment + set ENABLE_CREATE_FROM_INVENTORY = true to restore.
-  // const ENABLE_CREATE_FROM_INVENTORY = false
-  // const getCreateVoucherTargetChitType = useCallback((action: VoucherSourceInventoryAction): ChitType | null => {
-  //   switch (action) {
-  //     case "create_purchase_voucher":
-  //       return "PO"
-  //     case "create_purchase_discount_voucher":
-  //       return "PD"
-  //     case "create_purchase_return_voucher":
-  //       return "PR"
-  //     case "create_sales_voucher":
-  //       return "SO"
-  //     case "create_sales_discount_voucher":
-  //       return "SD"
-  //     case "create_sales_return_voucher":
-  //       return "SR"
-  //     default:
-  //       return null
-  //   }
-  // }, [])
-  //
-  // const createVoucherActions = useMemo(() => {
-  //   if (chitType === "IR") {
-  //     return [
-  //       { action: "create_purchase_voucher" as const, label: t("CREATE_PURCHASE_VOUCHER", "Create purchase voucher") },
-  //       { action: "create_purchase_discount_voucher" as const, label: t("CREATE_PURCHASE_DISCOUNT_VOUCHER", "Create purchase discount voucher") },
-  //       { action: "create_purchase_return_voucher" as const, label: t("CREATE_PURCHASE_RETURN_VOUCHER", "Create purchase return voucher") },
-  //     ]
-  //   }
-  //
-  //   if (chitType === "IO") {
-  //     return [
-  //       { action: "create_sales_voucher" as const, label: t("CREATE_SALES_VOUCHER", "Create sales voucher") },
-  //       { action: "create_sales_discount_voucher" as const, label: t("CREATE_SALES_DISCOUNT_VOUCHER", "Create sales discount voucher") },
-  //       { action: "create_sales_return_voucher" as const, label: t("CREATE_SALES_RETURN_VOUCHER", "Create sales return voucher") },
-  //     ]
-  //   }
-  //
-  //   return [] as Array<{ action: VoucherSourceInventoryAction; label: string }>
-  // }, [chitType, t])
-  //
-  // const getCreateFromSourceStorageKey = useCallback((): string => {
-  //   return `create_from_source_state:${Date.now().toString(36)}:${Math.random().toString(36).slice(2)}`
-  // }, [])
-  //
-  // const persistCreateFromSourceState = useCallback(
-  //   (state: VoucherCreateFromSourceState): string => {
-  //     const storageKey = getCreateFromSourceStorageKey()
-  //     try {
-  //       window.localStorage.setItem(storageKey, JSON.stringify(state))
-  //     } catch {
-  //     }
-  //     return storageKey
-  //   },
-  //   [getCreateFromSourceStorageKey],
-  // )
-  //
-  // const handleCreateVoucherAction = useCallback(
-  //   (action: VoucherSourceInventoryAction) => {
-  //     const targetChitType = getCreateVoucherTargetChitType(action)
-  //     if (!targetChitType) {
-  //       return
-  //     }
-  //
-  //     const route = getVoucherRouteByChitType(targetChitType)
-  //     if (!route) {
-  //       return
-  //     }
-  //
-  //     const stateKey = persistCreateFromSourceState({
-  //       sourceVoucher: mapInventoryVoucherToSourceChitInfo(draft),
-  //       sourceLedger: chitType === "IR" ? "AP" : "AR",
-  //       sourceChitType: chitType,
-  //       sourceAction: action,
-  //     })
-  //
-  //     const targetUrl = `${window.location.origin}${route}?createFromSourceStateKey=${encodeURIComponent(stateKey)}`
-  //     const newWindow = window.open(targetUrl, "_blank")
-  //     if (!newWindow) {
-  //       notify(t("UNABLE_OPEN_NEW_TAB", "Unable to open new browser tab"), "error", 3000)
-  //     }
-  //   },
-  //   [chitType, draft, getCreateVoucherTargetChitType, persistCreateFromSourceState, t],
-  // )
 
   const handleAccountingReferenceSelected = useCallback(
     async (candidate: LinkDetailCandidate) => {
@@ -533,7 +449,7 @@ export default function InventoryEditorPopup({
       return 0
     }
 
-    return draft.CHITDETAIL_ID_COGS ?? draft.COGS?.DETAILS[0]?.CHITDETAIL_ID ?? 0
+    return draft.CHITDETAIL_ID_COGS ?? 0
   }, [chitType, draft.CHITDETAIL_ID_COGS, draft.COGS])
 
   const isAccountingLinked = linkedAccountingDetailId > 0 && (selectedAccountingSourceId ?? 0) > 0
@@ -924,10 +840,32 @@ export default function InventoryEditorPopup({
   }, [draft.CHIT_ID, draft.COMPANY_CD, printReportCode, t])
 
   const popupShortcutScopeId = usePopupShortcutScopeId("inventory-editor")
+  const shortcutActions = useMemo(
+    () => [
+      SHORTCUT_ACTIONS.SAVE,
+      SHORTCUT_ACTIONS.SAVE_AND_NEW,
+      SHORTCUT_ACTIONS.PRINT,
+      SHORTCUT_ACTIONS.CLOSE,
+      SHORTCUT_ACTIONS.HELP,
+    ],
+    [],
+  )
+  const {
+    shortcutHelpVisible,
+    shortcutHelpItems,
+    openShortcutHelp,
+    closeShortcutHelp,
+  } = useShortcutHelp(shortcutActions)
 
   usePopupEscapeLayer(
     visible,
-    () => { if (!loading) onClose() },
+    () => {
+      if (shortcutHelpVisible) {
+        closeShortcutHelp()
+        return
+      }
+      if (!loading) onClose()
+    },
     () => document.querySelector<HTMLElement>(`[data-popup-shortcut-scope="${popupShortcutScopeId}"]`),
   )
 
@@ -940,7 +878,18 @@ export default function InventoryEditorPopup({
         void handleSaveAndNew()
       },
       [SHORTCUT_ACTIONS.CLOSE]: () => {
+        if (shortcutHelpVisible) {
+          closeShortcutHelp()
+          return
+        }
         if (!loading) onClose()
+      },
+      [SHORTCUT_ACTIONS.HELP]: () => {
+        if (shortcutHelpVisible) {
+          closeShortcutHelp()
+          return
+        }
+        openShortcutHelp()
       },
     }
 
@@ -949,16 +898,27 @@ export default function InventoryEditorPopup({
     }
 
     return createShortcutBindings(
-      [SHORTCUT_ACTIONS.SAVE, SHORTCUT_ACTIONS.SAVE_AND_NEW, SHORTCUT_ACTIONS.PRINT, SHORTCUT_ACTIONS.CLOSE],
+      shortcutActions,
       builtInHandlers,
       {
         [SHORTCUT_ACTIONS.SAVE]: { allowInInput: true },
         [SHORTCUT_ACTIONS.SAVE_AND_NEW]: { allowInInput: true },
         [SHORTCUT_ACTIONS.PRINT]: { allowInInput: true },
         [SHORTCUT_ACTIONS.CLOSE]: { allowInInput: true },
+        [SHORTCUT_ACTIONS.HELP]: { allowInInput: true },
       },
     )
-  }, [handlePrint, handleSave, handleSaveAndNew, onClose, loading])
+  }, [
+    closeShortcutHelp,
+    handlePrint,
+    handleSave,
+    handleSaveAndNew,
+    loading,
+    onClose,
+    openShortcutHelp,
+    shortcutActions,
+    shortcutHelpVisible,
+  ])
 
   const shouldHandleShortcutEvent = useCallback(
     () => isPopupShortcutScopeTopMost(popupShortcutScopeId),
@@ -966,7 +926,7 @@ export default function InventoryEditorPopup({
   )
 
   useShortcutBindings(shortcutBindings, {
-    enabled: visible,
+    enabled: visible && !shortcutHelpVisible,
     shouldHandleEvent: shouldHandleShortcutEvent,
   })
 
@@ -1237,20 +1197,6 @@ export default function InventoryEditorPopup({
         location="after"
         render={() => (
           <div className="am-dx-title-actions inventory-editor-title-actions">
-            {/* TEMP disabled create-from-source — restore with handlers above + DropDownButton below.
-            {createVoucherActions.length > 0 ? (
-              <DropDownButton
-                stylingMode="text"
-                icon="add"
-                text={t("CREATE_FROM_INVENTORY", "Create from inventory")}
-                items={createVoucherActions}
-                displayExpr="label"
-                keyExpr="action"
-                onItemClick={(event) => handleCreateVoucherAction(event.itemData.action)}
-                disabled={loading}
-              />
-            ) : null}
-            */}
             <Button
               icon="columnchooser"
               stylingMode="text"
@@ -1433,7 +1379,7 @@ export default function InventoryEditorPopup({
               } },
               { key: "save", text: t("SAVE", "Save"), visible: !readOnly, onClick: handleSave },
               { key: "saveAndNew", text: t("SAVE_AND_NEW", "Save and create new"), visible: !readOnly && Boolean(onSaveAndNew), onClick: handleSaveAndNew },
-              { key: "print", text: t("PRINT", "Print"), visible: Boolean(printReportCode), onClick: handlePrint },
+              { key: "print", text: t("PRINT", "Print"), type: "default", onClick: handlePrint },
               { key: "close", text: t("CANCEL", "Cancel"), onClick: onClose },
             ]}
           />
@@ -1457,6 +1403,11 @@ export default function InventoryEditorPopup({
           onClose={() => setColumnSettingsVisible(false)}
           onReset={handleColumnSettingsReset}
           onSaveTabs={handleColumnSettingsSave}
+        />
+        <ShortcutHelpPopup
+          visible={shortcutHelpVisible}
+          shortcuts={shortcutHelpItems}
+          onClose={closeShortcutHelp}
         />
       </LookupPopupProvider>
 

@@ -32,6 +32,7 @@ function resolveLevelLabel(
   userLevelCodes: SysCode[],
   translate: (key: string, fallback?: string) => string,
 ): string {
+  if (user.USERLV_NAME) return user.USERLV_NAME
   const matched = userLevelCodes.find((item) => String(item.CODE_CD) === String(user.USERLV))
   if (matched) {
     return getSysCodeDisplayText(matched, translate)

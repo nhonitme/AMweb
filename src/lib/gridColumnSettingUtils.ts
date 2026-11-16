@@ -23,13 +23,6 @@ export type SysGridColumnSettingCachePayload = {
 
 export const GRID_COLUMN_SETTINGS_STORAGE_KEY = "sys_grid_column_settings_v2"
 
-const LEGACY_GRID_COLUMN_SETTINGS_STORAGE_KEYS = [
-  "sys_grid_column_settings_v1",
-  "sys_grid_column_settings_v6",
-  "sys_grid_column_settings_v7",
-  "sys_grid_column_settings_v8",
-] as const
-
 function buildScopedStorageKey(prefix: string, scope: GridSettingScope): string {
   return [
     prefix,
@@ -211,9 +204,6 @@ export function readGridColumnSettingsCache(scope: GridSettingScope): SysGridCol
     return null
   }
 
-  for (const prefix of LEGACY_GRID_COLUMN_SETTINGS_STORAGE_KEYS) {
-    window.localStorage.removeItem(buildScopedStorageKey(prefix, scope))
-  }
 
   const raw = window.localStorage.getItem(buildScopedStorageKey(GRID_COLUMN_SETTINGS_STORAGE_KEY, scope))
   if (!raw) {
@@ -263,9 +253,6 @@ export function removeGridColumnSettingsCache(scope: GridSettingScope): void {
   }
 
   window.localStorage.removeItem(buildScopedStorageKey(GRID_COLUMN_SETTINGS_STORAGE_KEY, scope))
-  for (const prefix of LEGACY_GRID_COLUMN_SETTINGS_STORAGE_KEYS) {
-    window.localStorage.removeItem(buildScopedStorageKey(prefix, scope))
-  }
 }
 
 function hasBundleContent(bundle: SysGridColumnBundle | null | undefined): boolean {

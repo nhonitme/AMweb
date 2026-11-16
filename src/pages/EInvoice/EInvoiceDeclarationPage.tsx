@@ -28,6 +28,7 @@ import { fetchCountryLookup, type CountryLookup } from "@/api/lookupApi"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import PageGrid from "@/components/datagrid/PageGrid"
 import ShortcutHelpPopup from "@/components/shortcuts/ShortcutHelpPopup"
+import EditorActionToolbar from "@/components/toolbar/EditorActionToolbar"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import DxPage from "@/dx/DxPage"
 import {
@@ -85,6 +86,7 @@ import { truncateEInvoiceErrorMessage } from "./einvoiceModel"
 import { openEInvoiceDeclarationPreview } from "./einvoiceDeclarationPreviewViewer"
 import { openEInvoiceDeclarationXmlPreviewWithNotify } from "./einvoiceDocumentXmlViewer"
 import { openEInvoiceTransmissionHtmlPreview } from "./einvoiceTransmissionPreviewViewer"
+import { createEInvoicePrintToolbarItem } from "./einvoicePrintToolbar"
 import { createEInvoiceSignSendCqtToolbarItem } from "./einvoiceSignToolbar"
 import { fieldRequiredMessage } from "./einvoiceI18n"
 import EInvoiceTransmissionMessagesPopup from "./components/EInvoiceTransmissionMessagesPopup"
@@ -212,6 +214,8 @@ interface DeclarationDetailTypeGridProps {
   onRowUpdating: (event: RowUpdatingEvent<EInvoiceDeclarationDetail, GridKey>) => void
   onRowRemoving: (event: RowRemovingEvent<EInvoiceDeclarationDetail, GridKey>) => void
   detailType: EInvoiceDeclarationDetailType
+  defaultExpanded?: boolean
+  gridHeight?: number
 }
 
 function DeclarationDetailTypeGrid({
@@ -224,7 +228,10 @@ function DeclarationDetailTypeGrid({
   onRowUpdating,
   onRowRemoving,
   detailType,
+  defaultExpanded = true,
+  gridHeight = 140,
 }: DeclarationDetailTypeGridProps) {
+  const [expanded, setExpanded] = useState(defaultExpanded)
   const ctsMethodLookup = useMemo(
     () => ({
       dataSource: certificateMethodOptions,
@@ -235,16 +242,30 @@ function DeclarationDetailTypeGrid({
   )
 
   return (
-    <section className="einvoice-editor__section">
+    <section className={`einvoice-editor__section${expanded ? "" : " einvoice-editor__section--collapsed"}`}>
       <div className="einvoice-editor__detail-toolbar">
-        <div className="einvoice-editor__section-title einvoice-editor__section-title--inline">{title}</div>
-        {headerAction}
+        <button
+          type="button"
+          className="einvoice-editor__section-collapse"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((current) => !current)}
+        >
+          <span
+            className={`einvoice-editor__section-collapse-icon${expanded ? " is-open" : ""}`}
+            aria-hidden="true"
+          >
+            ▶
+          </span>
+          <span className="einvoice-editor__section-title einvoice-editor__section-title--inline">{title}</span>
+        </button>
+        {expanded ? headerAction : null}
       </div>
+      {expanded ? (
       <div className="einvoice-editor__detail-grid">
       <DataGrid<EInvoiceDeclarationDetail, GridKey>
         dataSource={dataSource}
         keyExpr="ROW_KEY"
-        height={180}
+        height={gridHeight}
         showBorders={true}
         columnAutoWidth={true}
         repaintChangesOnly={true}
@@ -329,6 +350,7 @@ function DeclarationDetailTypeGrid({
         {detailType === "CTS" ? null : <Column dataField="GCHU" caption={translate("GCHU", "Note")} minWidth={180} />}
       </DataGrid>
       </div>
+      ) : null}
     </section>
   )
 }
@@ -817,6 +839,8 @@ function DeclarationEditorPopup({
   const shortcutActions = useMemo(
     () => [
       SHORTCUT_ACTIONS.SAVE,
+      SHORTCUT_ACTIONS.SAVE_AND_CLOSE,
+      SHORTCUT_ACTIONS.PRINT,
       SHORTCUT_ACTIONS.CLOSE,
       SHORTCUT_ACTIONS.HELP,
     ],
@@ -851,6 +875,12 @@ function DeclarationEditorPopup({
           [SHORTCUT_ACTIONS.SAVE]: () => {
             void handleSave()
           },
+          [SHORTCUT_ACTIONS.SAVE_AND_CLOSE]: () => {
+            void handleSave()
+          },
+          [SHORTCUT_ACTIONS.PRINT]: () => {
+            handlePrint()
+          },
           [SHORTCUT_ACTIONS.CLOSE]: () => handleClosePopup(),
           [SHORTCUT_ACTIONS.HELP]: () => {
             if (shortcutHelpVisible) {
@@ -863,6 +893,8 @@ function DeclarationEditorPopup({
         },
         {
           [SHORTCUT_ACTIONS.SAVE]: { enabled: !isReadOnly && !loading, allowInInput: true, stopPropagation: true },
+          [SHORTCUT_ACTIONS.SAVE_AND_CLOSE]: { enabled: !isReadOnly && !loading, allowInInput: true, stopPropagation: true },
+          [SHORTCUT_ACTIONS.PRINT]: { enabled: !loading, allowInInput: true, stopPropagation: true },
           [SHORTCUT_ACTIONS.CLOSE]: { allowInInput: true, stopPropagation: true },
           [SHORTCUT_ACTIONS.HELP]: { allowInInput: true, stopPropagation: true },
         },
@@ -870,6 +902,7 @@ function DeclarationEditorPopup({
     [
       closeShortcutHelp,
       handleClosePopup,
+      handlePrint,
       handleSave,
       isReadOnly,
       loading,
@@ -893,6 +926,8 @@ function DeclarationEditorPopup({
     <>
       <EInvoiceEditorShell
         visible={visible}
+        fullScreen
+        mode={isUpdate ? "edit" : "add"}
         title={isUpdate ? t("DECL_EDIT", "Edit e-invoice declaration") : t("DECL_CREATE", "Create e-invoice declaration")}
         subtitle={formData.MST?.trim() || undefined}
         loading={loading}
@@ -910,14 +945,18 @@ function DeclarationEditorPopup({
           </>
         }
         footer={
-          <>
-            <Button text={t("PRINT", "Print")} icon="print" stylingMode="outlined" disabled={loading} onClick={handlePrint} />
-            <Button text={t("CANCEL", "Cancel")} stylingMode="outlined" disabled={loading} onClick={handleClosePopup} />
-            <Button text={t("SAVE", "Save")} icon="save" type="default" stylingMode="contained" disabled={loading || isReadOnly} onClick={() => void handleSave()} />
-          </>
+          <EditorActionToolbar
+            mode={isUpdate ? "edit" : "add"}
+            busy={loading}
+            actions={[
+              { key: "print", text: t("PRINT", "Print"), onClick: handlePrint },
+              { key: "save", text: t("SAVE", "Save"), visible: !isReadOnly, onClick: () => { void handleSave() } },
+              { key: "close", text: t("CANCEL", "Cancel"), onClick: handleClosePopup },
+            ]}
+          />
         }
       >
-          <EInvoiceEditorSection title={t("DECL_GENERAL_INFO", "General information")}>
+          <EInvoiceEditorSection title={t("DECL_GENERAL_INFO", "General information")} bodyClassName="einvoice-editor__section-body--compact">
             <div className="einvoice-editor__field-grid einvoice-editor__field-grid--12">
               <div className="einvoice-editor__field einvoice-editor__col-3">
                 <div className="einvoice-editor__field-label">{requiredLabel("HTHUC", "Declaration method")}</div>
@@ -953,72 +992,84 @@ function DeclarationEditorPopup({
             </div>
           </EInvoiceEditorSection>
 
-          <EInvoiceEditorSection title={t("DECL_REPRESENTATIVE_INFO", "Legal representative")}>
-            <div className="einvoice-editor__field-grid einvoice-editor__field-grid--12">
-              <div className="einvoice-editor__field einvoice-editor__col-4">
-                <div className="einvoice-editor__field-label">{requiredLabel("TNDDPLUAT", "Legal representative")}</div>
-                <TextBox value={formData.TNDDPLUAT} readOnly={isReadOnly} onValueChanged={(event) => updateField("TNDDPLUAT", String(event.value ?? ""))} />
+          <div className="einvoice-editor__field-grid einvoice-editor__field-grid--2">
+            <EInvoiceEditorSection
+              title={t("DECL_REPRESENTATIVE_INFO", "Legal representative")}
+              bodyClassName="einvoice-editor__section-body--compact"
+              collapsible={true}
+              defaultExpanded={true}
+            >
+              <div className="einvoice-editor__field-grid einvoice-editor__field-grid--12">
+                <div className="einvoice-editor__field einvoice-editor__col-6">
+                  <div className="einvoice-editor__field-label">{requiredLabel("TNDDPLUAT", "Legal representative")}</div>
+                  <TextBox value={formData.TNDDPLUAT} readOnly={isReadOnly} onValueChanged={(event) => updateField("TNDDPLUAT", String(event.value ?? ""))} />
+                </div>
+                <div className="einvoice-editor__field einvoice-editor__col-6">
+                  <div className="einvoice-editor__field-label">{requiredLabel("DTDDPLUAT", "Representative phone")}</div>
+                  <TextBox value={formData.DTDDPLUAT} readOnly={isReadOnly} onValueChanged={(event) => updateField("DTDDPLUAT", String(event.value ?? ""))} />
+                </div>
+                <div className="einvoice-editor__field einvoice-editor__col-6">
+                  <div className="einvoice-editor__field-label">{requiredLabel("QTDDPLuat", "Nationality")}</div>
+                  <SelectBox
+                    dataSource={countries}
+                    valueExpr="COUNTRY_CD"
+                    displayExpr="COUNTRY_NM"
+                    searchEnabled={true}
+                    searchExpr={["COUNTRY_NM", "COUNTRY_CD"]}
+                    value={formData.MQTNDDPLUAT || null}
+                    readOnly={isReadOnly}
+                    showClearButton={!isReadOnly}
+                    placeholder={t("SELECT", "Select")}
+                    onValueChanged={(event) => handleNationalityChanged(event.value as string | null)}
+                  />
+                </div>
+                <div className="einvoice-editor__field einvoice-editor__col-6">
+                  <div className="einvoice-editor__field-label">{requiredLabel("NSDDPLUAT", "Representative birth date")}</div>
+                  <DateBox
+                    type="date"
+                    displayFormat="yyyy-MM-dd"
+                    value={parseDate(formData.NSDDPLUAT)}
+                    readOnly={isReadOnly}
+                    onValueChanged={(event) => updateField("NSDDPLUAT", formatDateForApi(event.value as Date | null) ?? "")}
+                  />
+                </div>
+                <div className="einvoice-editor__field einvoice-editor__col-6">
+                  <div className="einvoice-editor__field-label">{isVietnamese ? requiredLabel("CCCDAN", "Citizen ID") : t("CCCDAN", "Citizen ID")}</div>
+                  <TextBox value={formData.CCCDAN} readOnly={isReadOnly} onValueChanged={(event) => updateField("CCCDAN", String(event.value ?? ""))} />
+                </div>
+                <div className="einvoice-editor__field einvoice-editor__col-6">
+                  <div className="einvoice-editor__field-label">{isForeignNationality ? requiredLabel("SHCHIEU", "Passport") : t("SHCHIEU", "Passport")}</div>
+                  <TextBox value={formData.SHCHIEU} readOnly={isReadOnly} onValueChanged={(event) => updateField("SHCHIEU", String(event.value ?? ""))} />
+                </div>
               </div>
-              <div className="einvoice-editor__field einvoice-editor__col-4">
-                <div className="einvoice-editor__field-label">{requiredLabel("DTDDPLUAT", "Representative phone")}</div>
-                <TextBox value={formData.DTDDPLUAT} readOnly={isReadOnly} onValueChanged={(event) => updateField("DTDDPLUAT", String(event.value ?? ""))} />
-              </div>
-              <div className="einvoice-editor__field einvoice-editor__col-4">
-                <div className="einvoice-editor__field-label">{requiredLabel("QTDDPLuat", "Nationality")}</div>
-                <SelectBox
-                  dataSource={countries}
-                  valueExpr="COUNTRY_CD"
-                  displayExpr="COUNTRY_NM"
-                  searchEnabled={true}
-                  searchExpr={["COUNTRY_NM", "COUNTRY_CD"]}
-                  value={formData.MQTNDDPLUAT || null}
-                  readOnly={isReadOnly}
-                  showClearButton={!isReadOnly}
-                  placeholder={t("SELECT", "Select")}
-                  onValueChanged={(event) => handleNationalityChanged(event.value as string | null)}
-                />
-              </div>
-              <div className="einvoice-editor__field einvoice-editor__col-4">
-                <div className="einvoice-editor__field-label">{isVietnamese ? requiredLabel("CCCDAN", "Citizen ID") : t("CCCDAN", "Citizen ID")}</div>
-                <TextBox value={formData.CCCDAN} readOnly={isReadOnly} onValueChanged={(event) => updateField("CCCDAN", String(event.value ?? ""))} />
-              </div>
-              <div className="einvoice-editor__field einvoice-editor__col-4">
-                <div className="einvoice-editor__field-label">{isForeignNationality ? requiredLabel("SHCHIEU", "Passport") : t("SHCHIEU", "Passport")}</div>
-                <TextBox value={formData.SHCHIEU} readOnly={isReadOnly} onValueChanged={(event) => updateField("SHCHIEU", String(event.value ?? ""))} />
-              </div>
-              <div className="einvoice-editor__field einvoice-editor__col-4">
-                <div className="einvoice-editor__field-label">{requiredLabel("NSDDPLUAT", "Representative birth date")}</div>
-                <DateBox
-                  type="date"
-                  displayFormat="yyyy-MM-dd"
-                  value={parseDate(formData.NSDDPLUAT)}
-                  readOnly={isReadOnly}
-                  onValueChanged={(event) => updateField("NSDDPLUAT", formatDateForApi(event.value as Date | null) ?? "")}
-                />
-              </div>
-            </div>
-          </EInvoiceEditorSection>
+            </EInvoiceEditorSection>
 
-          <EInvoiceEditorSection title={t("DECL_CONTACT_INFO", "Contact information")}>
-            <div className="einvoice-editor__field-grid einvoice-editor__field-grid--12">
-              <div className="einvoice-editor__field einvoice-editor__col-12">
-                <div className="einvoice-editor__field-label">{requiredLabel("DCLHE", "Contact address")}</div>
-                <TextBox value={formData.DCLHE} readOnly={isReadOnly} onValueChanged={(event) => updateField("DCLHE", String(event.value ?? ""))} />
+            <EInvoiceEditorSection
+              title={t("DECL_CONTACT_INFO", "Contact information")}
+              bodyClassName="einvoice-editor__section-body--compact"
+              collapsible={true}
+              defaultExpanded={true}
+            >
+              <div className="einvoice-editor__field-grid einvoice-editor__field-grid--12">
+                <div className="einvoice-editor__field einvoice-editor__col-12">
+                  <div className="einvoice-editor__field-label">{requiredLabel("DCLHE", "Contact address")}</div>
+                  <TextBox value={formData.DCLHE} readOnly={isReadOnly} onValueChanged={(event) => updateField("DCLHE", String(event.value ?? ""))} />
+                </div>
+                <div className="einvoice-editor__field einvoice-editor__col-4">
+                  <div className="einvoice-editor__field-label">{requiredLabel("NLHE", "Contact person")}</div>
+                  <TextBox value={formData.NLHE} readOnly={isReadOnly} onValueChanged={(event) => updateField("NLHE", String(event.value ?? ""))} />
+                </div>
+                <div className="einvoice-editor__field einvoice-editor__col-4">
+                  <div className="einvoice-editor__field-label">{requiredLabel("DTLHE", "Contact phone")}</div>
+                  <TextBox value={formData.DTLHE} readOnly={isReadOnly} onValueChanged={(event) => updateField("DTLHE", String(event.value ?? ""))} />
+                </div>
+                <div className="einvoice-editor__field einvoice-editor__col-4">
+                  <div className="einvoice-editor__field-label">{requiredLabel("DCTDTU", "Email")}</div>
+                  <TextBox value={formData.DCTDTU} readOnly={isReadOnly} onValueChanged={(event) => updateField("DCTDTU", String(event.value ?? ""))} />
+                </div>
               </div>
-              <div className="einvoice-editor__field einvoice-editor__col-4">
-                <div className="einvoice-editor__field-label">{requiredLabel("NLHE", "Contact person")}</div>
-                <TextBox value={formData.NLHE} readOnly={isReadOnly} onValueChanged={(event) => updateField("NLHE", String(event.value ?? ""))} />
-              </div>
-              <div className="einvoice-editor__field einvoice-editor__col-4">
-                <div className="einvoice-editor__field-label">{requiredLabel("DTLHE", "Contact phone")}</div>
-                <TextBox value={formData.DTLHE} readOnly={isReadOnly} onValueChanged={(event) => updateField("DTLHE", String(event.value ?? ""))} />
-              </div>
-              <div className="einvoice-editor__field einvoice-editor__col-4">
-                <div className="einvoice-editor__field-label">{requiredLabel("DCTDTU", "Email")}</div>
-                <TextBox value={formData.DCTDTU} readOnly={isReadOnly} onValueChanged={(event) => updateField("DCTDTU", String(event.value ?? ""))} />
-              </div>
-            </div>
-          </EInvoiceEditorSection>
+            </EInvoiceEditorSection>
+          </div>
 
           <div className="einvoice-editor__field-grid einvoice-editor__field-grid--3">
             <EInvoiceEditorSection title={t("DECL_AUTH_METHOD", "Invoice authentication")} bodyClassName="einvoice-editor__section-body--compact">
@@ -1065,6 +1116,8 @@ function DeclarationEditorPopup({
             detailType="CTS"
             dataSource={ctsDetails}
             isReadOnly={isReadOnly}
+            defaultExpanded={true}
+            gridHeight={150}
             certificateMethodOptions={certificateMethodOptions}
             translate={t}
             onRowUpdating={handleDetailUpdating}
@@ -1072,8 +1125,9 @@ function DeclarationEditorPopup({
             headerAction={
               <Button
                 icon="plus"
-                text={t("ADD", "Add")}
+                text={t("ADD", "Thêm")}
                 stylingMode="outlined"
+                elementAttr={{ class: "einvoice-add-btn" }}
                 disabled={isReadOnly || loading}
                 hint={t("DECL_CTS_FROM_PLUGIN", "Load certificate from signing plugin")}
                 onClick={() => void handleAddCtsFromPlugin()}
@@ -1081,45 +1135,52 @@ function DeclarationEditorPopup({
             }
           />
 
-          <DeclarationDetailTypeGrid
-            title={t("DECL_TCGP_SECTION", "Solution providers (TCGP)")}
-            detailType="TCGP"
-            dataSource={tcgpDetails}
-            isReadOnly={isReadOnly}
-            certificateMethodOptions={certificateMethodOptions}
-            translate={t}
-            onRowUpdating={handleDetailUpdating}
-            onRowRemoving={handleDetailRemoving}
-            headerAction={
-              <Button icon="plus" text={t("ADD", "Add")} stylingMode="outlined" disabled={isReadOnly} onClick={() => openProviderPicker("TCGP")} />
-            }
-          />
+          <div className="einvoice-editor__field-grid einvoice-editor__field-grid--2">
+            <DeclarationDetailTypeGrid
+              title={t("DECL_TCGP_SECTION", "Solution providers (TCGP)")}
+              detailType="TCGP"
+              dataSource={tcgpDetails}
+              isReadOnly={isReadOnly}
+              defaultExpanded={true}
+              gridHeight={120}
+              certificateMethodOptions={certificateMethodOptions}
+              translate={t}
+              onRowUpdating={handleDetailUpdating}
+              onRowRemoving={handleDetailRemoving}
+              headerAction={
+                <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" elementAttr={{ class: "einvoice-add-btn" }} disabled={isReadOnly} onClick={() => openProviderPicker("TCGP")} />
+              }
+            />
 
-          <DeclarationDetailTypeGrid
-            title={t("DECL_TCTN_SECTION", "Transmission providers (TCTN)")}
-            detailType="TCTN"
-            dataSource={tctnDetails}
-            isReadOnly={isReadOnly}
-            certificateMethodOptions={certificateMethodOptions}
-            translate={t}
-            onRowUpdating={handleDetailUpdating}
-            onRowRemoving={handleDetailRemoving}
-            headerAction={
-              <Button icon="plus" text={t("ADD", "Add")} stylingMode="outlined" disabled={isReadOnly} onClick={() => openProviderPicker("TCTN")} />
-            }
-          />
+            <DeclarationDetailTypeGrid
+              title={t("DECL_TCTN_SECTION", "Transmission providers (TCTN)")}
+              detailType="TCTN"
+              dataSource={tctnDetails}
+              isReadOnly={isReadOnly}
+              defaultExpanded={true}
+              gridHeight={120}
+              certificateMethodOptions={certificateMethodOptions}
+              translate={t}
+              onRowUpdating={handleDetailUpdating}
+              onRowRemoving={handleDetailRemoving}
+              headerAction={
+                <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" elementAttr={{ class: "einvoice-add-btn" }} disabled={isReadOnly} onClick={() => openProviderPicker("TCTN")} />
+              }
+            />
+          </div>
 
           <DeclarationDetailTypeGrid
             title={t("DECL_DVHTPT_SECTION", "Dependent units for invoice lookup (DVHTPT)")}
             detailType="DVHTPT"
             dataSource={dvhtptDetails}
             isReadOnly={isReadOnly}
+            defaultExpanded={false}
             certificateMethodOptions={certificateMethodOptions}
             translate={t}
             onRowUpdating={handleDetailUpdating}
             onRowRemoving={handleDetailRemoving}
             headerAction={
-              <Button icon="plus" text={t("ADD", "Add")} stylingMode="outlined" disabled={isReadOnly} onClick={() => appendBlankDetail("DVHTPT")} />
+              <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" elementAttr={{ class: "einvoice-add-btn" }} disabled={isReadOnly} onClick={() => appendBlankDetail("DVHTPT")} />
             }
           />
 
@@ -1128,12 +1189,13 @@ function DeclarationEditorPopup({
             detailType="DVDUQTCUU"
             dataSource={dvduqDetails}
             isReadOnly={isReadOnly}
+            defaultExpanded={false}
             certificateMethodOptions={certificateMethodOptions}
             translate={t}
             onRowUpdating={handleDetailUpdating}
             onRowRemoving={handleDetailRemoving}
             headerAction={
-              <Button icon="plus" text={t("ADD", "Add")} stylingMode="outlined" disabled={isReadOnly} onClick={() => appendBlankDetail("DVDUQTCUU")} />
+              <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" elementAttr={{ class: "einvoice-add-btn" }} disabled={isReadOnly} onClick={() => appendBlankDetail("DVDUQTCUU")} />
             }
           />
 
@@ -1142,12 +1204,13 @@ function DeclarationEditorPopup({
             detailType="TNSDUNG"
             dataSource={tnsdungDetails}
             isReadOnly={isReadOnly}
+            defaultExpanded={false}
             certificateMethodOptions={certificateMethodOptions}
             translate={t}
             onRowUpdating={handleDetailUpdating}
             onRowRemoving={handleDetailRemoving}
             headerAction={
-              <Button icon="plus" text={t("ADD", "Add")} stylingMode="outlined" disabled={isReadOnly} onClick={() => appendBlankDetail("TNSDUNG")} />
+              <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" elementAttr={{ class: "einvoice-add-btn" }} disabled={isReadOnly} onClick={() => appendBlankDetail("TNSDUNG")} />
             }
           />
 
@@ -1156,12 +1219,13 @@ function DeclarationEditorPopup({
             detailType="DKTH"
             dataSource={dkthDetails}
             isReadOnly={isReadOnly}
+            defaultExpanded={false}
             certificateMethodOptions={certificateMethodOptions}
             translate={t}
             onRowUpdating={handleDetailUpdating}
             onRowRemoving={handleDetailRemoving}
             headerAction={
-              <Button icon="plus" text={t("ADD", "Add")} stylingMode="outlined" disabled={isReadOnly} onClick={() => appendBlankDetail("DKTH")} />
+              <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" elementAttr={{ class: "einvoice-add-btn" }} disabled={isReadOnly} onClick={() => appendBlankDetail("DKTH")} />
             }
           />
       </EInvoiceEditorShell>
@@ -1661,17 +1725,12 @@ export default function EInvoiceDeclarationPage() {
 
   const toolbarItems = useMemo(
     () => [
-      {
-        key: "view-preview",
-        icon: "print",
-        text: t("VIEW", "View"),
-        hint: t("PREVIEW_HINT", "View HTML preview"),
-        stylingMode: "outlined" as const,
-        disabled: loading,
+      createEInvoicePrintToolbarItem(t, {
+        loading,
         onClick: (event) => {
           void handleViewPreview(event)
         },
-      },
+      }),
     ],
     [handleViewPreview, loading, t],
   )

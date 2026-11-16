@@ -26,4 +26,5 @@ export interface EInvoiceEditorPopupProps {
   readOnly?: boolean
   onClose: () => void
   onSaved?: (invoice: EInvoice, createNext: boolean) => void | Promise<void>
+  onSign?: (invoice: EInvoice) => void | Promise<void>
 }

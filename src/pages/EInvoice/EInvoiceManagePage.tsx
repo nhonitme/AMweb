@@ -82,6 +82,7 @@ import { useEInvoiceSigningPluginSetupPrompt } from "./hooks/useEInvoiceSigningP
 import { openEInvoiceReportViewer, downloadEInvoicesBatch, buildPrintRequestFromInvoice, type EInvoicePrintConfirmPayload } from "./einvoiceReportViewer"
 import { openEInvoiceXmlPreviewWithNotify } from "./einvoiceXmlViewer"
 import { openEInvoiceTransmissionHtmlPreview } from "./einvoiceTransmissionPreviewViewer"
+import { createEInvoicePrintToolbarItem } from "./einvoicePrintToolbar"
 import { createEInvoiceIssueMttToolbarItem, createEInvoiceSignSendCqtToolbarItem } from "./einvoiceSignToolbar"
 import { createEInvoiceSendMailToolbarItem } from "./einvoiceSendMailToolbar"
 import {
@@ -158,6 +159,8 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
     const navigate = useNavigate()
     const gridRef = useRef<dxDataGrid<EInvoice, GridKey> | null>(null)
     const linkedInvoiceHandledRef = useRef("")
+    const closeEditorAfterSignRef = useRef(false)
+    const closePopupRef = useRef<() => void>(() => {})
     const createActionHandledRef = useRef(false)
     const initialLoadTriggeredRef = useRef(false)
     const initialPagingEventsSuppressedRef = useRef(false)
@@ -306,6 +309,15 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
             await refetchEInvoices()
         }
     }, [invalidatePagedList, isDateRangeValid, listFetchEnabled, refetchEInvoices])
+
+    const refreshListAfterSign = useCallback(async () => {
+        await refreshList()
+        if (!closeEditorAfterSignRef.current) {
+            return
+        }
+        closeEditorAfterSignRef.current = false
+        closePopupRef.current()
+    }, [refreshList])
 
     const renderHeaderDecimalCell = useCallback(
         (fieldKey: string) => (cellInfo: EInvoiceGridCellInfo) => (
@@ -650,7 +662,7 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
     const { certificatePopupVisible, openSigningPopup, certificateSelectPopup } = useEInvoiceCertificateSigning<PendingSignInvoice>({
         t,
         promptIfPluginMissing,
-        onRefresh: refreshList,
+        onRefresh: refreshListAfterSign,
         setActionLoading,
         signBatch: async (items, certificateThumbprint) => {
             if (cashRegister) {
@@ -767,7 +779,6 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
                 try {
                     saveEInvoiceDetailCache(invoice)
                 } catch {
-                    // Ignore cache write failures (e.g. sessionStorage quota).
                 }
             }
         }
@@ -936,6 +947,36 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
         setPopupVisible(false)
         resetEditorState()
     }, [resetEditorState])
+    closePopupRef.current = closePopup
+
+    const handleEditorSign = useCallback(async (invoice: EInvoice) => {
+        const invoiceId = Number(invoice.INVOICE_ID)
+        if (!Number.isFinite(invoiceId) || invoiceId <= 0) {
+            notify(t("SAVE_BEFORE_SIGN", "Save the record before signing"), "warning", 2500)
+            return
+        }
+        if (isEInvoiceSigned(invoice)) {
+            return
+        }
+        if (cashRegister && !isEInvoiceMttIssued(invoice)) {
+            notify(t("MTT_SIGN_NOT_ISSUED", "Phát hành hóa đơn MTT trước khi ký gửi CQT"), "warning", 3000)
+            return
+        }
+
+        closeEditorAfterSignRef.current = true
+        try {
+            const opened = await openSigningPopup([{ invoiceId }])
+            if (!opened) {
+                closeEditorAfterSignRef.current = false
+            }
+        } catch (error) {
+            closeEditorAfterSignRef.current = false
+            if (await promptIfPluginMissing(error)) {
+                return
+            }
+            notify(getApiErrorMessage(error, t("SIGN_FAILED", "Sign XML failed")), "error", 5000)
+        }
+    }, [cashRegister, openSigningPopup, promptIfPluginMissing, t])
 
     useEffect(() => {
         if (linkedInvoiceId <= 0) {
@@ -1232,6 +1273,7 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
     }, [getSelectedInvoices, refreshList, t])
 
     const handleSignXml = useCallback(async () => {
+        closeEditorAfterSignRef.current = false
         const selectedInvoices = getSelectedInvoices()
         if (selectedInvoices.length === 0) {
             notify(t("MSG_NO_ROWS_SELECTED", "Chưa chọn dòng"), "warning", 2500)
@@ -1411,14 +1453,13 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
 
     const toolbarItems = useMemo(
         () => [
-            {
+            createEInvoicePrintToolbarItem(t, {
                 key: "print-pdf",
-                icon: "print",
-                hint: t("PRINT_PDF", "Print PDF"),
-                stylingMode: "text" as const,
-                disabled: loading,
+                hintKey: "PRINT_PDF",
+                hintFallback: "Print PDF",
+                loading,
                 onClick: handlePrintPdf,
-            },
+            }),
         ],
         [handlePrintPdf, loading, t],
     )
@@ -1771,6 +1812,7 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
                         readOnly={editorReadOnly}
                         onClose={closePopup}
                         onSaved={handleFormSaved}
+                        onSign={handleEditorSign}
                     />
                 ) : null}
 

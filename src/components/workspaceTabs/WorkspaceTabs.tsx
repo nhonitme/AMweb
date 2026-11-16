@@ -61,12 +61,6 @@ export type WorkspaceTabRoute = {
 
 const WorkspaceTabRouteContext = createContext<WorkspaceTabRoute | null>(null)
 
-type PendingTabSelection = {
-  toTabId: string
-  toHref: string
-  toState: unknown
-}
-
 export function workspaceTabStatesMatch(left: unknown, right: unknown): boolean {
   return left === right || (left == null && right == null)
 }
@@ -113,7 +107,6 @@ export function useWorkspaceTabsController({
 }): WorkspaceTabsController {
   const sequenceRef = useRef(1)
   const activationRef = useRef(1)
-  const pendingSelectionRef = useRef<PendingTabSelection | null>(null)
   const initialHref = normalizeWorkspaceHref(`${location.pathname}${location.search}${location.hash}`)
   const [tabs, setTabs] = useState<WorkspaceTab[]>(() => [
     {
@@ -152,21 +145,15 @@ export function useWorkspaceTabsController({
       const tab = tabs.find((item) => item.id === tabId)
       if (!tab) return
 
-      pendingSelectionRef.current = {
-        toTabId: tab.id,
-        toHref: tab.href,
-        toState: tab.state,
+      if (tab.id === activeTabId) {
+        return
       }
 
-      setActiveTabId(tab.id)
-      setTabs((currentTabs) =>
-        currentTabs.map((item) =>
-          item.id === tab.id ? { ...item, lastActivatedAt: activationRef.current++ } : item,
-        ),
-      )
+      // Location is the source of truth. Do not set activeTabId / pending here:
+      // a pending wait used to block sync forever when navigate lagged behind setTabs.
       navigate(tab.href, { replace: true, state: tab.state })
     },
-    [navigate, tabs],
+    [activeTabId, navigate, tabs],
   )
 
   const openWorkspacePath = useCallback(
@@ -194,12 +181,6 @@ export function useWorkspaceTabsController({
             return
           }
 
-          pendingSelectionRef.current = {
-            toTabId: existingScreen.id,
-            toHref: href,
-            toState: options.state,
-          }
-          setActiveTabId(existingScreen.id)
           setTabs((currentTabs) =>
             currentTabs.map((tab) =>
               tab.id === existingScreen.id
@@ -211,7 +192,6 @@ export function useWorkspaceTabsController({
                     pathname,
                     state: options.state,
                     title: nextTitle,
-                    lastActivatedAt: activationRef.current++,
                   }
                 : tab,
             ),
@@ -221,17 +201,10 @@ export function useWorkspaceTabsController({
         }
       }
 
-      const tab = makeTab(href, options)
-      pendingSelectionRef.current = {
-        toTabId: tab.id,
-        toHref: tab.href,
-        toState: tab.state,
-      }
-      setTabs((currentTabs) => [...currentTabs, tab])
-      setActiveTabId(tab.id)
+      // Let the location sync effect create/activate the tab after navigate.
       navigate(href, { state: options?.state })
     },
-    [enabled, getIcon, getTitle, makeTab, navigate, selectTab, tabs],
+    [enabled, getIcon, getTitle, navigate, selectTab, tabs],
   )
 
   const openWorkspaceScreen = useCallback(
@@ -303,7 +276,6 @@ export function useWorkspaceTabsController({
   )
 
   const closeAllTabs = useCallback(() => {
-    pendingSelectionRef.current = null
     clearAllWorkspaceTabState()
     const landingHref = resolveDefaultLandingHref?.()
       ?? (companyCd ? `/app/${encodeURIComponent(companyCd)}/` : "/")
@@ -319,36 +291,13 @@ export function useWorkspaceTabsController({
     }
 
     const href = normalizeWorkspaceHref(`${location.pathname}${location.search}${location.hash}`)
-    const pendingSelection = pendingSelectionRef.current
 
     if (companyRef.current !== companyCd) {
       companyRef.current = companyCd
-      pendingSelectionRef.current = null
       clearAllWorkspaceTabState()
       const replacement = makeTab(href, { state: location.state })
       setTabs([replacement])
       setActiveTabId(replacement.id)
-      return
-    }
-
-    if (
-      pendingSelection
-      && (href !== pendingSelection.toHref || !workspaceTabStatesMatch(location.state, pendingSelection.toState))
-    ) {
-      return
-    }
-
-    if (
-      pendingSelection
-      && href === pendingSelection.toHref
-      && workspaceTabStatesMatch(location.state, pendingSelection.toState)
-      && tabs.some((tab) => tab.id === pendingSelection.toTabId)
-    ) {
-      if (activeTabId !== pendingSelection.toTabId) {
-        setActiveTabId(pendingSelection.toTabId)
-        return
-      }
-      pendingSelectionRef.current = null
       return
     }
 
@@ -375,6 +324,11 @@ export function useWorkspaceTabsController({
     const exact = tabs.find((tab) => tab.href === href)
     if (exact) {
       setActiveTabId(exact.id)
+      setTabs((currentTabs) =>
+        currentTabs.map((tab) =>
+          tab.id === exact.id ? { ...tab, lastActivatedAt: activationRef.current++ } : tab,
+        ),
+      )
       return
     }
 

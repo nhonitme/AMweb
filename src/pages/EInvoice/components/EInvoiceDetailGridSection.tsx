@@ -92,10 +92,11 @@ export default function EInvoiceDetailGridSection({ vm }: EInvoiceDetailGridSect
         {!isReadOnly ? (
           <>
             <Button
-              stylingMode="contained"
+              stylingMode="outlined"
               icon="plus"
-              text={t("ADD_ROW", "Add row")}
-              hint={t("ADD_ROW", "Add row")}
+              text={t("ADD", "Thêm")}
+              hint={t("ADD", "Thêm")}
+              elementAttr={{ class: "einvoice-add-btn" }}
               onMouseDown={(event) => {
                 event.preventDefault()
               }}

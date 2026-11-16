@@ -1,3 +1,28 @@
+/* Date/date-time dropdowns share the compact Calendar theme. App-wide font
+   scaling also applies to th/td, so the theme's fixed 252px frame is too narrow
+   for Vietnamese weekday captions. Keep the frame and header in step with it. */
+.dx-datebox-wrapper-calendar .dx-calendar:not(.dx-calendar-multiview) {
+  width: min(calc(308px + 14 * var(--am-font-boost, 0px)), calc(100vw - 48px));
+  height: calc(292px + 14 * var(--am-font-boost, 0px));
+}
+
+.dx-datebox-wrapper-calendar .dx-calendar.dx-calendar-with-footer {
+  height: calc(328px + 14 * var(--am-font-boost, 0px));
+}
+
+.dx-datebox-wrapper-calendar .dx-calendar-body thead tr {
+  height: 3em;
+}
+
+.dx-datebox-wrapper-calendar .dx-calendar-body thead th {
+  padding: 4px 2px;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  vertical-align: middle;
+}
+
 .menu-search-input {
   transition: border-color 0.12s ease-in-out, box-shadow 0.12s ease-in-out;
 }

@@ -1,12 +1,20 @@
-import { useCallback, useMemo, useState } from "react"
-import Button from "devextreme-react/button"
+import PitDeclarationCertificates from "./forms/PitDeclarationCertificates"
+import { PIT_CERTIFICATE_MONEY_FIELDS, pitCertificateMoneyError } from "./pitCertificateModel"
+import PitErrorNoticeItems from "./forms/PitErrorNoticeItems"
+import { createPitDocument, pitDate, PIT_DOCUMENT_INFO, type PitFieldKey } from "./pitDocumentModel"
+import PitCertificateForm, { PitCertificateHeaderFields, PitCertificatePayerFields } from "./forms/PitCertificateForm"
+import PitDeclarationForm from "./forms/PitDeclarationForm"
+import PitErrorNoticeForm from "./forms/PitErrorNoticeForm"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import DateBox from "devextreme-react/date-box"
+import EditorActionToolbar from "@/components/toolbar/EditorActionToolbar"
 import NumberBox from "devextreme-react/number-box"
 import RadioGroup from "devextreme-react/radio-group"
 import SelectBox from "devextreme-react/select-box"
 import TextBox from "devextreme-react/text-box"
 import notify from "devextreme/ui/notify"
 import type { HidingEvent, ShownEvent } from "devextreme/ui/popup"
+import { getApiErrorMessage } from "@/api/apiTypes"
 import type { EInvoicePluginCertificate } from "@/api/einvoiceSigningPluginApi"
 import { getCustomerLookupName } from "@/components/lookup/customerLookupUtils"
 import { LookupPopupProvider, useLookupPopupHost } from "@/components/lookup/LookupPopupHost"
@@ -25,31 +33,33 @@ import {
 } from "@/pages/EInvoice/einvoiceDeclarationModel"
 import EInvoiceEditorShell, { EInvoiceEditorSection } from "@/pages/EInvoice/components/EInvoiceEditorShell"
 import PitRelatedCertificatePanel from "./components/PitRelatedCertificatePanel"
+import PitCertificateSelectPopup from "./components/PitCertificateSelectPopup"
 import type { PitIncomePayer } from "./pitIncomePayerApi"
 import type { PitXslTemplate } from "./pitXslApi"
-import type { PitData, PitDocument, PitField, PitKind, PitSchema } from "./types"
+import type { PitDocument, PitFormField, PitKind } from "./types"
+import ShortcutHelpPopup from "@/components/shortcuts/ShortcutHelpPopup"
+import { createPopupShortcutWrapperAttr, usePopupShortcutScopeId } from "@/lib/popupShortcutScope"
+import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/shortcutDefinitions"
+import useShortcutHelp from "@/hooks/useShortcutHelp"
+import usePitSaveShortcut from "./usePitSaveShortcut"
+import { formatPitMessage } from "./pitMessages"
+import { openPitPrintPreview } from "./pitPrintViewer"
 
 const RELATED_FIELD_KEYS = ["LHCTLQUAN", "KHMSCTCLQUAN", "KHCTCLQUAN", "SCTCLQUAN", "NLCTCLQUAN", "GCHU"] as const
-
-const INCOME_MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => ({
-  value: String(index + 1),
-  label: `Tháng ${String(index + 1).padStart(2, "0")}`,
-}))
 
 type TranslateFn = (key: string, fallback: string) => string
 
 type Props = {
   kind: PitKind
-  schema: PitSchema
   document: PitDocument | null
-  certificates: PitDocument[]
   catalog: PitXslTemplate[]
   companyInfo?: CompanyInfo | null
   incomePayer?: PitIncomePayer | null
   busy: boolean
   t: TranslateFn
   onClose: () => void
-  onSave: (data: PitData, xslId?: number | null) => Promise<void>
+  onSave: (data: PitDocument, xslId?: number | null) => Promise<void>
+  onSign?: (doc: PitDocument) => void | Promise<void>
   onPickCertificate: (callback: (cert: EInvoicePluginCertificate) => void) => void
 }
 
@@ -59,19 +69,21 @@ function today() {
 }
 
 function defaults(
-  schema: PitSchema,
+  kind: PitKind,
   companyInfo?: CompanyInfo | null,
   incomePayer?: PitIncomePayer | null,
-): PitData {
-  const Fields = Object.fromEntries(schema.Fields.map((f) => [f.Key, f.Default ?? ""]))
-  const setDefault = (key: string, value?: string | null) => {
-    if (key in Fields && value?.trim()) Fields[key] = value.trim()
+): PitDocument {
+  const data = createPitDocument(kind)
+  const setDefault = (key: PitFieldKey, value?: string | null) => {
+    if (key in data && value?.trim()) Object.assign(data, { [key]: value.trim() })
   }
-  if ("HTHUC" in Fields) setDefault("NLAP", today())
+  if ("HTHUC" in data) setDefault("NLAP", today())
   setDefault("NTBAO", today())
-  setDefault("NAM", String(new Date().getFullYear()))
-  setDefault("TTHANG", String(new Date().getMonth() + 1))
-  setDefault("DTHANG", String(new Date().getMonth() + 1))
+  if (kind === "certificate") {
+    data.NAM = new Date().getFullYear()
+    data.TTHANG = new Date().getMonth() + 1
+    data.DTHANG = new Date().getMonth() + 1
+  }
   if (companyInfo) {
     setDefault("TNNT", companyInfo.COMPANY_NM)
     setDefault("MST", companyInfo.TAX_CD)
@@ -99,18 +111,18 @@ function defaults(
     setDefault("TCTTNHAP_DCHI", incomePayer.ADDRESS)
     setDefault("TCTTNHAP_SDTHOAI", incomePayer.PHONE)
   }
-  return { Fields, Certificates: [], Items: [] }
+  return data
 }
 
-function catalogLabel(row: PitXslTemplate) {
+function catalogLabel(row: PitXslTemplate, t: TranslateFn) {
   const range =
     row.TO_DOC_NO != null && row.TO_DOC_NO > 0
-      ? ` · số ${row.FROM_DOC_NO ?? 1}–${row.TO_DOC_NO}`
-      : ` · từ số ${row.FROM_DOC_NO ?? 1}`
+      ? ` · ${formatPitMessage(t("PIT_CERT_NUMBER_RANGE", "Số {0}–{1}"), row.FROM_DOC_NO ?? 1, row.TO_DOC_NO)}`
+      : ` · ${formatPitMessage(t("PIT_CERT_NUMBER_FROM", "Từ số {0}"), row.FROM_DOC_NO ?? 1)}`
   return `03/TNCN · ${row.SERIES}${range}${row.TEMPLATE_NM ? ` · ${row.TEMPLATE_NM}` : ""}`
 }
 
-function applyCustomerToPitFields(fields: Record<string, string>, customer: CustomerExt | null) {
+function applyCustomerToPitFields(fields: PitDocument, customer: CustomerExt | null) {
   return {
     ...fields,
     NNT_TEN: customer ? getCustomerLookupName(customer) : "",
@@ -132,9 +144,7 @@ export default function PitEditor(props: Props) {
 
 function PitEditorBody({
   kind,
-  schema,
   document,
-  certificates,
   catalog,
   companyInfo,
   incomePayer,
@@ -142,9 +152,16 @@ function PitEditorBody({
   t,
   onClose,
   onSave,
+  onSign,
   onPickCertificate,
 }: Props) {
   const { getCodesByType } = useSysCodes()
+  const incomeTypeOptions = useMemo(
+    () => getCodesByType("PIT_INCOME_TYPE")
+      .filter((code) => /^[1-8]$/.test(code.CODE_CD))
+      .map((code) => ({ CODE_CD: Number(code.CODE_CD), text: t(code.CODE_NAME, code.CODE_NAME || code.CODE_CD) })),
+    [getCodesByType, t],
+  )
   const activeCatalog = catalog.filter((c) => c.IS_ACTIVE === 1 && c.SERIES)
   const inactiveAssignedTemplate = Boolean(
     kind === "certificate" &&
@@ -155,91 +172,151 @@ function PitEditorBody({
   const initialXslId = (() => {
     if (document?.XSL_ID && activeCatalog.some((c) => c.XSL_ID === document.XSL_ID)) return document.XSL_ID
     if (document?.IS_SIGNED && document.XSL_ID && document.XSL_ID > 0) return document.XSL_ID
-    const bySeries = activeCatalog.find((c) => c.SERIES && c.SERIES === document?.DATA?.Fields?.KHCTU)
+    const bySeries = activeCatalog.find((c) => c.SERIES && c.SERIES === document?.KHCTU)
       ?? activeCatalog.find((c) => c.SERIES && c.SERIES === document?.SERIES)
     if (bySeries) return bySeries.XSL_ID
     if (document) return 0
     return (activeCatalog.find((c) => c.IS_DEFAULT === 1) ?? activeCatalog[0])?.XSL_ID ?? 0
   })()
-  const [data, setData] = useState<PitData>(() => {
-    const base = document ? structuredClone(document.DATA) : defaults(schema, companyInfo, incomePayer)
-    if (kind === "certificate" && !base.Fields.KHCTU) {
+  const [data, setData] = useState<PitDocument>(() => {
+    const base = document ? structuredClone(document) : defaults(kind, companyInfo, incomePayer)
+    if (kind === "certificate" && !document) {
+      base.KTNHAP = incomeTypeOptions[0]?.CODE_CD ?? null
+    }
+    if (kind === "certificate" && !base.KHCTU) {
       const row = activeCatalog.find((c) => c.XSL_ID === initialXslId)
-      if (row?.SERIES) base.Fields.KHCTU = row.SERIES
+      if (row?.SERIES) base.KHCTU = row.SERIES
     }
     return base
   })
   const [xslId, setXslId] = useState<number>(initialXslId)
-  const [selectedCertificate, setSelectedCertificate] = useState("")
+  const [validationAttempted, setValidationAttempted] = useState(false)
+  const [errorNoticePickerOpen, setErrorNoticePickerOpen] = useState(false)
+  const closeErrorNoticePicker = useCallback(() => setErrorNoticePickerOpen(false), [])
   const [customerId, setCustomerId] = useState<number | null>(null)
   const [relatedPickerOpen, setRelatedPickerOpen] = useState(false)
   const lookupPopupHost = useLookupPopupHost()
   const readOnly = Boolean(document?.IS_SIGNED)
+  const popupScopeId = usePopupShortcutScopeId("pit-editor")
+  const handlePrint = useCallback(async () => {
+    const id = Number(data.DOCUMENT_ID ?? document?.DOCUMENT_ID ?? 0)
+    if (!Number.isFinite(id) || id <= 0) {
+      notify(t("SAVE_BEFORE_PRINT", "Vui lòng lưu chứng từ trước khi in"), "warning", 2500)
+      return
+    }
+    try {
+      if (!(await openPitPrintPreview(kind, id))) {
+        notify(t("PIT_PREVIEW_BLOCKED", "Trình duyệt đã chặn cửa sổ xem trước"), "warning", 4000)
+      }
+    } catch (error) {
+      notify(getApiErrorMessage(error, t("PIT_ACTION_FAILED", "Không thực hiện được thao tác chứng từ")), "error", 6000)
+    }
+  }, [data.DOCUMENT_ID, document?.DOCUMENT_ID, kind, t])
+
+  const documentId = Number(data.DOCUMENT_ID ?? document?.DOCUMENT_ID ?? 0)
+  const canSignFromPopup = Boolean(onSign && documentId > 0 && !data.IS_SIGNED && !readOnly)
+  const handleSign = useCallback(() => {
+    if (!onSign) {
+      return
+    }
+    const id = Number(data.DOCUMENT_ID ?? document?.DOCUMENT_ID ?? 0)
+    if (!Number.isFinite(id) || id <= 0) {
+      notify(t("SAVE_BEFORE_SIGN", "Vui lòng lưu chứng từ trước khi ký"), "warning", 2500)
+      return
+    }
+    if (data.IS_SIGNED) {
+      return
+    }
+    if (inactiveAssignedTemplate) {
+      notify(t("PIT_XSL_INACTIVE", "Mẫu số ký hiệu đã ngừng sử dụng. Vui lòng chọn mẫu đang hoạt động."), "warning", 4000)
+      return
+    }
+    void onSign(data)
+  }, [data, document?.DOCUMENT_ID, inactiveAssignedTemplate, onSign, t])
+  const firstIncomeType = incomeTypeOptions[0]?.CODE_CD
+  useEffect(() => {
+    if (kind !== "certificate" || document || firstIncomeType == null) return
+    setData((current) => current.KTNHAP == null
+      ? { ...current, KTNHAP: firstIncomeType }
+      : current)
+  }, [kind, document, firstIncomeType])
+  const incomeTypeValue = data.KTNHAP ?? null
+  const incomeTypeValid = incomeTypeOptions.some((option) => option.CODE_CD === incomeTypeValue)
+  const incomeTypeMessage = kind !== "certificate" || readOnly ? ""
+    : !incomeTypeOptions.length
+      ? t("PIT_INCOME_TYPE_EMPTY", "Chưa tải được danh mục khoản thu nhập. Vui lòng làm mới danh mục.")
+      : incomeTypeValue !== null && !incomeTypeValid
+        ? t("PIT_INCOME_TYPE_INVALID", "Khoản thu nhập cũ không hợp lệ hoặc đã ngừng sử dụng. Vui lòng chọn lại.")
+        : !incomeTypeValid ? t("PIT_INCOME_TYPE_REQUIRED", "Vui lòng chọn khoản thu nhập.") : ""
   const certificateMethodOptions = useMemo(
     () => buildCertificateMethodOptions(getCodesByType(EINV_CERTIFICATE_METHOD_CODE_TYPE), t),
     [getCodesByType, t],
   )
-  const setField = (key: string, value: string) =>
-    setData((current) => ({ ...current, Fields: { ...current.Fields, [key]: value } }))
+  const setField = <K extends PitFieldKey,>(key: K, value: PitDocument[K]) =>
+    setData((current) => ({ ...current, [key]: value }))
   const applyCustomer = useCallback((customer: CustomerExt | null) => {
     setCustomerId(toLookupNumber(customer?.CUSTOMER_ID))
-    setData((current) => ({
-      ...current,
-      Fields: applyCustomerToPitFields(current.Fields, customer),
-    }))
+    setData((current) => applyCustomerToPitFields(current, customer))
   }, [])
+  const shortcutActions = useMemo(() => {
+    const actions = [
+      SHORTCUT_ACTIONS.SAVE,
+      SHORTCUT_ACTIONS.SAVE_AND_CLOSE,
+      SHORTCUT_ACTIONS.PRINT,
+      SHORTCUT_ACTIONS.CLOSE,
+      SHORTCUT_ACTIONS.HELP,
+    ]
+    if (kind === "declaration" || kind === "error-notice") {
+      actions.splice(4, 0, SHORTCUT_ACTIONS.ADD_ROW)
+    }
+    return actions
+  }, [kind])
+  const {
+    shortcutHelpVisible,
+    shortcutHelpItems,
+    openShortcutHelp,
+    closeShortcutHelp,
+  } = useShortcutHelp(shortcutActions)
   const closeEditor = useCallback(() => {
-    if (busy || relatedPickerOpen) {
+    if (shortcutHelpVisible) {
+      closeShortcutHelp()
+      return
+    }
+    if (busy || relatedPickerOpen || errorNoticePickerOpen) {
       return
     }
     onClose()
-  }, [busy, onClose, relatedPickerOpen])
+  }, [busy, closeShortcutHelp, errorNoticePickerOpen, onClose, relatedPickerOpen, shortcutHelpVisible])
   const handlePopupShown = useCallback((event: ShownEvent) => {
     disableBuiltInPopupEscape(event.component)
   }, [])
   const handlePopupHiding = useCallback(
     (event: HidingEvent) => {
-      if (busy || lookupPopupHost?.isLookupPopupOpen || relatedPickerOpen) {
+      if (busy || lookupPopupHost?.isLookupPopupOpen || relatedPickerOpen || errorNoticePickerOpen) {
         event.cancel = true
         return
       }
       onClose()
     },
-    [busy, lookupPopupHost?.isLookupPopupOpen, onClose, relatedPickerOpen],
+    [busy, lookupPopupHost?.isLookupPopupOpen, onClose, relatedPickerOpen, errorNoticePickerOpen],
   )
   usePopupEscapeLayer(true, closeEditor)
-  const patchFields = useCallback((patch: Record<string, string>) => {
-    setData((current) => ({ ...current, Fields: { ...current.Fields, ...patch } }))
+  const patchDocument = useCallback((patch: Partial<PitDocument>) => {
+    setData((current) => ({ ...current, ...patch }))
   }, [])
-  const setOptionField = (key: string, value: string) => {
-    if (kind === "error-notice" && key === "LOAI" && value !== "2") {
-      setData((current) => ({
-        ...current,
-        Fields: {
-          ...current.Fields,
-          LOAI: value,
-          SO: "",
-          NTBCCQT: "",
-        },
-      }))
+  const setOptionField = (key: PitFieldKey, value: number | null) => {
+    if (kind === "error-notice" && key === "LOAI" && value !== 2) {
+      patchDocument({ LOAI: value, SO: "", NTBCCQT: null })
       return
     }
-    if (kind === "certificate" && key === "TCCTU" && !value) {
-      patchFields({
-        TCCTU: "",
-        LHCTLQUAN: "",
-        KHMSCTCLQUAN: "",
-        KHCTCLQUAN: "",
-        SCTCLQUAN: "",
-        NLCTCLQUAN: "",
-        GCHU: "",
-      })
+    if (kind === "certificate" && key === "TCCTU" && value === null) {
+      patchDocument({ TCCTU: null, LHCTLQUAN: null, KHMSCTCLQUAN: "", KHCTCLQUAN: "", SCTCLQUAN: "", NLCTCLQUAN: null, GCHU: "" })
       return
     }
     setField(key, value)
   }
 
-  const groups = [...new Set(schema.Fields.map((f) => f.Group))]
+  const documentInfo = PIT_DOCUMENT_INFO[kind]
 
   function pickCatalog(id: string) {
     const row = activeCatalog.find((c) => String(c.XSL_ID) === id)
@@ -251,72 +328,102 @@ function PitEditorBody({
     setField("KHCTU", row.SERIES || "")
   }
 
-  function fieldInput(field: PitField) {
+  function fieldInput(field: PitFormField) {
+    field = { Type: "text", Required: true, MaxLength: 400, ...field }
     if (kind === "certificate" && field.Key === "KHCTU") return null
     if (kind === "certificate" && RELATED_FIELD_KEYS.includes(field.Key as (typeof RELATED_FIELD_KEYS)[number])) return null
     if (
       kind === "error-notice" &&
       (field.Key === "SO" || field.Key === "NTBCCQT") &&
-      data.Fields.LOAI !== "2"
+      data.LOAI !== 2
     ) {
       return null
     }
-    const value = data.Fields[field.Key] ?? ""
+    const value = data[field.Key] ?? null
     const isIncomeMonth =
       kind === "certificate" && (field.Key === "TTHANG" || field.Key === "DTHANG")
     const isIncomeYear = kind === "certificate" && field.Key === "NAM"
-    const incomeYearMax = Number(data.Fields.NLAP?.slice(0, 4)) || new Date().getFullYear()
+    const incomeYearMax = Number(data.NLAP?.slice(0, 4)) || new Date().getFullYear()
     const required =
       field.Required ||
-      (field.Key === "NNT_CCCDAN" && !data.Fields.NNT_MST) ||
-      (field.Group === "Chứng từ liên quan" &&
-        field.Key !== "GCHU" &&
-        Boolean(data.Fields.TCCTU)) ||
-      (["SO", "NTBCCQT"].includes(field.Key) && data.Fields.LOAI === "2")
+      (field.Key === "NNT_CCCDAN" && !data.NNT_MST) ||
+      (["SO", "NTBCCQT"].includes(field.Key) && data.LOAI === 2)
     const fieldDisabled = readOnly || busy || (kind === "certificate" && field.Key === "NLAP")
+    if (kind === "certificate") {
+      field = {
+        ...field,
+        Label: t(`PIT_CERT_FIELD_${field.Key}`, field.Label),
+        Options: field.Options?.map((option) => ({
+          ...option,
+          Label: t(`PIT_CERT_OPTION_${field.Key}_${option.Value || "ORIGINAL"}`, option.Label),
+        })),
+      }
+    }
     const label = `${field.Label}${required ? " *" : ""}`
+    const moneyError = kind === "certificate" && validationAttempted
+      ? pitCertificateMoneyError(field.Key, value, t) : null
     return (
       <div
-        className={`einvoice-editor__field pit-field--${field.Key.toLowerCase().replaceAll("_", "-")}`}
+        className={`einvoice-editor__field pit-field--${field.Key.toLowerCase().replace(/_/g, "-")}`}
         key={field.Key}
       >
-        {isIncomeMonth ? (
+        {kind === "certificate" && field.Key === "KTNHAP" ? (
+          <>
+            <SelectBox
+              label={label}
+              labelMode="floating"
+              dataSource={readOnly && value !== null && !incomeTypeValid
+                ? [...incomeTypeOptions, { CODE_CD: value, text: String(value) }]
+                : incomeTypeOptions}
+              valueExpr="CODE_CD"
+              displayExpr="text"
+              value={value ?? null}
+              searchEnabled
+              disabled={fieldDisabled}
+              onValueChanged={(event) => setField(field.Key, event.value == null ? null : Number(event.value))}
+            />
+            {incomeTypeMessage && <span role="alert" className="pit-error">{incomeTypeMessage}</span>}
+          </>
+        ) : isIncomeMonth ? (
           <SelectBox
             label={label}
             labelMode="floating"
-            dataSource={INCOME_MONTH_OPTIONS}
+            dataSource={Array.from({ length: 12 }, (_, index) => ({
+              value: index + 1,
+              label: formatPitMessage(t("PIT_CERT_MONTH", "Tháng {0}"), String(index + 1).padStart(2, "0")),
+            }))}
             valueExpr="value"
             displayExpr="label"
             value={value || null}
             disabled={fieldDisabled}
-            onValueChanged={(event) => setField(field.Key, String(event.value ?? ""))}
+            onValueChanged={(event) => setField(field.Key, event.value == null ? null : Number(event.value))}
           />
         ) : isIncomeYear ? (
           <SelectBox
             label={label}
             labelMode="floating"
             dataSource={Array.from({ length: incomeYearMax - 1899 }, (_, index) =>
-              String(incomeYearMax - index),
+              incomeYearMax - index,
             )}
             value={value || null}
             searchEnabled
             searchTimeout={0}
             disabled={fieldDisabled}
-            onValueChanged={(event) => setField(field.Key, String(event.value ?? ""))}
+            onValueChanged={(event) => setField(field.Key, event.value == null ? null : Number(event.value))}
           />
         ) : (field.Type === "option" || field.Key === "NNT_CNCTRU") && field.Options ? (
           <>
             <div className="einvoice-editor__field-label">{label}</div>
             <RadioGroup
-              items={field.Options}
+              items={field.Options.map((option) => ({ ...option, Value: Number(option.Value) }))}
               valueExpr="Value"
               displayExpr="Label"
-              value={value || field.Default || null}
+              value={value ?? null}
               layout="horizontal"
               disabled={fieldDisabled}
               onValueChanged={(event) => {
-                const next = String(event.value ?? "")
-                if (!next) return
+                const next = event.value == null ? null : Number(event.value)
+                if (next === null) return
                 setOptionField(field.Key, next)
               }}
             />
@@ -325,13 +432,13 @@ function PitEditorBody({
           <SelectBox
             label={label}
             labelMode="floating"
-            dataSource={field.Options.filter((option) => option.Value !== "")}
+            dataSource={field.Options.filter((option) => option.Value !== "").map((option) => ({ ...option, Value: Number(option.Value) }))}
             valueExpr="Value"
             displayExpr="Label"
             value={value || null}
             showClearButton={!required}
             disabled={fieldDisabled}
-            onValueChanged={(event) => setOptionField(field.Key, String(event.value ?? ""))}
+            onValueChanged={(event) => setOptionField(field.Key, event.value == null ? null : Number(event.value))}
           />
         ) : field.Type === "date" ? (
           <DateBox
@@ -341,22 +448,24 @@ function PitEditorBody({
             displayFormat="dd/MM/yyyy"
             value={value || null}
             disabled={fieldDisabled}
-            onValueChanged={(event) => setField(field.Key, event.value ? String(event.value).slice(0, 10) : "")}
+            onValueChanged={(event) => setField(field.Key, pitDate(event.value))}
           />
         ) : field.Type === "integer" || field.Type === "money" ? (
           <NumberBox
             label={label}
             labelMode="floating"
-            value={value === "" ? null : Number(value)}
+            value={value == null ? undefined : Number(value)}
             format={field.Type === "money" ? "#,##0.######" : "#,##0"}
+            isValid={!moneyError}
+            validationError={moneyError ? { message: moneyError } : undefined}
             disabled={fieldDisabled}
-            onValueChanged={(event) => setField(field.Key, event.value == null ? "" : String(event.value))}
+            onValueChanged={(event) => setField(field.Key, event.value == null ? null : Number(event.value))}
           />
         ) : (
           <TextBox
             label={label}
             labelMode="floating"
-            value={value}
+            value={String(value ?? "")}
             maxLength={field.MaxLength}
             mode={field.Type === "email" ? "email" : "text"}
             disabled={fieldDisabled}
@@ -367,14 +476,12 @@ function PitEditorBody({
     )
   }
 
-  function addExisting() {
-    const row = certificates.find((r) => String(r.DOCUMENT_ID) === selectedCertificate)
-    if (!row) return
-    if (data.Items.some((i) => i.REF_CTU_ID === row.DOCUMENT_ID)) return
-    setData((current) => ({
+  function addExisting(row: PitDocument) {
+    if (readOnly || busy || row.IS_SIGNED !== 1 || (data.MST && row.TAX_CD !== data.MST)) return
+    setData((current) => current.Items?.some((item) => item.REF_CTU_ID === row.DOCUMENT_ID) ? current : ({
       ...current,
       Items: [
-        ...current.Items,
+        ...(current.Items ?? []),
         {
           REF_CTU_ID: row.DOCUMENT_ID,
           KHMSCTU: "03/TNCN",
@@ -386,10 +493,23 @@ function PitEditorBody({
         },
       ],
     }))
+    closeErrorNoticePicker()
   }
 
   async function submit() {
     if (kind === "certificate") {
+      setValidationAttempted(true)
+      const moneyError = PIT_CERTIFICATE_MONEY_FIELDS
+        .map((field) => pitCertificateMoneyError(field.Key, data[field.Key], t))
+        .find((error) => error !== null)
+      if (moneyError) {
+        notify(moneyError, "warning", 4000)
+        return
+      }
+      if (!incomeTypeValid) {
+        notify(incomeTypeMessage, "warning", 4000)
+        return
+      }
       if (!xslId) {
         notify(
           inactiveAssignedTemplate
@@ -405,23 +525,77 @@ function PitEditorBody({
         notify(t("PIT_XSL_INACTIVE", "Mẫu số ký hiệu đã ngừng sử dụng. Vui lòng chọn mẫu đang hoạt động."), "warning", 4000)
         return
       }
-      data.Fields.KHCTU = row.SERIES
+      data.KHCTU = row.SERIES
       await onSave(data, xslId)
       return
     }
     await onSave(data, null)
   }
 
+  const handleAddRow = useCallback(() => {
+    if (readOnly || busy) return
+    if (kind === "error-notice") {
+      setErrorNoticePickerOpen(true)
+      return
+    }
+    if (kind === "declaration") {
+      onPickCertificate((cert) => setData((current) => ({
+        ...current,
+        Certificates: [
+          ...(current.Certificates ?? []),
+          {
+            TTCHUC: cert.issuer,
+            SERI: cert.serialNumber,
+            TNGAY: cert.notBefore,
+            DNGAY: cert.notAfter,
+            HTHUC: 1,
+          },
+        ],
+      })))
+    }
+  }, [busy, kind, onPickCertificate, readOnly])
+
+  const handleHelpShortcut = useCallback(() => {
+    if (shortcutHelpVisible) {
+      closeShortcutHelp()
+      return
+    }
+    openShortcutHelp()
+  }, [closeShortcutHelp, openShortcutHelp, shortcutHelpVisible])
+
+  const shortcutsActive = !busy
+    && !relatedPickerOpen
+    && !errorNoticePickerOpen
+    && !lookupPopupHost?.isLookupPopupOpen
+    && !shortcutHelpVisible
+
+  usePitSaveShortcut(
+    submit,
+    !readOnly && shortcutsActive,
+    popupScopeId,
+    shortcutsActive,
+    {
+      onPrint: handlePrint,
+      onClose: closeEditor,
+      onHelp: handleHelpShortcut,
+      onAddRow: kind === "declaration" || kind === "error-notice" ? handleAddRow : undefined,
+      canAddRow: !readOnly && !busy,
+      saveAndClose: true,
+    },
+  )
+
   return (
+    <>
     <EInvoiceEditorShell
       visible
-      width="min(1280px, 96vw)"
-      height="min(900px, 94vh)"
-      title={`${document ? t("PIT_TITLE_EDIT", "Chứng từ") : t("PIT_TITLE_NEW", "Lập mới")} · ${schema.Title}`}
+      fullScreen
+      mode={Number(document?.DOCUMENT_ID ?? 0) > 0 ? "edit" : "add"}
+      wrapperAttr={createPopupShortcutWrapperAttr(popupScopeId)}
+      title={`${document ? t("PIT_TITLE_EDIT", "Chứng từ") : t("PIT_TITLE_NEW", "Lập mới")} · ${kind === "certificate" ? t("PIT_CERT_TITLE", documentInfo.Title) : documentInfo.Title}`}
       subtitle={
         kind === "certificate"
           ? undefined
-          : `${t("PIT_SUBTITLE_FORM", "Mẫu số")} ${schema.Form}${document?.DOC_NO ? ` · ${t("PIT_SUBTITLE_NO", "Số")} ${document.DOC_NO}` : ""}`
+          : `${t("PIT_SUBTITLE_FORM", "Mẫu số")} ${documentInfo.Form}${document?.DOC_NO ? ` · ${t("PIT_SUBTITLE_NO", "Số")} ${document.DOC_NO}` : ""}`
       }
       loading={busy}
       closeDisabled={busy}
@@ -429,19 +603,42 @@ function PitEditorBody({
       onShown={handlePopupShown}
       onHiding={handlePopupHiding}
       footer={
-        <>
-          <Button text={t("CLOSE", "Đóng")} disabled={busy} onClick={closeEditor} />
-          {!readOnly ? (
-            <Button
-              text={busy ? t("SAVING", "Đang lưu...") : t("SAVE", "Lưu")}
-              icon="save"
-              type="default"
-              stylingMode="contained"
-              disabled={busy}
-              onClick={() => void submit()}
-            />
-          ) : null}
-        </>
+        <EditorActionToolbar
+          mode={Number(document?.DOCUMENT_ID ?? 0) > 0 ? "edit" : "add"}
+          busy={busy}
+          actions={[
+            {
+              key: "sign",
+              text: t("SIGN_SEND_CQT", "Ký và gửi CQT"),
+              type: "danger",
+              stylingMode: "contained",
+              visible: canSignFromPopup,
+              disabled: inactiveAssignedTemplate,
+              hint: inactiveAssignedTemplate
+                ? t("PIT_XSL_INACTIVE_HINT", "Mẫu số ký hiệu đã ngừng sử dụng. Mở chứng từ và chọn mẫu đang hoạt động.")
+                : undefined,
+              onClick: handleSign,
+            },
+            {
+              key: "print",
+              text: t("PRINT", "In"),
+              type: "default",
+              onClick: () => { void handlePrint() },
+            },
+            {
+              key: "save",
+              text: busy ? t("SAVING", "Đang lưu...") : t("SAVE", "Lưu"),
+              visible: !readOnly,
+              disabled: kind === "certificate" && !incomeTypeValid,
+              onClick: () => { void submit() },
+            },
+            {
+              key: "close",
+              text: t("CANCEL", "Hủy"),
+              onClick: closeEditor,
+            },
+          ]}
+        />
       }
     >
       <div className="pit-editor">
@@ -458,18 +655,18 @@ function PitEditorBody({
                   </p>
                 )}
                 <div className="pit-fields">
-                  {schema.Fields.filter((field) => field.Group === "Tổ chức trả thu nhập").map(fieldInput)}
+                  <PitCertificatePayerFields renderField={fieldInput} />
                 </div>
               </EInvoiceEditorSection>
               <EInvoiceEditorSection
-                title={`${t("PIT_SECTION_DOC", "Chứng từ")} · ${t("PIT_SUBTITLE_FORM", "Mẫu số")} ${schema.Form}${document?.DOC_NO ? ` · ${t("PIT_SUBTITLE_NO", "Số")} ${document.DOC_NO}` : ""}`}
+                title={`${formatPitMessage(t("PIT_CERT_SECTION_DOCUMENT", "Chứng từ · Mẫu số {0}"), documentInfo.Form)}${document?.DOC_NO ? ` · ${formatPitMessage(t("PIT_CERT_DOCUMENT_NUMBER", "Số {0}"), document.DOC_NO)}` : ""}`}
                 className="pit-document-section"
               >
                 <div className="pit-seller">
                   <SelectBox
-                    label={t("PIT_CATALOG_LABEL", "Ký hiệu") + " *"}
+                    label={t("SERIES", "Ký hiệu") + " *"}
                     labelMode="floating"
-                    dataSource={activeCatalog.map((row) => ({ value: row.XSL_ID, text: catalogLabel(row) }))}
+                    dataSource={activeCatalog.map((row) => ({ value: row.XSL_ID, text: catalogLabel(row, t) }))}
                     valueExpr="value"
                     displayExpr="text"
                     value={xslId || null}
@@ -488,299 +685,62 @@ function PitEditorBody({
                   )}
                 </div>
                 <div className="pit-fields">
-                  {schema.Fields.filter((field) => field.Group === "Chứng từ").map(fieldInput)}
+                  <PitCertificateHeaderFields renderField={fieldInput} />
                 </div>
               </EInvoiceEditorSection>
             </div>
           )}
           {kind !== "certificate" && (
             <div className="pit-heading">
-              <strong>Mẫu số {schema.Form}</strong>
+              <strong>Mẫu số {documentInfo.Form}</strong>
               {document?.DOC_NO ? <span>Số {document.DOC_NO}</span> : null}
             </div>
           )}
-          {groups
-            .filter(
-              (g) =>
-                (kind !== "certificate" || (g !== "Chứng từ" && g !== "Tổ chức trả thu nhập")) &&
-                (g !== "Chứng từ liên quan" || data.Fields.TCCTU),
-            )
-            .map((group) => (
-              <EInvoiceEditorSection
-                key={group}
-                title={group}
-                className={
-                  group === "Người nhận thu nhập"
-                    ? "pit-form-section pit-person-section"
-                    : group === "Thu nhập và thuế"
-                      ? "pit-form-section pit-income-section"
-                      : group === "Chứng từ liên quan"
-                        ? "pit-form-section pit-related-section"
-                        : undefined
-                }
-                bodyClassName={group === "Chứng từ liên quan" ? "einvoice-editor__section-body--compact" : undefined}
-              >
-                {group === "Chứng từ liên quan" ? (
-                  <PitRelatedCertificatePanel
-                    fields={data.Fields}
-                    formCode={schema.Form}
-                    relatedFields={schema.Fields.filter((field) => field.Group === "Chứng từ liên quan")}
-                    excludeDocumentId={document?.DOCUMENT_ID ?? 0}
-                    readOnly={readOnly}
-                    busy={busy}
-                    t={t}
-                    onPatch={patchFields}
-                    onPickerVisibleChange={setRelatedPickerOpen}
-                  />
-                ) : (
-                  <div className="pit-fields">
-                    {group === "Người nhận thu nhập" ? (
-                      <div className="einvoice-editor__field pit-field--customer">
-                        <div className="einvoice-editor__field-label">{t("CUSTOMER", "Khách hàng")}</div>
-                        <EInvoiceBuyerCustomerLookup
-                          value={customerId}
-                          onChange={applyCustomer}
-                          readOnly={readOnly || busy}
-                          placeholder={t("CustomerSelect", "Chọn khách hàng")}
-                          popupTitle={t("CustomerSelect", "Chọn khách hàng")}
-                          buttonHint={t("LIST_CUSTOMER", "Mở danh sách khách hàng")}
-                        />
-                      </div>
-                    ) : null}
-                    {schema.Fields.filter((field) => field.Group === group).map(fieldInput)}
-                  </div>
-                )}
-              </EInvoiceEditorSection>
-            ))}
-          {kind === "declaration" && (
-            <EInvoiceEditorSection title={t("DECL_CTS_SECTION", "Digital certificates (CTS)")}>
-              {!readOnly && (
-                <Button
-                  icon="plus"
-                  text={t("ADD", "Add")}
-                  hint={t("DECL_CTS_FROM_PLUGIN", "Load certificate from signing plugin")}
-                  disabled={busy}
-                  onClick={() =>
-                    onPickCertificate((cert) =>
-                      setData((current) => ({
-                        ...current,
-                        Certificates: [
-                          ...current.Certificates,
-                          {
-                            TTCHUC: cert.issuer,
-                            SERI: cert.serialNumber,
-                            TNGAY: cert.notBefore.slice(0, 19),
-                            DNGAY: cert.notAfter.slice(0, 19),
-                            HTHUC: 1,
-                          },
-                        ],
-                      })),
-                    )
-                  }
-                />
-              )}
-              <div className="pit-table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>{t("TTCHUC", "Certificate organization")} *</th>
-                      <th>{t("SERI", "Serial")} *</th>
-                      <th>{t("CERT_VALID_FROM", "Valid from")} *</th>
-                      <th>{t("CERT_EXPIRES", "Expires")} *</th>
-                      <th>{t("CTS_HTHUC", "CTS method")} *</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.Certificates.map((cert, i) => (
-                      <tr key={i}>
-                        {(["TTCHUC", "SERI", "TNGAY", "DNGAY"] as const).map((key) => (
-                          <td key={key}>
-                            <input
-                              aria-label={key}
-                              required
-                              readOnly
-                              disabled={busy}
-                              type={key === "TNGAY" || key === "DNGAY" ? "datetime-local" : "text"}
-                              value={cert[key]}
-                            />
-                          </td>
-                        ))}
-                        <td>
-                          <select
-                            disabled={readOnly || busy}
-                            value={cert.HTHUC}
-                            onChange={(e) =>
-                              setData((current) => ({
-                                ...current,
-                                Certificates: current.Certificates.map((c, j) =>
-                                  i === j ? { ...c, HTHUC: Number(e.target.value) } : c,
-                                ),
-                              }))
-                            }
-                          >
-                            {certificateMethodOptions.map((option) => (
-                              <option key={option.value} value={option.value}>{option.text}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td>
-                          {!readOnly && (
-                            <button
-                              type="button"
-                              disabled={busy}
-                              onClick={() =>
-                                setData((current) => ({
-                                  ...current,
-                                  Certificates: current.Certificates.filter((_, j) => j !== i),
-                                }))
-                              }
-                            >
-                              {t("DELETE", "Xóa")}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </EInvoiceEditorSection>
+          {kind === "certificate" && (
+            <PitCertificateForm
+              t={t}
+              renderField={fieldInput}
+              customerLookup={<div className="einvoice-editor__field pit-field--customer">
+                <div className="einvoice-editor__field-label">{t("CUSTOMER", "Khách hàng")}</div>
+                <EInvoiceBuyerCustomerLookup value={customerId} onChange={applyCustomer} readOnly={readOnly || busy}
+                  placeholder={t("CustomerSelect", "Chọn khách hàng")} popupTitle={t("CustomerSelect", "Chọn khách hàng")}
+                  buttonHint={t("LIST_CUSTOMER", "Mở danh sách khách hàng")} />
+              </div>}
+              relatedPanel={data.TCCTU ? <EInvoiceEditorSection title={t("PIT_CERT_RELATED", "Chứng từ liên quan")}
+                className="pit-form-section pit-related-section" bodyClassName="einvoice-editor__section-body--compact">
+                <PitRelatedCertificatePanel fields={data} formCode={documentInfo.Form}
+                  excludeDocumentId={document?.DOCUMENT_ID ?? 0} readOnly={readOnly} busy={busy} t={t}
+                  onPatch={patchDocument} onPickerVisibleChange={setRelatedPickerOpen} />
+              </EInvoiceEditorSection> : null}
+            />
           )}
-          {kind === "error-notice" && (
-            <EInvoiceEditorSection title={t("PIT_ERR_SECTION_TITLE", "Danh sách chứng từ đã lập sai")}>
-              {!readOnly && (
-                <div className="pit-actions">
-                  <select
-                    aria-label={t("PIT_ERR_ARIA_SIGNED_DOC", "Chứng từ đã ký")}
-                    value={selectedCertificate}
-                    onChange={(e) => setSelectedCertificate(e.target.value)}
-                  >
-                    <option value="">{t("PIT_ERR_SELECT_SIGNED", "Chọn chứng từ đã ký...")}</option>
-                    {certificates
-                      .filter((c) => !data.Fields.MST || c.TAX_CD === data.Fields.MST)
-                      .map((c) => (
-                        <option key={c.DOCUMENT_ID} value={c.DOCUMENT_ID}>
-                          {c.SERIES} · {c.DOC_NO} · {c.DISPLAY_NAME}
-                        </option>
-                      ))}
-                  </select>
-                  <Button text={t("PIT_ERR_ADD_EXISTING", "Thêm chứng từ")} disabled={busy || !selectedCertificate} onClick={addExisting} />
-                  <Button
-                    text={t("PIT_ERR_ADD_MANUAL", "Nhập chứng từ hệ thống cũ")}
-                    disabled={busy}
-                    onClick={() =>
-                      setData((current) => ({
-                        ...current,
-                        Items: [
-                          ...current.Items,
-                          { KHMSCTU: "", KHCTU: "", SCTU: "", NLAP: "", LCTDT: "1", LDO: "" },
-                        ],
-                      }))
-                    }
-                  />
-                </div>
-              )}
-              <div className="pit-table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>{t("FORM_NO", "Mẫu số")} *</th>
-                      <th>{t("SERIES", "Ký hiệu")} *</th>
-                      <th>{t("NO", "Số")} *</th>
-                      <th>{t("DOC_DATE", "Ngày")} *</th>
-                      <th>{t("PIT_ERR_COL_TYPE", "Loại chứng từ")} *</th>
-                      <th>{t("REASON", "Lý do")}</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.Items.map((item, i) => (
-                      <tr key={i}>
-                        {(["KHMSCTU", "KHCTU", "SCTU", "NLAP"] as const).map((key) => (
-                          <td key={key}>
-                            <input
-                              aria-label={key}
-                              required
-                              disabled={readOnly || busy || Boolean(item.REF_CTU_ID)}
-                              type={key === "NLAP" ? "date" : "text"}
-                              value={item[key]}
-                              onChange={(e) =>
-                                setData((current) => ({
-                                  ...current,
-                                  Items: current.Items.map((c, j) =>
-                                    i === j ? { ...c, [key]: e.target.value } : c,
-                                  ),
-                                }))
-                              }
-                            />
-                          </td>
-                        ))}
-                        <td>
-                          <select
-                            disabled={readOnly || busy || Boolean(item.REF_CTU_ID)}
-                            value={item.LCTDT}
-                            onChange={(e) =>
-                              setData((current) => ({
-                                ...current,
-                                Items: current.Items.map((c, j) =>
-                                  i === j ? { ...c, LCTDT: e.target.value } : c,
-                                ),
-                              }))
-                            }
-                          >
-                            <option value="1">{t("PIT_LCTDT_ND_70", "Theo NĐ 70")}</option>
-                            <option value="7">{t("PIT_LCTDT_ND_123", "Theo NĐ 123")}</option>
-                            <option value="8">{t("PIT_LCTDT_ND_254", "Theo NĐ 254")}</option>
-                            <option value="CTT50">{t("PIT_LCTDT_CTT50", "Chứng từ CTT50")}</option>
-                          </select>
-                        </td>
-                        <td>
-                          <input
-                            aria-label={t("REASON", "Lý do")}
-                            disabled={readOnly || busy}
-                            maxLength={255}
-                            value={item.LDO}
-                            onChange={(e) =>
-                              setData((current) => ({
-                                ...current,
-                                Items: current.Items.map((c, j) =>
-                                  i === j ? { ...c, LDO: e.target.value } : c,
-                                ),
-                              }))
-                            }
-                          />
-                        </td>
-                        <td>
-                          {!readOnly && (
-                            <button
-                              type="button"
-                              disabled={busy}
-                              onClick={() =>
-                                setData((current) => ({
-                                  ...current,
-                                  Items: current.Items.filter((_, j) => j !== i),
-                                }))
-                              }
-                            >
-                              {t("DELETE", "Xóa")}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </EInvoiceEditorSection>
-          )}
-          {document?.ERROR_MESSAGE && (
-            <p role="alert" className="pit-error">
-              {document.ERROR_MESSAGE}
-            </p>
-          )}
+          {kind === "declaration" && <PitDeclarationForm renderField={fieldInput} />}
+          {kind === "error-notice" && <PitErrorNoticeForm renderField={fieldInput} />}
+          {kind === "declaration" && <PitDeclarationCertificates data={data} setData={setData} readOnly={readOnly} busy={busy} t={t}
+            onPickCertificate={onPickCertificate} certificateMethodOptions={certificateMethodOptions} />}
+          {kind === "error-notice" && <PitErrorNoticeItems data={data} setData={setData} readOnly={readOnly} busy={busy} t={t}
+            addExisting={() => setErrorNoticePickerOpen(true)} />}
+          {document?.ERROR_MESSAGE && <p role="alert" className="pit-error">{document.ERROR_MESSAGE}</p>}
+
         </div>
       </div>
     </EInvoiceEditorShell>
+    <ShortcutHelpPopup
+      visible={shortcutHelpVisible}
+      shortcuts={shortcutHelpItems}
+      onClose={closeShortcutHelp}
+    />
+    {kind === "error-notice" && errorNoticePickerOpen && (
+      <PitCertificateSelectPopup
+        visible={errorNoticePickerOpen}
+        title={t("PIT_ERR_ADD_EXISTING", "Thêm chứng từ")}
+        taxpayerTaxCode={data.MST ?? ""}
+        excludedDocumentIds={(data.Items ?? []).flatMap((item) => item.REF_CTU_ID ? [item.REF_CTU_ID] : [])}
+        t={t}
+        onClose={closeErrorNoticePicker}
+        onSelect={addExisting}
+      />
+    )}
+    </>
   )
 }
