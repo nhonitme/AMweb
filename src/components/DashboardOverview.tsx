@@ -34,6 +34,8 @@ import type {
   DashboardRecentVoucher,
   DashboardFilter,
 } from "@/types/dashboard"
+import { OverviewKPI, OverviewLayout, OverviewPanel } from "@/components/overview"
+import "@/components/overview/am-overview-layout.css"
 
 const DASHBOARD_ROUTES = {
   cashBook: "/cash/cash-book",
@@ -55,9 +57,6 @@ function resolveAppActionUrl(companyCd: string, actionUrl: string): string {
 }
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend, LineElement, PointElement, Filler)
-
-const fmt = (n: number) =>
-  new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 }).format(n)
 
 const fmtFull = (n: number) =>
   new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(n)
@@ -137,37 +136,30 @@ function getDefaultFilter(): DashboardFilter {
   return filter
 }
 
+const KPI_ICON_BY_TITLE: Record<string, "chart" | "decrease" | "increase"> = {
+  "Doanh thu kỳ": "chart",
+  "Chi phí kỳ": "decrease",
+  "Lợi nhuận tạm tính": "increase",
+}
+
 type KpiCardProps = {
   title: string
   value: number
   prevValue: number
-  color: string
+  color?: string
   onClick?: () => void
 }
 
-function KpiCard({ title, value, prevValue, color, onClick }: KpiCardProps) {
-  const change = pctChange(value, prevValue)
-  const isUp   = !change.startsWith("-")
-  const className = `bg-white rounded-lg border-l-4 shadow-sm px-3 py-2 ${color}${onClick ? " cursor-pointer hover:bg-gray-50" : ""}`
-  const content = (
-    <>
-      <div className="text-[11px] font-medium text-gray-500 uppercase tracking-wide leading-tight">{title}</div>
-      <div className="text-lg font-bold text-gray-800 leading-tight mt-0.5">{fmt(value)}</div>
-      {change && (
-        <div className={`text-[11px] mt-0.5 font-medium leading-tight ${isUp ? "text-green-600" : "text-red-500"}`}>
-          {isUp ? "▲" : "▼"} {change} so với tháng trước
-        </div>
-      )}
-    </>
+function KpiCard({ title, value, prevValue, onClick }: KpiCardProps) {
+  return (
+    <OverviewKPI
+      title={title}
+      value={value}
+      comparison={pctChange(value, prevValue) || undefined}
+      iconName={KPI_ICON_BY_TITLE[title]}
+      onClick={onClick}
+    />
   )
-  if (onClick) {
-    return (
-      <button type="button" className={`${className} text-left w-full`} onClick={onClick}>
-        {content}
-      </button>
-    )
-  }
-  return <div className={className}>{content}</div>
 }
 
 function SectionCard({
@@ -182,13 +174,9 @@ function SectionCard({
   sectionRef?: React.RefObject<HTMLDivElement | null>
 }) {
   return (
-    <div ref={sectionRef} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-        <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">{title}</h2>
-        {action}
-      </div>
-      <div className="p-4">{children}</div>
-    </div>
+    <OverviewPanel title={title} action={action} sectionRef={sectionRef}>
+      {children}
+    </OverviewPanel>
   )
 }
 
@@ -404,7 +392,21 @@ export default function DashboardOverview() {
   const overduePayables  = payables.reduce((s, r) => s + r.OverdueAmount, 0)
 
   return (
-    <div className="space-y-4 p-1">
+    <OverviewLayout
+      loading={loading}
+      range={filter}
+      companyCd={companyCd}
+      onTaskAction={handleTaskAction}
+      overviewData={{
+        kpi,
+        tasks,
+        receivables,
+        payables,
+        recentVouchers,
+        periodLock,
+        taxDeadlines,
+      }}
+    >
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
           <DateRangeBox
@@ -439,31 +441,27 @@ export default function DashboardOverview() {
           title="Tiền mặt / Ngân hàng"
           value={kpi?.CashBalance ?? 0}
           prevValue={0}
-          color="border-blue-500"
           onClick={() => goToAppPath(DASHBOARD_ROUTES.cashBook)}
         />
-        <KpiCard title="Doanh thu kỳ"            value={kpi?.Revenue        ?? 0} prevValue={kpi?.PrevRevenue   ?? 0} color="border-green-500" />
-        <KpiCard title="Chi phí kỳ"              value={kpi?.Expense        ?? 0} prevValue={kpi?.PrevExpense   ?? 0} color="border-red-400" />
-        <KpiCard title="Lợi nhuận tạm tính"      value={kpi?.Profit         ?? 0} prevValue={kpi?.PrevProfit    ?? 0} color="border-emerald-500" />
+        <KpiCard title="Doanh thu kỳ" value={kpi?.Revenue ?? 0} prevValue={kpi?.PrevRevenue ?? 0} />
+        <KpiCard title="Chi phí kỳ" value={kpi?.Expense ?? 0} prevValue={kpi?.PrevExpense ?? 0} />
+        <KpiCard title="Lợi nhuận tạm tính" value={kpi?.Profit ?? 0} prevValue={kpi?.PrevProfit ?? 0} />
         <KpiCard
           title="Phải thu KH"
           value={kpi?.Receivables ?? 0}
           prevValue={0}
-          color="border-sky-400"
           onClick={() => goToAppPath(DASHBOARD_ROUTES.arAging)}
         />
         <KpiCard
           title="Phải trả NCC"
           value={kpi?.Payables ?? 0}
           prevValue={0}
-          color="border-orange-400"
           onClick={() => goToAppPath(DASHBOARD_ROUTES.purchaseJournal)}
         />
         <KpiCard
           title="Thuế GTGT phải nộp"
           value={kpi?.VatPayable ?? 0}
           prevValue={0}
-          color="border-violet-400"
           onClick={() => goToAppPath(DASHBOARD_ROUTES.vatDeclaration)}
         />
         <button
@@ -814,7 +812,7 @@ export default function DashboardOverview() {
           />
         </DataGrid>
       </SectionCard>
-    </div>
+    </OverviewLayout>
   )
 }
 

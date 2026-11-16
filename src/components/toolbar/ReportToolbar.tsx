@@ -1,6 +1,7 @@
 import { useCallback, useContext, useMemo, useRef, useState } from "react"
 import type { KeyboardEvent, ReactNode } from "react"
 import Button from "devextreme-react/button"
+import CheckBox from "devextreme-react/check-box"
 import SelectBox from "devextreme-react/select-box"
 import TextBox from "devextreme-react/text-box"
 import { LanguageContext } from "@/lib/i18nLoader"
@@ -133,6 +134,12 @@ type ReportToolbarProps = {
   leadingFilters?: ReactNode
   /** Optional toolbar actions aligned to the far right, separate from report filters. */
   trailingActions?: ReactNode
+  /** Cost-list: show Theo quý / In chi tiết next to Search. */
+  costListOptionsVisible?: boolean
+  byQuarter?: boolean
+  onByQuarterChange?: (value: boolean) => void
+  showDetailRows?: boolean
+  onShowDetailRowsChange?: (value: boolean) => void
   /** "flat" drops the bordered/shadowed toolbar card in favor of a borderless row (used by Sổ quỹ tiền mặt). */
   variant?: "boxed" | "flat"
 }
@@ -240,6 +247,11 @@ export function ReportToolbar({
   initialFilters,
   leadingFilters,
   trailingActions,
+  costListOptionsVisible = false,
+  byQuarter = false,
+  onByQuarterChange,
+  showDetailRows = true,
+  onShowDetailRowsChange,
   variant = "boxed",
 }: ReportToolbarProps) {
   const { lang, translate } = useContext(LanguageContext) as {
@@ -998,6 +1010,21 @@ export function ReportToolbar({
                 className="page-toolbar__date-range flex flex-nowrap gap-2"
               />
             )}
+
+            {costListOptionsVisible ? (
+              <div className="page-toolbar__cost-list-options flex flex-nowrap items-center gap-3">
+                <CheckBox
+                  text={t("COST_LIST_BY_QUARTER", "Theo quý")}
+                  value={byQuarter}
+                  onValueChanged={(event) => onByQuarterChange?.(Boolean(event.value))}
+                />
+                <CheckBox
+                  text={t("COST_LIST_PRINT_DETAIL", "In chi tiết")}
+                  value={showDetailRows}
+                  onValueChanged={(event) => onShowDetailRowsChange?.(Boolean(event.value))}
+                />
+              </div>
+            ) : null}
 
             {showSearch && typeof searchHandler === "function" ? (
               <Button

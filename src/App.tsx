@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+﻿import { lazy, memo, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
     SIDEBAR_COLLAPSED_WIDTH,
@@ -915,7 +915,11 @@ function AppWorkspaceRoutes({
                         />
                         <Route
                             path="/gl/book/cost-list"
-                            element={<JournalReportPage reportCode="GL_COST_LIST" menuCode="GL_BOOK_COST_LIST" titleKey="GL_COST_LIST" titleFallback="Bảng giá thành" reportVersion="2025" unitDivisor="1" showExportExcel={true} />}
+                            element={<JournalReportPage reportCode="GL_COST_LIST" menuCode="GL_BOOK_COST_LIST" titleKey="GL_COST_LIST" titleFallback="Bảng giá thành" reportVersion="2025" unitDivisor="1" showExportExcel={true} costListToolbarOptions={true} />}
+                        />
+                        <Route
+                            path="/gl/book/ar-invoice"
+                            element={<JournalReportPage reportCode="GL_BOOK_AR_INVOICE" menuCode="GL_BOOK_AR_INVOICE" titleKey="GL_BOOK_AR_INVOICE" titleFallback="Báo cáo hóa đơn phải thu" reportVersion="2025" unitDivisor="1" showExportExcel={true} />}
                         />
                         <Route
                             path="/gl/fs/balance-sheet"

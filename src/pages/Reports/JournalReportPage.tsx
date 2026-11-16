@@ -33,7 +33,7 @@ import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { useReportOptionsQuery } from "@/hooks/queries/useReportQueries"
 import { EXCEL_EXPORT_GROUP_ROW_FLAG, exportToExcel } from "@/lib/excelUtils"
 import { LanguageContext } from "@/lib/i18nLoader"
-import { createMonthStartDate } from "@/lib/dateRangeDefaults"
+import { createCurrentQuarterDateRange, createMonthStartDate } from "@/lib/dateRangeDefaults"
 import { getCurrentCompanyCd, buildAppPath } from "@/lib/login"
 import { getStoredGridTemplateId } from "@/lib/sysGridColumnTemplateStorage"
 import {
@@ -172,6 +172,8 @@ type JournalReportPageProps = {
   unitDivisor?: string
   reportOptionGroupCode?: string
   useUseStartYmdFilter?: boolean
+  /** Cost-list toolbar: Theo quý (gợi ý kỳ) + In chi tiết (lọc LEVEL_NO). */
+  costListToolbarOptions?: boolean
 }
 
 type ReportRouteFilterState = {
@@ -217,6 +219,8 @@ type JournalReportTabState = {
   appliedReportOptionCode: string
   exportLanguage: ReportLanguageCode
   exportPrintTemplate: ReportPrintTemplateCode
+  byQuarter?: boolean
+  showDetailRows?: boolean
 }
 
 const TOOLBAR_FIELD = "page-toolbar__field"
@@ -746,6 +750,7 @@ export default function JournalReportPage({
   unitDivisor,
   reportOptionGroupCode,
   useUseStartYmdFilter = false,
+  costListToolbarOptions = false,
 }: JournalReportPageProps) {
   const location = useLocation()
   const tabRoute = useWorkspaceTabRoute()
@@ -865,6 +870,12 @@ export default function JournalReportPage({
   const [exportPrintTemplate, setExportPrintTemplate] = useState<ReportPrintTemplateCode>(
     () => restoredTabState?.exportPrintTemplate ?? "BOOK",
   )
+  const [byQuarter, setByQuarter] = useState(
+    () => Boolean(costListToolbarOptions && restoredTabState?.byQuarter),
+  )
+  const [showDetailRows, setShowDetailRows] = useState(
+    () => !costListToolbarOptions || restoredTabState?.showDetailRows !== false,
+  )
 
   useEffect(() => {
     if (restoredTabState) {
@@ -898,12 +909,15 @@ export default function JournalReportPage({
       appliedReportOptionCode,
       exportLanguage,
       exportPrintTemplate,
+      byQuarter,
+      showDetailRows,
     })
   }, [
     accountCodes,
     appliedReportOptionCode,
     assetStatusCodes,
     bankCodes,
+    byQuarter,
     currencyCodes,
     customerCodes,
     exportLanguage,
@@ -920,6 +934,7 @@ export default function JournalReportPage({
     routeIdentity,
     searchText,
     selectedReportOptionCode,
+    showDetailRows,
     toDate,
     useStartYmd,
     warehouseCodes,
@@ -1214,11 +1229,14 @@ export default function JournalReportPage({
         reportVersion: reportVersion || undefined,
         unitDivisor: unitDivisor || undefined,
         language,
+        ...(costListToolbarOptions
+          ? { includeDetail: showDetailRows ? "1" : "0" }
+          : {}),
         gridId: effectiveReportCode,
         templateId: storedTemplateId > 0 ? String(storedTemplateId) : undefined,
       }
     },
-    [accountCd, accountCodes, accountQueryParamKey, assetStatusCodes, bankCd, bankCodes, currencyCodes, customerCd, customerCodes, effectiveReportOptionGroupCode, fcType, includeEmptyFilterParams, invoiceKind, showInvoiceKindFilter, invoiceStatus, invoiceType, lang, menuCode, moduleCd, productCd, productCodes, reportCode, reportOptions, reportVersion, routeFilterState.extraParams, searchText, selectedReportOptionCode, showAccountFilter, showAssetStatusFilter, showBankFilter, showCurrencyFilter, showCustomerFilter, showInvoiceStatusFilter, showInvoiceTypeFilter, showProductFilter, showWarehouseFilter, storeCd, unitDivisor, useUseStartYmdFilter, warehouseCodes],
+    [accountCd, accountCodes, accountQueryParamKey, assetStatusCodes, bankCd, bankCodes, costListToolbarOptions, currencyCodes, customerCd, customerCodes, effectiveReportOptionGroupCode, fcType, includeEmptyFilterParams, invoiceKind, showInvoiceKindFilter, invoiceStatus, invoiceType, lang, menuCode, moduleCd, productCd, productCodes, reportCode, reportOptions, reportVersion, routeFilterState.extraParams, searchText, selectedReportOptionCode, showAccountFilter, showAssetStatusFilter, showBankFilter, showCurrencyFilter, showCustomerFilter, showDetailRows, showInvoiceStatusFilter, showInvoiceTypeFilter, showProductFilter, showWarehouseFilter, storeCd, unitDivisor, useUseStartYmdFilter, warehouseCodes],
   )
 
   const releaseAutoLoadInFlight = useCallback((requestId: number) => {
@@ -1310,13 +1328,29 @@ export default function JournalReportPage({
       effectiveReportOptionGroupCode,
       fromDate,
       releaseAutoLoadInFlight,
-      reportCode,
       reportOptionsLoaded,
       selectedReportOptionCode,
       t,
       validateFilter,
     ],
   )
+
+  const previousCostListShowDetailRowsRef = useRef<boolean | null>(null)
+  useEffect(() => {
+    if (!costListToolbarOptions) {
+      return
+    }
+
+    const previousShowDetailRows = previousCostListShowDetailRowsRef.current
+    previousCostListShowDetailRowsRef.current = showDetailRows
+
+    // Preview updates can recreate loadPreview without changing the detail option.
+    if (previousShowDetailRows === null || previousShowDetailRows === showDetailRows) {
+      return
+    }
+
+    void loadPreview({ showValidationMessage: false, trigger: "cost-list-detail" })
+  }, [costListToolbarOptions, loadPreview, showDetailRows])
 
   const reportGridRef = useRef<ReportDataGridHandle | null>(null)
   const reportTreeRef = useRef<ReportTreeListHandle | null>(null)
@@ -1344,8 +1378,22 @@ export default function JournalReportPage({
     [appliedReportOptionCode, effectiveReportOptionGroupCode, reportCode, reportOptions],
   )
 
+  const handleByQuarterChange = useCallback(
+    (enabled: boolean) => {
+      setByQuarter(enabled)
+      if (!enabled) {
+        return
+      }
+
+      const quarterRange = createCurrentQuarterDateRange(new Date())
+      setFromDate(quarterRange.fromDate)
+      setToDate(quarterRange.toDate)
+    },
+    [],
+  )
+
   const formulaOptionsEnabled = useMemo(
-    () => ["GL_CASHFLOW_B03DN_TT", "GL_CASHFLOW_B03DN_GT", "B03_DN_TT", "B03_DN_GT", "GL_BALANCE_SHEET_B01DN", "B01_DN", "GL_PROFIT_LOSS_B02DN", "GL_PROFIT_LOSS_B02DNTT", "B02_DN", "GL_COST_LIST", "COST_LIST", "TAX_VAT_DECLARATION", "GTGT_01"].includes(
+    () => ["GL_CASHFLOW_B03DN_TT", "GL_CASHFLOW_B03DN_GT", "B03_DN_TT", "B03_DN_GT", "GL_BALANCE_SHEET_B01DN", "B01_DN", "GL_PROFIT_LOSS_B02DN", "GL_PROFIT_LOSS_B02DNTT", "B02_DN", "GL_COST_LIST", "GL_BOOK_AR_INVOICE", "COST_LIST", "TAX_VAT_DECLARATION", "GTGT_01"].includes(
       effectiveDashboardReportCode.trim().toUpperCase(),
     ),
     [effectiveDashboardReportCode],
@@ -1736,6 +1784,11 @@ export default function JournalReportPage({
               onFromDateChange={useUseStartYmdFilter ? undefined : setFromDate}
               onToDateChange={useUseStartYmdFilter ? undefined : setToDate}
               onUseStartYmdChange={useUseStartYmdFilter ? setUseStartYmd : undefined}
+              costListOptionsVisible={costListToolbarOptions}
+              byQuarter={byQuarter}
+              onByQuarterChange={costListToolbarOptions ? handleByQuarterChange : undefined}
+              showDetailRows={showDetailRows}
+              onShowDetailRowsChange={costListToolbarOptions ? setShowDetailRows : undefined}
               onSearchTextChange={setSearchText}
               onSearch={() => void loadPreview({ showValidationMessage: true })}
               onRefresh={() => void loadPreview({ showValidationMessage: true })}

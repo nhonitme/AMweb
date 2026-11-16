@@ -3,6 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import "devextreme/dist/css/dx.fluent.blue.light.compact.css";
+import "./styles/an-box-vang-devextreme.css";
 import "./index.css";
 import "./styles/icon-colors.scss";
 import "./styles/devextreme-overrides.css";
