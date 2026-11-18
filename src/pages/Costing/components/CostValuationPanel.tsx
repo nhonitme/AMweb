@@ -1,6 +1,6 @@
 /**
  * Bước 5 — Tính lại & đối chiếu giá xuất TP.
- * Demo dùng bình quân gia quyền (tồn đầu + nhập kỳ), không nhân thẳng SL × đơn giá TP kỳ này.
+ * Preview và Confirm dùng giá xuất kho từ DB theo phương pháp định giá được backend áp dụng.
  */
 
 import { useState } from "react";
@@ -111,7 +111,7 @@ export function CostValuationPanel({
           <div className="desc">
             {t(
               "GK_STEP5_BAND_DESC",
-              "Không dùng SL xuất × đơn giá TP kỳ này cho mọi trường hợp. Demo áp dụng bình quân gia quyền tồn đầu + nhập kỳ.",
+              "Giá xuất kho được tính từ số liệu tồn đầu, nhập và xuất trong kỳ theo phương pháp backend. Không sử dụng đơn giá TP mới cho mọi lượt xuất.",
             )}
           </div>
         </div>
