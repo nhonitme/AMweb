@@ -1730,9 +1730,9 @@ export default function PeriodLockPage(): React.JSX.Element {
     return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()} ${hh}:${mm}:${ss}`
   }
 
-  /** Render LockedAt as dd/MM/yyyy HH:mm:ss */
-  const renderLockedAtCell = useCallback((cell: PeriodLockCellInfo) => {
-    const val = cell.data.LockedAt
+  /** Render last processing timestamp (lock or unlock) as dd/MM/yyyy HH:mm:ss. */
+  const renderProcessedAtCell = useCallback((cell: PeriodLockCellInfo) => {
+    const val = cell.data.ProcessedAt
     if (!val) return <span className="text-sm text-gray-500">-</span>
 
     return (
@@ -1892,15 +1892,15 @@ export default function PeriodLockPage(): React.JSX.Element {
           />
 
           <Column
-            dataField="LockedAt"
+            dataField="ProcessedAt"
             caption={t("PERIOD_LOCK_PROCESSED_AT", "Ngày xử lý")}
             width={170}
             alignment="center"
-            cellRender={renderLockedAtCell}
+            cellRender={renderProcessedAtCell}
           />
 
           <Column
-            dataField="LockedBy"
+            dataField="ProcessedBy"
             caption={t("PERIOD_LOCK_PROCESSED_BY", "Người xử lý")}
             width={130}
           />
