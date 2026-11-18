@@ -208,8 +208,9 @@ async function runPeriodLock(step: "FA_PREPAID_LOCK" | "PROFIT_LOSS_REPORT"): Pr
   const year = Number(session.periodYm.slice(0, 4));
   const started = await startPeriodLock({
     Year: year,
-    // G-K chỉ khóa kỳ đang thao tác; không tự chạy ngược nhiều tháng.
-    FromPeriodYm: session.periodYm,
+    // B-I resolves FromPeriodYm from its authoritative locked-period milestones.
+    // It may process earlier unclosed months; never imply this is single-period.
+    FromPeriodYm: "",
     ToPeriodYm: session.periodYm,
     Steps: [step],
     TargetStepCode: step,
