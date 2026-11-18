@@ -1,5 +1,5 @@
 /**
- * Bước 2 — Phân bổ chi phí 622/627 theo công thức frmAllocateCosts (mock).
+ * Bước 2 — Phân bổ chi phí 622/627 từ dữ liệu sổ cái; Confirm ghi thật qua API.
  * allocate_type 0 = NVL chính (N621/C152); 1 = SL TP nhập kho (N155/C154).
  */
 

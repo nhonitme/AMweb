@@ -39,11 +39,15 @@ function authoritativeStatus(step: Rec): CostingStepRunStatus {
   const index = num(step.StepIndex);
   const gk = mapStepStatus(step.Status);
   if (index !== 1 && index !== 6) return gk;
-  if (step.StatusMismatch === true) {
-    const bi = mapStepStatus(step.BiStatus);
-    return bi === "DONE" ? "DONE" : bi;
-  }
-  if (step.BiStatus) return mapStepStatus(step.BiStatus);
+  const biStatus = text(step.BiStatus).toUpperCase();
+  const bi = mapStepStatus(step.BiStatus);
+  // OPEN on B-I after a successful shared REOPEN still represents a
+  // REOPENED G-K working version, not a never-started period.
+  if (gk === "REOPENED" && biStatus === "OPEN") return "REOPENED";
+  // A still-locked B-I step must never appear safely reopened on G-K.
+  if (biStatus === "DONE") return "DONE";
+  if (step.StatusMismatch === true && biStatus) return bi;
+  if (biStatus) return bi;
   return gk;
 }
 
@@ -52,7 +56,6 @@ export function emptyOverview(companyCd: string, periodYm: string, message: stri
   return {
     companyCd,
     periodYm,
-    demoMode: false,
     periodExists: false,
     statusMessage: message,
     runId: null,
@@ -72,13 +75,11 @@ export function emptyOverview(companyCd: string, periodYm: string, message: stri
     stepMetas: [null, null, null, null, null, null],
     stepHistory: [],
     compareRows: [],
-    armWriteFailure: false,
     stats: { objectCount: 0, productCount: 0, receiptCount: 0, warningCount: 0, doneStepCount: 0 },
     warnings: message ? [{ id: "period", level: "warn", message }] : [],
     objects: [],
     logs: [],
     job: { running: false, percent: 0, message: "" },
-    allocationRateA01: 0,
     allocationPreviewed: false,
     step3Checked: false,
     costPreviewed: false,
@@ -87,9 +88,6 @@ export function emptyOverview(companyCd: string, periodYm: string, message: stri
     hasPostedValuation: false,
     sharedLabor: 0,
     sharedOverhead: 0,
-    faRows: [],
-    sourceRows: [],
-    allocationRows: [],
     allocationPoolRows: [],
     allocationProductRows: [],
     allocateType: 0,
@@ -312,7 +310,7 @@ export function buildReopenInfo(
     relatedResults: [],
     blockingDependents: blocking,
     canReopen: current === "DONE" || current === "REOPENED",
-    blockReason: blocking.length > 0 ? "Còn bước sau đang DONE. Mở theo thứ tự ngược." : "",
+    blockReason: blocking.length > 0 ? "Hệ thống sẽ hoàn nguyên các bước DONE phía sau trong cùng thao tác." : "",
     warnings: overview.warnings.map((row) => row.message),
   };
 }
@@ -394,7 +392,11 @@ export function assembleOverview(input: {
           : "STANDARD",
       incompletePercent: num(input.run?.IncompletePercent) || 0.8,
       enableProductReduce: text(input.run?.EnableProductReduce) === "1",
-      presetKey: "standard",
+      presetKey: text(input.run?.IncompleteMode) === "incomplete_cost_SL_TP_SX"
+        ? (Math.abs(num(input.run?.IncompletePercent) - 0.7) < 0.000001 ? "sl_tp_sx_p07" : "sl_tp_sx_p08")
+        : text(input.run?.IncompleteMode) === "incomplete_ValueChange_Calculated_ID2720"
+          ? "id2720_p05"
+          : "standard",
     },
     allocationMethod: allocateType === 1 ? "FINISHED_QTY" : "MAIN_MATERIAL",
     allocationStatus: statuses[1] === "DONE" ? "CONFIRMED" : pool.length > 0 ? "PREVIEWED" : "NOT_STARTED",

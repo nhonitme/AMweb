@@ -1,5 +1,5 @@
 /**
- * Bước 6 — Khóa lãi/lỗ tại G-K, tái sử dụng engine B-I PROFIT_LOSS_REPORT (mô phỏng).
+ * Bước 6 — Khóa lãi/lỗ tại G-K, gọi PeriodLock B-I PROFIT_LOSS_REPORT thật.
  */
 
 import { useState } from "react";
@@ -35,7 +35,7 @@ export function ProfitLossLockPanel({
       onBusy(true);
       const next = await checkProfitLossPreconditions();
       onRefresh(next);
-      onSuccess(t("GK_STEP6_CHECK_OK", "Điều kiện khóa sổ bước 3 hợp lệ."));
+      onSuccess(t("GK_STEP6_CHECK_OK", "Các bước B1–B5 đã DONE trên DB."));
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -80,7 +80,7 @@ export function ProfitLossLockPanel({
       rightActions={
         <>
           <Button
-            text={t("GK_CHECK_CONDITIONS", "Kiểm tra điều kiện")}
+            text={t("GK_CHECK_CONDITIONS", "Kiểm tra B1–B5")}
             stylingMode="outlined"
             disabled={busy || locked || waiting}
             onClick={() => void runCheck()}

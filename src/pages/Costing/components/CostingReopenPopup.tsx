@@ -39,7 +39,7 @@ export function CostingReopenPopup({
 
   if (!info) return null;
 
-  const canSubmit = info.canReopen && reason.trim().length > 0 && !busy;
+  const canSubmit = info.canReopen && reason.trim().length >= 3 && !busy;
 
   return (
     <Popup
@@ -79,18 +79,18 @@ export function CostingReopenPopup({
           </div>
         </div>
 
-        <div className="gk-sectiontitle">{t("GK_RELATED", "Kết quả / chứng từ liên quan")}</div>
+        <div className="gk-sectiontitle">{t("GK_RELATED", "Tác động và chứng từ liên quan")}</div>
         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }}>
-          {info.relatedResults.map((r) => (
-            <li key={r}>{r}</li>
-          ))}
+          {info.relatedResults.length > 0
+            ? info.relatedResults.map((r) => <li key={r}>{r}</li>)
+            : <li>{t("GK_REOPEN_EFFECTS_DB", "Chứng từ phát sinh sẽ được kiểm tra và hoàn nguyên bởi backend trước khi ghi REOPEN.")}</li>}
         </ul>
 
         {info.blockingDependents.length > 0 ? (
-          <Notice type="err">
+          <Notice type="info">
             {info.blockReason}
             <div style={{ marginTop: 6 }}>
-              {t("GK_BLOCKING_LIST", "Bước phụ thuộc cần mở lại trước")}:{" "}
+              {t("GK_BLOCKING_LIST", "Các bước DONE phía sau sẽ được mở tự động theo thứ tự ngược")}:{" "}
               {info.blockingDependents.map((b) => `${b.stepIndex} (${b.status})`).join(", ")}
             </div>
           </Notice>
@@ -106,7 +106,7 @@ export function CostingReopenPopup({
           <Notice type="info">
             {t(
               "GK_IMPACT_TEXT",
-              "Ảnh hưởng: bước này chuyển DONE → REOPENED; số liệu cũ giữ nguyên; phải tính thử và xác nhận ghi đè; các bước sau (nếu đã mở lại) cần chạy lại theo thứ tự.",
+              "Ảnh hưởng: backend tự hoàn nguyên các bước DONE phụ thuộc trong cùng transaction (bao gồm B-I khi cần), sau đó đưa G-K về REOPENED. Lịch sử phiên cũ được giữ để đối chiếu.",
             )}
           </Notice>
         ) : null}
