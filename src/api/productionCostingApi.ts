@@ -208,7 +208,8 @@ async function runPeriodLock(step: "FA_PREPAID_LOCK" | "PROFIT_LOSS_REPORT"): Pr
   const year = Number(session.periodYm.slice(0, 4));
   const started = await startPeriodLock({
     Year: year,
-    FromPeriodYm: "",
+    // G-K chỉ khóa kỳ đang thao tác; không tự chạy ngược nhiều tháng.
+    FromPeriodYm: session.periodYm,
     ToPeriodYm: session.periodYm,
     Steps: [step],
     TargetStepCode: step,
@@ -220,16 +221,22 @@ async function runPeriodLock(step: "FA_PREPAID_LOCK" | "PROFIT_LOSS_REPORT"): Pr
   const jobId = started.data.JobId;
   let percent = 0;
   let message = "Đang chạy PeriodLock.";
+  let completed = false;
   for (let attempt = 0; attempt < 60; attempt += 1) {
     const progress = await getPeriodLockProgress(jobId);
     percent = progress.data.Percent ?? 0;
     message = progress.data.Message || progress.data.CurrentStepName || message;
     const status = progress.data.Status;
-    if (status === "DONE" || status === "ERROR" || percent >= 100) {
-      if (status === "ERROR") throw new Error(message || "PeriodLock báo lỗi.");
+    if (status === "ERROR") throw new Error(message || "PeriodLock báo lỗi.");
+    // Không suy diễn thành công chỉ vì Percent=100.
+    if (status === "DONE") {
+      completed = true;
       break;
     }
     await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+  if (!completed) {
+    throw new Error(`PeriodLock chưa xác nhận DONE cho kỳ ${session.periodYm}. ${message} Kiểm tra lại tiến độ job trước khi thao tác tiếp.`);
   }
   const overview = await reloadProductionCosting();
   overview.job = { running: false, percent, message };
