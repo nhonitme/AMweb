@@ -430,24 +430,6 @@
   font-size: 13px !important;
 }
 
-.dx-datagrid .dx-command-edit .dx-link.dx-icon-add,
-.dx-treelist .dx-command-edit .dx-link.dx-icon-add {
-  color: #16a34a;
-  background-color: #f0fdf4;
-}
-
-.dx-datagrid .dx-command-edit .dx-link.dx-icon-edit,
-.dx-treelist .dx-command-edit .dx-link.dx-icon-edit {
-  color: #2563eb;
-  background-color: #eff6ff;
-}
-
-.dx-datagrid .dx-command-edit .dx-link.dx-icon-trash,
-.dx-treelist .dx-command-edit .dx-link.dx-icon-trash {
-  color: #dc2626;
-  background-color: #fef2f2;
-}
-
 .dx-pager {
   padding: 5px 14px !important;
   border-top: 1px solid #f1f3f5;

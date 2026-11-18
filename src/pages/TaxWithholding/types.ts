@@ -29,6 +29,7 @@ export interface PitDocumentInfo {
     SERIES?: string | null;
     XSL_ID?: number | null;
     DOC_NO?: number | null;
+    MTRACUU?: string | null;
     IS_SIGNED: number;
     CQT_STATUS: number;
     ERROR_MESSAGE?: string | null;
@@ -39,7 +40,6 @@ export interface PitDocumentInfo {
     SIGNED_XML?: string | null;
     RESPONSE_XML?: string | null;
 }
-// The shared popup edits flat DTO properties. Individual models keep their field types.
 export interface PitDocument extends PitDocumentInfo, Partial<PitCertificateData>, Partial<PitDeclarationData>, Partial<PitErrorNoticeData> {
 }
 export type PitCertificateDocument = PitDocumentInfo & PitCertificateData;

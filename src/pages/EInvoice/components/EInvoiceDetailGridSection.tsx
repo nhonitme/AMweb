@@ -2,8 +2,8 @@ import Button from "devextreme-react/button"
 
 import CheckBox from "devextreme-react/check-box"
 import DataGrid, { Column, ColumnFixing, Editing, RequiredRule, Scrolling } from "devextreme-react/data-grid"
+import type { ContextMenuPreparingEvent } from "devextreme/ui/data_grid"
 
-import DeleteRowButton from "@/components/datagrid/DeleteRowButton"
 import VoucherSpreadsheetSummaryBar from "@/components/datagrid/VoucherSpreadsheetSummaryBar"
 import {
   AM_GRID_READONLY_COLUMN_CELL_CLASS,
@@ -12,6 +12,7 @@ import {
   normalizeSpreadsheetMultilineText,
   voucherSpreadsheetKeyboardNavigation,
 } from "@/components/datagrid/voucherSpreadsheetGrid"
+import { buildVoucherDetailContextMenuItems } from "@/components/datagrid/voucherDetailRowOrder"
 import { consumeLookupCellOpen } from "@/components/lookup/LookupGridCellDisplay"
 import { DEFAULT_CURRENCY_CODE } from "@/lib/currency"
 import {
@@ -31,7 +32,6 @@ import {
 } from "./EInvoiceEditorHelpers"
 import type {
   EInvoiceDetailCellInfo,
-  EInvoiceDetailDisplayCellInfo,
   EInvoiceDetailRow,
   GridKey,
 } from "./EInvoiceEditorTypes"
@@ -49,6 +49,7 @@ export default function EInvoiceDetailGridSection({ vm }: EInvoiceDetailGridSect
     pxkSyncThucXuatNhap,
     handlePxkSyncThucXuatNhapToggle,
     handleAddDetailRow,
+    handleInsertDetailRowAbove,
     userEditorSettings,
     openDetailImport,
     softDeletedCount,
@@ -95,9 +96,8 @@ export default function EInvoiceDetailGridSection({ vm }: EInvoiceDetailGridSect
             <Button
               stylingMode="outlined"
               icon="plus"
-              text={t("ADD", "Thêm")}
-              hint={t("ADD", "Thêm")}
-              elementAttr={{ class: "einvoice-add-btn" }}
+              text={t("ADD_ROW", "Thêm dòng")}
+              hint={t("ADD_ROW", "Thêm dòng")}
               onMouseDown={(event) => {
                 event.preventDefault()
               }}
@@ -108,21 +108,23 @@ export default function EInvoiceDetailGridSection({ vm }: EInvoiceDetailGridSect
             {userEditorSettings.enableExcelImport ? (
               <Button
                 stylingMode="outlined"
-                icon="upload"
+                icon="xlsxfile"
                 text={t("MSG_BTNIMPORTEXCEL", "Import from Excel")}
                 hint={t("DETAIL_IMPORT", "Import chi tiết")}
                 onClick={openDetailImport}
               />
             ) : null}
-            <Button
-              stylingMode="outlined"
-              text={t("Undelete", "Hoan tac")}
-              hint={t("RESTORE_LAST_DELETED_ROW", "Restore the last deleted row")}
-              disabled={softDeletedCount === 0}
-              onClick={() => {
-                void undeleteLastDetailRow()
-              }}
-            />
+            {softDeletedCount > 0 ? (
+              <Button
+                stylingMode="outlined"
+                icon="revert"
+                text={t("Undelete", "Hoàn tác")}
+                hint={t("RESTORE_LAST_DELETED_ROW", "Restore the last deleted row")}
+                onClick={() => {
+                  void undeleteLastDetailRow()
+                }}
+              />
+            ) : null}
             {isWarehouseInternal ? (
               <CheckBox
                 text={t("PXK_SYNC_THUC_XUAT_NHAP", "Tự lấy Thực xuất = Thực nhập")}
@@ -163,6 +165,32 @@ export default function EInvoiceDetailGridSection({ vm }: EInvoiceDetailGridSect
           onCellPrepared={handleDetailCellPrepared}
           onEditorPreparing={handleDetailEditorPreparing}
           onToolbarPreparing={handleDetailToolbarPreparing}
+          onContextMenuPreparing={(event: ContextMenuPreparingEvent<EInvoiceDetailRow, GridKey>) => {
+            if (isReadOnly || event.row?.rowType !== "data" || !event.row.data) {
+              return
+            }
+
+            const rowKey = resolveEInvoiceDetailRowKey(event.row.key, event.row.data)
+            if (!rowKey) {
+              return
+            }
+
+            event.items = buildVoucherDetailContextMenuItems({
+              canEdit: !isReadOnly,
+              insertText: t("INSERT_ROW", "Chèn dòng"),
+              addAtEndText: t("ADD_ROW", "Thêm dòng"),
+              deleteText: t("DELETE_ROW", "Xóa dòng"),
+              onInsert: () => {
+                void handleInsertDetailRowAbove(rowKey)
+              },
+              onAddAtEnd: () => {
+                void handleAddDetailRow()
+              },
+              onDelete: () => {
+                void softDeleteDetailRowByKey(rowKey)
+              },
+            })
+          }}
         >
           <ColumnFixing enabled={true} />
           {cashRegister ? (
@@ -177,32 +205,6 @@ export default function EInvoiceDetailGridSection({ vm }: EInvoiceDetailGridSect
             startEditAction="click"
             selectTextOnEditStart={true}
           />
-          {!isReadOnly ? (
-            <Column
-              name="DETAIL_ACTIONS"
-              width={60}
-              fixed={true}
-              fixedPosition="left"
-              visibleIndex={0}
-              allowFixing={false}
-              allowEditing={false}
-              allowReordering={false}
-              showInColumnChooser={false}
-              cellRender={(cellInfo: EInvoiceDetailDisplayCellInfo) => {
-                const rowKey = resolveEInvoiceDetailRowKey(cellInfo.row?.key, cellInfo.data)
-                return (
-                  <DeleteRowButton
-                    hint={t("DELETE", "Delete")}
-                    onDelete={() => {
-                      if (rowKey) {
-                        void softDeleteDetailRowByKey(rowKey)
-                      }
-                    }}
-                  />
-                )
-              }}
-            />
-          ) : null}
           <Column dataField="STT" caption={t("STT", "No")} width={70} dataType="number" allowEditing={false} cssClass={AM_GRID_READONLY_COLUMN_CELL_CLASS} />
           <Column
             dataField="TCHAT"

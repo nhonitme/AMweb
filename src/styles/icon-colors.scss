@@ -1,51 +1,174 @@
 @use "sass:list";
+@use "sass:map";
 
-// Central icon color tokens and utility classes.
-// Import globally from main.tsx; SCSS consumers @use this file for mixins/maps.
+$icon-neutral-base: #64748b;
+$icon-neutral-hover: #334155;
+$icon-primary-base: #2563eb;
+$icon-primary-hover: #1d4ed8;
+$icon-success-base: #16a34a;
+$icon-success-hover: #15803d;
+$icon-danger-base: #dc2626;
+$icon-danger-hover: #b91c1c;
+$icon-accent-base: #7c3aed;
+$icon-accent-hover: #6d28d9;
+$icon-teal-base: #0f766e;
+$icon-teal-hover: #0d9488;
 
-// ---- Toolbar (DevExtreme dx-icon-*) ----
-$icon-toolbar-neutral-base: #64748b;
-$icon-toolbar-neutral-hover: #334155;
-$icon-toolbar-danger-base: #dc2626;
-$icon-toolbar-danger-hover: #b91c1c;
-$icon-toolbar-success-base: #16a34a;
-$icon-toolbar-success-hover: #15803d;
+$soft-neutral-bg: #f1f5f9;
+$soft-neutral-border: #64748b;
+$soft-neutral-hover-bg: #e2e8f0;
+$soft-primary-bg: #eff6ff;
+$soft-primary-border: #2563eb;
+$soft-primary-hover-bg: #dbeafe;
+$soft-success-bg: #f0fdf4;
+$soft-success-border: #16a34a;
+$soft-success-hover-bg: #dcfce7;
+$soft-danger-bg: #fef2f2;
+$soft-danger-border: #dc2626;
+$soft-danger-hover-bg: #fee2e2;
+$soft-accent-bg: #faf5ff;
+$soft-accent-border: #7e22ce;
+$soft-accent-hover-bg: #f3e8ff;
+$soft-teal-bg: #f0fdfa;
+$soft-teal-border: #0f766e;
+$soft-teal-hover-bg: #ccfbf1;
 
-$toolbar-icon-colors: (
-  "refresh": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
-  "search": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
-  "filter": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
-  "columnchooser": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
-  "preferences": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
-  "edit": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
-  "print": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
-  "download": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
-  "upload": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
-  "import": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
-  "exportpdf": ($icon-toolbar-danger-base, $icon-toolbar-danger-hover),
-  "xlsxfile": ($icon-toolbar-success-base, $icon-toolbar-success-hover),
-  "trash": ($icon-toolbar-danger-base, $icon-toolbar-danger-hover),
-  "plus": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
-  "save": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
-  "check": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
-  "email": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
-  "key": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
-  "link": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
-  "eyeopen": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
-  "codeblock": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
-  "clock": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
-  "overflow": ($icon-toolbar-neutral-base, $icon-toolbar-neutral-hover),
+$soft-role-chrome: (
+  "neutral": ($soft-neutral-bg, $soft-neutral-border, $soft-neutral-hover-bg, $icon-neutral-hover),
+  "primary": ($soft-primary-bg, $soft-primary-border, $soft-primary-hover-bg, $icon-primary-base),
+  "success": ($soft-success-bg, $soft-success-border, $soft-success-hover-bg, $icon-success-base),
+  "danger": ($soft-danger-bg, $soft-danger-border, $soft-danger-hover-bg, $icon-danger-base),
+  "accent": ($soft-accent-bg, $soft-accent-border, $soft-accent-hover-bg, $icon-accent-base),
+  "teal": ($soft-teal-bg, $soft-teal-border, $soft-teal-hover-bg, $icon-teal-base),
 );
 
-@mixin page-toolbar-tint-icons {
-  @each $icon, $colors in $toolbar-icon-colors {
-    $base: list.nth($colors, 1);
-    $hover: list.nth($colors, 2);
+$icon-toolbar-neutral-base: $icon-neutral-base;
+$icon-toolbar-neutral-hover: $icon-neutral-hover;
+$icon-toolbar-danger-base: $icon-danger-base;
+$icon-toolbar-danger-hover: $icon-danger-hover;
+$icon-toolbar-success-base: $icon-success-base;
+$icon-toolbar-success-hover: $icon-success-hover;
+
+$dx-icon-colors: (
+  "refresh": ($icon-neutral-base, $icon-neutral-hover),
+  "search": ($icon-neutral-base, $icon-neutral-hover),
+  "filter": ($icon-neutral-base, $icon-neutral-hover),
+  "columnchooser": ($icon-neutral-base, $icon-neutral-hover),
+  "preferences": ($icon-neutral-base, $icon-neutral-hover),
+  "print": ($icon-neutral-base, $icon-neutral-hover),
+  "download": ($icon-neutral-base, $icon-neutral-hover),
+  "upload": ($icon-neutral-base, $icon-neutral-hover),
+  "import": ($icon-neutral-base, $icon-neutral-hover),
+  "email": ($icon-neutral-base, $icon-neutral-hover),
+  "key": ($icon-neutral-base, $icon-neutral-hover),
+  "eyeopen": ($icon-neutral-base, $icon-neutral-hover),
+  "clock": ($icon-neutral-base, $icon-neutral-hover),
+  "overflow": ($icon-neutral-base, $icon-neutral-hover),
+  "close": ($icon-neutral-base, $icon-neutral-hover),
+  "revert": ($icon-primary-base, $icon-primary-hover),
+  "codeblock": ($icon-neutral-base, $icon-neutral-hover),
+  "edit": ($icon-primary-base, $icon-primary-hover),
+  "save": ($icon-primary-base, $icon-primary-hover),
+  "check": ($icon-primary-base, $icon-primary-hover),
+  "link": ($icon-primary-base, $icon-primary-hover),
+  "insertrowabove": ($icon-primary-base, $icon-primary-hover),
+  "plus": ($icon-success-base, $icon-success-hover),
+  "add": ($icon-success-base, $icon-success-hover),
+  "xlsxfile": ($icon-success-base, $icon-success-hover),
+  "trash": ($icon-danger-base, $icon-danger-hover),
+  "exportpdf": ($icon-danger-base, $icon-danger-hover),
+  "copy": ($icon-accent-base, $icon-accent-hover),
+);
+
+$dx-icon-soft-roles: (
+  "plus": "success",
+  "add": "success",
+  "xlsxfile": "success",
+  "edit": "primary",
+  "save": "primary",
+  "check": "primary",
+  "link": "primary",
+  "insertrowabove": "primary",
+  "revert": "primary",
+  "trash": "danger",
+  "exportpdf": "danger",
+  "copy": "accent",
+  "close": "neutral",
+  "print": "teal",
+);
+
+$toolbar-icon-colors: $dx-icon-colors;
+
+@each $icon, $colors in $dx-icon-colors {
+  $base: list.nth($colors, 1);
+
+  .dx-icon-#{$icon},
+  .dx-icon.dx-icon-#{$icon} {
+    color: $base !important;
+  }
+}
+
+@each $icon, $role in $dx-icon-soft-roles {
+  $chrome: map.get($soft-role-chrome, $role);
+  $bg: list.nth($chrome, 1);
+  $border: list.nth($chrome, 2);
+  $hover-bg: list.nth($chrome, 3);
+  $fg: list.nth($chrome, 4);
+
+  .dx-button-mode-outlined:not([class*="editor-action-toolbar__"]):has(.dx-icon-#{$icon}),
+  .dx-button-mode-text:not([class*="editor-action-toolbar__"]):has(.dx-icon-#{$icon}) {
+    background-color: $bg !important;
+    border-color: $border !important;
 
     .dx-icon-#{$icon},
-    .dx-icon.dx-icon-#{$icon} {
-      color: $base !important;
+    .dx-icon.dx-icon-#{$icon},
+    .dx-button-text {
+      color: $fg !important;
     }
+
+    &:hover,
+    &.dx-state-hover:not(.dx-state-disabled) {
+      background-color: $hover-bg !important;
+    }
+  }
+
+  .dx-datagrid .dx-command-edit .dx-link.dx-icon-#{$icon},
+  .dx-treelist .dx-command-edit .dx-link.dx-icon-#{$icon} {
+    background-color: $bg;
+  }
+
+  button:has(> .dx-icon-#{$icon}),
+  button:has(> .dx-icon.dx-icon-#{$icon}) {
+    background-color: $bg;
+    border-color: $border;
+
+    &:hover {
+      background-color: $hover-bg;
+    }
+  }
+}
+
+.dx-button-mode-contained .dx-icon,
+.dx-button-mode-contained .dx-icon.dx-icon,
+.dx-button-mode-contained [class^="dx-icon-"],
+.dx-button-mode-contained [class*=" dx-icon-"] {
+  color: inherit !important;
+}
+
+.am-sidebar-tree .dx-icon,
+.am-sidebar-tree-flyout .dx-icon {
+  color: #64748b !important;
+}
+
+.am-sidebar-tree .am-sidebar-tree-item-active .dx-icon,
+.am-sidebar-tree-flyout .am-sidebar-tree-item-active .dx-icon,
+.am-sidebar-tree-collapsed .am-sidebar-tree-item-collapsed.am-sidebar-tree-item-active .dx-icon {
+  color: var(--am-sidebar-active-color, #2563eb) !important;
+}
+
+@mixin page-toolbar-tint-icons {
+  @each $icon, $colors in $dx-icon-colors {
+    $hover: list.nth($colors, 2);
 
     &:hover {
       .dx-icon-#{$icon},
@@ -56,7 +179,6 @@ $toolbar-icon-colors: (
   }
 }
 
-// ---- Header action icons ----
 $icon-header-menu-base: #64748b;
 $icon-header-menu-hover: #475569;
 $icon-header-language-base: #2563eb;
@@ -91,7 +213,6 @@ $icon-header-bell-hover: #c2410c;
   @include am-icon-header-interactive($icon-header-bell-base, $icon-header-bell-hover);
 }
 
-// ---- Notification list icons ----
 $icon-notification-error: #ef4444;
 $icon-notification-warning: #f59e0b;
 $icon-notification-success: #22c55e;
@@ -113,7 +234,6 @@ $icon-notification-info: #3b82f6;
   color: $icon-notification-info;
 }
 
-// ---- Workspace tab icons ----
 $icon-workspace-tab-active: #2563eb;
 $icon-workspace-tab-inactive: #64748b;
 
@@ -125,15 +245,13 @@ $icon-workspace-tab-inactive: #64748b;
   color: $icon-workspace-tab-inactive;
 }
 
-// ---- Sidebar top-level menu icons ----
 $sidebar-top-level-icon-palette: #2563eb, #d97706, #059669, #7c3aed, #0891b2, #db2777;
 
 @for $i from 1 through list.length($sidebar-top-level-icon-palette) {
   $color: list.nth($sidebar-top-level-icon-palette, $i);
 
-  // Must beat `.am-sidebar-tree-item .dx-icon { color: #64748b }` in devextreme-overrides.css
   .am-sidebar-tree-item .dx-icon.am-sidebar-top-icon-#{$i},
   .am-sidebar-tree-item-collapsed .dx-icon.am-sidebar-top-icon-#{$i} {
-    color: $color;
+    color: $color !important;
   }
 }

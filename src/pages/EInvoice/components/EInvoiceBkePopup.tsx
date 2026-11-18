@@ -367,7 +367,7 @@ export default function EInvoiceBkePopup({
             <div className="flex items-center justify-between">
                             <div className="text-sm font-medium">{t("BKE_REASONS", "Lý do thay thế/điều chỉnh")}</div>
               {!readOnly ? (
-                <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" elementAttr={{ class: "einvoice-add-btn" }} hint={t("ADD", "Thêm")} onClick={handleAddReason} />
+                <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" hint={t("ADD", "Thêm")} onClick={handleAddReason} />
               ) : null}
             </div>
             {reasonRows.map((reason: EInvoiceBkeReason, index) => (

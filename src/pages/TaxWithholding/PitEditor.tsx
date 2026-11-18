@@ -673,6 +673,12 @@ function PitEditorBody({
                     disabled={readOnly || busy}
                     onValueChanged={(event) => pickCatalog(String(event.value ?? ""))}
                   />
+                  {data.MTRACUU ? (
+                    <div className="einvoice-editor__field">
+                      <div className="einvoice-editor__field-label">{t("MTRACUU", "Mã tra cứu")}</div>
+                      <div className="font-semibold tracking-wide text-slate-800">{data.MTRACUU}</div>
+                    </div>
+                  ) : null}
                   {!activeCatalog.length && (
                     <span className="pit-error">
                       {t("PIT_NO_CATALOG", "Chưa có danh mục. Vào Quản lý mẫu số ký hiệu chứng từ TNCN để đăng ký.")}

@@ -2161,35 +2161,6 @@ export function createNextEInvoiceDetail(
   return createDefaultEInvoiceDetail(nextStt, invoiceId, companyCd)
 }
 
-export function shouldValidateEInvoiceDetailBeforeAppend(
-  row: EInvoiceDetail,
-  activeRowCount: number,
-): boolean {
-  if (activeRowCount > 1) {
-    return true
-  }
-
-  return (
-    trimText(row.MHHDVU).length > 0 ||
-    trimText(row.THHDVU).length > 0 ||
-    toNumber(row.DGIA, 0) !== 0 ||
-    toNumber(row.SLUONG, 0) !== 1
-  )
-}
-
-export type EInvoiceRequiredField = {
-  fieldKey: string
-  fieldFallback: string
-}
-
-export function getEInvoiceDetailAppendRequiredField(row: EInvoiceDetail): EInvoiceRequiredField | null {
-  if (trimText(row.THHDVU).length > 0) {
-    return null
-  }
-
-  return { fieldKey: "THHDVU", fieldFallback: "Item name" }
-}
-
 export function calculateDetailAmount(
   detail: EInvoiceDetail,
   rate: number,

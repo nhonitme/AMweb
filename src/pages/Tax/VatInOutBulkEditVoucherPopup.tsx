@@ -1,10 +1,10 @@
 import { useContext, useEffect, useRef, useState } from "react"
-import Button from "devextreme-react/button"
 import DataGrid, { Column, Editing, KeyboardNavigation, Paging, Scrolling, RequiredRule, CustomRule, Toolbar } from "devextreme-react/data-grid"
 import Popup from "devextreme-react/popup"
 import type dxDataGrid from "devextreme/ui/data_grid"
 import notify from "devextreme/ui/notify"
 import AccountGridLookupCellEditor from "@/components/lookup/AccountGridLookupCellEditor"
+import EditorActionToolbar from "@/components/toolbar/EditorActionToolbar"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { createReviewRows, updateReviewAmount, type VatVoucherReviewDraft, type VatVoucherReviewRow } from "./vatVoucherReviewModel"
 
@@ -99,10 +99,15 @@ export default function VatInOutBulkEditVoucherPopup({ drafts, cogsEnabled, onAp
             <Column dataField="FC_AMOUNT" caption={t("FC_AMOUNT", "Nguyên tệ")} allowEditing={false} dataType="number" format="#,##0.##" width={160} />
           </DataGrid>
       </div>)}
-      <div className="flex justify-end gap-3 border-t pt-3">
-        <Button text={t("OK", "Đồng ý")} type="default" disabled={busy} onClick={() => void apply()} />
-        <Button text={t("CANCEL", "Hủy")} disabled={busy} onClick={onClose} />
-      </div>
+      <EditorActionToolbar
+        mode="add"
+        className="chit-editor-footer -mx-1 border-0 px-1 py-1"
+        busy={busy}
+        actions={[
+          { key: "save", text: t("OK", "Đồng ý"), onClick: () => { void apply() } },
+          { key: "close", text: t("CANCEL", "Hủy"), onClick: onClose },
+        ]}
+      />
     </div>
   </Popup>
 }

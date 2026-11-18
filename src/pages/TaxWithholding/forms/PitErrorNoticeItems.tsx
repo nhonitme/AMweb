@@ -21,7 +21,7 @@ type Props = {
 export default function PitErrorNoticeItems({ data, setData, readOnly, busy, t, addExisting }: Props) {
     return (<EInvoiceEditorSection title={t("PIT_ERR_SECTION_TITLE", "Danh sách chứng từ đã lập sai")}>
               {!readOnly && (<div className="pit-actions">
-                  <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" elementAttr={{ class: "einvoice-add-btn" }} hint={t("PIT_ERR_ADD_EXISTING", "Thêm chứng từ")} disabled={busy} onClick={addExisting}/>
+                  <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" hint={t("PIT_ERR_ADD_EXISTING", "Thêm chứng từ")} disabled={busy} onClick={addExisting}/>
                 </div>)}
               <div className="pit-table-scroll">
                 <table>

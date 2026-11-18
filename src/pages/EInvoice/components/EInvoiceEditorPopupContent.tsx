@@ -14,7 +14,6 @@ import type {
   CellClickEvent,
   CellPreparedEvent,
   EditorPreparingEvent,
-  FocusedCellChangedEvent,
   ToolbarPreparingEvent,
 } from "devextreme/ui/data_grid"
 import { confirm } from "devextreme/ui/dialog"
@@ -32,6 +31,10 @@ import {
   resolveSpreadsheetKeyboardEvent,
   shouldKeepCurrentRowKeyOnDataSourceChange,
 } from "@/components/datagrid/voucherSpreadsheetGrid"
+import {
+  clearActiveRowContent,
+  insertActiveRowAbove,
+} from "@/components/datagrid/voucherDetailRowOrder"
 import { useVoucherSpreadsheetScrollPreserve } from "@/components/datagrid/useVoucherSpreadsheetScrollPreserve"
 import { createEInvoice, getNextEInvoiceBkeNo, updateEInvoice } from "@/api/einvoiceApi"
 import type { SysCode } from "@/api/sysCodeService"
@@ -80,6 +83,7 @@ import EInvoiceDetailGridSection from "./EInvoiceDetailGridSection"
 import EInvoiceHeaderSection from "./EInvoiceHeaderSection"
 import EInvoicePrintOptionsPopup from "./EInvoicePrintOptionsPopup"
 import EInvoiceTotalsSection from "./EInvoiceTotalsSection"
+import { useEInvoiceDetailCalcSync } from "./useEInvoiceDetailCalcSync"
 import { useEInvoiceDetailGrid } from "./useEInvoiceDetailGrid"
 import { useEInvoiceDetailExcelImport } from "./useEInvoiceDetailExcelImport"
 import { useEInvoiceEditorForm } from "./useEInvoiceEditorForm"
@@ -97,20 +101,19 @@ import {
   DEFAULT_TCHAT,
   DETAIL_GRID_FIRST_EDIT_FIELD,
   DETAIL_LIVE_INPUT_FIELDS,
-  DETAIL_LOOKUP_FIELDS,
   manualTotalFields,
   type DetailCalcDriverField,
   type DetailTaxDriverField,
 } from "./EInvoiceEditorConstants"
 import {
   applyManualTotalValues,
+  applyNormalizedDetailAmountFields,
   clearAutoCalculatedHeaderTotalOverrides,
   cloneEInvoiceDetailRow,
   commitDetailGridCell,
   createDetailTchatSetCellValue,
   createInvoiceFormData,
   hasActiveDetailCommercialDiscount,
-  isDevExtremeDropdownOverlayTarget,
   isSpecialTchat,
   normalizeEInvoiceDetailGridRows,
   normalizeFormValue,
@@ -123,6 +126,7 @@ import {
   applyHeaderTaxRateToInvoiceDetails,
   applySellerToEInvoice,
   createDefaultEInvoice,
+  createDefaultEInvoiceDetail,
   createDefaultEInvoiceRelated,
   createDefaultEInvoiceBke,
   createEInvoiceCopy,
@@ -135,7 +139,6 @@ import {
   formatEInvoiceDetailSpecialSummary,
   formatEInvoiceBkeDateToday,
   getActiveEInvoiceDetails,
-  getEInvoiceDetailAppendRequiredField,
   getEInvoiceTchdon,
   hasEInvoiceDetailSpecialData,
   hasActiveEInvoiceBkeDetails,
@@ -163,7 +166,6 @@ import {
   resolveEInvoiceFormTchdon,
   resolveHeaderTaxRateFromDetails,
   setEInvoiceNq204Extra,
-  shouldValidateEInvoiceDetailBeforeAppend,
   syncEInvoiceBkeWithRelated,
   validateEInvoiceForeignCurrencyRate,
 } from "../einvoiceModel"
@@ -599,7 +601,8 @@ export default function EInvoiceEditorPopupContent({
       SHORTCUT_ACTIONS.PRINT,
       SHORTCUT_ACTIONS.CLOSE,
       SHORTCUT_ACTIONS.ADD_ROW,
-      SHORTCUT_ACTIONS.DELETE_ROW,
+      SHORTCUT_ACTIONS.INSERT_ROW,
+      SHORTCUT_ACTIONS.CLEAR_ROW,
       SHORTCUT_ACTIONS.QUICK_ITEM_SEARCH,
       SHORTCUT_ACTIONS.HELP,
     ],
@@ -705,7 +708,18 @@ export default function EInvoiceEditorPopupContent({
       setUserEditorSettings(userDefaults)
 
       if (sellerOptions.length === 0) {
-        notify(t("SELLER_NOT_CONFIGURED", "E-invoice seller is not configured"), "warning", 4000)
+        notify(
+          cashRegister
+            ? t(
+                "MTT_SELLER_NOT_CONFIGURED",
+                "Chưa khai báo mẫu hóa đơn máy tính tiền. Vào Cấu hình hóa đơn điện tử để thêm mẫu loại máy tính tiền trước khi lập hóa đơn.",
+              )
+            : t("SELLER_NOT_CONFIGURED", "E-invoice seller is not configured"),
+          "warning",
+          5000,
+        )
+        // Avoid a blank full-screen editor: no matching seller means create cannot hydrate.
+        queueMicrotask(() => onClose())
         return
       }
 
@@ -789,7 +803,7 @@ export default function EInvoiceEditorPopupContent({
     }
 
     
-  }, [companyCd, copyFromInvoiceId, editorSessionId, initialInvoice, invoiceData, invoiceLoading, invoiceFetching, isUpdate, needsInvoiceFetch, sellerOptions, sellersLoading, t, userDefaults, userDefaultsLoading, visible])
+  }, [cashRegister, companyCd, copyFromInvoiceId, editorSessionId, initialInvoice, invoiceData, invoiceLoading, invoiceFetching, isUpdate, needsInvoiceFetch, onClose, sellerOptions, sellersLoading, t, userDefaults, userDefaultsLoading, visible])
   useEffect(() => {
     if (!visible || !buyerSource) return
     let cancelled = false
@@ -1008,71 +1022,29 @@ export default function EInvoiceEditorPopupContent({
     return visibleDetails[visibleDetails.length - 1]?.ROW_KEY ?? null
   }, [visibleDetails])
 
-  const commitDetailGridEdits = useCallback(async () => {
-    const grid = detailGridRef.current
-    if (!grid?.hasEditData()) {
-      return
-    }
-
-    await commitDetailGridCell(grid)
-  }, [])
-
-  const handleDetailSaved = useCallback(() => {
-    preserveScrollForSync(syncDetailRows)
-  }, [preserveScrollForSync, syncDetailRows])
-
-  const handleDetailFocusedCellChanged = useCallback(
-    (event: FocusedCellChangedEvent<EInvoiceDetailRow, GridKey>) => {
-      if (event.prevRowIndex < 0) {
-        return
-      }
-
-      const prevField = String(event.prevColumn?.dataField ?? event.prevColumn?.name ?? "")
-      const nextField = String(event.column?.dataField ?? event.column?.name ?? "")
-      const columnChanged = event.prevColumnIndex !== event.columnIndex
-      const rowChangedBetweenDataRows =
-        event.rowIndex !== event.prevRowIndex && event.rowIndex >= 0 && event.prevRowIndex >= 0
-      const enteringLookup = columnChanged && DETAIL_LOOKUP_FIELDS.has(nextField)
-      const leavingNumeric = columnChanged && DETAIL_LIVE_INPUT_FIELDS.has(prevField)
-
-      if (rowChangedBetweenDataRows) {
-        void commitDetailGridEdits()
-        return
-      }
-
-      if (leavingNumeric && !enteringLookup) {
-        void detailGridRef.current?.closeEditCell?.()
-      }
-    },
-    [commitDetailGridEdits],
-  )
+  const { handleDetailSaved, handleDetailFocusedCellChanged } = useEInvoiceDetailCalcSync({
+    visible,
+    isReadOnly,
+    isLookupPopupOpen: Boolean(lookupPopupHost?.isLookupPopupOpen),
+    detailGridRef,
+    detailGridContainerRef,
+    syncDetailRows,
+    preserveScrollForSync,
+  })
 
   const assignNormalizedDetailRow = useCallback(
     (newData: Partial<EInvoiceDetailRow>, draftRow: EInvoiceDetailRow, calcSettings?: EInvoiceCalcSettings) => {
       const currentForm = formDataRef.current
+      const settings = calcSettings ?? getUserCalcSettings()
       const normalized = normalizeEInvoiceDetailRow(
         draftRow,
         Number(currentForm.TGIA ?? 1),
         currentForm.DVTTE,
         decimalResolver,
-        calcSettings ?? getUserCalcSettings(),
+        settings,
       )
 
-      Object.assign(newData, {
-        SLUONG: normalized.SLUONG,
-        DGIA: normalized.DGIA,
-        TLCKHAU: normalized.TLCKHAU,
-        STCKHAU: normalized.STCKHAU,
-        TSUAT: normalized.TSUAT,
-        THTIEN: normalized.THTIEN,
-        TTHUE: normalized.TTHUE,
-        TSAUTHUE: normalized.TSAUTHUE,
-        DGIA_VND: normalized.DGIA_VND,
-        STCKHAU_VND: normalized.STCKHAU_VND,
-        THTIEN_VND: normalized.THTIEN_VND,
-        TTHUE_VND: normalized.TTHUE_VND,
-        TSAUTHUE_VND: normalized.TSAUTHUE_VND,
-      })
+      applyNormalizedDetailAmountFields(newData, normalized)
     },
     [decimalResolver, getUserCalcSettings],
   )
@@ -1082,7 +1054,6 @@ export default function EInvoiceEditorPopupContent({
       (newData, value, currentRowData) => {
         const settings = getUserCalcSettings()
         const preserveLineTax = settings.autoCalcTax === false
-        const currencyCode = formDataRef.current.DVTTE
         const syncPxkQuantities =
           fieldKey === "SLUONG" &&
           isEInvoiceWarehouseInternal(formDataRef.current.KHMSHDON, formDataRef.current.KHHDON) &&
@@ -1122,7 +1093,7 @@ export default function EInvoiceEditorPopupContent({
               }),
         } as EInvoiceDetailRow)
       },
-    [assignNormalizedDetailRow, decimalResolver, getUserCalcSettings],
+    [assignNormalizedDetailRow, getUserCalcSettings],
   )
 
   const createDetailThucNhapSetCellValue = useCallback((): DetailSetCellValue => {
@@ -1328,19 +1299,15 @@ export default function EInvoiceEditorPopupContent({
       return null
     }
 
-    await commitDetailGridCell(detailGridRef.current)
-    const currentForm = syncDetailRows()
+    const grid = detailGridRef.current
+    const hasEditData = Boolean(grid?.hasEditData?.())
 
-    const activeRows = getActiveEInvoiceDetails(currentForm.DETAILS)
-    const currentRowKey = getCurrentDetailRowKey()
-    const currentRow = activeRows.find((row) => row.ROW_KEY === currentRowKey) ?? activeRows[activeRows.length - 1]
-
-    if (currentRow && shouldValidateEInvoiceDetailBeforeAppend(currentRow, activeRows.length)) {
-      const requiredField = getEInvoiceDetailAppendRequiredField(currentRow)
-      if (requiredField) {
-        notify(fieldRequiredMessage(t, requiredField.fieldKey, requiredField.fieldFallback), "warning", 3000)
-        return null
-      }
+    // Chỉ commit+sync khi grid còn edit chưa lưu. Sync lúc dataSource React chưa kịp
+    // cập nhật sẽ merge theo grid cũ và làm mất dòng vừa thêm.
+    let currentForm = formDataRef.current
+    if (hasEditData) {
+      await commitDetailGridCell(grid)
+      currentForm = syncDetailRows()
     }
 
     const seller =
@@ -1395,7 +1362,7 @@ export default function EInvoiceEditorPopupContent({
       ) as EInvoiceDetailRow[],
     )
     return nextRow.ROW_KEY
-  }, [captureScrollPositions, companyCd, decimalResolver, emitDetailRowsChange, getCurrentDetailRowKey, getUserCalcSettings, isReadOnly, scheduleDataSourceChange, sellerOptions, syncDetailRows, t])
+  }, [captureScrollPositions, companyCd, decimalResolver, emitDetailRowsChange, getUserCalcSettings, isReadOnly, scheduleDataSourceChange, sellerOptions, syncDetailRows])
 
   const softDeleteDetailRowByKey = useCallback(
     async (targetKey: string | null) => {
@@ -1406,7 +1373,7 @@ export default function EInvoiceEditorPopupContent({
       await commitDetailGridCell(detailGridRef.current)
       const currentForm = syncDetailRows()
       let changed = false
-      const nextRows = currentForm.DETAILS.map((item) => {
+      const markedRows = currentForm.DETAILS.map((item) => {
         if (item.ROW_KEY !== targetKey || Number(item.ISDEL ?? 0) === 1) {
           return item as EInvoiceDetailRow
         }
@@ -1422,13 +1389,170 @@ export default function EInvoiceEditorPopupContent({
         return
       }
 
+      const nextRows = renumberEInvoiceDetails(
+        markedRows,
+        Number(currentForm.TGIA ?? 1),
+        currentForm.DVTTE,
+        decimalResolver,
+        getUserCalcSettings(),
+      ) as EInvoiceDetailRow[]
+
       if (currentDetailRowKeyRef.current === targetKey) {
         currentDetailRowKeyRef.current = getActiveEInvoiceDetails(nextRows).at(-1)?.ROW_KEY ?? null
       }
 
       emitDetailRowsChange(nextRows)
     },
-    [emitDetailRowsChange, isReadOnly, syncDetailRows],
+    [decimalResolver, emitDetailRowsChange, getUserCalcSettings, isReadOnly, syncDetailRows],
+  )
+
+  const handleInsertDetailRowAbove = useCallback(
+    async (targetKey?: string | null): Promise<string | null> => {
+      if (isReadOnly) {
+        return null
+      }
+
+      const grid = detailGridRef.current
+      const hasEditData = Boolean(grid?.hasEditData?.())
+      let currentForm = formDataRef.current
+      if (hasEditData) {
+        await commitDetailGridCell(grid)
+        currentForm = syncDetailRows()
+      }
+
+      const focusKey = targetKey ?? getCurrentDetailRowKey()
+      const seller =
+        findEInvoiceSellerByXslId(sellerOptions, currentForm.TEMPLATE_XSL_ID) ??
+        findEInvoiceSellerById(sellerOptions, currentForm.SELLER_ID) ??
+        findEInvoiceSeller(sellerOptions, currentForm.KHHDON, currentForm.KHMSHDON)
+      const defaultsForNextRow = isEInvoiceWithoutTaxRate(seller?.KHMSHDON)
+        ? {
+            ...userSettingDefaultsRef.current,
+            defaultVatRate: "",
+          }
+        : isEInvoiceSellerUseMultiTaxRate(seller)
+          ? userSettingDefaultsRef.current
+          : {
+              ...userSettingDefaultsRef.current,
+              defaultVatRate:
+                resolveHeaderTaxRateFromDetails(currentForm.DETAILS, userSettingDefaultsRef.current.defaultVatRate) ||
+                userSettingDefaultsRef.current.defaultVatRate,
+            }
+      const defaultLineType = userSettingDefaultsRef.current.defaultLineType || DEFAULT_TCHAT
+
+      const { nextRows: insertedRows, newRowKey } = insertActiveRowAbove(
+        currentForm.DETAILS as EInvoiceDetailRow[],
+        focusKey,
+        (nextStt) => {
+          const createdRow = applyDefaultVatRateToDetail(
+            {
+              ...createDefaultEInvoiceDetail(nextStt, currentForm.INVOICE_ID, companyCd),
+              TCHAT: defaultLineType,
+            },
+            defaultsForNextRow,
+            Number(currentForm.TGIA ?? 1),
+            currentForm.DVTTE,
+          )
+          const { detail, manualOverrides } = migrateHeaderCommercialDiscountToDetailLine(
+            currentForm,
+            createdRow,
+            Number(createdRow.TCHAT ?? DEFAULT_TCHAT),
+            manualTotalOverridesRef.current,
+            userSettingDefaultsRef.current.defaultVatRate,
+          )
+          manualTotalOverridesRef.current = manualOverrides
+          return detail as EInvoiceDetailRow
+        },
+      )
+
+      currentDetailRowKeyRef.current = newRowKey
+      const scrollSnapshot = captureScrollPositions()
+      scheduleDataSourceChange(scrollSnapshot, {
+        type: "focusCell",
+        rowKey: newRowKey,
+        dataField: DETAIL_GRID_FIRST_EDIT_FIELD,
+      })
+      emitDetailRowsChange(
+        renumberEInvoiceDetails(
+          insertedRows,
+          Number(currentForm.TGIA ?? 1),
+          currentForm.DVTTE,
+          decimalResolver,
+          getUserCalcSettings(),
+        ) as EInvoiceDetailRow[],
+      )
+      return newRowKey
+    },
+    [
+      captureScrollPositions,
+      companyCd,
+      decimalResolver,
+      emitDetailRowsChange,
+      getCurrentDetailRowKey,
+      getUserCalcSettings,
+      isReadOnly,
+      scheduleDataSourceChange,
+      sellerOptions,
+      syncDetailRows,
+    ],
+  )
+
+  const handleClearDetailRow = useCallback(
+    async (targetKey?: string | null) => {
+      if (isReadOnly) {
+        return
+      }
+
+      const focusKey = targetKey ?? getCurrentDetailRowKey()
+      if (!focusKey) {
+        return
+      }
+
+      await commitDetailGridCell(detailGridRef.current)
+      const currentForm = syncDetailRows()
+      let changed = false
+      const clearedRows = currentForm.DETAILS.map((item) => {
+        if (item.ROW_KEY !== focusKey || Number(item.ISDEL ?? 0) === 1) {
+          return item as EInvoiceDetailRow
+        }
+
+        changed = true
+        return clearActiveRowContent(
+          item as EInvoiceDetailRow,
+          () =>
+            createDefaultEInvoiceDetail(
+              Number(item.STT ?? 1),
+              currentForm.INVOICE_ID,
+              companyCd,
+            ) as EInvoiceDetailRow,
+          ["ROW_KEY", "DETAIL_ID", "INVOICE_ID", "COMPANY_CD", "STT", "ISDEL"],
+        )
+      })
+
+      if (!changed) {
+        return
+      }
+
+      currentDetailRowKeyRef.current = focusKey
+      emitDetailRowsChange(
+        renumberEInvoiceDetails(
+          clearedRows,
+          Number(currentForm.TGIA ?? 1),
+          currentForm.DVTTE,
+          decimalResolver,
+          getUserCalcSettings(),
+        ) as EInvoiceDetailRow[],
+      )
+    },
+    [
+      companyCd,
+      decimalResolver,
+      emitDetailRowsChange,
+      getCurrentDetailRowKey,
+      getUserCalcSettings,
+      isReadOnly,
+      syncDetailRows,
+    ],
   )
 
   const undeleteLastDetailRow = useCallback(async () => {
@@ -1503,35 +1627,6 @@ export default function EInvoiceEditorPopupContent({
 
     currentDetailRowKeyRef.current = visibleDetails[0]?.ROW_KEY ?? null
   }, [visible, visibleDetails])
-
-  useEffect(() => {
-    if (!visible || isReadOnly) {
-      return
-    }
-
-    const handlePointerDown = (event: PointerEvent) => {
-      if (lookupPopupHost?.isLookupPopupOpen) {
-        return
-      }
-
-      const target = event.target
-      if (isDevExtremeDropdownOverlayTarget(target)) {
-        return
-      }
-
-      const gridContainer = detailGridContainerRef.current
-      if (!gridContainer || !(target instanceof Node) || gridContainer.contains(target)) {
-        return
-      }
-
-      void commitDetailGridEdits()
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown, true)
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown, true)
-    }
-  }, [commitDetailGridEdits, isReadOnly, lookupPopupHost?.isLookupPopupOpen, visible])
 
   const handleNq204ReductionToggle = useCallback(
     (enabled: boolean) => {
@@ -2427,7 +2522,7 @@ export default function EInvoiceEditorPopupContent({
       }
 
       if (cashRegister !== undefined && isCashRegisterSeries(selectedSeller.KHHDON) !== cashRegister) {
-        notify("Mẫu hóa đơn không thuộc loại hóa đơn của màn hình này", "error", 3000)
+        notify(t("MTT_SELLER_TYPE_MISMATCH", "Mẫu hóa đơn này không dùng cho hóa đơn máy tính tiền"), "error", 3000)
         return false
       }
       const prepared = applyManualTotalValues(
@@ -2528,9 +2623,13 @@ export default function EInvoiceEditorPopupContent({
     handleClosePopup,
   })
 
-  const handleDeleteDetailRow = useCallback(() => {
-    void softDeleteDetailRowByKey(getCurrentDetailRowKey())
-  }, [getCurrentDetailRowKey, softDeleteDetailRowByKey])
+  const handleClearDetailRowShortcut = useCallback(() => {
+    void handleClearDetailRow()
+  }, [handleClearDetailRow])
+
+  const handleInsertDetailRowShortcut = useCallback(() => {
+    void handleInsertDetailRowAbove()
+  }, [handleInsertDetailRowAbove])
 
   const handleQuickItemSearch = useCallback(async () => {
     const grid = detailGridRef.current
@@ -2598,7 +2697,7 @@ export default function EInvoiceEditorPopupContent({
     }
 
     if (cashRegister && !isEInvoiceMttIssued(formData)) {
-      notify(t("MTT_SIGN_NOT_ISSUED", "Phát hành hóa đơn MTT trước khi ký gửi CQT"), "warning", 3000)
+      notify(t("MTT_SIGN_NOT_ISSUED", "Phát hành hóa đơn máy tính tiền trước khi ký gửi cơ quan thuế"), "warning", 3000)
       return
     }
 
@@ -2629,8 +2728,11 @@ export default function EInvoiceEditorPopupContent({
             }
             handleClosePopup()
           },
-          [SHORTCUT_ACTIONS.ADD_ROW]: () => handleAddDetailRow(),
-          [SHORTCUT_ACTIONS.DELETE_ROW]: () => handleDeleteDetailRow(),
+          [SHORTCUT_ACTIONS.ADD_ROW]: () => {
+            void handleAddDetailRow()
+          },
+          [SHORTCUT_ACTIONS.INSERT_ROW]: () => handleInsertDetailRowShortcut(),
+          [SHORTCUT_ACTIONS.CLEAR_ROW]: () => handleClearDetailRowShortcut(),
           [SHORTCUT_ACTIONS.QUICK_ITEM_SEARCH]: () => {
             void handleQuickItemSearch()
           },
@@ -2649,7 +2751,8 @@ export default function EInvoiceEditorPopupContent({
           [SHORTCUT_ACTIONS.PRINT]: { enabled: !isBusy, allowInInput: true },
           [SHORTCUT_ACTIONS.CLOSE]: { allowInInput: true },
           [SHORTCUT_ACTIONS.ADD_ROW]: { enabled: canSave },
-          [SHORTCUT_ACTIONS.DELETE_ROW]: { enabled: canSave },
+          [SHORTCUT_ACTIONS.INSERT_ROW]: { enabled: canSave },
+          [SHORTCUT_ACTIONS.CLEAR_ROW]: { enabled: canSave },
           [SHORTCUT_ACTIONS.QUICK_ITEM_SEARCH]: { enabled: true, allowInInput: true },
           [SHORTCUT_ACTIONS.HELP]: { allowInInput: true },
         },
@@ -2658,8 +2761,9 @@ export default function EInvoiceEditorPopupContent({
       canSave,
       closeShortcutHelp,
       handleAddDetailRow,
+      handleClearDetailRowShortcut,
       handleClosePopup,
-      handleDeleteDetailRow,
+      handleInsertDetailRowShortcut,
       handlePrint,
       handleQuickItemSearch,
       handleSave,
@@ -2788,7 +2892,7 @@ export default function EInvoiceEditorPopupContent({
       <div className="einvoice-editor">
         <header className="einvoice-editor__header">
           <div className="einvoice-editor__header-main">
-            <h1 className="einvoice-editor__title">{cashRegister ? `POS · ${popupTitle}` : popupTitle}</h1>
+            <h1 className="einvoice-editor__title">{popupTitle}</h1>
             <div className="einvoice-editor__subtitle">{popupSubtitle}</div>
           </div>
           <div className="einvoice-editor__header-actions">
@@ -2921,6 +3025,7 @@ export default function EInvoiceEditorPopupContent({
               pxkSyncThucXuatNhap,
               handlePxkSyncThucXuatNhapToggle,
               handleAddDetailRow,
+              handleInsertDetailRowAbove,
               userEditorSettings,
               openDetailImport,
               softDeletedCount,
@@ -2961,7 +3066,7 @@ export default function EInvoiceEditorPopupContent({
 
           </div>
           <div className={cashRegister ? "einvoice-pos-payment" : "einvoice-standard-section"}>
-          {cashRegister && <div className="einvoice-pos-total"><span>Tổng thanh toán</span><strong>{Number(formData.TGTTTBSO ?? 0).toLocaleString("vi-VN")} {formData.DVTTE}</strong></div>}
+          {cashRegister && <div className="einvoice-pos-total"><span>{t("TGTTTBSO", "Tổng thanh toán")}</span><strong>{Number(formData.TGTTTBSO ?? 0).toLocaleString("vi-VN")} {formData.DVTTE}</strong></div>}
 
           <EInvoiceTotalsSection
             vm={{
@@ -2997,7 +3102,9 @@ export default function EInvoiceEditorPopupContent({
               actions={[
                 {
                   key: "sign",
-                  text: t("SIGN_SEND_CQT", "Ký và gửi CQT"),
+                  text: cashRegister
+                    ? t("MTT_SIGN_SEND_CQT", "Ký và gửi cơ quan thuế")
+                    : t("SIGN_SEND_CQT", "Ký và gửi CQT"),
                   type: "danger",
                   stylingMode: "contained",
                   visible: canSignFromPopup,

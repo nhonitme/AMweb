@@ -3,6 +3,8 @@ export function isPublicEInvoiceLookupPath(pathname: string): boolean {
     || /^\/einvoice\/lookup(?:\/[^/]+)?\/?$/i.test(pathname)
     || /^\/tra-cuu-bien-ban-amnote(?:\/[^/]+)?\/?$/i.test(pathname)
     || /^\/einvoice\/minutes\/lookup(?:\/[^/]+)?\/?$/i.test(pathname)
+    || /^\/tra-cuu-chung-tu-tncn-amnote(?:\/[^/]+)?\/?$/i.test(pathname)
+    || /^\/pit\/certificate\/lookup(?:\/[^/]+)?\/?$/i.test(pathname)
 }
 
 export function isPublicAppPath(pathname = typeof window === "undefined" ? "" : window.location.pathname): boolean {

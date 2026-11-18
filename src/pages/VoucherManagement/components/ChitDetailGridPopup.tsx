@@ -10,30 +10,45 @@ import type {
     CellPreparedEvent,
     ColumnCellTemplateData,
     ContentReadyEvent,
-    FocusedCellChangedEvent,
+    ContextMenuPreparingEvent,
     InitializedEvent,
     ToolbarPreparingEvent,
 } from "devextreme/ui/data_grid"
 import { useNavigate } from "react-router-dom"
 
-import DeleteRowButton from "@/components/datagrid/DeleteRowButton"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { useGridColumnSettingState, type GridColumnSettingState } from "@/components/datagrid/useGridColumnSettingState"
 import { useInlineGridSearch } from "@/components/datagrid/gridSearch"
 import VoucherSpreadsheetSummaryBar from "@/components/datagrid/VoucherSpreadsheetSummaryBar"
 import {
+    AM_GRID_READONLY_COLUMN_CELL_CLASS,
     createSpreadsheetContinueRowKeyDownHandler,
+    focusNewRowWithoutTopJump,
     formatSpreadsheetSummaryNumber,
     prepareVoucherSpreadsheetToolbar,
+    readGridScrollTop,
     shouldKeepCurrentRowKeyOnDataSourceChange,
     VOUCHER_SPREADSHEET_GRID_CLASS,
     voucherSpreadsheetKeyboardNavigation,
 } from "@/components/datagrid/voucherSpreadsheetGrid"
 import {
+    buildVoucherDetailContextMenuItems,
+    clearActiveRowContent,
+    insertActiveRowAbove,
+    renumberActiveSort,
+} from "@/components/datagrid/voucherDetailRowOrder"
+import {
     useVoucherSpreadsheetGridLayout,
 } from "@/components/datagrid/useVoucherSpreadsheetGridLayout"
 import { useVoucherSpreadsheetAddRow } from "@/components/datagrid/useVoucherSpreadsheetAddRow"
+import { useVoucherSpreadsheetDetailSync } from "@/components/datagrid/useVoucherSpreadsheetDetailSync"
+import { readPendingGridUpdatesByKey } from "@/components/datagrid/voucherSpreadsheetDetailSync"
 import { isForeignCurrencyCode } from "@/lib/currency"
+import { useLookupPopupHost } from "@/components/lookup/LookupPopupHost"
+import {
+    CHIT_DETAIL_LIVE_INPUT_FIELDS,
+    CHIT_DETAIL_LOOKUP_FIELDS,
+} from "./chitEditorConstants"
 import { getInventoryInputs, getInventoryOutputs } from "@/api/inventoryLinkApi"
 import { getInventoryIssueLinksByCogsVoucherId } from "@/api/inventoryVoucherApi"
 import {
@@ -62,7 +77,10 @@ import {
 export interface ChitDetailGridHandle {
     savePendingChanges: () => Promise<ChitDetail[]>
     addRow: () => void
+    insertRowAbove: (targetKey?: string | null) => void
+    clearCurrentRow: () => void
     deleteCurrentRow: () => void
+    softDeleteRowByKey: (targetKey: string | null) => void
     focusSearch: () => void
     focusDetailRow: (rowKey: string, focusField?: ChitDetailAccountField) => Promise<void>
     setRowValidationWarnings: (warnings: ChitDetailRowValidationWarnings) => void
@@ -70,6 +88,18 @@ export interface ChitDetailGridHandle {
     getCurrentRowKey: () => string | null
     getGridInstance: () => dxDataGrid<ChitDetail, string> | null
 }
+
+const CHIT_DETAIL_CLEAR_PRESERVE_KEYS = [
+    "ROW_KEY",
+    "CHITDETAIL_ID",
+    "COMPANY_CD",
+    "CHIT_ID",
+    "CHITDETAIL_CD",
+    "CHIT_YMD",
+    "CHIT_VMD",
+    "SORT",
+    "ISDEL",
+] as const satisfies readonly (keyof ChitDetail)[]
 
 interface ChitDetailGridProps {
     companyCd: string
@@ -238,6 +268,7 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
         ref,
     ) {
         const navigate = useNavigate()
+        const lookupPopupHost = useLookupPopupHost()
         const gridRef = useRef<dxDataGrid<ChitDetail, string> | null>(null)
         const searchContainerRef = useRef<HTMLDivElement | null>(null)
         const currentRowKeyRef = useRef<string | null>(null)
@@ -277,7 +308,8 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
         )
         const visibleDetails = useMemo(() => getActiveChitDetails(details), [details])
         const showInventoryLinkActions = showInventoryLinkActionsProp ?? isInventoryLinkedAccountingVoucherType(chitType)
-        const detailActionsColumnWidth = renderDetailLink && showInventoryLinkActions ? 250 : renderDetailLink || showInventoryLinkActions ? 190 : 60
+        const showDetailActionsColumn = Boolean(renderDetailLink || showInventoryLinkActions)
+        const detailActionsColumnWidth = renderDetailLink && showInventoryLinkActions ? 210 : 150
         const usePercentHeight = height === "100%"
         const activeDetailIdsKey = useMemo(
             () =>
@@ -454,11 +486,16 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
 
         const buildMergedRows = useCallback(() => {
             const source = gridRef.current?.option("dataSource")
+            const pendingByKey = readPendingGridUpdatesByKey(gridRef.current)
             const activeRows = Array.isArray(source)
                 ? normalizeChitDetailGridRows(source as ChitDetail[])
                 : visibleDetails.map((item) => cloneChitDetail(item))
             const activeRowMap = new Map(
-                activeRows.map((item) => [item.ROW_KEY, { ...item, ISDEL: false }] as const),
+                activeRows.map((item) => {
+                    const patch = pendingByKey.get(String(item.ROW_KEY))
+                    const merged = patch ? { ...item, ...patch } : item
+                    return [item.ROW_KEY, { ...merged, ISDEL: false }] as const
+                }),
             )
             const mergedRows: ChitDetail[] = []
 
@@ -549,7 +586,7 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
 
         const softDeleteRowByKey = useCallback(
             async (targetKey: string | null) => {
-                if (!targetKey) {
+                if (!targetKey || readOnly) {
                     return
                 }
 
@@ -562,17 +599,20 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
 
                     const currentRows = buildMergedRows()
                     let changed = false
-                    const nextRows = currentRows.map((item) => {
-                        if (item.ROW_KEY !== targetKey || item.ISDEL) {
-                            return item
-                        }
+                    const nextRows = renumberActiveSort(
+                        currentRows.map((item) => {
+                            if (item.ROW_KEY !== targetKey || item.ISDEL) {
+                                return item
+                            }
 
-                        changed = true
-                        return cloneChitDetail({
-                            ...item,
-                            ISDEL: true,
-                        })
-                    })
+                            changed = true
+                            return cloneChitDetail({
+                                ...item,
+                                ISDEL: true,
+                            })
+                        }),
+                        "SORT",
+                    )
 
                     if (!changed) {
                         return
@@ -587,7 +627,118 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                     deleteFlowRef.current = false
                 }
             },
-            [buildMergedRows, emitRowsChange],
+            [buildMergedRows, emitRowsChange, readOnly],
+        )
+
+        const insertRowAbove = useCallback(
+            async (targetKey?: string | null) => {
+                if (readOnly) {
+                    return
+                }
+
+                const grid = gridRef.current
+                const focusKey = targetKey ?? getCurrentRowKey()
+                const scrollTop = readGridScrollTop(grid)
+
+                if (grid?.hasEditData()) {
+                    await grid.saveEditData()
+                }
+
+                const currentRows = buildMergedRows()
+                const { nextRows, newRowKey } = insertActiveRowAbove(
+                    currentRows,
+                    focusKey,
+                    (nextSort) => createDefaultChitDetail(nextSort, companyCd),
+                )
+                const renumbered = renumberActiveSort(nextRows, "SORT")
+                currentRowKeyRef.current = newRowKey
+                emitRowsChange(renumbered)
+
+                requestAnimationFrame(() => {
+                    const nextGrid = gridRef.current
+                    focusNewRowWithoutTopJump(nextGrid, scrollTop)
+                    void Promise.resolve(nextGrid?.navigateToRow?.(newRowKey)).then(() => {
+                        if (!nextGrid) {
+                            return
+                        }
+                        const rowIndex = nextGrid.getRowIndexByKey(newRowKey)
+                        if (rowIndex >= 0) {
+                            nextGrid.editCell(rowIndex, "DEBIT")
+                        }
+                    })
+                })
+            },
+            [buildMergedRows, companyCd, emitRowsChange, getCurrentRowKey, readOnly],
+        )
+
+        const clearCurrentRow = useCallback(
+            async (targetKey?: string | null) => {
+                if (readOnly) {
+                    return
+                }
+
+                const focusKey = targetKey ?? getCurrentRowKey()
+                if (!focusKey) {
+                    return
+                }
+
+                if (gridRef.current?.hasEditData()) {
+                    await gridRef.current.saveEditData()
+                }
+
+                const currentRows = buildMergedRows()
+                let changed = false
+                const nextRows = currentRows.map((item) => {
+                    if (item.ROW_KEY !== focusKey || item.ISDEL) {
+                        return item
+                    }
+
+                    changed = true
+                    return clearActiveRowContent(
+                        item,
+                        () => createDefaultChitDetail(item.SORT ?? 1, companyCd),
+                        CHIT_DETAIL_CLEAR_PRESERVE_KEYS,
+                    )
+                })
+
+                if (!changed) {
+                    return
+                }
+
+                currentRowKeyRef.current = focusKey
+                emitRowsChange(nextRows)
+            },
+            [buildMergedRows, companyCd, emitRowsChange, getCurrentRowKey, readOnly],
+        )
+
+        const handleContextMenuPreparing = useCallback(
+            (event: ContextMenuPreparingEvent<ChitDetail, string>) => {
+                if (readOnly || event.row?.rowType !== "data" || !event.row.data) {
+                    return
+                }
+
+                const rowKey = resolveChitDetailRowKey(event.row.key, event.row.data)
+                if (!rowKey) {
+                    return
+                }
+
+                event.items = buildVoucherDetailContextMenuItems({
+                    canEdit: !readOnly,
+                    insertText: t("INSERT_ROW", "Chèn dòng"),
+                    addAtEndText: t("ADD_ROW", "Thêm dòng"),
+                    deleteText: t("DELETE_ROW", "Xóa dòng"),
+                    onInsert: () => {
+                        void insertRowAbove(rowKey)
+                    },
+                    onAddAtEnd: () => {
+                        void handleAddRow()
+                    },
+                    onDelete: () => {
+                        void softDeleteRowByKey(rowKey)
+                    },
+                })
+            },
+            [handleAddRow, insertRowAbove, readOnly, softDeleteRowByKey, t],
         )
 
         const undeleteLastRow = useCallback(
@@ -646,16 +797,24 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
             })
         }, [])
 
-        const handleFocusedCellChanged = useCallback((event: FocusedCellChangedEvent<ChitDetail, string>) => {
-            if (event.prevRowIndex < 0) {
-                return
-            }
-
-            const previousRow = event.component.getVisibleRows().find((row) => row.rowIndex === event.prevRowIndex)
+        const handleLeaveFocusCell = useCallback((prev: { rowIndex: number }) => {
+            const previousRow = gridRef.current?.getVisibleRows().find((row) => row.rowIndex === prev.rowIndex)
             if (previousRow?.rowType === "data" && previousRow.data) {
                 applySoftValidationForRow(previousRow.data)
             }
         }, [applySoftValidationForRow])
+
+        const { handleFocusedCellChanged } = useVoucherSpreadsheetDetailSync({
+            visible: isVisible,
+            isReadOnly: readOnly,
+            isLookupPopupOpen: Boolean(lookupPopupHost?.isLookupPopupOpen),
+            gridRef,
+            gridContainerRef: containerRef,
+            syncRows,
+            liveInputFields: CHIT_DETAIL_LIVE_INPUT_FIELDS,
+            lookupFields: CHIT_DETAIL_LOOKUP_FIELDS,
+            onLeaveFocusCell: handleLeaveFocusCell,
+        })
 
         const handleCellPrepared = useCallback((event: CellPreparedEvent<ChitDetail, string>) => {
             if (event.rowType !== "data" || !event.cellElement || !event.column?.dataField) {
@@ -717,8 +876,17 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                 addRow: () => {
                     void handleAddRow()
                 },
+                insertRowAbove: (targetKey) => {
+                    void insertRowAbove(targetKey)
+                },
+                clearCurrentRow: () => {
+                    void clearCurrentRow()
+                },
                 deleteCurrentRow: () => {
                     void softDeleteRowByKey(getCurrentRowKey())
+                },
+                softDeleteRowByKey: (targetKey) => {
+                    void softDeleteRowByKey(targetKey)
                 },
                 focusSearch: () => {
                     if (!searchVisible) {
@@ -739,7 +907,7 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                 getCurrentRowKey,
                 getGridInstance: () => gridRef.current,
             }),
-            [focusDetailRow, focusSearchInput, getCurrentRowKey, handleAddRow, searchVisible, showSearch, softDeleteRowByKey, syncRows],
+            [clearCurrentRow, focusDetailRow, focusSearchInput, getCurrentRowKey, handleAddRow, insertRowAbove, searchVisible, showSearch, softDeleteRowByKey, syncRows],
         )
 
         const handleInitialized = useCallback((event: InitializedEvent<ChitDetail, string>) => {
@@ -844,25 +1012,30 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
         return (
             <div className="flex min-h-0 w-full flex-col overflow-hidden bg-white" style={rootStyle}>
                 <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-2">
-                    <Button
-                        stylingMode="outlined"
-                        icon="plus"
-                        text={t("ADD_ROW", "Thêm dòng")}
-                        hint={t("ADD_ROW", "Thêm dòng")}
-                        elementAttr={{ class: "chit-detail-add-row-btn" }}
-                        onClick={() => {
-                            void handleAddRow()
-                        }}
-                    />
-                    <Button
-                        stylingMode="outlined"
-                        text={t("Undelete", "Hoàn tác")}
-                        hint={t("RESTORE_LAST_DELETED_ROW", "Restore the last deleted row")}
-                        disabled={softDeletedCount === 0}
-                        onClick={() => {
-                            void undeleteLastRow()
-                        }}
-                    />
+                    {!readOnly ? (
+                        <>
+                            <Button
+                                stylingMode="outlined"
+                                icon="plus"
+                                text={t("ADD_ROW", "Thêm dòng")}
+                                hint={t("ADD_ROW", "Thêm dòng")}
+                                onClick={() => {
+                                    void handleAddRow()
+                                }}
+                            />
+                            {softDeletedCount > 0 ? (
+                                <Button
+                                    stylingMode="outlined"
+                                    icon="revert"
+                                    text={t("Undelete", "Hoàn tác")}
+                                    hint={t("RESTORE_LAST_DELETED_ROW", "Restore the last deleted row")}
+                                    onClick={() => {
+                                        void undeleteLastRow()
+                                    }}
+                                />
+                            ) : null}
+                        </>
+                    ) : null}
                     {linkSlot ? (
                         <>
                             <div role="separator" aria-orientation="vertical" className="mx-1 h-6 border-l border-slate-300" />
@@ -921,6 +1094,7 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                         onFocusedCellChanged={handleFocusedCellChanged}
                         onSaved={handleSaved}
                         onKeyDown={handleKeyDown}
+                        onContextMenuPreparing={handleContextMenuPreparing}
                         onInitNewRow={(event) => {
                             const nextRow = createDefaultChitDetail(visibleDetails.length + 1, companyCd)
                             Object.assign(event.data, nextRow)
@@ -946,63 +1120,75 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                             newRowPosition="last"
                         />
                         <Column
-                            name="DETAIL_ACTIONS"
-                            width={detailActionsColumnWidth}
+                            name="STT"
+                            caption={t("STT", "No")}
+                            width={70}
+                            dataType="number"
                             fixed={true}
                             fixedPosition="left"
-                            visibleIndex={0}
-                            allowFixing={false}
                             allowEditing={false}
+                            allowHiding={false}
+                            allowSorting={false}
+                            allowFiltering={false}
                             allowReordering={false}
                             showInColumnChooser={false}
-                            cellRender={(cellInfo: ColumnCellTemplateData<ChitDetail, string>) => {
-                                const rowKey = resolveChitDetailRowKey(cellInfo.row?.key, cellInfo.data)
-                                const detailId = Number(cellInfo.data?.CHITDETAIL_ID ?? 0)
-                                const pendingDeleteIdSet = new Set(pendingInventoryDeleteChitIds)
-                                const linkedTargets = (
-                                    showInventoryLinkActions && detailId > 0
-                                        ? linkedInventoryByDetailIdRef.current[detailId] ?? []
-                                        : []
-                                ).filter((item) => !pendingDeleteIdSet.has(item.chitId))
-                                const inventoryPending =
-                                    pendingInventoryRowKeys.includes(rowKey ?? "")
-                                    || pendingInventoryDeleteRowKeys.includes(rowKey ?? "")
-                                void linkedInventoryVersion
-
-                                return (
-                                    <div className="flex h-full w-full items-center justify-center gap-0.5">
-                                        <div className="shrink-0 [&_>div]:!w-auto">
-                                            <DeleteRowButton
-                                                hint={t("DELETE", "Delete")}
-                                                onDelete={() => {
-                                                    if (rowKey) {
-                                                        void softDeleteRowByKey(rowKey)
-                                                    }
-                                                }}
-                                            />
-                                        </div>
-                                        {cellInfo.data && renderDetailLink ? renderDetailLink(cellInfo.data) : null}
-                                        {showInventoryLinkActions ? (
-                                            <OpenLinkedInventoryButton
-                                                targets={linkedTargets}
-                                                label={t("INVENTORY_ROW_BUTTON", "Hàng tồn kho")}
-                                                pending={inventoryPending}
-                                                disabled={inventoryBusy || (detailId > 0 && (linkLoading || (!linkLoadFailed && linkedInventoryLoadKeyRef.current !== `${chitType}:${headerChitId}:${activeDetailIdsKey}:${inventoryRefreshVersion}:${linkRetryVersion}`))) || (readOnly && linkedTargets.length === 0 && !linkLoadFailed && !inventoryPending)}
-                                                hint={linkLoadFailed ? t("RETRY_INVENTORY_LINK", "Không tải được liên kết kho. Bấm để thử lại") : inventoryPending ? t("INVENTORY_PENDING_SOURCE_SAVE", "Bản nháp phiếu kho — lưu phiếu nguồn để hoàn tất liên kết") : linkedTargets.length > 0 ? t("OPEN_INVENTORY_VOUCHER", "Mở phiếu hàng tồn kho đã liên kết") : t("ENTER_INVENTORY_VOUCHER", "Nhập phiếu hàng tồn kho")}
-                                                onOpen={(target) => {
-                                                    if (detailId > 0 && linkLoadFailed) {
-                                                        setLinkRetryVersion((version) => version + 1)
-                                                        return
-                                                    }
-                                                    if (cellInfo.data && onOpenInventory) void onOpenInventory(cellInfo.data, target)
-                                                    else if (target) handleOpenLinkedInventory(target)
-                                                }}
-                                            />
-                                        ) : null}
-                                    </div>
-                                )
+                            visibleIndex={0}
+                            cssClass={AM_GRID_READONLY_COLUMN_CELL_CLASS}
+                            calculateCellValue={(row: ChitDetail) => {
+                                const index = visibleDetails.findIndex((item) => item.ROW_KEY === row.ROW_KEY)
+                                return index >= 0 ? index + 1 : null
                             }}
                         />
+                        {showDetailActionsColumn ? (
+                            <Column
+                                name="DETAIL_ACTIONS"
+                                width={detailActionsColumnWidth}
+                                fixed={true}
+                                fixedPosition="left"
+                                visibleIndex={1}
+                                allowFixing={false}
+                                allowEditing={false}
+                                allowReordering={false}
+                                showInColumnChooser={false}
+                                cellRender={(cellInfo: ColumnCellTemplateData<ChitDetail, string>) => {
+                                    const rowKey = resolveChitDetailRowKey(cellInfo.row?.key, cellInfo.data)
+                                    const detailId = Number(cellInfo.data?.CHITDETAIL_ID ?? 0)
+                                    const pendingDeleteIdSet = new Set(pendingInventoryDeleteChitIds)
+                                    const linkedTargets = (
+                                        showInventoryLinkActions && detailId > 0
+                                            ? linkedInventoryByDetailIdRef.current[detailId] ?? []
+                                            : []
+                                    ).filter((item) => !pendingDeleteIdSet.has(item.chitId))
+                                    const inventoryPending =
+                                        pendingInventoryRowKeys.includes(rowKey ?? "")
+                                        || pendingInventoryDeleteRowKeys.includes(rowKey ?? "")
+                                    void linkedInventoryVersion
+
+                                    return (
+                                        <div className="flex h-full w-full items-center justify-center gap-0.5">
+                                            {cellInfo.data && renderDetailLink ? renderDetailLink(cellInfo.data) : null}
+                                            {showInventoryLinkActions ? (
+                                                <OpenLinkedInventoryButton
+                                                    targets={linkedTargets}
+                                                    label={t("INVENTORY_ROW_BUTTON", "Hàng tồn kho")}
+                                                    pending={inventoryPending}
+                                                    disabled={inventoryBusy || (detailId > 0 && (linkLoading || (!linkLoadFailed && linkedInventoryLoadKeyRef.current !== `${chitType}:${headerChitId}:${activeDetailIdsKey}:${inventoryRefreshVersion}:${linkRetryVersion}`))) || (readOnly && linkedTargets.length === 0 && !linkLoadFailed && !inventoryPending)}
+                                                    hint={linkLoadFailed ? t("RETRY_INVENTORY_LINK", "Không tải được liên kết kho. Bấm để thử lại") : inventoryPending ? t("INVENTORY_PENDING_SOURCE_SAVE", "Bản nháp phiếu kho — lưu phiếu nguồn để hoàn tất liên kết") : linkedTargets.length > 0 ? t("OPEN_INVENTORY_VOUCHER", "Mở phiếu hàng tồn kho đã liên kết") : t("ENTER_INVENTORY_VOUCHER", "Nhập phiếu hàng tồn kho")}
+                                                    onOpen={(target) => {
+                                                        if (detailId > 0 && linkLoadFailed) {
+                                                            setLinkRetryVersion((version) => version + 1)
+                                                            return
+                                                        }
+                                                        if (cellInfo.data && onOpenInventory) void onOpenInventory(cellInfo.data, target)
+                                                        else if (target) handleOpenLinkedInventory(target)
+                                                    }}
+                                                />
+                                            ) : null}
+                                        </div>
+                                    )
+                                }}
+                            />
+                        ) : null}
                         {renderedDetailColumns}
                     </DataGrid>
                 </div>

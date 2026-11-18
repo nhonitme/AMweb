@@ -1101,7 +1101,7 @@ export default function Header({
                           <div className={`mt-1 text-xs ${mutedTextClass}`}>
                             {t(
                               "uiGuidelinesCompanyAccess",
-                              "Design system & component kit · company 0001 / DEV",
+                              "Design system & component kit · DEV only",
                             )}
                           </div>
                         </div>

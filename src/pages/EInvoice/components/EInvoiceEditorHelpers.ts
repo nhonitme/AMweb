@@ -1,6 +1,11 @@
 import React, { type ReactElement } from "react"
 import type dxDataGrid from "devextreme/ui/data_grid"
 
+import {
+  commitVoucherSpreadsheetGridCell,
+  isVoucherSpreadsheetDropdownOverlayTarget,
+  readPendingGridUpdatesByKey,
+} from "@/components/datagrid/voucherSpreadsheetDetailSync"
 import { loadCachedCustomerLookup } from "@/components/lookup/customerLookupStore"
 import { LookupGridCellEditor } from "@/components/lookup/LookupGridCellDisplay"
 import { currencyLookupStore, type CurrencyLookupItem } from "@/components/lookup/currencyLookupStore"
@@ -58,12 +63,42 @@ export function readGridDetailRows(
     return null
   }
 
+  const updateByKey = readPendingGridUpdatesByKey(grid)
   const rows = grid
     .getVisibleRows()
     .filter((row) => row.rowType === "data" && row.data)
-    .map((row) => cloneEInvoiceDetailRow(row.data as EInvoiceDetailRow))
+    .map((row) => {
+      const base = cloneEInvoiceDetailRow(row.data as EInvoiceDetailRow)
+      const patch = updateByKey.get(String(row.key))
+      return patch ? { ...base, ...patch } : base
+    })
 
   return rows.length > 0 ? rows : null
+}
+
+const NORMALIZED_DETAIL_AMOUNT_FIELDS = [
+  "SLUONG",
+  "DGIA",
+  "TLCKHAU",
+  "STCKHAU",
+  "TSUAT",
+  "THTIEN",
+  "TTHUE",
+  "TSAUTHUE",
+  "DGIA_VND",
+  "STCKHAU_VND",
+  "THTIEN_VND",
+  "TTHUE_VND",
+  "TSAUTHUE_VND",
+] as const satisfies ReadonlyArray<keyof EInvoiceDetailRow>
+
+export function applyNormalizedDetailAmountFields(
+  target: Partial<EInvoiceDetailRow>,
+  normalized: EInvoiceDetailRow,
+): void {
+  for (const field of NORMALIZED_DETAIL_AMOUNT_FIELDS) {
+    target[field] = normalized[field] as never
+  }
 }
 
 export function hasActiveDetailCommercialDiscount(
@@ -91,29 +126,11 @@ export function createDetailTchatSetCellValue(
 export async function commitDetailGridCell(
   grid: dxDataGrid<EInvoiceDetailRow, GridKey> | null | undefined,
 ): Promise<void> {
-  if (!grid) {
-    return
-  }
-
-  try {
-    await grid.closeEditCell()
-  } catch {
-  }
-
-  try {
-    if (grid.hasEditData()) {
-      await grid.saveEditData()
-    }
-  } catch {
-  }
+  await commitVoucherSpreadsheetGridCell(grid)
 }
 
 export function isDevExtremeDropdownOverlayTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof Element)) {
-    return false
-  }
-
-  return Boolean(target.closest(".dx-dropdowneditor-overlay"))
+  return isVoucherSpreadsheetDropdownOverlayTarget(target)
 }
 
 export function createInvoiceFormData(

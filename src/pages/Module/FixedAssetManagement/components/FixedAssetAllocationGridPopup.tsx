@@ -1084,15 +1084,17 @@ export const FixedAssetAllocationGridPopup = forwardRef<
             void handleAddRowWithSync()
           }}
         />
-        <Button
-          stylingMode="outlined"
-          text={t('Undelete', 'Hoàn tác')}
-          hint={t('RESTORE_LAST_DELETED_ROW', 'Khôi phục dòng vừa xóa')}
-          disabled={softDeletedCount === 0}
-          onClick={() => {
-            void undeleteLastRow()
-          }}
-        />
+        {softDeletedCount > 0 ? (
+          <Button
+            stylingMode="outlined"
+            icon="revert"
+            text={t('Undelete', 'Hoàn tác')}
+            hint={t('RESTORE_LAST_DELETED_ROW', 'Khôi phục dòng vừa xóa')}
+            onClick={() => {
+              void undeleteLastRow()
+            }}
+          />
+        ) : null}
         <Button
           stylingMode="outlined"
           text={t('REALLOCATE', 'Phân bổ lại')}

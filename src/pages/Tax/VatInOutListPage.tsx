@@ -40,8 +40,6 @@ import VatInOutQuickBatchCreatePopup from "./VatInOutQuickBatchCreatePopup"
 
 type InvoiceType = "BUY" | "SELL"
 
-// Keep popup state mounted, but apply changing page props only when visible
-// or on a visibility transition (including the close cleanup).
 function skipHiddenPopupUpdate(previous: { visible: boolean }, next: { visible: boolean }): boolean {
   return !previous.visible && !next.visible
 }
@@ -469,11 +467,13 @@ export default function VatInOutListPage() {
               key: "create-vouchers",
               icon: "plus",
               text: t("VAT_PROCESS_VOUCHERS", "Xử lý chứng từ"),
-              stylingMode: "outlined",
+              type: "default",
+              stylingMode: "contained",
+              variant: "primary",
               disabled: selectedInvoices.length === 0 || loading,
               onClick: () => {
                 setCreateModePopupVisible(true)
-                          },
+              },
             },
           ]}
         />

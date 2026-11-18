@@ -104,14 +104,6 @@ function tryTranslateLabel(
   return normalized || null
 }
 
-/**
- * A data column's name is owned by sys_grid_column.LABEL_TEXT.
- * The LABEL_TEXT value is normally a translation key in t_message_info;
- * literal captions are accepted as a fallback.
- *
- * A saved user/template LABEL_TEXT is only used if the catalog has no label.
- * This is shared by all grids: no screen- or language-specific caption maps.
- */
 export function resolveSysGridColumnDisplayCaption(
   settingLabelText: string | null | undefined,
   columnLabelText: string | null | undefined,
@@ -123,8 +115,12 @@ export function resolveSysGridColumnDisplayCaption(
   const columnLabel = normalizeCaptionText(columnLabelText)
   const field = normalizeCaptionText(fieldName)
   const cap = normalizeCaptionText(caption)
-  const translateOrLiteral = (label: string): string =>
-    tryTranslateLabel(label, translate) || label
+  const translateOrLiteral = (label: string): string | null => {
+    const translated = tryTranslateLabel(label, translate)
+    if (translated) return translated
+    if (/^[A-Z][A-Z0-9_.]*$/.test(label)) return null
+    return label
+  }
 
   return (
     (columnLabel && translateOrLiteral(columnLabel)) ||
@@ -266,7 +262,6 @@ export function persistScopeToLocalStorage(queryClient: QueryClient, scope: Grid
   const bundle = queryClient.getQueryData<SysGridColumnBundle>(
     queryKeys.gridColumnSettings.allForScope(scope.companyCd, scope.userId),
   )
-  // Never overwrite a good localStorage snapshot with undefined/empty after RQ gcTime eviction.
   if (!isBundle(bundle)) {
     return
   }
@@ -298,7 +293,6 @@ export function getCachedBundle(queryClient: QueryClient, scope: GridSettingScop
     return bundle
   }
 
-  // RQ may have GC'd the fetchQuery result (no observer). Rehydrate from localStorage.
   const cachedState = readGridColumnSettingsCache(scope)
   if (cachedState && hasBundleContent(cachedState.bundle)) {
     applyAllSettingsToQueryCache(queryClient, scope, cachedState.bundle)

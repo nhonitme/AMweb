@@ -29,7 +29,6 @@
     }
   }
 
-  /* Kept as an alias so existing variant="flat" call sites keep working. */
   &__row--flat {
     padding: 4px 2px;
     border: none;
@@ -111,8 +110,6 @@
       width: 200px;
       min-width: 200px;
       max-width: 200px;
-      /* Match the now-taller 'Them moi'/'Tim kiem' buttons next to it in the
-         quick-search group, so the row does not look misaligned. */
       min-height: 34px !important;
 
       .dx-texteditor-input,
@@ -298,8 +295,6 @@
     }
   }
 
-  // Currency is a TagBox while status / invoice kind use SelectBox.
-  // Align its outlined field and floating label with those 30px controls.
   .report-toolbar__currency-filter.dx-tagbox {
     height: 27px;
     min-height: 27px;
@@ -399,9 +394,6 @@
     }
   }
 
-  /* Unify 'Tim kiem' and 'Them moi' to the same height -- action-btn
-     (the small icon-only pill cluster: refresh/columns/trash/pdf/excel)
-     deliberately stays at the original compact 26px. */
   &__search-btn,
   &__add-btn {
     height: 34px !important;
@@ -440,7 +432,7 @@
     }
   }
 
-  &__add-btn--primary {
+  &__add-btn--primary.dx-button-mode-contained.dx-button-default {
     background: linear-gradient(135deg, #ef4444, #b91c1c) !important;
     border-color: #b91c1c !important;
     border-radius: 999px !important;
@@ -457,32 +449,17 @@
       font-weight: 600;
     }
 
-    &:hover {
+    &:hover,
+    &.dx-state-hover {
       background: linear-gradient(135deg, #dc2626, #991b1b) !important;
       border-color: #991b1b !important;
     }
   }
 
   &__add-btn--link {
-    background-color: #eff6ff !important;
-    border: 1px solid #dbeafe !important;
-
-    .dx-icon,
-    .dx-button-icon,
-    .dx-button-text {
-      color: #1d4ed8 !important;
-    }
-
-    &:hover {
-      background-color: #dbeafe !important;
-      border-color: #bfdbfe !important;
-    }
+    border-width: 1px !important;
   }
 
-  /* "Tìm kiếm" — unify with the DataGrid header's blue instead of the raw
-     DevExtreme theme accent (which renders noticeably darker/more saturated).
-     Same gradient treatment as the red "Thêm mới" button, just in blue, so
-     the two primary toolbar buttons read as one visual family. */
   &__search-btn:not(.page-toolbar__search-btn--inline).dx-button-mode-contained.dx-button-default {
     background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
     border-color: #1d4ed8 !important;
@@ -502,7 +479,6 @@
   }
 }
 
-/* ==== Divider between the filter group and the action group ==== */
 .page-toolbar__row .page-toolbar__filters:not(:empty) + .page-toolbar__actions::before {
   content: "";
   flex: 0 0 auto;
@@ -512,7 +488,6 @@
   background-color: #e2e8f0;
 }
 
-/* ==== Quick-search field: rounded pill instead of a square outlined box ==== */
 .page-toolbar__quick-search-group {
   .dx-texteditor.dx-editor-outlined {
     border-radius: 999px;
@@ -528,7 +503,6 @@
   }
 }
 
-/* ==== DateRangeBox "grouped" variant: single bordered range block ==== */
 .date-range-box--grouped {
   display: flex;
   align-items: stretch;
@@ -556,8 +530,6 @@
   color: #64748b;
 }
 
-/* Optional from-date checkbox occupies the calendar-icon slot directly
-   before the From date, without an external label or extra toolbar gap. */
 .date-range-box--grouped .date-range-box__from-toggle {
   display: flex;
   align-items: center;

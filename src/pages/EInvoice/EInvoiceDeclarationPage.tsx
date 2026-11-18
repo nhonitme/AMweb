@@ -1127,7 +1127,6 @@ function DeclarationEditorPopup({
                 icon="plus"
                 text={t("ADD", "Thêm")}
                 stylingMode="outlined"
-                elementAttr={{ class: "einvoice-add-btn" }}
                 disabled={isReadOnly || loading}
                 hint={t("DECL_CTS_FROM_PLUGIN", "Load certificate from signing plugin")}
                 onClick={() => void handleAddCtsFromPlugin()}
@@ -1148,7 +1147,7 @@ function DeclarationEditorPopup({
               onRowUpdating={handleDetailUpdating}
               onRowRemoving={handleDetailRemoving}
               headerAction={
-                <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" elementAttr={{ class: "einvoice-add-btn" }} disabled={isReadOnly} onClick={() => openProviderPicker("TCGP")} />
+                <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" disabled={isReadOnly} onClick={() => openProviderPicker("TCGP")} />
               }
             />
 
@@ -1164,7 +1163,7 @@ function DeclarationEditorPopup({
               onRowUpdating={handleDetailUpdating}
               onRowRemoving={handleDetailRemoving}
               headerAction={
-                <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" elementAttr={{ class: "einvoice-add-btn" }} disabled={isReadOnly} onClick={() => openProviderPicker("TCTN")} />
+                <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" disabled={isReadOnly} onClick={() => openProviderPicker("TCTN")} />
               }
             />
           </div>
@@ -1180,7 +1179,7 @@ function DeclarationEditorPopup({
             onRowUpdating={handleDetailUpdating}
             onRowRemoving={handleDetailRemoving}
             headerAction={
-              <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" elementAttr={{ class: "einvoice-add-btn" }} disabled={isReadOnly} onClick={() => appendBlankDetail("DVHTPT")} />
+              <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" disabled={isReadOnly} onClick={() => appendBlankDetail("DVHTPT")} />
             }
           />
 
@@ -1195,7 +1194,7 @@ function DeclarationEditorPopup({
             onRowUpdating={handleDetailUpdating}
             onRowRemoving={handleDetailRemoving}
             headerAction={
-              <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" elementAttr={{ class: "einvoice-add-btn" }} disabled={isReadOnly} onClick={() => appendBlankDetail("DVDUQTCUU")} />
+              <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" disabled={isReadOnly} onClick={() => appendBlankDetail("DVDUQTCUU")} />
             }
           />
 
@@ -1210,7 +1209,7 @@ function DeclarationEditorPopup({
             onRowUpdating={handleDetailUpdating}
             onRowRemoving={handleDetailRemoving}
             headerAction={
-              <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" elementAttr={{ class: "einvoice-add-btn" }} disabled={isReadOnly} onClick={() => appendBlankDetail("TNSDUNG")} />
+              <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" disabled={isReadOnly} onClick={() => appendBlankDetail("TNSDUNG")} />
             }
           />
 
@@ -1225,7 +1224,7 @@ function DeclarationEditorPopup({
             onRowUpdating={handleDetailUpdating}
             onRowRemoving={handleDetailRemoving}
             headerAction={
-              <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" elementAttr={{ class: "einvoice-add-btn" }} disabled={isReadOnly} onClick={() => appendBlankDetail("DKTH")} />
+              <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" disabled={isReadOnly} onClick={() => appendBlankDetail("DKTH")} />
             }
           />
       </EInvoiceEditorShell>

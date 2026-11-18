@@ -9,6 +9,7 @@ import type {
     CellClickEvent,
     ColumnCellTemplateData,
     ColumnEditCellTemplateData,
+    ContextMenuPreparingEvent,
     EditorPreparingEvent,
     FocusedCellChangedEvent,
     InitNewRowEvent,
@@ -21,18 +22,28 @@ import { createDateTimeBoxEditorOptions } from "@/components/forms/dateBoxEditor
 import { useInlineGridSearch } from "@/components/datagrid/gridSearch"
 import { useGridColumnSettingState, type GridColumnSettingState } from "@/components/datagrid/useGridColumnSettingState"
 import { applyGridColumnSettingsToChildren, applyRuntimeColumnVisibilityToChildren, applyRuntimeColumnVisibilityToComponent, applyRuntimeColumnFormatAliasesToComponent } from "@/components/datagrid/gridColumnSettingRender"
-import DeleteRowButton from "@/components/datagrid/DeleteRowButton"
 import VoucherSpreadsheetSummaryBar from "@/components/datagrid/VoucherSpreadsheetSummaryBar"
 import {
+    AM_GRID_READONLY_COLUMN_CELL_CLASS,
     createSpreadsheetContinueRowKeyDownHandler,
+    focusNewRowWithoutTopJump,
     formatSpreadsheetSummaryNumber,
     prepareVoucherSpreadsheetToolbar,
+    readGridScrollTop,
     shouldKeepCurrentRowKeyOnDataSourceChange,
     VOUCHER_SPREADSHEET_GRID_CLASS,
     voucherSpreadsheetKeyboardNavigation,
 } from "@/components/datagrid/voucherSpreadsheetGrid"
+import {
+    buildVoucherDetailContextMenuItems,
+    clearActiveRowContent,
+    insertActiveRowAbove,
+    renumberActiveSort,
+} from "@/components/datagrid/voucherDetailRowOrder"
 import { useVoucherSpreadsheetGridLayout } from "@/components/datagrid/useVoucherSpreadsheetGridLayout"
 import { useVoucherSpreadsheetAddRow } from "@/components/datagrid/useVoucherSpreadsheetAddRow"
+import { useVoucherSpreadsheetDetailSync } from "@/components/datagrid/useVoucherSpreadsheetDetailSync"
+import { readPendingGridUpdatesByKey } from "@/components/datagrid/voucherSpreadsheetDetailSync"
 import { useDecimalColumnFormats } from "@/hooks/useDecimalColumnFormats"
 import { createNumberEditorOptions } from "@/lib/numberEditorOptions"
 
@@ -41,18 +52,60 @@ import WarehouseLookupCellEditor from "@/components/lookup/WarehouseLookupCellEd
 import UnitLookupCellEditor from "@/components/lookup/UnitLookupCellEditor"
 import CurrencyLookupCellEditor from "@/components/lookup/CurrencyLookupCellEditor"
 import { LookupGridCellEditor, consumeLookupCellOpen, type LookupOpenMode } from "@/components/lookup/LookupGridCellDisplay"
+import { useLookupPopupHost } from "@/components/lookup/LookupPopupHost"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { DEFAULT_CURRENCY_CODE, isForeignCurrencyCode } from "@/lib/currency"
 import type { ChitDateValue, InventoryOutputLine } from "@/types/voucher"
 
+const INVENTORY_OUTPUT_LIVE_INPUT_FIELDS = new Set<string>([
+    "QUANTITY",
+    "UNIT_PRICE_CC",
+    "AMOUNT_CC",
+    "UNIT_PRICE_FC",
+    "EXCHANGE_RATES",
+    "AMOUNT_FC",
+    "REVENUE_UNIT_PRICE_CC",
+    "REVENUE_AMOUNT_CC",
+    "REVENUE_UNIT_PRICE_FC",
+    "REVENUE_AMOUNT_FC",
+])
+
+const INVENTORY_OUTPUT_LOOKUP_FIELDS = new Set<string>([
+    "PRODUCT_CD",
+    "STORE_CD",
+    "TO_STORE_CD",
+    "UNIT_CD",
+    "FC_TYPE",
+])
+
 export interface ChitInventoryOutputGridPopupHandle {
     savePendingChanges: () => Promise<InventoryOutputLine[]>
     addRow: () => void
+    insertRowAbove: (targetKey?: string | null) => void
+    clearCurrentRow: () => void
     deleteCurrentRow: () => void
+    softDeleteRowByKey: (targetKey: string | null) => void
     focusSearch: () => void
     getCurrentRowKey: () => string | null
     getGridInstance: () => dxDataGrid<InventoryOutputLine, string> | null
 }
+
+const OUTPUT_LINE_CLEAR_PRESERVE_KEYS = [
+    "ROW_KEY",
+    "OUTPUT_ID",
+    "OUTPUT_CD",
+    "INVENTORY_ID",
+    "INVENTORY_CD",
+    "COMPANY_CD",
+    "CHITDETAIL_ID",
+    "CHITDETAIL_ID_COGS",
+    "CHITDETAIL_CD",
+    "SORT",
+    "ISDEL",
+    "INVENTORY_YMD",
+    "STATE",
+    "CHIT_TYPE",
+] as const satisfies readonly (keyof InventoryOutputLine)[]
 
 interface ChitInventoryOutputGridPopupProps {
     companyCd?: string
@@ -334,11 +387,10 @@ function reconcileOutputVisibleColumnOrder(
 
     grid.beginUpdate()
     try {
-        // DETAIL_ACTIONS is fixed at visibleIndex 0. Move the remaining visible
-        // columns from left to right so each subsequent insert uses final order.
+        // Move visible columns from left to right so each subsequent insert uses final order.
         desired.forEach((name, index) => {
-            if (grid.columnOption(name, "visibleIndex") !== index + 1) {
-                grid.columnOption(name, "visibleIndex", index + 1)
+            if (grid.columnOption(name, "visibleIndex") !== index) {
+                grid.columnOption(name, "visibleIndex", index)
             }
         })
     } finally {
@@ -409,6 +461,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
         const { translate } = useContext(LanguageContext) as {
             translate?: (key: string, fallback?: string) => string
         }
+        const lookupPopupHost = useLookupPopupHost()
         const { getFormat } = useDecimalColumnFormats()
         const gridRef = useRef<dxDataGrid<InventoryOutputLine, string> | null>(null)
         const searchContainerRef = useRef<HTMLDivElement | null>(null)
@@ -670,11 +723,16 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
 
         const buildMergedRows = useCallback(() => {
             const source = gridRef.current?.option("dataSource")
+            const pendingByKey = readPendingGridUpdatesByKey(gridRef.current)
             const activeRows = Array.isArray(source)
                 ? normalizeOutputLineRows(source).map((item) => cloneOutputLine(item))
                 : visibleRows.map((item) => cloneOutputLine(item))
             const activeRowMap = new Map(
-                activeRows.map((item) => [item.ROW_KEY, { ...item, ISDEL: false }] as const),
+                activeRows.map((item) => {
+                    const patch = pendingByKey.get(String(item.ROW_KEY))
+                    const merged = patch ? { ...item, ...patch } : item
+                    return [item.ROW_KEY, { ...merged, ISDEL: false }] as const
+                }),
             )
             const mergedRows: InventoryOutputLine[] = []
 
@@ -717,6 +775,17 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
             shouldSkipSavedSync: () => deleteFlowRef.current,
         })
 
+        const { handleFocusedCellChanged: handleCalcFocusedCellChanged } = useVoucherSpreadsheetDetailSync({
+            visible: isVisible,
+            isReadOnly: Boolean(disabled),
+            isLookupPopupOpen: Boolean(lookupPopupHost?.isLookupPopupOpen),
+            gridRef,
+            gridContainerRef: containerRef,
+            syncRows,
+            liveInputFields: INVENTORY_OUTPUT_LIVE_INPUT_FIELDS,
+            lookupFields: INVENTORY_OUTPUT_LOOKUP_FIELDS,
+        })
+
         const focusSearchInput = useCallback(() => {
             const input = searchContainerRef.current?.querySelector("input.dx-texteditor-input, input") as HTMLInputElement | null
             input?.focus()
@@ -740,7 +809,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
 
         const softDeleteRowByKey = useCallback(
             async (targetKey: string | null) => {
-                if (!targetKey) {
+                if (!targetKey || disabled) {
                     return
                 }
 
@@ -753,17 +822,20 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
 
                     const currentRows = buildMergedRows()
                     let changed = false
-                    const nextRows = currentRows.map((item) => {
-                        if (item.ROW_KEY !== targetKey || item.ISDEL) {
-                            return item
-                        }
+                    const nextRows = renumberActiveSort(
+                        currentRows.map((item) => {
+                            if (item.ROW_KEY !== targetKey || item.ISDEL) {
+                                return item
+                            }
 
-                        changed = true
-                        return cloneOutputLine({
-                            ...item,
-                            ISDEL: true,
-                        })
-                    })
+                            changed = true
+                            return cloneOutputLine({
+                                ...item,
+                                ISDEL: true,
+                            })
+                        }),
+                        "SORT",
+                    )
 
                     if (!changed) {
                         return
@@ -778,7 +850,121 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                     deleteFlowRef.current = false
                 }
             },
-            [buildMergedRows, emitRowsChange],
+            [buildMergedRows, disabled, emitRowsChange],
+        )
+
+        const insertRowAbove = useCallback(
+            async (targetKey?: string | null) => {
+                if (disabled) {
+                    return
+                }
+
+                const grid = gridRef.current
+                const focusKey = targetKey ?? getCurrentRowKey()
+                const scrollTop = readGridScrollTop(grid)
+
+                if (grid?.hasEditData()) {
+                    await grid.saveEditData()
+                }
+
+                const currentRows = buildMergedRows()
+                const { nextRows, newRowKey } = insertActiveRowAbove(
+                    currentRows,
+                    focusKey,
+                    (nextSort) => normalizeOutputLine(
+                        { SORT: nextSort, QUANTITY: 0 },
+                        { companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd },
+                    ),
+                )
+                const renumbered = renumberActiveSort(nextRows, "SORT")
+                currentRowKeyRef.current = newRowKey
+                emitRowsChange(renumbered)
+
+                requestAnimationFrame(() => {
+                    const nextGrid = gridRef.current
+                    focusNewRowWithoutTopJump(nextGrid, scrollTop)
+                    void nextGrid?.navigateToRow?.(newRowKey).then(() => {
+                        const rowIndex = nextGrid.getRowIndexByKey(newRowKey)
+                        if (rowIndex >= 0) {
+                            nextGrid.editCell(rowIndex, "PRODUCT_CD")
+                        }
+                    })
+                })
+            },
+            [buildMergedRows, chitDetailCd, chitDetailId, companyCd, detailRowKey, disabled, emitRowsChange, getCurrentRowKey, inventoryYmd],
+        )
+
+        const clearCurrentRow = useCallback(
+            async (targetKey?: string | null) => {
+                if (disabled) {
+                    return
+                }
+
+                const focusKey = targetKey ?? getCurrentRowKey()
+                if (!focusKey) {
+                    return
+                }
+
+                if (gridRef.current?.hasEditData()) {
+                    await gridRef.current.saveEditData()
+                }
+
+                const currentRows = buildMergedRows()
+                let changed = false
+                const nextRows = currentRows.map((item) => {
+                    if (item.ROW_KEY !== focusKey || item.ISDEL) {
+                        return item
+                    }
+
+                    changed = true
+                    return clearActiveRowContent(
+                        item,
+                        () => normalizeOutputLine(
+                            { SORT: item.SORT ?? 1, QUANTITY: 0 },
+                            { companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd },
+                        ),
+                        OUTPUT_LINE_CLEAR_PRESERVE_KEYS,
+                    )
+                })
+
+                if (!changed) {
+                    return
+                }
+
+                currentRowKeyRef.current = focusKey
+                emitRowsChange(nextRows)
+            },
+            [buildMergedRows, chitDetailCd, chitDetailId, companyCd, detailRowKey, disabled, emitRowsChange, getCurrentRowKey, inventoryYmd],
+        )
+
+        const handleContextMenuPreparing = useCallback(
+            (event: ContextMenuPreparingEvent<InventoryOutputLine, string>) => {
+                if (disabled || event.row?.rowType !== "data" || !event.row.data) {
+                    return
+                }
+
+                const rowKey = typeof event.row.key === "string" ? event.row.key : event.row.data.ROW_KEY
+                if (!rowKey) {
+                    return
+                }
+
+                event.items = buildVoucherDetailContextMenuItems({
+                    canEdit: !disabled,
+                    insertText: t("INSERT_ROW", "Chèn dòng"),
+                    addAtEndText: t("ADD_ROW", "Thêm dòng"),
+                    deleteText: t("DELETE_ROW", "Xóa dòng"),
+                    onInsert: () => {
+                        void insertRowAbove(rowKey)
+                    },
+                    onAddAtEnd: () => {
+                        void handleAddRow()
+                    },
+                    onDelete: () => {
+                        void softDeleteRowByKey(rowKey)
+                    },
+                })
+            },
+            [disabled, handleAddRow, insertRowAbove, softDeleteRowByKey, t],
         )
 
         const undeleteLastRow = useCallback(
@@ -905,6 +1091,8 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
 
         const handleFocusedCellChanged = useCallback(
             (event: FocusedCellChangedEvent<InventoryOutputLine, string>) => {
+                handleCalcFocusedCellChanged(event)
+
                 if (
                     event.row?.rowType !== "data" ||
                     event.rowIndex < 0 ||
@@ -923,7 +1111,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                     focusedDateEditInProgressRef.current = false
                 })
             },
-            [],
+            [handleCalcFocusedCellChanged],
         )
 
         const handleContinueRow = useCallback(() => {
@@ -948,8 +1136,17 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                 addRow: () => {
                     void handleAddRow()
                 },
+                insertRowAbove: (targetKey) => {
+                    void insertRowAbove(targetKey)
+                },
+                clearCurrentRow: () => {
+                    void clearCurrentRow()
+                },
                 deleteCurrentRow: () => {
                     void softDeleteRowByKey(getCurrentRowKey())
+                },
+                softDeleteRowByKey: (targetKey) => {
+                    void softDeleteRowByKey(targetKey)
                 },
                 focusSearch: () => {
                     if (!searchVisible) {
@@ -963,7 +1160,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                 getCurrentRowKey,
                 getGridInstance: () => gridRef.current,
             }),
-            [focusSearchInput, getCurrentRowKey, handleAddRow, searchVisible, showSearch, softDeleteRowByKey, syncRows],
+            [clearCurrentRow, focusSearchInput, getCurrentRowKey, handleAddRow, insertRowAbove, searchVisible, showSearch, softDeleteRowByKey, syncRows],
         )
 
         const handleInitialized = useCallback((event: InitializedEvent<InventoryOutputLine, string>) => {
@@ -1105,6 +1302,24 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
 
         const detailColumns = useMemo(() => (
                 <>
+                    <Column
+                        name="STT"
+                        caption={t("STT", "No")}
+                        width={70}
+                        dataType="number"
+                        allowEditing={false}
+                        allowHiding={false}
+                        allowSorting={false}
+                        allowFiltering={false}
+                        allowReordering={false}
+                        showInColumnChooser={false}
+                        visibleIndex={0}
+                        cssClass={AM_GRID_READONLY_COLUMN_CELL_CLASS}
+                        calculateCellValue={(row: InventoryOutputLine) => {
+                            const index = visibleRows.findIndex((item) => item.ROW_KEY === row.ROW_KEY)
+                            return index >= 0 ? index + 1 : null
+                        }}
+                    />
                     <Column dataField="OUTPUT_ID" caption={t("OUTPUT_ID", "Output ID")} />
                     <Column dataField="OUTPUT_CD" caption={t("OUTPUT_CD", "Output Code")} />
                     <Column dataField="INVENTORY_CD" caption={t("SOURCE_CODE", "Source Code")} allowEditing={false} />
@@ -1267,6 +1482,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
             showCostAmounts,
             showRevenueAmounts,
             t,
+            visibleRows,
         ])
 
         const renderedDetailColumns = useMemo(() => {
@@ -1283,25 +1499,30 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
         return (
             <div className="flex min-h-0 w-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white" style={rootStyle}>
                 <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-2">
-                        <Button
-                            stylingMode="outlined"
-                            icon="plus"
-                            text={t("ADD_ROW", "Thêm dòng")}
-                            hint={t("ADD_ROW", "Thêm dòng")}
-                            elementAttr={{ class: "chit-detail-add-row-btn" }}
-                            onClick={() => {
-                                void handleAddRow()
-                            }}
-                        />
-                        <Button
-                            stylingMode="outlined"
-                            text={t("Undelete", "Hoàn tác")}
-                            hint={t("RESTORE_LAST_DELETED_ROW", "Restore the last deleted row")}
-                            disabled={softDeletedCount === 0}
-                            onClick={() => {
-                                void undeleteLastRow()
-                            }}
-                        />
+                        {!disabled ? (
+                            <>
+                                <Button
+                                    stylingMode="outlined"
+                                    icon="plus"
+                                    text={t("ADD_ROW", "Thêm dòng")}
+                                    hint={t("ADD_ROW", "Thêm dòng")}
+                                    onClick={() => {
+                                        void handleAddRow()
+                                    }}
+                                />
+                                {softDeletedCount > 0 ? (
+                                    <Button
+                                        stylingMode="outlined"
+                                        icon="revert"
+                                        text={t("Undelete", "Hoàn tác")}
+                                        hint={t("RESTORE_LAST_DELETED_ROW", "Restore the last deleted row")}
+                                        onClick={() => {
+                                            void undeleteLastRow()
+                                        }}
+                                    />
+                                ) : null}
+                            </>
+                        ) : null}
 
                         {linkSlot ? (
                             <>
@@ -1367,6 +1588,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                             onInitNewRow={handleInitNewRow}
                             onEditorPreparing={handleEditorPreparing}
                             onFocusedCellChanged={handleFocusedCellChanged}
+                            onContextMenuPreparing={handleContextMenuPreparing}
                             onKeyDown={handleKeyDown}
                             noDataText={t("NO_INVENTORY_OUTPUT", "No inventory output lines")}
                         >
@@ -1388,26 +1610,6 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
                                 selectTextOnEditStart={true}
                                 newRowPosition="last"
                             />
-
-                    <Column
-                        name="DETAIL_ACTIONS"
-                        width={60}
-                        fixed={true}
-                        fixedPosition="left"
-                        visibleIndex={0}
-                        allowFixing={false}
-                        showInColumnChooser={false}
-                        allowReordering={false}
-                        cellRender={(cellInfo: ColumnCellTemplateData<InventoryOutputLine, string>) => {
-                            const rowKey = typeof cellInfo.row?.key === "string" ? cellInfo.row.key : null
-                            return (
-                                <DeleteRowButton
-                                    hint={t("DELETE", "Delete")}
-                                    onDelete={() => { if (rowKey) void softDeleteRowByKey(rowKey) }}
-                                />
-                            )
-                        }}
-                    />
 
                     {renderedDetailColumns}
                 </DataGrid>

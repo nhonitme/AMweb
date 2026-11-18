@@ -1,3 +1,5 @@
+@use "../../styles/icon-colors" as icons;
+
 .editor-mode--add {
   --editor-mode-bg: #ecfdf5;
   --editor-mode-border: #a7f3d0;
@@ -91,52 +93,53 @@
   .editor-action-toolbar__close { order: 4; }
 
   .editor-action-toolbar__save.dx-button {
-    background: #2563eb;
-    border-color: #2563eb;
-    .dx-icon, .dx-button-text { color: #fff; }
-    &.dx-state-hover { background: #1d4ed8; }
+    background: icons.$icon-primary-base;
+    border-color: icons.$icon-primary-base;
+    .dx-icon, .dx-button-text { color: #fff !important; }
+    &.dx-state-hover { background: icons.$icon-primary-hover; }
   }
 
   .editor-action-toolbar__saveAndNew.dx-button {
-    background: #eff6ff;
-    border-color: #2563eb;
-    .dx-icon, .dx-button-text { color: #2563eb; }
-    &.dx-state-hover { background: rgba(37, 99, 235, 0.08); }
+    background: icons.$soft-primary-bg;
+    border-color: icons.$soft-primary-border;
+    .dx-icon, .dx-button-text { color: icons.$icon-primary-base !important; }
+    &.dx-state-hover { background: icons.$soft-primary-hover-bg; }
   }
 
   .editor-action-toolbar__sign.dx-button {
-    background: #dc2626;
-    border-color: #dc2626;
-    .dx-icon, .dx-button-text { color: #fff; }
-    &.dx-state-hover { background: #b91c1c; border-color: #b91c1c; }
+    background: icons.$icon-danger-base;
+    border-color: icons.$icon-danger-base;
+    .dx-icon, .dx-button-text { color: #fff !important; }
+    &.dx-state-hover { background: icons.$icon-danger-hover; border-color: icons.$icon-danger-hover; }
   }
 
-  .editor-action-toolbar__print.dx-button {
-    background: #f0fdfa;
-    border-color: #0f766e;
-    .dx-icon, .dx-button-text { color: #0f766e; }
-    &.dx-state-hover { background: #ccfbf1; }
+  .editor-action-toolbar__print.dx-button,
+  .editor-action-toolbar__review.dx-button {
+    background: icons.$soft-teal-bg;
+    border-color: icons.$soft-teal-border;
+    .dx-icon, .dx-button-text { color: icons.$icon-teal-base !important; }
+    &.dx-state-hover { background: icons.$soft-teal-hover-bg; }
   }
 
   .editor-action-toolbar__copy.dx-button {
-    background: #faf5ff;
-    border-color: #7e22ce;
-    .dx-icon, .dx-button-text { color: #7e22ce; }
-    &.dx-state-hover { background: #f3e8ff; }
+    background: icons.$soft-accent-bg;
+    border-color: icons.$soft-accent-border;
+    .dx-icon, .dx-button-text { color: icons.$icon-accent-base !important; }
+    &.dx-state-hover { background: icons.$soft-accent-hover-bg; }
   }
 
   &__delete > .dx-button {
-    background: #fef2f2;
-    border-color: #dc2626;
-    .dx-icon, .dx-button-text { color: #dc2626; }
-    &.dx-state-hover { background: #fee2e2; }
+    background: icons.$soft-danger-bg;
+    border-color: icons.$soft-danger-border;
+    .dx-icon, .dx-button-text { color: icons.$icon-danger-base !important; }
+    &.dx-state-hover { background: icons.$soft-danger-hover-bg; }
   }
 
   .editor-action-toolbar__close.dx-button {
-    background: #f1f5f9;
-    border-color: #64748b;
-    .dx-icon, .dx-button-text { color: #334155; }
-    &.dx-state-hover { background: #e2e8f0; }
+    background: icons.$soft-neutral-bg;
+    border-color: icons.$soft-neutral-border;
+    .dx-icon, .dx-button-text { color: icons.$icon-neutral-hover !important; }
+    &.dx-state-hover { background: icons.$soft-neutral-hover-bg; }
   }
 }
 

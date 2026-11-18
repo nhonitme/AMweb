@@ -166,7 +166,16 @@ export function matchesShortcutEvent(event: KeyboardEvent, combo: string) {
   }
 
   const actualKey = normalizeKey(event.key)
-  return keyToken ? actualKey === keyToken : false
+  if (!keyToken) {
+    return false
+  }
+
+  // Ctrl+Shift+= is typed on the "=" key; browsers usually report event.key as "+".
+  if (keyToken === "=" && (actualKey === "=" || actualKey === "+")) {
+    return true
+  }
+
+  return actualKey === keyToken
 }
 
 function buildKeyboardEventKey(token: string) {

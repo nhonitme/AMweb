@@ -185,7 +185,8 @@ export function ChitEditorPopup({
             SHORTCUT_ACTIONS.PRINT,
             SHORTCUT_ACTIONS.CLOSE,
             SHORTCUT_ACTIONS.ADD_ROW,
-            SHORTCUT_ACTIONS.DELETE_ROW,
+            SHORTCUT_ACTIONS.INSERT_ROW,
+            SHORTCUT_ACTIONS.CLEAR_ROW,
             SHORTCUT_ACTIONS.QUICK_ITEM_SEARCH,
             SHORTCUT_ACTIONS.DUPLICATE,
             SHORTCUT_ACTIONS.HELP,
@@ -426,8 +427,12 @@ export function ChitEditorPopup({
         detailGridRef.current?.addRow()
     }, [])
 
-    const handleDeleteDetailRow = useCallback(() => {
-        detailGridRef.current?.deleteCurrentRow()
+    const handleInsertDetailRow = useCallback(() => {
+        detailGridRef.current?.insertRowAbove()
+    }, [])
+
+    const handleClearDetailRow = useCallback(() => {
+        detailGridRef.current?.clearCurrentRow()
     }, [])
 
     const handleQuickItemSearch = useCallback(() => {
@@ -453,7 +458,8 @@ export function ChitEditorPopup({
                     },
                     [SHORTCUT_ACTIONS.CLOSE]: () => handleClosePopup(),
                     [SHORTCUT_ACTIONS.ADD_ROW]: () => handleAddDetailRow(),
-                    [SHORTCUT_ACTIONS.DELETE_ROW]: () => handleDeleteDetailRow(),
+                    [SHORTCUT_ACTIONS.INSERT_ROW]: () => handleInsertDetailRow(),
+                    [SHORTCUT_ACTIONS.CLEAR_ROW]: () => handleClearDetailRow(),
                     [SHORTCUT_ACTIONS.QUICK_ITEM_SEARCH]: () => handleQuickItemSearch(),
                     [SHORTCUT_ACTIONS.DUPLICATE]: () => {
                         rowInventory.clearPending()
@@ -468,15 +474,17 @@ export function ChitEditorPopup({
                     [SHORTCUT_ACTIONS.PRINT]: { enabled: !loading, allowInInput: true },
                     [SHORTCUT_ACTIONS.CLOSE]: { allowInInput: true },
                     [SHORTCUT_ACTIONS.ADD_ROW]: { enabled: !loading },
-                    [SHORTCUT_ACTIONS.DELETE_ROW]: { enabled: !loading },
+                    [SHORTCUT_ACTIONS.INSERT_ROW]: { enabled: !loading },
+                    [SHORTCUT_ACTIONS.CLEAR_ROW]: { enabled: !loading },
                     [SHORTCUT_ACTIONS.QUICK_ITEM_SEARCH]: { enabled: true, allowInInput: true },
                     [SHORTCUT_ACTIONS.DUPLICATE]: { enabled: !loading, allowInInput: true },
                 },
             ),
         [
             handleAddDetailRow,
+            handleClearDetailRow,
             handleClosePopup,
-            handleDeleteDetailRow,
+            handleInsertDetailRow,
             handleDuplicateDraft,
             rowInventory.clearPending,
             handleQuickItemSearch,

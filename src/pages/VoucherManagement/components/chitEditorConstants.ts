@@ -3,6 +3,22 @@ import type { AnimationConfig } from "devextreme/common/core/animation"
 import type { SysCode } from "@/api/sysCodeService"
 import type { ChitLedger, ChitType } from "@/types/voucher"
 
+export const CHIT_DETAIL_LIVE_INPUT_FIELDS = new Set<string>([
+  "AMOUNT",
+  "FC_AMOUNT",
+  "FC_RATE",
+  "VAT_AMOUNT",
+  "VAT_TAXABLE_AMOUNT",
+  "FO_VAT_AMOUNT",
+])
+
+export const CHIT_DETAIL_LOOKUP_FIELDS = new Set<string>([
+  "CUSTOMER_CD",
+  "DEBIT",
+  "CREDIT",
+  "FC_TYPE",
+])
+
 export const POPUP_FADE_ANIMATION: { show: AnimationConfig; hide: AnimationConfig } = {
     show: { type: "fade", duration: 120, from: 0, to: 1 },
     hide: { type: "fade", duration: 80, from: 1, to: 0 },

@@ -288,8 +288,6 @@ export default function PitWithholdingPage({ kind }: { kind: PitKind }) {
       setMailRow(await pitApi.get(kind, row.DOCUMENT_ID))
     })
   }
-  // DevExtreme can retain the first cell template callback after the page changes.
-  // Forward through a stable function so row actions always see current loading state.
   const rowActionRef = useRef(onRowAction)
   rowActionRef.current = onRowAction
   const dispatchRowAction = useCallback((row: PitDocument, action: PitRowAction) => {
@@ -447,13 +445,22 @@ export default function PitWithholdingPage({ kind }: { kind: PitKind }) {
                 fixed
                 fixedPosition="left"
                 visible={kind === "certificate"}
-                cellRender={(cell: ColumnCellTemplateData<PitDocument, GridKey>) => (
-                  <EInvoiceDocNoCell
-                    series={cell.data?.SERIES ?? ""}
-                    numberLabel={cell.data?.DOC_NO ? String(cell.data.DOC_NO).padStart(8, "0") : t("PIT_NO_NUMBER", "Chưa cấp số")}
-                    codeLabel={cell.data?.MGDDTU ?? undefined}
-                  />
-                )}
+                cellRender={(cell: ColumnCellTemplateData<PitDocument, GridKey>) => {
+                  const lookupCode = typeof cell.data?.MTRACUU === "string" ? cell.data.MTRACUU.trim() : ""
+                  return (
+                    <EInvoiceDocNoCell
+                      series={cell.data?.SERIES ?? ""}
+                      numberLabel={cell.data?.DOC_NO ? String(cell.data.DOC_NO).padStart(8, "0") : t("PIT_NO_NUMBER", "Chưa cấp số")}
+                      codeLabel={lookupCode ? `${t("MTRACUU", "Mã TC")}: ${lookupCode}` : (cell.data?.MGDDTU ?? undefined)}
+                    />
+                  )
+                }}
+              />
+              <Column
+                dataField="MTRACUU"
+                caption={t("MTRACUU", "Mã tra cứu")}
+                width={160}
+                visible={kind === "certificate"}
               />
               <Column dataField="DOC_DATE" caption={t("DOC_DATE", "Ngày lập")} dataType="date" format="dd/MM/yyyy" width={110} />
               <Column

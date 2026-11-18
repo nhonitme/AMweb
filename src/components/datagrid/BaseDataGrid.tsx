@@ -773,9 +773,10 @@ export function BaseDataGrid<T>({
 
     const handleContextMenuPreparingInternal = (e: ContextMenuPreparingEvent) => {
         if (e.row && e.row.rowType === "data") {
-            const items: Array<{ text: string; onItemClick: () => void }> = [
+            const items: Array<{ text: string; icon?: string; onItemClick: () => void }> = [
                 {
                     text: t('UpdateMsg', 'Update'),
+                    icon: 'edit',
                     onItemClick: () => {
                         if (onContextMenuUpdate && e.row?.data) {
                             onContextMenuUpdate(e.row.data as T)
@@ -786,6 +787,7 @@ export function BaseDataGrid<T>({
                 },
                 {
                     text: t('btndelete', 'Delete'),
+                    icon: 'trash',
                     onItemClick: () => {
                         if (onContextMenuDelete && e.row?.data) {
                             onContextMenuDelete(e.row.data as T)
@@ -797,6 +799,7 @@ export function BaseDataGrid<T>({
             ];
             items.push({
                 text: t('btn_copy', 'Copy'),
+                icon: 'copy',
                 onItemClick: () => {
                     if (e.row?.data) {
                         if (onContextMenuCopy) {

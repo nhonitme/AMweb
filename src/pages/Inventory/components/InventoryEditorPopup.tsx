@@ -839,6 +839,21 @@ export default function InventoryEditorPopup({
     })
   }, [draft.CHIT_ID, draft.COMPANY_CD, printReportCode, t])
 
+  const handleAddDetailRow = useCallback(() => {
+    if (readOnly || loading) return
+    activeGridRef.current?.addRow()
+  }, [activeGridRef, loading, readOnly])
+
+  const handleInsertDetailRow = useCallback(() => {
+    if (readOnly || loading) return
+    activeGridRef.current?.insertRowAbove()
+  }, [activeGridRef, loading, readOnly])
+
+  const handleClearDetailRow = useCallback(() => {
+    if (readOnly || loading) return
+    activeGridRef.current?.clearCurrentRow()
+  }, [activeGridRef, loading, readOnly])
+
   const popupShortcutScopeId = usePopupShortcutScopeId("inventory-editor")
   const shortcutActions = useMemo(
     () => [
@@ -846,6 +861,9 @@ export default function InventoryEditorPopup({
       SHORTCUT_ACTIONS.SAVE_AND_NEW,
       SHORTCUT_ACTIONS.PRINT,
       SHORTCUT_ACTIONS.CLOSE,
+      SHORTCUT_ACTIONS.ADD_ROW,
+      SHORTCUT_ACTIONS.INSERT_ROW,
+      SHORTCUT_ACTIONS.CLEAR_ROW,
       SHORTCUT_ACTIONS.HELP,
     ],
     [],
@@ -896,6 +914,15 @@ export default function InventoryEditorPopup({
     builtInHandlers[SHORTCUT_ACTIONS.PRINT] = () => {
       handlePrint()
     }
+    builtInHandlers[SHORTCUT_ACTIONS.ADD_ROW] = () => {
+      handleAddDetailRow()
+    }
+    builtInHandlers[SHORTCUT_ACTIONS.INSERT_ROW] = () => {
+      handleInsertDetailRow()
+    }
+    builtInHandlers[SHORTCUT_ACTIONS.CLEAR_ROW] = () => {
+      handleClearDetailRow()
+    }
 
     return createShortcutBindings(
       shortcutActions,
@@ -905,17 +932,24 @@ export default function InventoryEditorPopup({
         [SHORTCUT_ACTIONS.SAVE_AND_NEW]: { allowInInput: true },
         [SHORTCUT_ACTIONS.PRINT]: { allowInInput: true },
         [SHORTCUT_ACTIONS.CLOSE]: { allowInInput: true },
+        [SHORTCUT_ACTIONS.ADD_ROW]: { enabled: !loading && !readOnly },
+        [SHORTCUT_ACTIONS.INSERT_ROW]: { enabled: !loading && !readOnly },
+        [SHORTCUT_ACTIONS.CLEAR_ROW]: { enabled: !loading && !readOnly },
         [SHORTCUT_ACTIONS.HELP]: { allowInInput: true },
       },
     )
   }, [
     closeShortcutHelp,
+    handleAddDetailRow,
+    handleClearDetailRow,
+    handleInsertDetailRow,
     handlePrint,
     handleSave,
     handleSaveAndNew,
     loading,
     onClose,
     openShortcutHelp,
+    readOnly,
     shortcutActions,
     shortcutHelpVisible,
   ])

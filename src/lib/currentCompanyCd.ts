@@ -11,11 +11,6 @@ function emitCompanyCdChange() {
   listeners.forEach((listener) => listener())
 }
 
-/**
- * SysCodeProvider mounts above Router, so companyCd from pathname would stay stale
- * after SPA navigations (e.g. /login → /app/0001/...). Patch history + session events
- * so subscribers re-render when the effective company changes.
- */
 function ensureCompanyCdSubscription() {
   if (historyPatched || typeof window === "undefined") {
     return

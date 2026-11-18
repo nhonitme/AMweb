@@ -696,7 +696,7 @@ function ErrorNoticeEditorPopup({ visible, noticeId, initialNotice = null, readO
         <section className="einvoice-editor__section">
           <div className="einvoice-editor__detail-toolbar">
             <div className="einvoice-editor__section-title einvoice-editor__section-title--inline">{t("TBAO_DETAIL", "Invoice error details")}</div>
-            <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" elementAttr={{ class: "einvoice-add-btn" }} disabled={readOnly || loading} onClick={addDetail} />
+            <Button icon="plus" text={t("ADD", "Thêm")} stylingMode="outlined" disabled={readOnly || loading} onClick={addDetail} />
           </div>
           <div className="einvoice-editor__detail-grid" style={{ minHeight: 280 }}>
             <DataGrid<EInvoiceErrorNoticeDetail, GridKey>

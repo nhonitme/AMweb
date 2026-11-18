@@ -21,6 +21,8 @@ export const SHORTCUT_KEYS = {
   VIEW_NEXT_DAY_VOUCHER: "alt+n",
   DUPLICATE: "mod+shift+c",
   ADD_ROW: "ctrl+insert",
+  INSERT_ROW: "ctrl+shift+=",
+  CLEAR_ROW: "delete",
   DELETE_ROW: "ctrl+delete",
   QUICK_ADD_MASTER_DATA: "f9",
   SWITCH_TAB_OUTSIDE_LIST: "alt+tab",

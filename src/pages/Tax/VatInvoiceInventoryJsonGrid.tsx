@@ -1,10 +1,13 @@
-import DataGrid, { Column, Editing, Scrolling } from "devextreme-react/data-grid"
+import { forwardRef, useCallback, useImperativeHandle, useLayoutEffect, useRef, type MutableRefObject } from "react"
+import DataGrid, { Column, ColumnFixing, Editing, Scrolling } from "devextreme-react/data-grid"
 import Button from "devextreme-react/button"
 import CheckBox from "devextreme-react/check-box"
-import type { ColumnCellTemplateData, ColumnEditCellTemplateData } from "devextreme/ui/data_grid"
+import type dxDataGrid from "devextreme/ui/data_grid"
+import type { ColumnCellTemplateData, ColumnEditCellTemplateData, InitializedEvent } from "devextreme/ui/data_grid"
 import ProductLookupCellEditor from "@/components/lookup/InventoryLookupCellEditor"
 import WarehouseLookupCellEditor from "@/components/lookup/WarehouseLookupCellEditor"
 import { LookupGridCellEditor, consumeLookupCellOpen, type LookupOpenMode } from "@/components/lookup/LookupGridCellDisplay"
+import { useGridColumnSettingState, type GridColumnSettingState } from "@/components/datagrid/useGridColumnSettingState"
 import type { Product } from "@/types/product"
 import type { StoreInfo } from "@/types/store"
 
@@ -74,6 +77,16 @@ type Props = {
   mappings?: Record<string, VatInvoiceInventoryMapping>
   onMappingChange?: (rowKey: string, mapping: VatInvoiceInventoryMapping) => void
   readOnly?: boolean
+  menuCode?: string
+  screenCd?: string
+  gridId?: string
+  persistColumnSettings?: boolean
+  columnSettingStateRef?: MutableRefObject<GridColumnSettingState | null>
+  isVisible?: boolean
+}
+
+export type VatInvoiceInventoryJsonGridHandle = {
+  getGridInstance: () => dxDataGrid<VatInvoiceInventoryGridRow, string> | null
 }
 
 function formatNumber(value: unknown): string {
@@ -82,7 +95,7 @@ function formatNumber(value: unknown): string {
   return Number.isFinite(number) ? number.toLocaleString(undefined, { maximumFractionDigits: 6 }) : String(value)
 }
 
-export default function VatInvoiceInventoryJsonGrid({
+const VatInvoiceInventoryJsonGrid = forwardRef<VatInvoiceInventoryJsonGridHandle, Props>(function VatInvoiceInventoryJsonGrid({
   rows,
   loading,
   error,
@@ -95,7 +108,30 @@ export default function VatInvoiceInventoryJsonGrid({
   onMappingChange,
   readOnly = false,
   direction = "output",
-}: Props) {
+  menuCode,
+  screenCd,
+  gridId,
+  persistColumnSettings = false,
+  columnSettingStateRef,
+  isVisible = true,
+}, ref) {
+  const gridRef = useRef<dxDataGrid<VatInvoiceInventoryGridRow, string> | null>(null)
+  const columnSettingState = useGridColumnSettingState({
+    enabled: persistColumnSettings,
+    menuCode,
+    screenCd,
+    gridId,
+    hideColumnsMissingFromSettings: false,
+  })
+
+  if (columnSettingStateRef) {
+    columnSettingStateRef.current = columnSettingState
+  }
+
+  useImperativeHandle(ref, () => ({
+    getGridInstance: () => gridRef.current,
+  }), [])
+
   const gridRows: VatInvoiceInventoryGridRow[] = rows.map((row) => {
     const mapping = mappings?.[row.key]
     const product = mapping?.product
@@ -120,144 +156,178 @@ export default function VatInvoiceInventoryJsonGrid({
     }
   })
 
-  if (loading) {
-    return <div className="flex h-full min-h-[280px] items-center justify-center text-sm text-slate-500">Đang tải chi tiết hóa đơn...</div>
-  }
+  const handleInitialized = useCallback((event: InitializedEvent<VatInvoiceInventoryGridRow, string>) => {
+    const component = event.component ?? null
+    gridRef.current = component
+    columnSettingState.bindGridComponent(component)
+    if (component && columnSettingState.cachedEditorItems.length) {
+      columnSettingState.syncEditorItemsToComponent(component, columnSettingState.cachedEditorItems)
+    }
+  }, [
+    columnSettingState.bindGridComponent,
+    columnSettingState.cachedEditorItems,
+    columnSettingState.syncEditorItemsToComponent,
+  ])
 
-  if (error) {
-    return (
-      <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-3 text-sm text-red-700">
-        <div>{error}</div>
-        <button type="button" className="rounded border border-slate-300 px-3 py-1.5 text-slate-700 hover:bg-slate-50" onClick={onRetry}>
-          Tải lại
-        </button>
-      </div>
-    )
-  }
+  useLayoutEffect(() => {
+    if (!isVisible || !columnSettingState.enabled || !gridRef.current || !columnSettingState.cachedEditorItems.length) {
+      return
+    }
+    columnSettingState.syncEditorItemsToComponent(gridRef.current, columnSettingState.cachedEditorItems)
+    try {
+      gridRef.current.updateDimensions()
+    } catch {
+    }
+  }, [
+    columnSettingState.cachedEditorItems,
+    columnSettingState.enabled,
+    columnSettingState.syncEditorItemsToComponent,
+    isVisible,
+  ])
 
   return (
-    <DataGrid<VatInvoiceInventoryGridRow, string>
-      dataSource={gridRows}
-      keyExpr="key"
-      height="100%"
-      showBorders
-      showRowLines
-      showColumnLines
-      columnAutoWidth={false}
-      allowColumnResizing
-      noDataText="JSON hóa đơn không có dòng chi tiết hdhhdvu."
-      className="h-full"
-      onRowUpdated={(event) => {
-        const row = event.data
-        const previous = mappings?.[row.key] ?? { includeInStock: true, product: null, store: null }
-        const product = products.find((item) => item.PRODUCT_ID === Number(row.PRODUCT_ID)) ?? null
-        const store = stores.find((item) => item.STORE_ID === Number(row.STORE_ID)) ?? null
-        onMappingChange?.(row.key, { ...previous, product, store })
-      }}
-      onEditingStart={(event) => {
-        if (mappings?.[event.data.key]?.includeInStock === false) event.cancel = true
-      }}
-    >
-      <Editing mode="cell" allowUpdating={!readOnly && Boolean(onMappingChange)} startEditAction="click" />
-      <Scrolling mode="standard" useNative />
-      {onMappingChange ? <>
-        <Column
-          dataField="PRODUCT_CD"
-          caption="Mã sản phẩm"
-          minWidth={240}
+    <div className="relative h-full min-h-0">
+      {loading ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/90 text-sm text-slate-500">
+          Đang tải chi tiết hóa đơn...
+        </div>
+      ) : null}
+      {!loading && error ? (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-white/95 text-sm text-red-700">
+          <div>{error}</div>
+          <button type="button" className="rounded border border-slate-300 px-3 py-1.5 text-slate-700 hover:bg-slate-50" onClick={onRetry}>
+            Tải lại
+          </button>
+        </div>
+      ) : null}
+      <DataGrid<VatInvoiceInventoryGridRow, string>
+        dataSource={gridRows}
+        keyExpr="key"
+        height="100%"
+        showBorders
+        showRowLines
+        showColumnLines
+        columnAutoWidth={false}
+        allowColumnResizing
+        allowColumnReordering={persistColumnSettings}
+        noDataText="JSON hóa đơn không có dòng chi tiết hdhhdvu."
+        className="h-full"
+        onInitialized={handleInitialized}
+        onRowUpdated={(event) => {
+          const row = event.data
+          const previous = mappings?.[row.key] ?? { includeInStock: true, product: null, store: null }
+          const product = products.find((item) => item.PRODUCT_ID === Number(row.PRODUCT_ID)) ?? null
+          const store = stores.find((item) => item.STORE_ID === Number(row.STORE_ID)) ?? null
+          onMappingChange?.(row.key, { ...previous, product, store })
+        }}
+        onEditingStart={(event) => {
+          if (mappings?.[event.data.key]?.includeInStock === false) event.cancel = true
+        }}
+      >
+        <Editing mode="cell" allowUpdating={!readOnly && Boolean(onMappingChange)} startEditAction="click" />
+        <Scrolling mode="standard" useNative />
+        {persistColumnSettings ? <ColumnFixing enabled /> : null}
+        {onMappingChange ? <>
+          <Column
+            dataField="PRODUCT_CD"
+            caption="Mã sản phẩm"
+            minWidth={240}
+            allowSorting={false}
+            allowFiltering={false}
+            cssClass="am-grid-lookup-column-cell"
+            cellRender={renderLookupCell("PRODUCT_CD")}
+            editCellRender={(cellInfo: InventoryEditCellInfo) => renderLookupEditor(
+              <ProductLookupCellEditor
+                value={cellInfo.data?.PRODUCT_ID ?? null}
+                rowData={(cellInfo.data ?? {}) as Record<string, unknown>}
+                rowIndex={cellInfo.row?.rowIndex ?? -1}
+                grid={cellInfo.component}
+                setValue={(productId) => cellInfo.component.cellValue(cellInfo.row.rowIndex, "PRODUCT_ID", productId)}
+                productIdField="PRODUCT_ID"
+                productCdField="PRODUCT_CD"
+                productNmField="PRODUCT_NM_VIET"
+                productGroupIdField="PRODUCT_KIND_ID"
+                productGroupCdField="PRODUCT_KIND_CD"
+                productGroupNmField="PRODUCTKIND_NM_VIET"
+                unitIdField="UNIT_ID"
+                unitCdField="UNIT_CD"
+                unitNmField="UNIT_NM_VIET"
+                warehouseIdField="STORE_ID"
+                warehouseCdField="STORE_CD"
+                warehouseNmField="STORE_NM_VIET"
+                placeholder="Chọn mã sản phẩm"
+                popupTitle="Chọn mã sản phẩm"
+                buttonHint="Mở danh sách sản phẩm"
+                autoOpen={consumeLookupCellOpen(cellInfo, "PRODUCT_CD") as LookupOpenMode | null}
+              />,
+            )}
+          />
+          <Column
+            dataField="STORE_CD"
+            caption={direction === "input" ? "Kho nhập" : "Kho xuất"}
+            minWidth={200}
+            allowSorting={false}
+            allowFiltering={false}
+            cssClass="am-grid-lookup-column-cell"
+            cellRender={renderLookupCell("STORE_CD")}
+            editCellRender={(cellInfo: InventoryEditCellInfo) => renderLookupEditor(
+              <WarehouseLookupCellEditor
+                value={cellInfo.data?.STORE_ID ?? null}
+                rowData={(cellInfo.data ?? {}) as Record<string, unknown>}
+                rowIndex={cellInfo.row?.rowIndex ?? -1}
+                grid={cellInfo.component}
+                setValue={(storeId) => cellInfo.component.cellValue(cellInfo.row.rowIndex, "STORE_ID", storeId)}
+                warehouseIdField="STORE_ID"
+                warehouseCdField="STORE_CD"
+                warehouseNmField="STORE_NM_VIET"
+                placeholder={direction === "input" ? "Chọn kho nhập" : "Chọn kho xuất"}
+                popupTitle={direction === "input" ? "Chọn kho nhập" : "Chọn kho xuất"}
+                buttonHint="Mở danh sách kho"
+                autoOpen={consumeLookupCellOpen(cellInfo, "STORE_CD") as LookupOpenMode | null}
+              />,
+            )}
+          />
+        </> : null}
+        {rows.some((row) => row.invoiceLabel) ? <Column dataField="invoiceLabel" caption="Hóa đơn" minWidth={180} /> : null}
+        <Column dataField="lineNo" caption="STT" width={64} alignment="center" />
+        <Column dataField="name" caption="Tên hàng hóa/dịch vụ" minWidth={300} />
+        <Column dataField="unit" caption="ĐVT" width={100} />
+        <Column dataField="quantity" caption="Số lượng" width={110} alignment="right" customizeText={(cell) => formatNumber(cell.value)} />
+        <Column dataField="unitPrice" caption="Đơn giá" width={130} alignment="right" customizeText={(cell) => formatNumber(cell.value)} />
+        <Column dataField="amount" caption="Thành tiền" width={140} alignment="right" customizeText={(cell) => formatNumber(cell.value)} />
+        <Column dataField="vatRate" caption="Thuế suất" width={100} alignment="center" />
+        <Column dataField="vatAmount" caption="Tiền thuế" width={130} alignment="right" customizeText={(cell) => formatNumber(cell.value)} />
+        <Column dataField="discountAmount" caption="Tiền chiết khấu" width={140} alignment="right" customizeText={(cell) => formatNumber(cell.value)} />
+        <Column dataField="discountRate" caption="Tỷ lệ CK" width={100} alignment="right" customizeText={(cell) => formatNumber(cell.value)} />
+        {onMappingChange ? <Column
+          caption={direction === "input" ? "Nhập kho" : "Xuất kho"}
+          width={90}
           allowSorting={false}
           allowFiltering={false}
-          cssClass="am-grid-lookup-column-cell"
-          cellRender={renderLookupCell("PRODUCT_CD")}
-          editCellRender={(cellInfo: InventoryEditCellInfo) => renderLookupEditor(
-            <ProductLookupCellEditor
-              value={cellInfo.data?.PRODUCT_ID ?? null}
-              rowData={(cellInfo.data ?? {}) as Record<string, unknown>}
-              rowIndex={cellInfo.row?.rowIndex ?? -1}
-              grid={cellInfo.component}
-              setValue={(productId) => cellInfo.component.cellValue(cellInfo.row.rowIndex, "PRODUCT_ID", productId)}
-              productIdField="PRODUCT_ID"
-              productCdField="PRODUCT_CD"
-              productNmField="PRODUCT_NM_VIET"
-              productGroupIdField="PRODUCT_KIND_ID"
-              productGroupCdField="PRODUCT_KIND_CD"
-              productGroupNmField="PRODUCTKIND_NM_VIET"
-              unitIdField="UNIT_ID"
-              unitCdField="UNIT_CD"
-              unitNmField="UNIT_NM_VIET"
-              warehouseIdField="STORE_ID"
-              warehouseCdField="STORE_CD"
-              warehouseNmField="STORE_NM_VIET"
-              placeholder="Chọn mã sản phẩm"
-              popupTitle="Chọn mã sản phẩm"
-              buttonHint="Mở danh sách sản phẩm"
-              autoOpen={consumeLookupCellOpen(cellInfo, "PRODUCT_CD") as LookupOpenMode | null}
-            />,
-          )}
-        />
-        <Column
-          dataField="STORE_CD"
-          caption={direction === "input" ? "Kho nhập" : "Kho xuất"}
-          minWidth={200}
+          cellRender={(cell) => {
+            const mapping = mappings?.[cell.data.key] ?? { includeInStock: true, product: null, store: null }
+            return <CheckBox value={mapping.includeInStock} disabled={readOnly} onValueChanged={(event) => onMappingChange(cell.data.key, { ...mapping, includeInStock: Boolean(event.value) })} />
+          }}
+        /> : <Column
+          caption="Danh mục"
+          width={190}
           allowSorting={false}
           allowFiltering={false}
-          cssClass="am-grid-lookup-column-cell"
-          cellRender={renderLookupCell("STORE_CD")}
-          editCellRender={(cellInfo: InventoryEditCellInfo) => renderLookupEditor(
-            <WarehouseLookupCellEditor
-              value={cellInfo.data?.STORE_ID ?? null}
-              rowData={(cellInfo.data ?? {}) as Record<string, unknown>}
-              rowIndex={cellInfo.row?.rowIndex ?? -1}
-              grid={cellInfo.component}
-              setValue={(storeId) => cellInfo.component.cellValue(cellInfo.row.rowIndex, "STORE_ID", storeId)}
-              warehouseIdField="STORE_ID"
-              warehouseCdField="STORE_CD"
-              warehouseNmField="STORE_NM_VIET"
-              placeholder={direction === "input" ? "Chọn kho nhập" : "Chọn kho xuất"}
-              popupTitle={direction === "input" ? "Chọn kho nhập" : "Chọn kho xuất"}
-              buttonHint="Mở danh sách kho"
-              autoOpen={consumeLookupCellOpen(cellInfo, "STORE_CD") as LookupOpenMode | null}
-            />,
-          )}
-        />
-      </> : null}
-      {rows.some((row) => row.invoiceLabel) ? <Column dataField="invoiceLabel" caption="Hóa đơn" minWidth={180} /> : null}
-      <Column dataField="lineNo" caption="STT" width={64} alignment="center" />
-      <Column dataField="name" caption="Tên hàng hóa/dịch vụ" minWidth={300} />
-      <Column dataField="unit" caption="ĐVT" width={100} />
-      <Column dataField="quantity" caption="Số lượng" width={110} alignment="right" customizeText={(cell) => formatNumber(cell.value)} />
-      <Column dataField="unitPrice" caption="Đơn giá" width={130} alignment="right" customizeText={(cell) => formatNumber(cell.value)} />
-      <Column dataField="amount" caption="Thành tiền" width={140} alignment="right" customizeText={(cell) => formatNumber(cell.value)} />
-      <Column dataField="vatRate" caption="Thuế suất" width={100} alignment="center" />
-      <Column dataField="vatAmount" caption="Tiền thuế" width={130} alignment="right" customizeText={(cell) => formatNumber(cell.value)} />
-      <Column dataField="discountAmount" caption="Tiền chiết khấu" width={140} alignment="right" customizeText={(cell) => formatNumber(cell.value)} />
-      <Column dataField="discountRate" caption="Tỷ lệ CK" width={100} alignment="right" customizeText={(cell) => formatNumber(cell.value)} />
-      {onMappingChange ? <Column
-        caption={direction === "input" ? "Nhập kho" : "Xuất kho"}
-        width={90}
-        allowSorting={false}
-        allowFiltering={false}
-        cellRender={(cell) => {
-          const mapping = mappings?.[cell.data.key] ?? { includeInStock: true, product: null, store: null }
-          return <CheckBox value={mapping.includeInStock} disabled={readOnly} onValueChanged={(event) => onMappingChange(cell.data.key, { ...mapping, includeInStock: Boolean(event.value) })} />
-        }}
-      /> : <Column
-        caption="Danh mục"
-        width={190}
-        allowSorting={false}
-        allowFiltering={false}
-        cellRender={(cell) => {
-          const product = createdProducts[cell.data.key]
-          return product ? (
-            <span className="text-xs text-emerald-700" title={product.PRODUCT_NM_VIET}>{product.PRODUCT_CD} · Đã tạo</span>
-          ) : onQuickCreateProduct ? (
-            <Button text="Tạo sản phẩm" icon="plus" stylingMode="outlined" onClick={() => onQuickCreateProduct(cell.data)} />
-          ) : null
-        }}
-      />}
-    </DataGrid>
+          cellRender={(cell) => {
+            const product = createdProducts[cell.data.key]
+            return product ? (
+              <span className="text-xs text-emerald-700" title={product.PRODUCT_NM_VIET}>{product.PRODUCT_CD} · Đã tạo</span>
+            ) : onQuickCreateProduct ? (
+              <Button text="Tạo sản phẩm" icon="plus" stylingMode="outlined" onClick={() => onQuickCreateProduct(cell.data)} />
+            ) : null
+          }}
+        />}
+      </DataGrid>
+    </div>
   )
-}
+})
+
+export default VatInvoiceInventoryJsonGrid
 
 export function mapVatInvoiceInventoryJsonRows(payload: unknown): VatInvoiceInventoryJsonRow[] {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return []

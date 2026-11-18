@@ -25,7 +25,7 @@ export default function DeleteRowButton({ hint, onDelete }: Props) {
           stopEvent(event)
           onDelete()
         }}
-        className="flex items-center justify-center p-1 rounded text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors"
+        className="flex items-center justify-center p-1 rounded transition-colors"
       >
         <span className="dx-icon dx-icon-trash" />
       </button>

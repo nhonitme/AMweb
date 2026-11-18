@@ -29,12 +29,12 @@ function EInvoicePosProducts({ disabled, onSelect }: {
   const select = async (product: Product) => {
     if (disabled || adding) return
     setAdding(true)
-    try { await onSelect(product) } catch (error) { notify(getApiErrorMessage(error, "Không thể thêm hàng hóa"), "error", 3000) } finally { setAdding(false) }
+    try { await onSelect(product) } catch (error) { notify(getApiErrorMessage(error, t("POS_PRODUCT_ADD_FAILED", "Không thể thêm hàng hóa")), "error", 3000) } finally { setAdding(false) }
   }
   return <section className="einvoice-pos-products">
     <h2>{t("SELECT_PRODUCT", "Chọn hàng hóa")}</h2>
     <input
-      aria-label={t("POS_SEARCH_PRODUCT", "Tìm hàng hóa POS")}
+      aria-label={t("POS_SEARCH_PRODUCT", "Tìm hàng hóa")}
       placeholder={t("POS_SEARCH_HINT", "Tìm mã hoặc tên hàng hóa…")}
       value={search}
       onChange={e => setSearch(e.target.value)} onKeyDown={e => {
@@ -46,7 +46,7 @@ function EInvoicePosProducts({ disabled, onSelect }: {
         {t("PRODUCTS_LOAD_RETRY", "Không tải được hàng hóa. Thử lại")}
       </button>
     )}
-    {!isLoading && !isError && products.length === 0 && <p>Không tìm thấy hàng hóa.</p>}
+    {!isLoading && !isError && products.length === 0 && <p>{t("POS_PRODUCT_NOT_FOUND", "Không tìm thấy hàng hóa.")}</p>}
     <div className="einvoice-pos-products__items">{products.map(product =>
       <button type="button" key={product.PRODUCT_ID} disabled={disabled || adding} onClick={() => void select(product)}>
         <strong>{product.PRODUCT_NM_VIET || product.PRODUCT_CD}</strong>

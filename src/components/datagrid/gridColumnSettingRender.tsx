@@ -147,7 +147,18 @@ export function isTechnicalIdColumnName(value: unknown): boolean {
 
 export function isSystemFixedColumnName(value: unknown): boolean {
   const normalized = normalizeText(value).toUpperCase()
-  return normalized === "DETAIL_ACTIONS"
+  return normalized === "DETAIL_ACTIONS" || normalized === "STT"
+}
+
+export function getSystemFixedColumnVisibleIndex(value: unknown): number {
+  const normalized = normalizeText(value).toUpperCase()
+  if (normalized === "STT") {
+    return 0
+  }
+  if (normalized === "DETAIL_ACTIONS") {
+    return 1
+  }
+  return 0
 }
 
 function buildSettingsMap(items: GridColumnSettingEditorItem[]) {
@@ -311,16 +322,22 @@ function applySystemFixedColumnOptions(
   nextProps: Record<string, unknown>,
   columnCandidateKeys: string[],
 ) {
-  if (!columnCandidateKeys.some((columnKey) => isSystemFixedColumnName(columnKey))) {
+  const fixedColumnKey = columnCandidateKeys.find((columnKey) => isSystemFixedColumnName(columnKey))
+  if (!fixedColumnKey) {
     return
   }
+
+  const normalizedKey = fixedColumnKey.toUpperCase()
 
   nextProps.allowHiding = false
   nextProps.showInColumnChooser = false
   nextProps.visible = true
-  nextProps.fixed = true
-  nextProps.fixedPosition = "left"
-  nextProps.visibleIndex = 0
+  nextProps.visibleIndex = getSystemFixedColumnVisibleIndex(fixedColumnKey)
+
+  if (normalizedKey === "STT" || normalizedKey === "DETAIL_ACTIONS") {
+    nextProps.fixed = true
+    nextProps.fixedPosition = "left"
+  }
 }
 
 function buildRuntimeVisibilityMap(options: RuntimeColumnVisibilityOptions) {
@@ -817,12 +834,20 @@ export function applyGridColumnSettingsToComponent(
 
     columnReferenceMap.forEach((columnReference, columnKey) => {
       if (isSystemFixedColumnName(columnKey)) {
+        const normalizedKey = columnKey.toUpperCase()
         writeComponentColumnOption(component, columnReference, "visible", true)
         writeComponentColumnOption(component, columnReference, "allowHiding", false)
         writeComponentColumnOption(component, columnReference, "showInColumnChooser", false)
-        writeComponentColumnOption(component, columnReference, "fixed", true)
-        writeComponentColumnOption(component, columnReference, "fixedPosition", "left")
-        writeComponentColumnOption(component, columnReference, "visibleIndex", 0)
+        writeComponentColumnOption(
+          component,
+          columnReference,
+          "visibleIndex",
+          getSystemFixedColumnVisibleIndex(columnKey),
+        )
+        if (normalizedKey === "STT" || normalizedKey === "DETAIL_ACTIONS") {
+          writeComponentColumnOption(component, columnReference, "fixed", true)
+          writeComponentColumnOption(component, columnReference, "fixedPosition", "left")
+        }
         return
       }
 

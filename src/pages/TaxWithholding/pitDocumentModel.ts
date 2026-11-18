@@ -14,7 +14,6 @@ export function createPitDocument(kind: PitKind): PitDocument {
     return { DOCUMENT_ID: 0, KIND: kind, DOC_VERSION: 0, DOC_DATE: null, TAX_CD: "", DISPLAY_NAME: "", IS_SIGNED: 0, CQT_STATUS: 0, QUEUED: 0, ...data };
 }
 
-/** Fields that must not be reused when duplicating a grid row into a new document. */
 export const PIT_COPY_EXCLUDE_FIELDS = [
     "DOCUMENT_ID",
     "DOC_VERSION",
@@ -23,6 +22,7 @@ export const PIT_COPY_EXCLUDE_FIELDS = [
     "QUEUED",
     "SERIES",
     "DOC_NO",
+    "MTRACUU",
     "ERROR_MESSAGE",
     "MTDIEP",
     "MGDDTU",
@@ -38,7 +38,6 @@ function todayYmd(): string {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-/** Clone a saved PIT document as a new unsigned draft for the editor. */
 export function createPitDocumentCopy(source: PitDocument): PitDocument {
     const copy = structuredClone(source);
     const today = todayYmd();
@@ -50,6 +49,7 @@ export function createPitDocumentCopy(source: PitDocument): PitDocument {
     copy.DOC_DATE = today;
     copy.SERIES = null;
     copy.DOC_NO = null;
+    copy.MTRACUU = null;
     copy.ERROR_MESSAGE = null;
     copy.MTDIEP = null;
     copy.MGDDTU = null;
@@ -60,7 +60,6 @@ export function createPitDocumentCopy(source: PitDocument): PitDocument {
         copy.NLAP = today;
     }
     if (copy.KIND === "certificate") {
-        // Signing date is assigned when the certificate is signed, same as a blank new form.
         copy.NLAP = null;
     }
     if (copy.KIND === "error-notice") {

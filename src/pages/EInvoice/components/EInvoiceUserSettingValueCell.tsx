@@ -33,7 +33,7 @@ function renderBooleanTick(checked: boolean, title: string) {
   }
 
   return (
-    <span className="inline-flex w-full items-center justify-center text-green-600" title={title}>
+    <span className="inline-flex w-full items-center justify-center" title={title}>
       <i className="dx-icon dx-icon-check text-[18px] leading-none" />
     </span>
   )

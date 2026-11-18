@@ -21,6 +21,7 @@ import { flushActiveEditorValue } from "@/lib/shortcuts/shortcutUtils";
 import type { CompanyInfo } from "@/types/companyInfo";
 import CompanyDecimalSettingSection from "./CompanyDecimalSettingSection";
 import CompanySignatureSection from "./CompanySignatureSection";
+import CompanyAiInitSection from "./CompanyAiInitSection";
 import SysCodeSequenceSection from "./SysCodeSequenceSection";
 import EInvoiceMailSettingPanel from "@/pages/EInvoice/components/EInvoiceMailSettingPanel";
 import "@/pages/EInvoice/components/einvoiceSettingPanel.css";
@@ -548,6 +549,11 @@ export default function CompanyManagementPage() {
             </TabPanelItem>
             <TabPanelItem title={t("MAIL_SETTING", "Cấu hình mail")}>
               <EInvoiceMailSettingPanel onLoadingChange={setMailSettingsLoading} />
+            </TabPanelItem>
+            <TabPanelItem title={t("TSInit_AI_System", "Khởi tạo AI")}>
+              <div className="h-full overflow-y-auto p-3 sm:p-4">
+                <CompanyAiInitSection />
+              </div>
             </TabPanelItem>
           </TabPanel>
         </section>

@@ -332,13 +332,13 @@ export function prepareInventoryOnlyDetailsForSave(
       .filter((line) => hasActiveInventoryLine(line))
       .map((line, index) => ({
         ...line,
-        SORT: line.SORT ?? index + 1,
+        SORT: index + 1,
       }))
     const inventoryOutputs = getDetailInventoryOutputs(detail)
       .filter((line) => hasActiveInventoryLine(line))
       .map((line, index) => ({
         ...line,
-        SORT: line.SORT ?? index + 1,
+        SORT: index + 1,
       }))
     const amount =
       chitType === "IR" ? calculateInventoryLinesAmount(inventoryInputs) : calculateInventoryLinesAmount(inventoryOutputs)
@@ -489,13 +489,13 @@ export function mapInventoryVoucherToApiPayload(record: ChitInfo): ChitApi {
   const inventoryInputs = activeInventoryInputs.map((line, index) =>
     mapInventoryInputToApiPayload({
       ...line,
-      SORT: line.SORT ?? index + 1,
+      SORT: index + 1,
     }),
   )
   const inventoryOutputs = activeInventoryOutputs.map((line, index) =>
     mapInventoryOutputToApiPayload({
       ...line,
-      SORT: line.SORT ?? index + 1,
+      SORT: index + 1,
     }),
   )
   const totalAmount =

@@ -393,15 +393,17 @@ export function BaseTreeList<T extends object>({
 
   const handleContextMenuPreparingInternal = (e: ContextMenuPreparingEvent) => {
     if (e.row && e.row.rowType === "data") {
-      const items: Array<{ text: string; onItemClick: () => void }> = [
+      const items: Array<{ text: string; icon?: string; onItemClick: () => void }> = [
         {
-              text: t("UpdateMsg", "Update"),
+          text: t("UpdateMsg", "Update"),
+          icon: "edit",
           onItemClick: () => {
             e.component?.editRow(e.row!.rowIndex);
           },
         },
         {
-            text: t("btndelete", "Delete"),
+          text: t("btndelete", "Delete"),
+          icon: "trash",
           onItemClick: () => {
             e.component?.deleteRow(e.row!.rowIndex);
           },
@@ -409,7 +411,8 @@ export function BaseTreeList<T extends object>({
       ];
 
       items.push({
-          text: t("btn_copy", "Copy"),
+        text: t("btn_copy", "Copy"),
+        icon: "copy",
         onItemClick: () => {
           if (e.row?.data) {
             const clone = { ...(e.row.data as Record<string, unknown>) };

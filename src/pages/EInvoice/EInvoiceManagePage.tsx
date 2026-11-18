@@ -361,12 +361,12 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
         const errorMessage = trimGridCellText(row?.ERROR_MESSAGE)
         const primaryName = companyName || personName || "—"
         const metaLines = [
-            taxCode ? `MST: ${taxCode}` : "",
+            taxCode ? `${t("MST", "Mã số thuế")}: ${taxCode}` : "",
             lookupCode ? `${t("MTRACUU", "Mã tra cứu")}: ${lookupCode}` : "",
-            mccqt ? { text: `MCCQT: ${mccqt}`, codeOk: !cashRegister || Number(row?.INVOICE_STATUS) !== 0 && Number(row?.INVOICE_STATUS) !== 6 } : "",
+            mccqt ? { text: `${t("MCCQT", "Mã của cơ quan thuế")}: ${mccqt}`, codeOk: !cashRegister || Number(row?.INVOICE_STATUS) !== 0 && Number(row?.INVOICE_STATUS) !== 6 } : "",
             cashRegister && !isEInvoiceMttIssued(row) ? t("MTT_NOT_ISSUED", "Chưa phát hành") : "",
-            cashRegister && isEInvoiceMttIssued(row) && !isEInvoiceSigned(row) ? t("MTT_WAIT_SEND", "Chờ gửi CQT") : "",
-            cashRegister && Number(row?.IS_SIGNED) === 1 && Number(row?.INVOICE_STATUS) === 0 ? "Chờ kết quả kiểm tra gói từ CQT" : "",
+            cashRegister && isEInvoiceMttIssued(row) && !isEInvoiceSigned(row) ? t("MTT_WAIT_SEND", "Chờ gửi cơ quan thuế") : "",
+            cashRegister && Number(row?.IS_SIGNED) === 1 && Number(row?.INVOICE_STATUS) === 0 ? t("MTT_WAIT_TAX_RESPONSE", "Chờ cơ quan thuế phản hồi") : "",
             companyName && personName ? personName : "",
         ].filter(Boolean)
 
@@ -961,7 +961,7 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
             return
         }
         if (cashRegister && !isEInvoiceMttIssued(invoice)) {
-            notify(t("MTT_SIGN_NOT_ISSUED", "Phát hành hóa đơn MTT trước khi ký gửi CQT"), "warning", 3000)
+            notify(t("MTT_SIGN_NOT_ISSUED", "Phát hành hóa đơn máy tính tiền trước khi ký gửi cơ quan thuế"), "warning", 3000)
             return
         }
 
@@ -1082,7 +1082,7 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
         if (blockedIds.length > 0) {
             notify(
                 cashRegister
-                    ? t("MTT_DELETE_BLOCKED", "Hóa đơn MTT đã phát hành hoặc đã ký không được xóa")
+                    ? t("MTT_DELETE_BLOCKED", "Hóa đơn máy tính tiền đã phát hành hoặc đã ký không được xóa")
                     : t("SIGNED_DELETE_BLOCKED", "Signed record cannot be deleted"),
                 "warning",
                 3500,
@@ -1184,7 +1184,7 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
             if (cashRegister && format === "xml") {
                 setActionLoading(true)
                 void downloadMttBatchXml(pendingPrintInvoices.map(invoice => Number(invoice.INVOICE_ID)))
-                    .catch(error => notify(getApiErrorMessage(error, "Không thể xuất gói XML MTT"), "error", 5000))
+                    .catch(error => notify(getApiErrorMessage(error, t("MTT_EXPORT_SEND_DATA_FAILED", "Không thể tải dữ liệu gửi cơ quan thuế")), "error", 5000))
                     .finally(() => { setActionLoading(false); setPendingPrintInvoices([]) })
                 return
             }
@@ -1221,7 +1221,7 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
                 setPendingPrintInvoices([])
             })
         },
-        [cashRegister, companyCd, pendingPrintInvoices],
+        [cashRegister, companyCd, pendingPrintInvoices, t],
     )
 
     const handleIssueMtt = useCallback(async () => {
@@ -1247,7 +1247,7 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
         }
 
         const confirmed = await confirm(
-            formatText(t("MTT_ISSUE_CONFIRM", "Phát hành {0} hóa đơn MTT (cấp số và mã)?"), [issueRequests.length]),
+                formatText(t("MTT_ISSUE_CONFIRM", "Phát hành {0} hóa đơn máy tính tiền (cấp số hóa đơn)?"), [issueRequests.length]),
             t("MTT_ISSUE", "Phát hành"),
         )
         if (!confirmed) {
@@ -1262,13 +1262,13 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
                 successCount += 1
             }
             notify(
-                formatText(t("MTT_ISSUE_SUCCESS", "Đã phát hành {0} hóa đơn MTT"), [successCount]),
+                formatText(t("MTT_ISSUE_SUCCESS", "Đã phát hành {0} hóa đơn máy tính tiền"), [successCount]),
                 "success",
                 4000,
             )
             await refreshList()
         } catch (error) {
-            notify(getApiErrorMessage(error, t("MTT_ISSUE_FAILED", "Phát hành MTT thất bại")), "error", 5000)
+            notify(getApiErrorMessage(error, t("MTT_ISSUE_FAILED", "Phát hành hóa đơn máy tính tiền thất bại")), "error", 5000)
         } finally {
             setActionLoading(false)
         }
@@ -1285,7 +1285,7 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
         const confirmed = await confirm(
             formatText(
                 cashRegister
-                    ? t("MTT_SIGN_CONFIRM_BATCH", "Ký gửi CQT {0} hóa đơn MTT đã phát hành?")
+                    ? t("MTT_SIGN_CONFIRM_BATCH", "Ký và gửi cơ quan thuế {0} hóa đơn máy tính tiền đã phát hành?")
                     : t("SIGN_CONFIRM_BATCH", "Sign {0} selected record(s)?"),
                 [selectedInvoices.length],
             ),
@@ -1442,7 +1442,7 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
                 visible: hasSelection,
                 loading,
                 onSign: handleSignXml,
-                label: cashRegister ? t("MTT_SIGN_SEND_CQT", "Ký gửi CQT") : undefined,
+                label: cashRegister ? t("MTT_SIGN_SEND_CQT", "Ký và gửi cơ quan thuế") : undefined,
             }),
             createEInvoiceSendMailToolbarItem(t, {
                 visible: canSendMail,

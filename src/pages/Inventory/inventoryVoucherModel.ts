@@ -708,13 +708,13 @@ export function mapInventoryVoucherToApiPayload(record: InventoryVoucher): Inven
       ...line,
       CHIT_TYPE: "IA",
       INVENTORY_YMD: formatInventoryDateTime(line.OUTPUT_INVENTORY_YMD ?? line.INVENTORY_YMD ?? record.CHIT_YMD),
-      SORT: line.SORT ?? index + 1,
+      SORT: index + 1,
     }))
     : []
   const activeInputs = record.CHIT_TYPE === "IR"
     ? record.INPUTS.filter(hasInventoryLineContent).map((line, index) => ({
       ...line,
-      SORT: line.SORT ?? index + 1,
+      SORT: index + 1,
     }))
     : record.CHIT_TYPE === "IA"
       ? adjustmentOutputs.map((line, index) =>
@@ -724,7 +724,7 @@ export function mapInventoryVoucherToApiPayload(record: InventoryVoucher): Inven
   const activeOutputs = record.CHIT_TYPE === "IO"
     ? record.OUTPUTS.filter(hasInventoryLineContent).map((line, index) => ({
       ...line,
-      SORT: line.SORT ?? index + 1,
+      SORT: index + 1,
     }))
     : record.CHIT_TYPE === "IA"
       ? adjustmentOutputs

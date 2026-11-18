@@ -56,6 +56,7 @@ export type ToolbarCustomItem = {
   type?: 'default' | 'normal' | 'danger';
   stylingMode?: 'contained' | 'text' | 'outlined';
   showText?: 'always' | 'inMenu' | 'none';
+  variant?: 'primary' | 'link';
   disabled?: boolean;
   visible?: boolean;
   onClick?: (event?: MouseEvent) => void;
@@ -81,7 +82,6 @@ export type GridToolbarProps = {
   onFromDateChange?: (value: Date | null) => void;
   onToDateChange?: (value: Date | null) => void;
   showDateRange?: boolean;
-  /** Shows a filter icon that toggles the page-level advanced search panel. */
   showAdvancedSearchToggle?: boolean;
   advancedSearchOpen?: boolean;
   onToggleAdvancedSearch?: () => void;
@@ -99,7 +99,6 @@ export type GridToolbarProps = {
   importDisabled?: boolean;
   showDelete?: boolean;
   deleteDisabled?: boolean;
-  /** Client-only search panel over the rows currently loaded in the grid. */
   showSearch?: boolean;
   onSearchStateChange?: (value: string, active: boolean) => void;
   shortcutsEnabled?: boolean;
@@ -489,14 +488,10 @@ export function GridToolbar({
         return true
       }
 
-      // Custom popups (customer, voucher, fixed-asset, ...) register their own scope
-      // and handle shortcuts themselves — do not steal Esc/Ctrl+S/F1 from them.
       if (isTopMostPopupShortcutScoped()) {
         return false
       }
 
-      // Unscoped MasterDataEditPopup (bank/store/product/...) — toolbar owns SAVE/CLOSE/HELP
-      // because GridToolbar otherwise suppresses every shortcut while any popup is visible.
       return (
         matchesShortcutEvent(event, SHORTCUT_KEYS.SAVE) ||
         matchesShortcutEvent(event, SHORTCUT_KEYS.CLOSE) ||
@@ -611,7 +606,11 @@ export function GridToolbar({
               {primaryCustomItems.map((item, index) => (
                 <Button
                   key={item.key ?? `custom-primary-${index}`}
-                  className="page-toolbar__add-btn"
+                  className={[
+                    "page-toolbar__add-btn",
+                    item.variant === "primary" ? "page-toolbar__add-btn--primary" : "",
+                    item.variant === "link" ? "page-toolbar__add-btn--link" : "",
+                  ].filter(Boolean).join(" ")}
                   type={item.type}
                   stylingMode={item.stylingMode ?? "outlined"}
                   showText={item.showText}

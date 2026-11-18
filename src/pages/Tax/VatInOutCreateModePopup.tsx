@@ -4,6 +4,7 @@ import Button from "devextreme-react/button"
 import CheckBox from "devextreme-react/check-box"
 import RadioGroup from "devextreme-react/radio-group"
 
+import EditorActionToolbar from "@/components/toolbar/EditorActionToolbar"
 import { LanguageContext } from "@/lib/i18nLoader"
 import type { VatInvoiceType } from "./vatInvoiceVoucherDraft"
 
@@ -57,6 +58,7 @@ export default function VatInOutCreateModePopup({
       hideOnOutsideClick={false}
       width="min(560px, 94vw)"
       height="auto"
+      wrapperAttr={{ class: "am-dx-popup-title editor-mode--add" }}
       onHiding={() => {
         onClose()
       }}
@@ -107,18 +109,22 @@ export default function VatInOutCreateModePopup({
             }}
           />
         </div>
-        <div className="flex justify-end gap-2">
-          <Button text={t("CANCEL", "Hủy")} stylingMode="text" onClick={onClose} />
-          <Button
-            text={t("CONFIRM", "Xác nhận")}
-            type="default"
-            stylingMode="contained"
-            disabled={!creationMode || inventorySettingLoading}
-            onClick={() => {
-              if (creationMode) onChoose(creationMode)
-            }}
-          />
-        </div>
+        <EditorActionToolbar
+          mode="add"
+          className="chit-editor-footer -mx-1 border-0 px-1 py-1"
+          busy={inventorySettingLoading}
+          actions={[
+            {
+              key: "save",
+              text: t("CONFIRM", "Xác nhận"),
+              disabled: !creationMode || inventorySettingLoading,
+              onClick: () => {
+                if (creationMode) onChoose(creationMode)
+              },
+            },
+            { key: "close", text: t("CANCEL", "Hủy"), onClick: onClose },
+          ]}
+        />
       </div>
     </Popup>
   )

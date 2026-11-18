@@ -136,6 +136,7 @@ const PitXslDesignerPage = lazy(() => import('./pages/TaxWithholding/PitXslDesig
 const EInvoiceLookupPage = lazy(() => import('./pages/EInvoice/EInvoiceLookupPage'));
 const PublicEInvoiceLookupPage = lazy(() => import('./pages/EInvoice/PublicEInvoiceLookupPage'));
 const PublicEInvoiceMinuteLookupPage = lazy(() => import('./pages/EInvoice/PublicEInvoiceMinuteLookupPage'));
+const PublicPitCertificateLookupPage = lazy(() => import('./pages/TaxWithholding/PublicPitCertificateLookupPage'));
 const EInvoiceDeclarationPage = lazy(() => import('./pages/EInvoice/EInvoiceDeclarationPage'));
 const EInvoiceSettingPage = lazy(() => import('./pages/EInvoice/EInvoiceSettingPage'));
 const EInvoiceTemplateDesignerPage = lazy(() => import('./pages/EInvoice/EInvoiceTemplateDesignerPage'));
@@ -215,6 +216,13 @@ function PublicEInvoiceMinuteLookupRedirect() {
     return <Navigate to={targetPath} replace />;
 }
 
+function PublicPitCertificateLookupRedirect() {
+    const location = useLocation();
+    const { taxCode } = useParams<{ taxCode: string }>();
+    const targetPath = `/tra-cuu-chung-tu-tncn-amnote${taxCode ? `/${encodeURIComponent(taxCode)}` : ""}${location.search}`;
+    return <Navigate to={targetPath} replace />;
+}
+
 function PublicLookupRoutes() {
     return (
         <Suspense fallback={<RouteLoading />}>
@@ -223,16 +231,19 @@ function PublicLookupRoutes() {
             <Route path="/tra-cuu-einvoice-amnote/:taxCode" element={<PublicEInvoiceLookupPage />} />
             <Route path="/tra-cuu-bien-ban-amnote" element={<PublicEInvoiceMinuteLookupPage />} />
             <Route path="/tra-cuu-bien-ban-amnote/:taxCode" element={<PublicEInvoiceMinuteLookupPage />} />
+            <Route path="/tra-cuu-chung-tu-tncn-amnote" element={<PublicPitCertificateLookupPage />} />
+            <Route path="/tra-cuu-chung-tu-tncn-amnote/:taxCode" element={<PublicPitCertificateLookupPage />} />
             <Route path="/einvoice/lookup" element={<PublicEInvoiceLookupRedirect />} />
             <Route path="/einvoice/lookup/:taxCode" element={<PublicEInvoiceLookupRedirect />} />
             <Route path="/einvoice/minutes/lookup" element={<PublicEInvoiceMinuteLookupRedirect />} />
             <Route path="/einvoice/minutes/lookup/:taxCode" element={<PublicEInvoiceMinuteLookupRedirect />} />
+            <Route path="/pit/certificate/lookup" element={<PublicPitCertificateLookupRedirect />} />
+            <Route path="/pit/certificate/lookup/:taxCode" element={<PublicPitCertificateLookupRedirect />} />
         </Routes>
         </Suspense>
     );
 }
 
-// Disable the menu presentation per company without modifying the global menu table.
 function disableMenuNode(node: MenuTreeNode): MenuTreeNode {
     return {
         ...node,
@@ -269,8 +280,6 @@ function AppContent({ onLogout, licenseExpired }: { onLogout: () => void; licens
     const useHeaderTabs = menuLayout === "header";
     const willRenderHeaderTabs = useHeaderTabs && showHeaderMenuBar;
     const willRenderWorkspaceBar = !licenseExpired && !useHeaderTabs && showWorkspaceBar;
-    // Hiding header tabs changes only their visibility. Keep the active route
-    // inside its workspace tab so reports do not unmount and auto-fetch again.
     const workspaceTabsEnabled = !licenseExpired && (useHeaderTabs || willRenderWorkspaceBar);
     const didAutoExpandSidebarRef = useRef(false);
     const navigate = useNavigate();
@@ -314,7 +323,6 @@ function AppContent({ onLogout, licenseExpired }: { onLogout: () => void; licens
         }
 
         const targetPath = location.pathname === "/login" ? "/" : location.pathname;
-        // Keep query/hash when re-scoping under /app/{company} (e.g. after a relative navigate).
         navigate(
             {
                 pathname: buildAppPath(defaultCompanyCd, targetPath),
@@ -449,7 +457,6 @@ function AppContent({ onLogout, licenseExpired }: { onLogout: () => void; licens
     });
 
     useEffect(() => {
-        // Close one obsolete tab per render; closeTab uses the current tab snapshot.
         const obsolete = workspaceTabs.tabs.find(tab => {
             const path = stripCompanyPath(new URL(tab.href, window.location.origin).pathname);
             return blockedMenuRoutes.some(route => matchesMenuRoute(path, route))
@@ -736,16 +743,6 @@ function AppContent({ onLogout, licenseExpired }: { onLogout: () => void; licens
     );
 }
 
-/**
- * License state is queried only in one place and keyed by company.
- * Ordinary screens use the cached lightweight status endpoint. On the License
- * page we use the detail query for the gate as well as the page itself, so an
- * initial direct visit fetches /license/current only once.
- *
- * Query hooks manage focus refresh (stale after 60s), polling (5 minutes)
- * and concurrency. A failed check retains the existing fail-open UI policy;
- * backend API enforcement remains a separate concern.
- */
 function LicenseAccessGate({ onLogout }: { onLogout: () => void }) {
     const location = useLocation();
     const { translate } = useContext(LanguageContext);
@@ -1251,9 +1248,6 @@ function AuthenticatedApp() {
 
     useEffect(() => watchDailySession(), []);
 
-    // Keep UI login state in sync with session cache. Idle token/session drops used to
-    // clear React Query (incl. sys codes) while isLoggedIn stayed true → zombie page with
-    // customer rows but empty CATEGORY_CD / CUSTOMER_TYPE lookups.
     useEffect(() => {
         const handleSessionChanged = (event: Event) => {
             const session = (event as CustomEvent<AuthSession | null>).detail;
@@ -1273,9 +1267,6 @@ function AuthenticatedApp() {
     const handleLoginSuccess = () => {
         const authenticated = isAuthenticated();
         if (authenticated) {
-            // Do NOT clearFrontendCaches() here. Logout / session-null already cleared RQ.
-            // Clearing again races session-changed recovery + login preload and can leave
-            // customer CATEGORY_CD / CUSTOMER_TYPE lookups empty after re-login.
             setIsLoggedIn(true);
             setAuthLoading(true);
             const sessionLang = getCurrentSession()?.lang ?? getCurrentLang();

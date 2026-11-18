@@ -10,7 +10,7 @@ import { renderSharedProductGroupLookupPage, renderSharedUnitLookupPage, renderS
 import Popup, { ToolbarItem } from "devextreme-react/popup"
 import SelectBox from "devextreme-react/select-box"
 import notify from "devextreme/ui/notify"
-import DataGrid, { Column, Editing, Lookup, Pager, Paging, Scrolling, Selection } from "devextreme-react/data-grid"
+import DataGrid, { Column, ColumnFixing, Editing, Lookup, Pager, Paging, Scrolling, Selection } from "devextreme-react/data-grid"
 
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { getCustomerExts } from "@/api/customerExtApi"
@@ -516,16 +516,22 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
                   }}
                 />
               </div>}
+              <div className="min-h-0 flex-1 overflow-hidden">
               <DataGrid<CustomerGridRow, string>
                 dataSource={customerGridRows}
                 keyExpr="key"
                 height="100%"
+                width="100%"
                 showBorders
                 showRowLines
                 showColumnLines
-                columnAutoWidth={false}
+                columnAutoWidth
                 allowColumnResizing
-                className="min-h-0 flex-1"
+                columnResizingMode="widget"
+                selectedRowKeys={customerDrafts.filter((row) => row.selected).map((row) => row.key)}
+                onContentReady={(event) => {
+                  event.component.updateDimensions()
+                }}
                 onSelectionChanged={(event) => {
                   const selectableKeys = new Set(customerGridRows.filter((row) => !row.isExisting).map((row) => row.key))
                   const selectedKeys = (event.selectedRowKeys as string[]).filter((key) => selectableKeys.has(key))
@@ -559,12 +565,25 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
               >
                 <Paging enabled={false} />
                 <Pager visible={false} />
-                <Selection mode={saving ? "none" : "multiple"} showCheckBoxesMode="always" selectAllMode="allPages" />
-                <Scrolling mode="standard" useNative />
+                <Selection mode={saving ? "none" : "multiple"} showCheckBoxesMode="always" selectAllMode="allPages" allowSelectAll />
+                <Scrolling mode="standard" useNative={false} showScrollbar="always" />
+                <ColumnFixing enabled />
                 <Editing mode="cell" allowUpdating={!saving} allowAdding={false} allowDeleting={false} />
+                <Column dataField="CUSTOMER_CD" caption={t("CUSTOMER_CD", "Mã khách hàng")} width={140} />
+                <Column dataField="CATEGORY_CD" caption={t("CATEGORY_CD", "Nhóm khách hàng")} width={170} editCellRender={(cell) => <SelectBox {...createSysCodeSelectBoxEditorOptions(categoryOptions, undefined, t)} value={cell.value ?? null} disabled={saving} onValueChanged={(event) => cell.setValue(event.value == null ? "" : String(event.value))} />}>
+                  <Lookup dataSource={categoryOptions} valueExpr="CODE_CD" displayExpr={createSysCodeDisplayExpr(t)} />
+                </Column>
+                <Column dataField="CUSTOMER_TYPE" caption={t("CUSTOMER_TYPE", "Loại khách hàng")} width={170} editCellRender={(cell) => <SelectBox {...createSysCodeSelectBoxEditorOptions(customerTypeOptions, undefined, t)} value={cell.value ?? null} disabled={saving} onValueChanged={(event) => cell.setValue(event.value == null ? "" : String(event.value))} />}>
+                  <Lookup dataSource={customerTypeOptions} valueExpr="CODE_CD" displayExpr={createSysCodeDisplayExpr(t)} />
+                </Column>
+                <Column dataField="CUSTOMER_NM_VIET" caption={t("CUSTOMER_NM_VIET", "Tên khách hàng")} minWidth={240} />
+                <Column dataField="TAX_CD" caption={t("TAX_CD", "Mã số thuế")} width={140} />
+                <Column dataField="ADDRESS" caption={t("ADDRESS", "Địa chỉ")} minWidth={240} />
                 <Column
                   type="buttons"
                   width={56}
+                  fixed
+                  fixedPosition="right"
                   buttons={[{
                     hint: t("REMOVE_FROM_LIST", "Loại khỏi danh sách tạo"),
                     icon: "trash",
@@ -575,17 +594,8 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
                     },
                   }]}
                 />
-                <Column dataField="CUSTOMER_CD" caption={t("CUSTOMER_CD", "Mã khách hàng")} minWidth={150} />
-                <Column dataField="CATEGORY_CD" caption={t("CATEGORY_CD", "Nhóm khách hàng")} minWidth={170} editCellRender={(cell) => <SelectBox {...createSysCodeSelectBoxEditorOptions(categoryOptions, undefined, t)} value={cell.value ?? null} disabled={saving} onValueChanged={(event) => cell.setValue(event.value == null ? "" : String(event.value))} />}>
-                  <Lookup dataSource={categoryOptions} valueExpr="CODE_CD" displayExpr={createSysCodeDisplayExpr(t)} />
-                </Column>
-                <Column dataField="CUSTOMER_TYPE" caption={t("CUSTOMER_TYPE", "Loại khách hàng")} minWidth={170} editCellRender={(cell) => <SelectBox {...createSysCodeSelectBoxEditorOptions(customerTypeOptions, undefined, t)} value={cell.value ?? null} disabled={saving} onValueChanged={(event) => cell.setValue(event.value == null ? "" : String(event.value))} />}>
-                  <Lookup dataSource={customerTypeOptions} valueExpr="CODE_CD" displayExpr={createSysCodeDisplayExpr(t)} />
-                </Column>
-                <Column dataField="CUSTOMER_NM_VIET" caption={t("CUSTOMER_NM_VIET", "Tên khách hàng")} minWidth={260} />
-                <Column dataField="TAX_CD" caption={t("TAX_CD", "Mã số thuế")} minWidth={150} />
-                <Column dataField="ADDRESS" caption={t("ADDRESS", "Địa chỉ")} minWidth={320} />
               </DataGrid>
+              </div>
             </>}
           </div>
         )}
@@ -686,16 +696,22 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
                   }} />
                 </div>
               </div>}
+              <div className="min-h-0 flex-1 overflow-hidden">
               <DataGrid<ProductCandidate, string>
                 dataSource={productCandidates}
                 keyExpr="key"
                 height="100%"
+                width="100%"
                 showBorders
                 showRowLines
                 showColumnLines
-                columnAutoWidth={false}
+                columnAutoWidth
                 allowColumnResizing
-                className="min-h-0 flex-1"
+                columnResizingMode="widget"
+                selectedRowKeys={productCandidates.filter((row) => row.selected).map((row) => row.key)}
+                onContentReady={(event) => {
+                  event.component.updateDimensions()
+                }}
                 onSelectionChanged={(event) => {
                   const selectableKeys = new Set(productCandidates.filter((row) => !row.EXISTING_PRODUCT_CD).map((row) => row.key))
                   const selectedKeys = (event.selectedRowKeys as string[]).filter((key) => selectableKeys.has(key))
@@ -729,12 +745,30 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
               >
                 <Paging enabled={false} />
                 <Pager visible={false} />
-                <Selection mode={saving ? "none" : "multiple"} showCheckBoxesMode="always" selectAllMode="allPages" />
-                <Scrolling mode="standard" useNative />
+                <Selection mode={saving ? "none" : "multiple"} showCheckBoxesMode="always" selectAllMode="allPages" allowSelectAll />
+                <Scrolling mode="standard" useNative={false} showScrollbar="always" />
+                <ColumnFixing enabled />
                 <Editing mode="cell" allowUpdating={!saving} allowAdding={false} allowDeleting={false} />
+                <Column dataField="PRODUCT_CD" caption={t("PRODUCT_CD", "Mã sản phẩm *")} width={140} />
+                <Column dataField="PRODUCT_NM_VIET" caption={t("PRODUCT_NM_VIET", "Tên sản phẩm/dịch vụ *")} minWidth={240} />
+                <Column dataField="INVOICE_UNIT" caption={t("INVOICE_UNIT", "ĐVT hóa đơn")} width={120} />
+                <Column dataField="PRODUCT_KIND_ID" caption={t("PRODUCTKIND_NM", "Nhóm sản phẩm")} width={200} editCellRender={(cell) => <ProductGroupLookupCellEditor value={cell.value ?? null} rowData={cell.data} rowIndex={cell.rowIndex} grid={{}} setValue={(value) => cell.setValue(value)} />}>
+                  <Lookup dataSource={productKinds} valueExpr="PRODUCT_KIND_ID" displayExpr={(item: ProductKind | null) => item ? `${item.PRODUCT_KIND_CD} - ${pickLocalizedText(item, "PRODUCTKIND_NM")}` : ""} />
+                </Column>
+                <Column dataField="UNIT_ID" caption={t("UNIT_NM", "Đơn vị tính *")} width={180} editCellRender={(cell) => <UnitLookupCellEditor value={cell.value ?? null} rowData={cell.data} rowIndex={cell.rowIndex} grid={{}} setValue={(value) => cell.setValue(value)} />}>
+                  <Lookup dataSource={units} valueExpr="UNIT_ID" displayExpr={(unit: Unit | null) => unit ? `${unit.UNIT_CD} - ${unit.UNIT_NM}` : ""} />
+                </Column>
+                <Column dataField="STORE_ID" caption={t("STORE_NM_VIET", "Kho")} width={180} editCellRender={(cell) => <WarehouseLookupCellEditor value={cell.value ?? null} rowData={cell.data} rowIndex={cell.rowIndex} grid={{}} setValue={(value) => cell.setValue(value)} />}>
+                  <Lookup dataSource={stores} valueExpr="STORE_ID" displayExpr={(item: StoreInfo | null) => item ? `${item.STORE_CD} - ${pickLocalizedText(item, "STORE_NM")}` : ""} />
+                </Column>
+                <Column dataField="DIVISION" caption={t("DIVISION_CD", "Tài khoản hạch toán")} minWidth={200} editCellRender={(cell) => <AccountSelectBox value={cell.value ?? null} disabled={saving} onValueChanged={(value) => cell.setValue(value)} />}>
+                  <Lookup dataSource={accounts} valueExpr="CD" displayExpr={(item: etcData | null) => item ? `${item.CD} - ${pickLocalizedText(item, "NM") || pickLocalizedText(item, "ACCTITLE_NM")}` : ""} />
+                </Column>
                 <Column
                   type="buttons"
                   width={56}
+                  fixed
+                  fixedPosition="right"
                   buttons={[{
                     hint: t("REMOVE_FROM_LIST", "Loại khỏi danh sách tạo"),
                     icon: "trash",
@@ -745,22 +779,8 @@ export default function VatInOutQuickBatchCreatePopup({ visible, kind, invoiceTy
                     },
                   }]}
                 />
-                <Column dataField="PRODUCT_CD" caption={t("PRODUCT_CD", "Mã sản phẩm *")} minWidth={150} />
-                <Column dataField="PRODUCT_NM_VIET" caption={t("PRODUCT_NM_VIET", "Tên sản phẩm/dịch vụ *")} minWidth={300} />
-                <Column dataField="INVOICE_UNIT" caption={t("INVOICE_UNIT", "ĐVT hóa đơn")} minWidth={140} />
-                <Column dataField="PRODUCT_KIND_ID" caption={t("PRODUCTKIND_NM", "Nhóm sản phẩm")} minWidth={200} editCellRender={(cell) => <ProductGroupLookupCellEditor value={cell.value ?? null} rowData={cell.data} rowIndex={cell.rowIndex} grid={{}} setValue={(value) => cell.setValue(value)} />}>
-                  <Lookup dataSource={productKinds} valueExpr="PRODUCT_KIND_ID" displayExpr={(item: ProductKind | null) => item ? `${item.PRODUCT_KIND_CD} - ${pickLocalizedText(item, "PRODUCTKIND_NM")}` : ""} />
-                </Column>
-                <Column dataField="UNIT_ID" caption={t("UNIT_NM", "Đơn vị tính *")} minWidth={200} editCellRender={(cell) => <UnitLookupCellEditor value={cell.value ?? null} rowData={cell.data} rowIndex={cell.rowIndex} grid={{}} setValue={(value) => cell.setValue(value)} />}>
-                  <Lookup dataSource={units} valueExpr="UNIT_ID" displayExpr={(unit: Unit | null) => unit ? `${unit.UNIT_CD} - ${unit.UNIT_NM}` : ""} />
-                </Column>
-                <Column dataField="STORE_ID" caption={t("STORE_NM_VIET", "Kho")} minWidth={200} editCellRender={(cell) => <WarehouseLookupCellEditor value={cell.value ?? null} rowData={cell.data} rowIndex={cell.rowIndex} grid={{}} setValue={(value) => cell.setValue(value)} />}>
-                  <Lookup dataSource={stores} valueExpr="STORE_ID" displayExpr={(item: StoreInfo | null) => item ? `${item.STORE_CD} - ${pickLocalizedText(item, "STORE_NM")}` : ""} />
-                </Column>
-                <Column dataField="DIVISION" caption={t("DIVISION_CD", "Tài khoản hạch toán")} minWidth={220} editCellRender={(cell) => <AccountSelectBox value={cell.value ?? null} disabled={saving} onValueChanged={(value) => cell.setValue(value)} />}>
-                  <Lookup dataSource={accounts} valueExpr="CD" displayExpr={(item: etcData | null) => item ? `${item.CD} - ${pickLocalizedText(item, "NM") || pickLocalizedText(item, "ACCTITLE_NM")}` : ""} />
-                </Column>
               </DataGrid>
+              </div>
             </>}
           </div>
         )}

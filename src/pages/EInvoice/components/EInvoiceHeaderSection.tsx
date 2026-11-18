@@ -406,7 +406,7 @@ function EInvoiceHeaderSection({ vm }: EInvoiceHeaderSectionProps) {
                 <FormItem
                   dataField="NLAP"
                   editorType="dxDateBox"
-                  label={{ text: cashRegister ? "Ngày lập (tự chốt khi ký)" : t("NLAP", "Invoice date") }}
+                  label={{ text: cashRegister ? t("MTT_NLAP", "Ngày lập (tự ghi khi ký gửi)") : t("NLAP", "Invoice date") }}
                   editorOptions={createDateBoxEditorOptions({
                     dateSerializationFormat: "yyyy-MM-dd",
                     readOnly: !canEditInvoiceDate,

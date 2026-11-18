@@ -551,7 +551,7 @@ export default function EInvoiceMinuteEditorPopup({
                 <EInvoiceEditorSection
                     title={t("BBAN_REASONS", "Lý do điều chỉnh/thay thế")}
                     headerAction={
-                        <Button text={t("ADD", "Thêm")} icon="plus" stylingMode="outlined" elementAttr={{ class: "einvoice-add-btn" }} disabled={readOnly} onClick={addReason} />
+                        <Button text={t("ADD", "Thêm")} icon="plus" stylingMode="outlined" disabled={readOnly} onClick={addReason} />
                     }
                 >
                     <div className="einvoice-editor__stack">

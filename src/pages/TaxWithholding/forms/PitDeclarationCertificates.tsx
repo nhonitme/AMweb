@@ -16,7 +16,7 @@ type Props = {
 };
 export default function PitDeclarationCertificates({ data, setData, readOnly, busy, t, onPickCertificate, certificateMethodOptions }: Props) {
     return (<EInvoiceEditorSection title={t("DECL_CTS_SECTION", "Digital certificates (CTS)")}
-              headerAction={!readOnly && (<Button icon="plus" stylingMode="outlined" text={t("ADD", "Thêm")} elementAttr={{ class: "einvoice-add-btn" }} hint={t("DECL_CTS_FROM_PLUGIN", "Load certificate from signing plugin")} disabled={busy} onClick={() => onPickCertificate((cert) => setData((current) => ({
+              headerAction={!readOnly && (<Button icon="plus" stylingMode="outlined" text={t("ADD", "Thêm")} hint={t("DECL_CTS_FROM_PLUGIN", "Load certificate from signing plugin")} disabled={busy} onClick={() => onPickCertificate((cert) => setData((current) => ({
                 ...current,
                 Certificates: [
                     ...(current.Certificates ?? []),

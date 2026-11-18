@@ -512,7 +512,7 @@ export const createDefaultChitDetail = (_index: number, companyCd = ""): ChitDet
   FC_TYPE: DEFAULT_CURRENCY_CODE,
   FC_RATE: 0,
   FC_DATETIME: null,
-  SORT: 1,
+  SORT: Math.max(1, _index || 1),
   ISDEL: false,
   CHITDETAIL_VAT_CD: "",
   MG_CD: "",
@@ -1222,7 +1222,7 @@ export const mapChitToApiPayload = (record: ChitInfo): ChitApi => {
     ...mapChitDetailToApiPayload({
       ...item,
       CHIT_YMD: item.CHIT_YMD ?? record.CHIT_YMD,
-      SORT: item.SORT ?? index + 1,
+      SORT: index + 1,
     }),
   }))
   const totalAmount = calculateChitAmount(activeDetails)
