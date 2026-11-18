@@ -1,13 +1,11 @@
 /**
- * Bước 1 — Khóa TSCĐ/CPTT tại G-K, tái sử dụng engine B-I (mô phỏng DEMO).
+ * Bước 1 — Khóa TSCĐ/CPTT tại G-K, gọi engine PeriodLock B-I thật.
  */
 
-import { useState } from "react";
-import DataGrid, { Column, Paging } from "devextreme-react/data-grid";
 import Button from "devextreme-react/button";
 import { confirm } from "devextreme/ui/dialog";
 import { reloadProductionCosting, runProductionCostingStep1 } from "@/api/productionCostingApi";
-import { formatGkMessage, formatMoney, Notice, StepShell, type PanelCommonProps } from "./costingPanelShared";
+import { formatGkMessage, Notice, StepShell, type PanelCommonProps } from "./costingPanelShared";
 
 export function FaPrepaidLockPanel({
   overview,
@@ -24,9 +22,6 @@ export function FaPrepaidLockPanel({
 }: PanelCommonProps) {
   const runStatus = overview.stepStatuses[0];
   const locked = runStatus === "DONE";
-  const [checked, setChecked] = useState(false);
-  const [previewed, setPreviewed] = useState(false);
-  const faTotal = overview.faRows.reduce((s, r) => s + r.amount, 0);
 
   const runLock = async () => {
     const ok = await confirm(
@@ -73,7 +68,6 @@ export function FaPrepaidLockPanel({
                   onBusy(true);
                   const next = await reloadProductionCosting();
                   onRefresh(next);
-                  setChecked(true);
                   onSuccess(
                     formatGkMessage(
                       t("GK_STEP1_CHECK_OK", "Trạng thái B1 trên DB: {0}."),
@@ -89,18 +83,9 @@ export function FaPrepaidLockPanel({
             }}
           />
           <Button
-            text={t("GK_PREVIEW", "Xem trước bút toán")}
-            stylingMode="outlined"
-            disabled={busy || locked || !checked}
-            onClick={() => {
-              setPreviewed(true);
-              onSuccess(t("GK_STEP1_PREVIEW_OK", "Đã xem trước Nợ 627 / Có 214, 242."));
-            }}
-          />
-          <Button
             text={t("GK_STEP1_RUN", "Thực hiện khóa bước 1")}
             type="default"
-            disabled={busy || locked || !previewed}
+            disabled={busy || locked}
             onClick={() => void runLock()}
           />
         </>
@@ -120,69 +105,27 @@ export function FaPrepaidLockPanel({
         <span className="gk-pill active">{t("GK_SHARED_BI", "Dùng chung B-I")}</span>
       </div>
 
-      <div className="gk-columns">
-        <div className="gk-mini tinted">
-          <div className="title">{t("GK_FA_DEPR", "Khấu hao TSCĐ")}</div>
-          <div className="num">{formatMoney(overview.faRows[0]?.amount ?? 0)} đ</div>
-          <div className="small">{t("GK_DR_627_CR_214", "Nợ 627 / Có 214")}</div>
-        </div>
-        <div className="gk-mini tinted">
-          <div className="title">{t("GK_PREPAID", "Phân bổ CPTT")}</div>
-          <div className="num">{formatMoney(overview.faRows[1]?.amount ?? 0)} đ</div>
-          <div className="small">{t("GK_DR_627_CR_242", "Nợ 627 / Có 242")}</div>
-        </div>
-      </div>
-
-      <div className="gk-sectiontitle">{t("GK_FA_GRID", "Chi tiết TSCĐ / CPTT trong kỳ")}</div>
-      <DataGrid dataSource={overview.faRows} keyExpr="id" showBorders columnAutoWidth height={200}>
-        <Paging enabled={false} />
-        <Column dataField="assetCd" caption={t("CODE", "Mã")} width={110} />
-        <Column dataField="assetName" caption={t("NAME", "Tên")} />
-        <Column dataField="debitAccount" caption={t("DEBIT", "Nợ")} width={70} />
-        <Column dataField="creditAccount" caption={t("CREDIT", "Có")} width={70} />
-        <Column
-          dataField="amount"
-          caption={t("AMOUNT", "Số tiền")}
-          dataType="number"
-          format="#,##0"
-          width={120}
-        />
-        <Column dataField="note" caption={t("NOTE", "Ghi chú")} />
-      </DataGrid>
-
-      <div className="gk-listchecks">
-        <div className="gk-check">
-          <span className="symbol">✓</span>
-          {t("GK_FA_CHECK1", "Danh mục TSCĐ hợp lệ")}
-        </div>
-        <div className="gk-check">
-          <span className="symbol">✓</span>
-          {t("GK_FA_CHECK2", "Chi phí trả trước đủ kỳ")}
-        </div>
-        <div className="gk-check">
-          <span className="symbol">✓</span>
-          {t("GK_FA_CHECK3", "Kỳ chưa khóa bước 3")}
-        </div>
-        <div className="gk-check">
-          <span className="symbol">✓</span>
-          {t("GK_FA_CHECK4", "Có quyền khóa sổ trên menu PeriodLock")}
-        </div>
-      </div>
+      <Notice type="info">
+        {t(
+          "GK_STEP1_REAL_ENGINE",
+          "Chứng từ khấu hao và phân bổ được kiểm tra, tính toán và ghi nhận bởi PeriodLock B-I khi thực hiện. " +
+            "G-K không mô phỏng bút toán hoặc hiển thị số tiền xem trước chưa được xác nhận từ DB.",
+        )}
+      </Notice>
 
       <Notice type={locked ? "good" : runStatus === "REOPENED" ? "warn" : "info"}>
         {locked
           ? formatGkMessage(
-              t("GK_STEP1_DONE_MSG", "B1 trên DB đang DONE. Tổng xem trước {0} đ."),
-              formatMoney(faTotal),
+              t("GK_STEP1_DONE_MSG", "B1 trên DB đang DONE. Chứng từ đã được PeriodLock ghi nhận."),
             )
           : runStatus === "REOPENED"
             ? t(
                 "GK_STEP1_REOPENED",
-                "Bước 1 đã mở lại — kết quả cũ được giữ. Kiểm tra → Xem trước → Thực hiện lại để ghi đè.",
+                "Bước 1 đã mở lại. Chạy lại PeriodLock B-I để tính và ghi nhận chứng từ mới.",
               )
             : t(
                 "GK_STEP1_HINT",
-                "Thứ tự: Kiểm tra → Xem trước → Thực hiện. DONE chỉ khi PeriodLock và DB báo xong.",
+                "Kiểm tra trạng thái DB, sau đó thực hiện bằng PeriodLock B-I. Chỉ xác nhận thành công khi job và bước trên DB đều DONE.",
               )}
       </Notice>
     </StepShell>
