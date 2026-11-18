@@ -342,7 +342,7 @@ export async function setIncompleteCostPreset(presetKey: string): Promise<Produc
   const preset = presetKey.startsWith("sl_tp")
     ? { IncompleteMode: "incomplete_cost_SL_TP_SX", IncompletePercent: presetKey.includes("p07") ? 0.7 : presetKey.includes("p05") ? 0.5 : 0.8 }
     : presetKey.includes("2720")
-      ? { IncompleteMode: "incomplete_ValueChange_Calculated_ID2720", IncompletePercent: 0.8 }
+      ? { IncompleteMode: "incomplete_ValueChange_Calculated_ID2720", IncompletePercent: 0.5 }
       : { IncompleteMode: "STANDARD", IncompletePercent: 0.8 };
   await put("/run/config", { ...identity, ...preset });
   return reloadProductionCosting();
