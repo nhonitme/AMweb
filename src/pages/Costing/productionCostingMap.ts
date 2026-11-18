@@ -39,11 +39,15 @@ function authoritativeStatus(step: Rec): CostingStepRunStatus {
   const index = num(step.StepIndex);
   const gk = mapStepStatus(step.Status);
   if (index !== 1 && index !== 6) return gk;
-  if (step.StatusMismatch === true) {
-    const bi = mapStepStatus(step.BiStatus);
-    return bi === "DONE" ? "DONE" : bi;
-  }
-  if (step.BiStatus) return mapStepStatus(step.BiStatus);
+  const biStatus = text(step.BiStatus).toUpperCase();
+  const bi = mapStepStatus(step.BiStatus);
+  // OPEN on B-I after a successful shared REOPEN still represents a
+  // REOPENED G-K working version, not a never-started period.
+  if (gk === "REOPENED" && biStatus === "OPEN") return "REOPENED";
+  // A still-locked B-I step must never appear safely reopened on G-K.
+  if (biStatus === "DONE") return "DONE";
+  if (step.StatusMismatch === true && biStatus) return bi;
+  if (biStatus) return bi;
   return gk;
 }
 
