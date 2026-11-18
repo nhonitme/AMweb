@@ -78,11 +78,17 @@ export type PeriodLockRow = {
   /** Trạng thái tổng của tháng. */
   Status: PeriodLockStatus
 
-  /** Thời điểm khóa hoặc xử lý gần nhất. */
+  /** Thời điểm khóa sổ thành công gần nhất (giữ nguyên sau khi mở sổ). */
   LockedAt?: string | null
 
-  /** Người xử lý khóa sổ gần nhất. */
+  /** Người thực hiện lần khóa sổ thành công gần nhất. */
   LockedBy?: string | null
+
+  /** Thời điểm cập nhật trạng thái gần nhất, kể cả khi mở sổ. */
+  ProcessedAt?: string | null
+
+  /** Người cập nhật trạng thái gần nhất, kể cả khi mở sổ. */
+  ProcessedBy?: string | null
 
   /** Ghi chú hoặc thông báo lỗi cấp tháng. */
   Message?: string | null
