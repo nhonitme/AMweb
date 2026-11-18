@@ -79,11 +79,11 @@ export function CostingReopenPopup({
           </div>
         </div>
 
-        <div className="gk-sectiontitle">{t("GK_RELATED", "Kết quả / chứng từ liên quan")}</div>
+        <div className="gk-sectiontitle">{t("GK_RELATED", "Tác động và chứng từ liên quan")}</div>
         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }}>
-          {info.relatedResults.map((r) => (
-            <li key={r}>{r}</li>
-          ))}
+          {info.relatedResults.length > 0
+            ? info.relatedResults.map((r) => <li key={r}>{r}</li>)
+            : <li>{t("GK_REOPEN_EFFECTS_DB", "Chứng từ phát sinh sẽ được kiểm tra và hoàn nguyên bởi backend trước khi ghi REOPEN.")}</li>}
         </ul>
 
         {info.blockingDependents.length > 0 ? (
