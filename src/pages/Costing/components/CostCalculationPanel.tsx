@@ -1,5 +1,5 @@
 /**
- * Bước 4 — Tính giá thành / chi phí dở dang theo CONG_THUC_TINH_DO_DANG.md (mock).
+ * Bước 4 — Tính giá thành / chi phí dở dang từ số liệu DB; Confirm ghi snapshot thật.
  * FE-04: Mở lại → Điều chỉnh → Tính thử → Chênh lệch → Xác nhận ghi đè.
  */
 
@@ -206,7 +206,7 @@ export function CostCalculationPanel({
             }}
           />
           <label className="gk-rate-field">
-            {t("GK_WIP_PRESET", "Cấu hình đặc biệt (demo)")}
+            {t("GK_WIP_PRESET", "Cấu hình tính dở dang")}
             <SelectBox
               items={[
                 { value: "standard", text: t("GK_WIP_PRESET_STD", "Chuẩn (mặc định)") },
