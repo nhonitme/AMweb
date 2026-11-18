@@ -80,9 +80,9 @@ import EInvoiceMailHistoryPopup from "./components/EInvoiceMailHistoryPopup"
 import { formatEInvoiceDecimalValue, getEInvoiceMoneyFallbackPrecision, useEInvoiceDecimalResolver } from "./einvoiceDecimalSettings"
 import { useEInvoiceCertificateSigning } from "./hooks/useEInvoiceCertificateSigning"
 import { useEInvoiceSigningPluginSetupPrompt } from "./hooks/useEInvoiceSigningPluginSetupPrompt"
-import { openEInvoiceReportViewer, downloadEInvoicesBatch, buildPrintRequestFromInvoice, type EInvoicePrintConfirmPayload } from "./einvoiceReportViewer"
+import { openEInvoiceReportViewer, downloadEInvoicesBatch, type EInvoicePrintConfirmPayload } from "./einvoiceReportViewer"
 import { openEInvoiceXmlPreviewWithNotify } from "./einvoiceXmlViewer"
-import { openEInvoiceTransmissionHtmlPreview } from "./einvoiceTransmissionPreviewViewer"
+import { openEInvoiceTransmissionPdfPreview } from "./einvoiceTransmissionPreviewViewer"
 import { createEInvoicePrintToolbarItem } from "./einvoicePrintToolbar"
 import { createEInvoiceIssueMttToolbarItem, createEInvoiceSignSendCqtToolbarItem } from "./einvoiceSignToolbar"
 import { createEInvoiceSendMailToolbarItem } from "./einvoiceSendMailToolbar"
@@ -427,9 +427,7 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
     const handleViewTransmissionMessage = useCallback(
         async (message: EInvoiceTransmissionMessage) => {
             try {
-                const opened = await openEInvoiceTransmissionHtmlPreview(message, {
-                    invoiceId: transmissionInvoiceId,
-                })
+                const opened = await openEInvoiceTransmissionPdfPreview(message)
                 if (!opened) {
                     notify(t("PREVIEW_OPEN_FAILED", "Could not open preview"), "warning", 3000)
                 }
@@ -1163,7 +1161,7 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
             setPendingPrintInvoices(getSelectedInvoices())
             setPrintOptionsVisible(true)
         },
-        [getSelectedInvoices, handleViewXml, t],
+        [getSelectedInvoiceIds, getSelectedInvoices, handleViewXml, t],
     )
 
     const closePrintOptionsPopup = useCallback(() => {
@@ -1197,7 +1195,7 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
                 void downloadEInvoicesBatch({
                     items: pendingPrintInvoices.map((invoice) => ({
                         invoiceId: Number(invoice.INVOICE_ID),
-                        printRequest: buildPrintRequestFromInvoice(invoice, printRequest),
+                        printRequest: printRequest,
                     })),
                     format,
                     notifyUnableToOpen: (message) => notify(message, "error", 4000),
@@ -1215,7 +1213,7 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
             void openEInvoiceReportViewer({
                 invoiceIds: [invoiceId],
                 companyCd,
-                printRequest: buildPrintRequestFromInvoice(firstInvoice, printRequest),
+                printRequest: printRequest,
                 notifyUnableToOpen: (message) => notify(message, "error", 4000),
                 notifyInfo: (message) => notify(message, "info", 8000),
                 notifySuccess: (message) => notify(message, "success", 4000),
@@ -1702,7 +1700,6 @@ export default function EInvoiceManagePage({ cashRegister = false }: { cashRegis
                     onImport={openInvoiceImport}
                     showImport={!cashRegister}
                     showExportPdf={false}
-                    showExportXlsx={false}
                     shortcutsEnabled={
                         !popupVisible
                         && !certificatePopupVisible

@@ -47,6 +47,10 @@ export async function getEInvoiceTemplateDesignerDesigns(xslId: number): Promise
   return { data: Array.isArray(normalized.data) ? normalized.data : [] }
 }
 
+export async function getEInvoiceTemplateDesignerDesign(xslId: number, designId: number): Promise<{ data: EInvoiceTemplateDesignerDesign; message?: string }> {
+  return normalizeResponse<EInvoiceTemplateDesignerDesign>(await axios.get(`${BASE_URL}/templates/${xslId}/designer/designs/${designId}`))
+}
+
 export async function cloneEInvoiceTemplateDesigner(xslId: number, designId: number): Promise<{ data: EInvoiceTemplateDesignerDesign; message?: string }> {
   const response = await axios.post<ApiEnvelope<EInvoiceTemplateDesignerDesign> | EInvoiceTemplateDesignerDesign>(`${BASE_URL}/templates/${xslId}/designer/designs/${designId}/clone`)
   return normalizeResponse<EInvoiceTemplateDesignerDesign>(response)

@@ -2,6 +2,7 @@ import { useCallback, useContext, useMemo, useRef, useState } from "react"
 import type { KeyboardEvent, ReactNode } from "react"
 import Button from "devextreme-react/button"
 import CheckBox from "devextreme-react/check-box"
+import RadioGroup from "devextreme-react/radio-group"
 import SelectBox from "devextreme-react/select-box"
 import TextBox from "devextreme-react/text-box"
 import { LanguageContext } from "@/lib/i18nLoader"
@@ -109,7 +110,6 @@ type ReportToolbarProps = {
   onRefresh?: () => void
   onPrint?: () => void
   onExportPdf?: () => void
-  onExportExcel?: () => void
   onSysGridColumnSettings?: () => void
   onFetchFromGdt?: () => void
   onFormulaSettings?: () => void
@@ -119,7 +119,6 @@ type ReportToolbarProps = {
   showRefresh?: boolean
   showPrint?: boolean
   showExportPdf?: boolean
-  showExportExcel?: boolean
   showFetchFromGdt?: boolean
   shortcutsEnabled?: boolean
   accountLookupStore?: CustomStore
@@ -140,6 +139,10 @@ type ReportToolbarProps = {
   onByQuarterChange?: (value: boolean) => void
   showDetailRows?: boolean
   onShowDetailRowsChange?: (value: boolean) => void
+  /** AR invoice debt detail: period-only vs period + opening invoices. */
+  arInvoiceOptionsVisible?: boolean
+  includeOpeningInvoices?: boolean
+  onIncludeOpeningInvoicesChange?: (value: boolean) => void
   /** "flat" drops the bordered/shadowed toolbar card in favor of a borderless row (used by Sổ quỹ tiền mặt). */
   variant?: "boxed" | "flat"
 }
@@ -224,7 +227,6 @@ export function ReportToolbar({
   onRefresh,
   onPrint,
   onExportPdf,
-  onExportExcel,
   onSysGridColumnSettings,
   onFetchFromGdt,
   onFormulaSettings,
@@ -233,7 +235,6 @@ export function ReportToolbar({
   showRefresh = true,
   showPrint = true,
   showExportPdf = true,
-  showExportExcel = true,
   showFetchFromGdt = false,
   shortcutsEnabled = true,
   accountFilterEtcType = EtcType.cbxAccountParent,
@@ -252,6 +253,9 @@ export function ReportToolbar({
   onByQuarterChange,
   showDetailRows = true,
   onShowDetailRowsChange,
+  arInvoiceOptionsVisible = false,
+  includeOpeningInvoices = true,
+  onIncludeOpeningInvoicesChange,
   variant = "boxed",
 }: ReportToolbarProps) {
   const { lang, translate } = useContext(LanguageContext) as {
@@ -514,19 +518,13 @@ export function ReportToolbar({
       actions.push(SHORTCUT_ACTIONS.EXPORT_PDF)
     }
 
-    if (showExportExcel && typeof onExportExcel === "function") {
-      actions.push(SHORTCUT_ACTIONS.EXPORT_EXCEL)
-    }
-
     return Array.from(new Set(actions))
   }, [
-    onExportExcel,
     onExportPdf,
     onPrint,
     onRefresh,
     onSysGridColumnSettings,
     searchHandler,
-    showExportExcel,
     showExportPdf,
     showPrint,
     showRefresh,
@@ -547,7 +545,6 @@ export function ReportToolbar({
       [SHORTCUT_ACTIONS.COLUMN_CHOOSER]: () => onSysGridColumnSettings?.(),
       [SHORTCUT_ACTIONS.PRINT]: () => onPrint?.(),
       [SHORTCUT_ACTIONS.EXPORT_PDF]: () => onExportPdf?.(),
-      [SHORTCUT_ACTIONS.EXPORT_EXCEL]: () => onExportExcel?.(),
       [SHORTCUT_ACTIONS.HELP]: () => openShortcutHelp(),
     }
 
@@ -556,7 +553,6 @@ export function ReportToolbar({
       [SHORTCUT_ACTIONS.REFRESH]: { allowInInput: true },
     })
   }, [
-    onExportExcel,
     onExportPdf,
     onPrint,
     onRefresh,
@@ -632,24 +628,15 @@ export function ReportToolbar({
         onClick: onExportPdf,
         visible: showExportPdf && typeof onExportPdf === "function",
       },
-      {
-        key: "exportExcel",
-        icon: "xlsxfile",
-        hint: t("EXPORT_EXCEL", "Export Excel"),
-        onClick: onExportExcel,
-        visible: showExportExcel && typeof onExportExcel === "function",
-      },
     ],
 
     [
-      onExportExcel,
       onExportPdf,
       onFormulaSettings,
       onFetchFromGdt,
       onPrint,
       onRefresh,
       onSysGridColumnSettings,
-      showExportExcel,
       showExportPdf,
       showFetchFromGdt,
       showPrint,
@@ -1024,6 +1011,31 @@ export function ReportToolbar({
                   onValueChanged={(event) => onShowDetailRowsChange?.(Boolean(event.value))}
                 />
               </div>
+            ) : null}
+
+            {arInvoiceOptionsVisible ? (
+              <RadioGroup
+                className="page-toolbar__ar-invoice-options"
+                dataSource={[
+                  {
+                    value: false,
+                    text: t("AR_INVOICE_PERIOD_ONLY", "Chỉ lấy hóa đơn trong kỳ"),
+                  },
+                  {
+                    value: true,
+                    text: t("AR_INVOICE_PERIOD_AND_OPENING", "Lấy hóa đơn trong kỳ và đầu kỳ"),
+                  },
+                ]}
+                displayExpr="text"
+                valueExpr="value"
+                layout="horizontal"
+                value={includeOpeningInvoices}
+                onValueChanged={(event) => {
+                  if (typeof event.value === "boolean") {
+                    onIncludeOpeningInvoicesChange?.(event.value)
+                  }
+                }}
+              />
             ) : null}
 
             {showSearch && typeof searchHandler === "function" ? (

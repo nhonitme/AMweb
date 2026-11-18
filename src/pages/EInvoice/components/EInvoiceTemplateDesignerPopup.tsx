@@ -2,9 +2,11 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react"
 import SelectBox from "devextreme-react/select-box"
 import notify from "devextreme/ui/notify"
 import axios from "@/api/axiosClient"
+import { getApiErrorMessage } from "@/api/apiTypes"
 import API_BASE_URL from "@/config/apiConfig"
 import {
   cloneEInvoiceTemplateDesigner,
+  getEInvoiceTemplateDesignerDesign,
   getEInvoiceTemplateDesignerDesigns,
   publishEInvoiceTemplateDesigner,
   previewEInvoiceTemplateDesignerLiveHtml,
@@ -191,13 +193,6 @@ export default function EInvoiceTemplateDesignerPopup({
           transformResponse: [(data) => data],
           params: { xslId, designId: resolvedDesignId },
         })
-        .catch(() => {
-          return axios.get<string>(`${API_BASE_URL}/EInvoiceSetting/sellers/${sellerId}/preview/html`, {
-            responseType: "text",
-            transformResponse: [(data) => data],
-            params: { xslId },
-          })
-        })
       const html = typeof response.data === "string" ? response.data : String(response.data ?? "")
       setPreviewHtml(html)
     } catch (error) {
@@ -262,13 +257,30 @@ export default function EInvoiceTemplateDesignerPopup({
 
 
   useEffect(() => {
-    const design = designs.find(item => item.DESIGN_ID === activeDesignId)
-    if (!design) return
-    syncSettingsFromDesign(design)
-    void loadPreview(activeDesignId)
-    // Only rehydrate when switching design id; save/clone sync explicitly.
+    if (xslId <= 0) return
+    let cancelled = false
+    setActiveDesignId(0)
+    setWorkingXsl("")
+    void getEInvoiceTemplateDesignerDesigns(xslId).then(response => {
+      if (cancelled) return
+      setDesigns(response.data)
+      setActiveDesignId(response.data[0]?.DESIGN_ID ?? 0)
+    }).catch(error => { if (!cancelled) notify(getApiErrorMessage(error, "Không tải được danh sách thiết kế"), "error", 5000) })
+    return () => { cancelled = true }
+  }, [xslId])
+
+  useEffect(() => {
+    if (!activeDesignId || !xslId) return
+    let cancelled = false
+    void getEInvoiceTemplateDesignerDesign(xslId, activeDesignId).then(response => {
+      if (cancelled) return
+      setDesigns(current => current.map(item => item.DESIGN_ID === activeDesignId ? response.data : item))
+      syncSettingsFromDesign(response.data)
+      void loadPreview(activeDesignId)
+    }).catch(error => { if (!cancelled) notify(getApiErrorMessage(error, "Không tải được bản thiết kế"), "error", 5000) })
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDesignId])
+  }, [activeDesignId, xslId])
 
   useEffect(() => {
     const iframe = frameRef.current
@@ -550,8 +562,6 @@ export default function EInvoiceTemplateDesignerPopup({
       setDesigns(list.data)
       const nextId = cloned.data.DESIGN_ID
       setActiveDesignId(nextId)
-      syncSettingsFromDesign(list.data.find(item => item.DESIGN_ID === nextId) ?? cloned.data)
-      await loadPreview(nextId)
       notify(`Đã tạo bản thiết kế mới: ${cloned.data.DESIGN_NM || `#${nextId}`}`, "success", 3000)
     } catch (error) {
       const message = error instanceof Error ? error.message : "Không tạo được bản thiết kế mới"

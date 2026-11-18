@@ -487,7 +487,6 @@ function DebtOffsetContent({ companyCd, userId }: { companyCd: string; userId: s
             showRefresh={false}
             showPrint={false}
             showExportPdf={false}
-            showExportExcel={false}
             shortcutsEnabled={false}
             trailingActions={
               <>

@@ -1,8 +1,7 @@
+import axios from "@/api/axiosClient"
+import API_BASE_URL from "@/config/apiConfig"
 import notify from "devextreme/ui/notify"
 
-import { getEInvoiceDeclaration, getEInvoiceDeclarationSigningPayload } from "@/api/einvoiceDeclarationApi"
-import { getEInvoiceErrorNotice, getEInvoiceErrorNoticeSigningPayload } from "@/api/einvoiceErrorNoticeApi"
-import { getEInvoiceMinute, getEInvoiceMinuteSigningPayload } from "@/api/einvoiceMinuteApi"
 import { getCurrentCompanyCd } from "@/lib/login"
 
 import {
@@ -11,66 +10,16 @@ import {
   einvXmlEmpty,
   einvXmlTitle,
 } from "./einvoiceI18n"
-import { isMinuteSigned } from "./einvoiceMinuteModel"
 import { openXmlTextPreviewWithNotify } from "./einvoiceXmlViewer"
 
-function trimText(value: unknown): string {
-  return typeof value === "string" ? value.trim() : ""
+async function fetchDocumentXml(controller: string, id: number): Promise<string> {
+  const response = await axios.get<string>(`${API_BASE_URL}/${controller}/${id}/xml`, { responseType: "text" })
+  if (!response.data?.trim()) throw new Error(einvXmlEmpty())
+  return response.data
 }
-
-async function fetchDeclarationXml(tkhaiId: number): Promise<string> {
-  const detailResponse = await getEInvoiceDeclaration(tkhaiId)
-  const storedXml = trimText(detailResponse.data.XML)
-  if (storedXml) {
-    return storedXml
-  }
-
-  const payloadResponse = await getEInvoiceDeclarationSigningPayload(tkhaiId)
-  const rawXml = trimText(payloadResponse.data.RAW_XML)
-  if (!rawXml) {
-    throw new Error(einvXmlEmpty())
-  }
-
-  return rawXml
-}
-
-async function fetchErrorNoticeXml(tbaoId: number): Promise<string> {
-  const detailResponse = await getEInvoiceErrorNotice(tbaoId)
-  const storedXml = trimText(detailResponse.data.XML)
-  if (storedXml) {
-    return storedXml
-  }
-
-  const payloadResponse = await getEInvoiceErrorNoticeSigningPayload(tbaoId)
-  const rawXml = trimText(payloadResponse.data.RAW_XML)
-  if (!rawXml) {
-    throw new Error(einvXmlEmpty())
-  }
-
-  return rawXml
-}
-
-async function fetchMinuteXml(bbanId: number): Promise<string> {
-  const detailResponse = await getEInvoiceMinute(bbanId)
-  const detail = detailResponse.data
-
-  if (isMinuteSigned(detail)) {
-    const signedXml = trimText(detail.SIGNED_XML) || trimText(detail.NDBBAN_XML)
-    if (!signedXml) {
-      throw new Error(einvXmlEmpty())
-    }
-
-    return signedXml
-  }
-
-  const payloadResponse = await getEInvoiceMinuteSigningPayload(bbanId)
-  const rawXml = trimText(payloadResponse.data.RAW_XML)
-  if (!rawXml) {
-    throw new Error(einvXmlEmpty())
-  }
-
-  return rawXml
-}
+const fetchDeclarationXml = (id: number) => fetchDocumentXml("EInvoiceDeclaration", id)
+const fetchErrorNoticeXml = (id: number) => fetchDocumentXml("EInvoiceErrorNotice", id)
+const fetchMinuteXml = (id: number) => fetchDocumentXml("EInvoiceMinutes", id)
 
 export type OpenEInvoiceDocumentXmlPreviewOptions = {
   title?: string

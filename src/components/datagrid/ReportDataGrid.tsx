@@ -54,13 +54,6 @@ export type ReportDataGridRow = {
 
 export type ReportDataGridHandle = {
   openColumnSettings: () => Promise<boolean>
-  getVisibleExportColumns: () => ReportGridExportColumn[]
-}
-
-export type ReportGridExportColumn = {
-  dataField: string
-  caption: string
-  width: number
 }
 
 export type ReportDataGridGroupConfig = {
@@ -1902,38 +1895,10 @@ function ReportDataGrid(
     }
   }, [columnSettingState, columnSettingsItems.length])
 
-  const getVisibleExportColumns = useCallback((): ReportGridExportColumn[] => {
-    if (columnSettingState.cachedEditorItems.length === 0) {
-      return []
-    }
-
-    const previewColumnsByField = new Map(
-      columns.map((column) => [normalizeColumnKey(column.FIELD_NAME), column] as const),
-    )
-
-    return (gridRef.current?.getVisibleColumns() ?? []).flatMap((gridColumn) => {
-      const dataField = typeof gridColumn.dataField === "string" ? gridColumn.dataField : ""
-      const previewColumn = previewColumnsByField.get(normalizeColumnKey(dataField))
-      if (!dataField || !previewColumn) {
-        return []
-      }
-
-      return [{
-        dataField: previewColumn.FIELD_NAME,
-        caption: typeof gridColumn.caption === "string" && gridColumn.caption.trim()
-          ? gridColumn.caption
-          : translateReportColumnCaption(previewColumn, t),
-        width: typeof gridColumn.width === "number" && Number.isFinite(gridColumn.width)
-          ? gridColumn.width
-          : Math.max(90, Math.round(previewColumn.WIDTH || 120)),
-      }]
-    })
-  }, [columnSettingState.cachedEditorItems.length, columns, t])
-
   useImperativeHandle(
     ref,
-    () => ({ openColumnSettings, getVisibleExportColumns }),
-    [getVisibleExportColumns, openColumnSettings],
+    () => ({ openColumnSettings }),
+    [openColumnSettings],
   )
 
   const handleColumnSettingsSave = useCallback(

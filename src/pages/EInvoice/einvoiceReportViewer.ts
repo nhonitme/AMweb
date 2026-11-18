@@ -1,22 +1,15 @@
+import { fetchDocumentPdf, openDocumentPdf } from "./documentPdfViewer"
 import notify from "devextreme/ui/notify"
 
-import axios from "@/api/axiosClient"
 import API_BASE_URL from "@/config/apiConfig"
-import { downloadBlobFile, downloadFile, downloadQueue } from "@/lib/fileUtils"
+import { downloadFile, downloadQueue } from "@/lib/fileUtils"
 import { getCurrentCompanyCd } from "@/lib/login"
 
-import {
-  injectHtmlPreviewToolbar,
-  PREVIEW_EXPORT_DONE_MESSAGE,
-  PREVIEW_EXPORT_ERROR_MESSAGE,
-} from "./einvoiceHtmlPreviewToolbar"
-import type { EInvoice } from "@/types/einvoice"
 import {
   EINV_KEY,
   einvCompanyNotSelected,
   einvPdfExportFailed,
   einvPreviewOpenFailed,
-  einvPreviewOpenedHint,
   einvT,
   einvXmlExportFailed,
 } from "./einvoiceI18n"
@@ -24,25 +17,14 @@ import { formatEinvoiceText } from "./einvoiceTranslate"
 import { downloadEInvoiceXml } from "./einvoiceXmlViewer"
 
 const BASE_URL = `${API_BASE_URL}/EInvoice`
-const PREVIEW_EXPORT_MESSAGE = "amnote-einvoice-export-pdf"
 
 export type EInvoicePrintMode = "normal" | "converted"
 export type EInvoiceDownloadFormat = "pdf" | "xml"
 
-export type EInvoicePrintHints = {
-  xmlFtpPath?: string
-  sellerId?: number
-  xslId?: number
-  khhdon?: string
-  shdon?: string
-  mtracuu?: string
-  isSigned?: number
-}
-
 export type EInvoicePrintRequest = {
   mode: EInvoicePrintMode
   convertedByNm?: string
-} & EInvoicePrintHints
+}
 
 export type EInvoicePrintConfirmPayload = {
   format: EInvoiceDownloadFormat
@@ -63,19 +45,6 @@ export type OpenEInvoiceReportViewerOptions = {
   notifySuccess?: (message: string) => void
 }
 
-type PreviewExportHandlers = {
-  onInfo?: (message: string) => void
-  onSuccess?: (message: string) => void
-  onError?: (message: string) => void
-}
-
-declare global {
-  interface Window {
-    __amnoteEInvoicePreviewExportListener?: boolean
-  }
-}
-
-
 function normalizeInvoiceIds(invoiceIds: readonly number[]): number[] {
   return invoiceIds
     .map((id) => Number(id))
@@ -86,92 +55,21 @@ function resolveInvoiceId(invoiceIds: readonly number[]): number | null {
   return normalizeInvoiceIds(invoiceIds)[0] ?? null
 }
 
-async function parseApiBlobError(blob: Blob): Promise<string> {
-  try {
-    const text = await blob.text()
-    const payload = JSON.parse(text) as { message?: string; Message?: string }
-    return payload.message ?? payload.Message ?? text
-  } catch {
-    return einvPdfExportFailed()
-  }
-}
-
-function injectPreviewToolbar(html: string, invoiceId: number, printRequest: EInvoicePrintRequest): string {
-  const isConvertedPrint = printRequest.mode === "converted"
-  const convertedByNm = printRequest.convertedByNm?.trim() ?? ""
-
-  return injectHtmlPreviewToolbar(html, {
-    exportMessageType: PREVIEW_EXPORT_MESSAGE,
-    exportPayload: {
-      invoiceId,
-      convertedPrint: isConvertedPrint,
-      convertedByNm,
-    },
-  })
-}
-
-let activePreviewExportHandlers: PreviewExportHandlers = {}
-let activePrintRequest: EInvoicePrintRequest = { mode: "normal" }
-
-function extractPrintHints(printRequest?: EInvoicePrintRequest): EInvoicePrintHints {
-  if (!printRequest) {
-    return {}
-  }
-
-  const hints: EInvoicePrintHints = {}
-  const xmlFtpPath = printRequest.xmlFtpPath?.trim()
-  if (xmlFtpPath) {
-    hints.xmlFtpPath = xmlFtpPath
-  }
-
-  if (printRequest.sellerId && printRequest.sellerId > 0) {
-    hints.sellerId = printRequest.sellerId
-  }
-
-  if (printRequest.xslId && printRequest.xslId > 0) {
-    hints.xslId = printRequest.xslId
-  }
-
-  const khhdon = printRequest.khhdon?.trim()
-  if (khhdon) {
-    hints.khhdon = khhdon
-  }
-
-  const shdon = printRequest.shdon?.trim()
-  if (shdon) {
-    hints.shdon = shdon
-  }
-
-  const mtracuu = printRequest.mtracuu?.trim()
-  if (mtracuu) {
-    hints.mtracuu = mtracuu
-  }
-
-  if (printRequest.isSigned === 0 || printRequest.isSigned === 1) {
-    hints.isSigned = printRequest.isSigned
-  }
-
-  return hints
-}
-
 function normalizePrintRequest(printRequest?: EInvoicePrintRequest): EInvoicePrintRequest {
   if (!printRequest) {
-    return activePrintRequest
+    return { mode: "normal" }
   }
 
-  const hints = extractPrintHints(printRequest)
 
   if (printRequest.mode === "converted") {
     return {
       mode: "converted",
       convertedByNm: printRequest.convertedByNm?.trim() || undefined,
-      ...hints,
     }
   }
 
   return {
     mode: "normal",
-    ...hints,
   }
 }
 
@@ -188,164 +86,11 @@ function buildPrintQueryParams(printRequest?: EInvoicePrintRequest): Record<stri
     }
   }
 
-  const xmlFtpPath = request.xmlFtpPath?.trim()
-  if (xmlFtpPath) {
-    params.xmlFtpPath = xmlFtpPath
-  }
-
-  if (request.sellerId && request.sellerId > 0) {
-    params.sellerId = request.sellerId
-  }
-
-  if (request.xslId && request.xslId > 0) {
-    params.xslId = request.xslId
-  }
-
-  const khhdon = request.khhdon?.trim()
-  if (khhdon) {
-    params.khhdon = khhdon
-  }
-
-  const shdon = request.shdon?.trim()
-  if (shdon) {
-    params.shdon = shdon
-  }
-
-  const mtracuu = request.mtracuu?.trim()
-  if (mtracuu) {
-    params.mtracuu = mtracuu
-  }
-
-  if (request.isSigned === 0 || request.isSigned === 1) {
-    params.isSigned = request.isSigned
-  }
-
   return params
 }
 
-function ensurePreviewExportListener(): void {
-  if (window.__amnoteEInvoicePreviewExportListener) {
-    return
-  }
-
-  window.__amnoteEInvoicePreviewExportListener = true
-
-  window.addEventListener("message", (event) => {
-    if (event.origin !== window.location.origin) {
-      return
-    }
-
-    const data = event.data as {
-      type?: string
-      invoiceId?: number
-      message?: string
-      convertedPrint?: boolean
-      convertedByNm?: string
-    } | null
-    if (!data || data.type !== PREVIEW_EXPORT_MESSAGE) {
-      return
-    }
-
-    const invoiceId = Number(data.invoiceId)
-    if (!Number.isFinite(invoiceId) || invoiceId <= 0) {
-      return
-    }
-
-    const source = event.source as Window | null
-    const handlers = activePreviewExportHandlers
-    const printRequest: EInvoicePrintRequest = data.convertedPrint
-      ? {
-          mode: "converted",
-          convertedByNm: String(data.convertedByNm ?? "").trim() || undefined,
-        }
-      : { mode: "normal" }
-
-    void (async () => {
-      handlers.onInfo?.(einvT(EINV_KEY.PDF_GENERATING, "Generating PDF..."))
-
-      try {
-        const result = await openEInvoicePdf(invoiceId, printRequest)
-        source?.postMessage({ type: PREVIEW_EXPORT_DONE_MESSAGE }, window.location.origin)
-        handlers.onSuccess?.(
-          result === "tab"
-            ? einvT(EINV_KEY.PDF_OPENED_TAB, "PDF opened in a new browser tab")
-            : einvT(EINV_KEY.PDF_DOWNLOADED, "PDF downloaded to your Downloads folder"),
-        )
-      } catch (error) {
-        const message = error instanceof Error ? error.message : einvPdfExportFailed()
-        source?.postMessage(
-          { type: PREVIEW_EXPORT_ERROR_MESSAGE, message },
-          window.location.origin,
-        )
-        handlers.onError?.(message)
-      }
-    })()
-  })
-}
-
-export async function openEInvoiceHtmlPreview(
-  invoiceId: number,
-  handlers: PreviewExportHandlers = {},
-  printRequest: EInvoicePrintRequest = { mode: "normal" },
-): Promise<boolean> {
-  activePreviewExportHandlers = handlers
-  activePrintRequest = normalizePrintRequest(printRequest)
-  ensurePreviewExportListener()
-
-  const response = await axios.get<string>(`${BASE_URL}/${invoiceId}/print/html`, {
-    responseType: "text",
-    params: buildPrintQueryParams(activePrintRequest),
-  })
-
-  const html = typeof response.data === "string" ? response.data : String(response.data ?? "")
-  const htmlWithToolbar = injectPreviewToolbar(html, invoiceId, activePrintRequest)
-  const blob = new Blob([htmlWithToolbar], { type: "text/html;charset=utf-8" })
-  const objectUrl = URL.createObjectURL(blob)
-
-  // Keep window.opener so preview can request PDF export via postMessage.
-  const previewWindow = window.open(objectUrl, "_blank")
-
-  if (!previewWindow) {
-    URL.revokeObjectURL(objectUrl)
-    return false
-  }
-
-  window.setTimeout(() => {
-    URL.revokeObjectURL(objectUrl)
-  }, 600_000)
-
-  return true
-}
-
 async function fetchEInvoicePdfBlob(invoiceId: number, printRequest?: EInvoicePrintRequest, signal?: AbortSignal): Promise<Blob> {
-  const response = await axios.get(`${BASE_URL}/${invoiceId}/print/pdf`, {
-    responseType: "blob",
-    signal,
-    params: buildPrintQueryParams(printRequest),
-    validateStatus: (status) => status >= 200 && status < 300,
-  })
-
-  const blob = response.data instanceof Blob ? response.data : new Blob([response.data])
-  const contentType = String(response.headers["content-type"] ?? blob.type).toLowerCase()
-
-  if (contentType.includes("json") || blob.type.toLowerCase().includes("json")) {
-    throw new Error(await parseApiBlobError(blob))
-  }
-
-  if (blob.size <= 512) {
-    throw new Error(einvPdfExportFailed())
-  }
-
-  const pdfBlob = blob.type.toLowerCase().includes("pdf")
-    ? blob
-    : new Blob([blob], { type: "application/pdf" })
-
-  const header = await pdfBlob.slice(0, 4).text()
-  if (!header.startsWith("%PDF")) {
-    throw new Error(einvPdfExportFailed())
-  }
-
-  return pdfBlob
+  return fetchDocumentPdf(`${BASE_URL}/${invoiceId}/print/pdf`, buildPrintQueryParams(printRequest), signal)
 }
 
 export async function downloadEInvoicePdf(
@@ -358,49 +103,8 @@ export async function downloadEInvoicePdf(
     load: signal => fetchEInvoicePdfBlob(invoiceId, printRequest, signal) })
 }
 
-export async function openEInvoicePdf(
-  invoiceId: number,
-  printRequest?: EInvoicePrintRequest,
-): Promise<"tab" | "download"> {
-  const pdfBlob = await fetchEInvoicePdfBlob(invoiceId, printRequest)
-
-  const objectUrl = URL.createObjectURL(pdfBlob)
-  const pdfWindow = window.open(objectUrl, "_blank", "noopener,noreferrer")
-
-  if (pdfWindow) {
-    window.setTimeout(() => {
-      URL.revokeObjectURL(objectUrl)
-    }, 120_000)
-    return "tab"
-  }
-
-  await downloadBlobFile(pdfBlob, `EInvoice_${invoiceId}.pdf`)
-  URL.revokeObjectURL(objectUrl)
-  return "download"
-}
-
-export function buildPrintRequestFromInvoice(
-  invoice: Pick<EInvoice, "XML_FTP_PATH" | "SELLER_ID" | "XSL_ID" | "KHHDON" | "SHDON" | "MTRACUU" | "IS_SIGNED">,
-  base: EInvoicePrintRequest,
-): EInvoicePrintRequest {
-  const xmlFtpPath = String(invoice.XML_FTP_PATH ?? "").trim()
-  const sellerId = Number(invoice.SELLER_ID ?? 0)
-  const xslId = Number(invoice.XSL_ID ?? 0)
-  const khhdon = String(invoice.KHHDON ?? "").trim()
-  const shdon = String(invoice.SHDON ?? "").trim()
-  const mtracuu = String(invoice.MTRACUU ?? "").trim()
-  const isSigned = Number(invoice.IS_SIGNED ?? 0) === 1 ? 1 : 0
-
-  return {
-    ...base,
-    ...(xmlFtpPath ? { xmlFtpPath } : {}),
-    ...(sellerId > 0 ? { sellerId } : {}),
-    ...(xslId > 0 ? { xslId } : {}),
-    ...(khhdon ? { khhdon } : {}),
-    ...(shdon ? { shdon } : {}),
-    ...(mtracuu ? { mtracuu } : {}),
-    isSigned,
-  }
+export async function openEInvoicePdf(invoiceId: number, printRequest?: EInvoicePrintRequest): Promise<"tab"> {
+  return openDocumentPdf(() => fetchEInvoicePdfBlob(invoiceId, printRequest))
 }
 
 export type DownloadEInvoicesBatchOptions = {
@@ -567,33 +271,10 @@ export async function openEInvoiceReportViewer({
   }
 
   try {
-    const previewOpened = await openEInvoiceHtmlPreview(
-      invoiceId,
-      {
-        onInfo: showInfo,
-        onSuccess: showSuccess,
-        onError: notifyError,
-      },
-      printRequest,
-    )
-
-    if (!previewOpened) {
-      notifyError(einvPreviewOpenFailed())
-      return false
-    }
-
-    const exportPdfLabel = einvT(EINV_KEY.PRINT_PDF, "Print PDF")
-    const successMessage =
-      printRequest.mode === "converted"
-        ? formatEinvoiceText(
-            einvT(
-              EINV_KEY.PREVIEW_OPENED_CONVERTED_HINT,
-              "Preview opened in converted print mode. Click {0} on preview to export.",
-            ),
-            [exportPdfLabel],
-          )
-        : einvPreviewOpenedHint(exportPdfLabel)
-    showSuccess(successMessage)
+    showInfo(einvT(EINV_KEY.PDF_GENERATING, "Đang tải PDF..."))
+    const blob = await fetchEInvoicePdfBlob(invoiceId, printRequest)
+    await openDocumentPdf(async () => blob)
+    showSuccess(einvT(EINV_KEY.PDF_OPENED_TAB, "Đã mở PDF"))
     return true
   } catch (error) {
     const message = error instanceof Error ? error.message : einvPreviewOpenFailed()

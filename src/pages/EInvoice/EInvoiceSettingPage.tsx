@@ -788,7 +788,6 @@ export default function EInvoiceSettingPage() {
                                 showDateRange={false}
                                 showImport={false}
                                 showExportPdf={false}
-                                showExportXlsx={false}
                                 shortcutsEnabled={false}
                             />
                             <div className="min-h-0 flex-1 overflow-hidden">
@@ -911,7 +910,6 @@ export default function EInvoiceSettingPage() {
                                 showDelete={false}
                                 showImport={false}
                                 showExportPdf={false}
-                                showExportXlsx={false}
                             />
                             <div className="min-h-0 flex-1 overflow-hidden">
                                 <EInvoiceTableShell className="h-full">

@@ -66,10 +66,8 @@ import {
   syncReportCellSelectionHighlights,
   toggleCellKey,
   toLocalizedReportDataGridRows,
-  type ReportGridExportColumn,
   type ReportDataGridRow,
 } from "./ReportDataGrid"
-import { translateReportColumnCaption } from "@/utils/reportColumnCaption"
 import { getReportRowLabel, preservesReportRowOrder } from "./reportOutlineMetadata"
 
 function customizeZeroAsBlankText(cellInfo: { value?: unknown; valueText?: string }): string {
@@ -89,7 +87,6 @@ export type ReportTreeRow = ReportDataGridRow & {
 
 export type ReportTreeListHandle = {
   openColumnSettings: () => Promise<boolean>
-  getVisibleExportColumns: () => ReportGridExportColumn[]
 }
 
 export type ReportTreeListProps = {
@@ -548,38 +545,10 @@ function ReportTreeList(
     }
   }, [columnSettingState, columnSettingsItems.length])
 
-  const getVisibleExportColumns = useCallback((): ReportGridExportColumn[] => {
-    if (columnSettingState.cachedEditorItems.length === 0) {
-      return []
-    }
-
-    const previewColumnsByField = new Map(
-      columns.map((column) => [normalizeColumnKey(column.FIELD_NAME), column] as const),
-    )
-
-    return (treeListRef.current?.getVisibleColumns() ?? []).flatMap((gridColumn) => {
-      const dataField = typeof gridColumn.dataField === "string" ? gridColumn.dataField : ""
-      const previewColumn = previewColumnsByField.get(normalizeColumnKey(dataField))
-      if (!dataField || !previewColumn) {
-        return []
-      }
-
-      return [{
-        dataField: previewColumn.FIELD_NAME,
-        caption: typeof gridColumn.caption === "string" && gridColumn.caption.trim()
-          ? gridColumn.caption
-          : translateReportColumnCaption(previewColumn, t),
-        width: typeof gridColumn.width === "number" && Number.isFinite(gridColumn.width)
-          ? gridColumn.width
-          : Math.max(90, Math.round(previewColumn.WIDTH || 120)),
-      }]
-    })
-  }, [columnSettingState.cachedEditorItems.length, columns, t])
-
   useImperativeHandle(
     ref,
-    () => ({ openColumnSettings, getVisibleExportColumns }),
-    [getVisibleExportColumns, openColumnSettings],
+    () => ({ openColumnSettings }),
+    [openColumnSettings],
   )
 
   const handleColumnSettingsSave = useCallback(

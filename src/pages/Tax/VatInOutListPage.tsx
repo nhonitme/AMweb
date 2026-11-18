@@ -7,7 +7,7 @@ import { fetchCustomerLookup } from "@/api/lookupApi"
 import type dxDataGrid from "devextreme/ui/data_grid"
 import type { OptionChangedEvent, SelectionChangedEvent } from "devextreme/ui/data_grid"
 
-import { getVatInOutExportData, type VatInOutQuery } from "@/api/vatInOutApi"
+import { type VatInOutQuery } from "@/api/vatInOutApi"
 import { getChits } from "@/api/voucherApi"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { getUserSettingsBatch, saveUserSettingsBulk } from "@/api/userSettingApi"
@@ -15,8 +15,6 @@ import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid"
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import DxPage from "@/dx/DxPage"
-import { exportToExcel } from "@/lib/excelUtils"
-import { useCurrentMenuExportName } from "@/hooks/useCurrentMenuExportName"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { getCurrentCompanyCd } from "@/lib/login"
 import { useVatInOutListQuery, useVatInOutListInvalidate } from "@/hooks/queries/useVatInOutListQuery"
@@ -74,7 +72,6 @@ function resolveDateDisplay(value: unknown): string {
 }
 
 export default function VatInOutListPage() {
-  const exportName = useCurrentMenuExportName()
   const { lang, translate } = useContext(LanguageContext) as {
     lang?: string
     translate?: (key: string, fallback?: string) => string
@@ -100,7 +97,6 @@ export default function VatInOutListPage() {
   const [listQuery, setListQuery] = useState<VatInOutQuery | null>(null)
   const [rows, setRows] = useState<VatInvoiceRow[]>([])
   const [loading, setLoading] = useState(false)
-  const [exporting, setExporting] = useState(false)
   const [selectedInvoices, setSelectedInvoices] = useState<VatInvoiceRow[]>([])
   const [gdtPopupVisible, setGdtPopupVisible] = useState(false)
   const [createModePopupVisible, setCreateModePopupVisible] = useState(false)
@@ -312,57 +308,6 @@ export default function VatInOutListPage() {
     setLinkedVoucherLoading(false)
   }, [])
 
-  const handleExportExcel = useCallback(async () => {
-    if (rows.length === 0) {
-      notify(t("NO_DATA_TO_EXPORT", "Không có dữ liệu để xuất."), "warning", 2500)
-      return
-    }
-
-    const hiddenFields = new Set(["MHDON", "AUTO_CHIT_CD", "ROW_KEY"])
-    const columnsByField = new Map(
-      VAT_INVOICE_COLUMNS.map((column) => [column.field.toUpperCase(), column] as const),
-    )
-    const visibleGridColumns = gridRef.current?.getVisibleColumns?.() ?? []
-    const exportColumns: ColumnConfig[] = visibleGridColumns.flatMap((gridColumn, index) => {
-      const fieldName = String(gridColumn.dataField ?? "").trim()
-      const normalizedFieldName = fieldName.toUpperCase()
-      const definition = columnsByField.get(normalizedFieldName)
-      if (!fieldName || hiddenFields.has(normalizedFieldName) || !definition) return []
-
-      return [{
-        id: definition.field,
-        dataField: definition.field,
-        displayName: String(gridColumn.caption || t(definition.field.toUpperCase(), definition.caption) || fieldName),
-        width: Number(gridColumn.width ?? definition.width) || definition.width || 8,
-        visible: true,
-        pinned: false,
-        originalOrder: index,
-      }]
-    })
-
-    if (exportColumns.length === 0) {
-      notify(t("NO_COLUMNS_TO_EXPORT", "Không có cột hiển thị để xuất."), "warning", 2500)
-      return
-    }
-
-    try {
-      if (!listQuery) {
-        return
-      }
-      setExporting(true)
-      const data = await getVatInOutExportData(listQuery)
-      const exportRows = data.map((row) => ({ ...row, ROW_KEY: row.mhdon }))
-      const fileName = exportName.fileName("xlsx")
-      const sheetName = exportName.sheetName()
-      await exportToExcel(exportRows, exportColumns, fileName, sheetName)
-    } catch (error) {
-      const message = getApiErrorMessage(error, t("EXPORT_FAILED", "Không xuất được Excel."))
-      notify(message, "error", 4000)
-    } finally {
-      setExporting(false)
-    }
-  }, [exportName, rows, t, listQuery])
-
   const handleExportPdf = useCallback(() => {
     const fromYmd = formatDateToYmd(fromDate)
     const toYmd = formatDateToYmd(toDate)
@@ -505,9 +450,6 @@ export default function VatInOutListPage() {
           showColumnChooser={true}
           showExportPdf={true}
           onExportPdf={handleExportPdf}
-          showExportXlsx={true}
-          exportXlsxDisabled={loading || exporting || rows.length === 0}
-          onExportXlsx={() => void handleExportExcel()}
           showImport={false}
           showDelete={false}
           showSearch={true}
@@ -643,7 +585,7 @@ export default function VatInOutListPage() {
         {columns}
       </BaseDataGrid>
 
-      <LoadPanel visible={loading || exporting || linkedVoucherLoading} showIndicator={true} showPane={true} shading={true} shadingColor="rgba(0, 0, 0, 0.15)" />
+      <LoadPanel visible={loading || linkedVoucherLoading} showIndicator={true} showPane={true} shading={true} shadingColor="rgba(0, 0, 0, 0.15)" />
     </MasterDataPageLayout>
   )
 

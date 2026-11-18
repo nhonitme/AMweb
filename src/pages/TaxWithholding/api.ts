@@ -26,7 +26,6 @@ export const pitApi = {
   prepare: async (kind: PitKind,id: number) => unwrap<{DOC_VERSION:number;RAW_XML:string;SIGN_TYPE:"PIT"}>((await axios.post(`${base}/${kind}/${id}/signing-payload`)).data),
   sign: async (kind: PitKind,id: number,version: number,xml: string) => unwrap<PitDocument>((await axios.post(`${base}/${kind}/${id}/signature`,{DOC_VERSION:version,XML:xml})).data),
   xml: async (kind: PitKind,id: number) => (await axios.get<string>(`${base}/${kind}/${id}/xml`,{responseType:"text"})).data,
-  print: async (kind: PitKind,id: number) => (await axios.get<string>(`${base}/${kind}/${id}/print`,{responseType:"text"})).data,
   printPdf: async (kind: PitKind,id: number) => (await axios.get<Blob>(`${base}/${kind}/${id}/print/pdf`,{responseType:"blob"})).data,
   history: async (kind: PitKind,id: number) => unwrap<PitTransmissionMessage[]>((await axios.get(`${base}/${kind}/${id}/history`)).data),
   mailHistory: async (kind: PitKind, id: number) => unwrap<EInvoiceEmailHistory[]>((await axios.get(`${base}/${kind}/${id}/mail-history`)).data),

@@ -19,14 +19,11 @@ import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout"
 import MasterDataEditPopup from "@/components/datagrid/MasterDataEditPopup"
-import { downloadFile } from "@/lib/fileUtils"
-import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { getCurrentCompanyCd } from "@/lib/login"
 import { assignSequencePreviewCode, getSequenceSubmitCode } from "@/lib/codeSequence"
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
 import { buildMasterGridReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
-import { exportCustomerExtExcel } from "@/api/customerExtApi"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { clearSysCodeSequencePreviewCache } from "@/api/sysCodeSequenceApi"
 import { useSysCodes } from "@/lib/sysCodeContext"
@@ -108,8 +105,6 @@ export default function CustomerManagementPage({
   const customerScreenCd = "/module/customer-management"
   const customerGridId = "customer-ext-grid"
   const menuCode = "MD_CUSTOMER"
-  const exportName = useMenuExportName(menuCode)
-
   const t = useCallback(
     (key: string, fallback?: string) => (translate ? translate(key, fallback || key) : fallback || key),
     [translate],
@@ -274,23 +269,6 @@ export default function CustomerManagementPage({
     }
   }, [deleteMutation, t])
 
-  const handleExportExcel = useCallback(async () => {
-    try {
-      const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
-      const selectedCustomerId = selectedKeys.length > 0 ? Number(selectedKeys[0]) : undefined
-      const customerId =
-        typeof selectedCustomerId === "number" && Number.isFinite(selectedCustomerId) && selectedCustomerId > 0
-          ? selectedCustomerId
-          : undefined
-
-      const loadDownloadBlob = (signal: AbortSignal) => exportCustomerExtExcel(customerId, lang, signal)
-      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
-    } catch (error) {
-      console.error("Export customer error", error)
-      notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất thất bại")), "error", 3000)
-    }
-  }, [exportName, lang, t])
-
   const handleExportPdf = useCallback(() => {
     const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
     const selectedCustomerIds = selectedKeys
@@ -382,7 +360,6 @@ export default function CustomerManagementPage({
           onDelete={handleToolbarDelete}
           onImport={() => setIsExcelModalOpen(true)}
           onExportPdf={handleExportPdf}
-          onExportXlsx={handleExportExcel}
         />
       }
       overlays={

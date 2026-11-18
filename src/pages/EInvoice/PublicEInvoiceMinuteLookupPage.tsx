@@ -182,12 +182,6 @@ export default function PublicEInvoiceMinuteLookupPage() {
       return
     }
 
-    const xml = trimText(minute.XML)
-    if (!xml) {
-      setError(PUBLIC_VI.MINUTE_XML_EMPTY)
-      return
-    }
-
     let thumbprint = selectedThumbprint
     if (!thumbprint) {
       const loaded = await loadCertificates()
@@ -203,6 +197,9 @@ export default function PublicEInvoiceMinuteLookupPage() {
     setError("")
 
     try {
+      const response = await fetch(buildPublicEInvoiceMinuteDownloadUrl({ ...downloadParams, format: "xml" }))
+      if (!response.ok) throw new Error(PUBLIC_VI.MINUTE_XML_EMPTY)
+      const xml = await response.text()
       const signed = await signXmlWithPlugin({
         requestId: `public-bban-${minute.BBAN_ID ?? 0}-${Date.now()}`,
         invoiceId: Number(minute.BBAN_ID ?? 0),
@@ -230,7 +227,9 @@ export default function PublicEInvoiceMinuteLookupPage() {
   const canDownloadPdf = minute?.CAN_DOWNLOAD_PDF !== false
   const buyerSigned = Number(minute?.NMUA_IS_SIGNED ?? 0) === 1
   const canSign = Boolean(minute && minute.CAN_SIGN !== false && !buyerSigned)
-  const html = useMemo(() => trimText(minute?.HTML), [minute])
+  const pdfUrl = useMemo(() => minute && downloadParams
+    ? buildPublicEInvoiceMinuteDownloadUrl({ ...downloadParams, format: "pdf" }) + "&revision=" + String(minute.NMUA_IS_SIGNED ?? 0)
+    : "", [minute, downloadParams])
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -331,11 +330,11 @@ export default function PublicEInvoiceMinuteLookupPage() {
             </div>
 
             <div className="bg-slate-100 p-4">
-              {html ? (
+              {pdfUrl ? (
                 <iframe
                   title={PUBLIC_VI.MINUTE_PREVIEW}
                   className="h-[75vh] w-full rounded border border-slate-300 bg-white"
-                  srcDoc={html}
+                  src={pdfUrl}
                 />
               ) : (
                 <div className="rounded border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">

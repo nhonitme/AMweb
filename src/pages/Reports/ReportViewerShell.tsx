@@ -26,7 +26,6 @@ type ReportViewerShellProps = {
   onReportLanguageChange: (language: ReportLanguageCode) => void
   pageSettings: ReportPageSettings
   onPageSettingsChange: (settings: ReportPageSettings) => void
-  pageSetupEnabled: boolean
 }
 
 type ReportViewerToolbarAction = {
@@ -85,7 +84,6 @@ export default function ReportViewerShell({
   onReportLanguageChange,
   pageSettings,
   onPageSettingsChange,
-  pageSetupEnabled,
 }: ReportViewerShellProps) {
   const viewerRef = useRef<DxReportViewerRef | null>(null)
   const companyLangRevision = useCompanyLangRevision()
@@ -113,7 +111,12 @@ export default function ReportViewerShell({
   }, [])
 
   const resolveExportFileName = useCallback((metadata: { contentFilename?: string | null }) => {
-    const extension = metadata.contentFilename?.trim().match(/\.([a-z0-9]+)$/i)?.[1] || "pdf"
+    const contentFilename = metadata.contentFilename?.trim() || ""
+    const extension = contentFilename.match(/\.([a-z0-9]+)$/i)?.[1] || "pdf"
+    // Menu label missing (workspace tab / menu tree miss) must not abort export.
+    if (!exportName.label.trim()) {
+      return contentFilename || `report_${Date.now()}.${extension}`
+    }
     return exportName.fileName(extension)
   }, [exportName])
 
@@ -271,7 +274,7 @@ export default function ReportViewerShell({
         <div className="space-y-2 bg-white p-4">
           {[
             { key: "signatures", label: t("EDIT_SIGNATURES", "Sửa chữ ký"), visible: Boolean(companyCd && reportKey?.trim()), open: () => setSignatureEditorVisible(true) },
-            { key: "page", label: t("REPORT_PAGE_SETUP", "Cấu hình trang in"), visible: pageSetupEnabled, open: () => setPageSetupVisible(true) },
+            { key: "page", label: t("REPORT_PAGE_SETUP", "Cấu hình trang in"), visible: true, open: () => setPageSetupVisible(true) },
             { key: "language", label: t("REPORT_LANGUAGE_TOOLTIP", "Đổi ngôn ngữ report") + " (" + reportLanguage + ")", visible: true, open: () => setLanguageSelectorVisible(true) },
           ].filter((item) => item.visible).map((item) => (
             <button

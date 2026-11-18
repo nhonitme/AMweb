@@ -14,15 +14,12 @@ import { GridToolbar } from "@/components/toolbar/GridToolbar";
 import { useAcclistColumns} from "./Columns/AcclistColumns";
 import { AcclistForm } from "./Forms/AcclistForm";
 
-import { exportToExcel } from "@/api/acclistAPI";
 import notify from "devextreme/ui/notify";
 import { LanguageContext } from "@/lib/i18nLoader";
 import { confirm } from "devextreme/ui/dialog";
 import { AcclistInfo } from "@/types/acclist";
 import { SysCode } from "@/api/sysCodeService";
 import { useSysCodes } from "@/lib/sysCodeContext";
-import { downloadFile } from "@/lib/fileUtils";
-import { useMenuExportName } from "@/hooks/useMenuExportName";
 import { getCurrentCompanyCd } from "@/lib/login";
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage";
 import { buildMasterGridReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig";
@@ -54,7 +51,6 @@ export default function AcclistManagementPage({
   const screenCd = "/module/acclist-management";
   const gridId = "acclist-grid";
   const menuCode = "MD_ACCOUNT";
-  const exportName = useMenuExportName(menuCode)
   const treeListRef = useRef<dxTreeList | null>(null);
   const { lang, translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string; lang: string };
   const [isUpdate, setIsUpdate] = useState(false);
@@ -168,21 +164,6 @@ export default function AcclistManagementPage({
     return Number.isFinite(accId) && accId > 0 ? accId : undefined;
   }, []);
 
-  const handleExportExcel = async () => {
-    try {
-      const accId = getSelectedAccId();
-      const loadDownloadBlob = (signal: AbortSignal) => exportToExcel(accId, lang, signal);
-      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob });
-    } catch (error: unknown) {
-      console.error('Export error', error);
-      notify(
-        getApiErrorMessage(error, translate ? translate('EXPORT_FAILED', 'Xuất thất bại') : 'Export failed'),
-        'error',
-        3000
-      );
-    }
-  };
-
   const handleExportPdf = useCallback(() => {
     const accId = getSelectedAccId();
     const targetUrl = buildMasterGridReportViewerPageUrl({
@@ -274,7 +255,6 @@ export default function AcclistManagementPage({
           gridRef={treeListRef}
           onRefresh={() => void reloadAcclists()}
           onExportPdf={handleExportPdf}
-          onExportXlsx={handleExportExcel}
           showImport={false}
           onDelete={handleToolbarDelete}
           showAdd={false}

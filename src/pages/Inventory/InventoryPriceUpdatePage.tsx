@@ -164,14 +164,6 @@ export default function InventoryPriceUpdatePage({ flow }: Props) {
     return saved !== false
   }, [buildFilter, exportName, flow, langCode, rows.length, t])
 
-  const handleExport = useCallback(async () => {
-    try {
-      await downloadPriceUpdateExcel()
-    } catch (error) {
-      notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất thất bại")), "error", 3000)
-    }
-  }, [downloadPriceUpdateExcel, t])
-
   const handleDownloadTemplate = useCallback(async () => {
     try {
       return await downloadPriceUpdateExcel()
@@ -233,9 +225,6 @@ export default function InventoryPriceUpdatePage({ flow }: Props) {
           showSearch={false}
           showColumnChooser
           showExportPdf={false}
-          showExportXlsx
-          exportXlsxDisabled={!rows.length || saving}
-          onExportXlsx={() => void handleExport()}
           showImport
           importDisabled={!rows.length || saving}
           onImport={() => setImportVisible(true)}

@@ -4,8 +4,6 @@ import {
   mergeMasterFormDraft,
   seedMasterFormDraft,
 } from "@/components/lookup/masterFormDraft";
-import { downloadFile } from "@/lib/fileUtils"
-import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { useCallback, useContext, useRef, useState } from "react";
 import { LoadPanel } from "devextreme-react";
 import { Editing } from "devextreme-react/data-grid";
@@ -20,7 +18,6 @@ import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout";
 import { useStoreColumns } from "./Columns/StoreColumns";
 import { StoreForm } from "./Forms/StoreForm";
 
-import { exportToExcel } from "@/api/storeAPI";
 import { StoreInfo } from "@/types/store";
 import notify from "devextreme/ui/notify";
 import { LanguageContext } from "@/lib/i18nLoader";
@@ -61,11 +58,9 @@ export default function StoreManagementPage({
   const { lang, translate } = useContext(LanguageContext) as { translate: (k: string, f?: string) => string; lang: string };
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const importConfig = useStoreImportConfig();
-  const langCode = normalizeMessageLanguageKey(lang);
   const screenCd = "/module/store-management";
   const gridId = "store-grid";
   const menuCode = "MD_WAREHOUSE";
-  const exportName = useMenuExportName(menuCode)
   const [isUpdate, setIsUpdate] = useState(false);
   const popupTitle = translate ? translate(isUpdate ? "lblEdit" : "lblAddNew", "Store info") : "Store info";
 
@@ -166,22 +161,6 @@ const onRowRemoving = (e: RowRemovingEvent) => {
   })();
 };
 
-  const handleExportExcel = async () => {
-    try {
-      const keys = gridRef.current?.getSelectedRowKeys() || [];
-      const storeID = keys.length ? (keys[0] as number) : undefined;
-      const loadDownloadBlob = (signal: AbortSignal) => exportToExcel(storeID, langCode, signal);
-      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
-    } catch (err) {
-      console.error('Export error', err);
-      notify(
-        getApiErrorMessage(err, translate ? translate('EXPORT_FAILED', 'Xuất thất bại') : 'Export failed'),
-        'error',
-        3000
-      );
-    }
-  };
-
   const handleExportPdf = () => {
     const keys = (gridRef.current?.getSelectedRowKeys() || []) as number[];
     const storeId = keys.length ? keys[0] : undefined;
@@ -265,7 +244,6 @@ const handleToolbarDelete = async () => {
           gridRef={gridRef}
           onRefresh={() => void reloadStores()}
           onExportPdf={handleExportPdf}
-          onExportXlsx={handleExportExcel}
           onImport={() => setIsExcelModalOpen(true)}
           onDelete={handleToolbarDelete}
         />

@@ -28,11 +28,6 @@ export interface PublicEInvoiceMinuteLookup {
   CAN_SIGN?: boolean
   CAN_DOWNLOAD_PDF?: boolean
   CAN_DOWNLOAD_XML?: boolean
-  CAN_DOWNLOAD_XSL?: boolean
-  CAN_DOWNLOAD_HTML?: boolean
-  XML?: string | null
-  XSL?: string | null
-  HTML?: string | null
   REASONS?: EInvoiceMinuteReasonApi[]
   LINES_BEFORE?: EInvoiceMinuteLineApi[]
   LINES_AFTER?: EInvoiceMinuteLineApi[]
@@ -40,7 +35,7 @@ export interface PublicEInvoiceMinuteLookup {
   TOTAL_AFTER?: EInvoiceMinuteLineApi | null
 }
 
-export type PublicEInvoiceMinuteDownloadFormat = "pdf" | "xml" | "xsl" | "html"
+export type PublicEInvoiceMinuteDownloadFormat = "pdf" | "xml"
 
 export interface PublicEInvoiceMinuteLookupParams {
   taxCode: string

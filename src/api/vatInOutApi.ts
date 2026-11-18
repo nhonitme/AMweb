@@ -71,9 +71,3 @@ export async function getVatInOutPage(params: VatInOutQuery, pageNumber: number,
   if (!Array.isArray(data)) throw new Error("Invalid VAT list response")
   return normalizePagedResult(payload, data, pageNumber, pageSize)
 }
-
-export async function getVatInOutExportData(params: VatInOutQuery): Promise<VatInOutInvoice[]> {
-  const response = await axios.get<{ Data: VatInOutInvoice[] }>(`${BASE_URL}/ExportData`, { params })
-  if (!Array.isArray(response.data.Data)) throw new Error("Invalid VAT export response")
-  return response.data.Data
-}

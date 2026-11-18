@@ -83,25 +83,3 @@ export async function deleteCustomerExts(
 ): Promise<{ success: boolean; message?: string }> {
   return deleteMasterRecords(BASE_URL, customerIds, "CustomerIds")
 }
-
-export async function exportCustomerExtExcel(
-  customerId?: number,
-  lang?: string, abortSignal?: AbortSignal,
-): Promise<Blob> {
-  const params: Record<string, string | number> = {}
-
-  if (typeof customerId === "number" && Number.isFinite(customerId) && customerId > 0) {
-    params.customerId = customerId
-  }
-
-  if (lang) {
-    params.lang = normalizeMessageLanguageKey(lang)
-  }
-
-  const response = await axios.get(`${BASE_URL}/export`, {
-    params,
-    signal: abortSignal, responseType: "blob",
-  })
-
-  return response.data as Blob
-}

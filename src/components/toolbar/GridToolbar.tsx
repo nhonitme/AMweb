@@ -71,7 +71,6 @@ export type GridToolbarProps = {
   onRefresh?: () => void;
 
   onExportPdf?: () => void;
-  onExportXlsx?: () => void;
   onImport?: () => void;
   onDelete?: () => void;
   onRangeSearch?: (searchText?: string) => void;
@@ -96,8 +95,6 @@ export type GridToolbarProps = {
   showRefresh?: boolean;
   showColumnChooser?: boolean;
   showExportPdf?: boolean;
-  showExportXlsx?: boolean;
-  exportXlsxDisabled?: boolean;
   showImport?: boolean;
   importDisabled?: boolean;
   showDelete?: boolean;
@@ -118,7 +115,6 @@ export function GridToolbar({
   onAdd,
   onRefresh,
   onExportPdf,
-  onExportXlsx,
   onImport,
   onDelete,
   onRangeSearch,
@@ -141,8 +137,6 @@ export function GridToolbar({
   showRefresh = true,
   showColumnChooser = true,
   showExportPdf = true,
-  showExportXlsx = true,
-  exportXlsxDisabled = false,
   showImport = true,
   importDisabled = false,
   showDelete = true,
@@ -227,10 +221,6 @@ export function GridToolbar({
       actions.push(SHORTCUT_ACTIONS.EXPORT_PDF, SHORTCUT_ACTIONS.PRINT)
     }
 
-    if (showExportXlsx && onExportXlsx) {
-      actions.push(SHORTCUT_ACTIONS.EXPORT_EXCEL)
-    }
-
     if (showSearch) {
       actions.push(SHORTCUT_ACTIONS.QUICK_SEARCH)
     }
@@ -247,7 +237,6 @@ export function GridToolbar({
   }, [
     additionalShortcutActions,
     onExportPdf,
-    onExportXlsx,
     onImport,
     showAdd,
     showAdvancedSearchToggle,
@@ -255,7 +244,6 @@ export function GridToolbar({
     showDateRange,
     showDelete,
     showExportPdf,
-    showExportXlsx,
     showImport,
     showRefresh,
     showSearch,
@@ -453,7 +441,6 @@ export function GridToolbar({
         [SHORTCUT_ACTIONS.IMPORT]: () => onImport?.(),
         [SHORTCUT_ACTIONS.PRINT]: () => handlePrint(),
         [SHORTCUT_ACTIONS.EXPORT_PDF]: () => onExportPdf?.(),
-        [SHORTCUT_ACTIONS.EXPORT_EXCEL]: () => onExportXlsx?.(),
         [SHORTCUT_ACTIONS.HELP]: () => openShortcutHelp(),
       }
 
@@ -488,7 +475,6 @@ export function GridToolbar({
       handleSave,
       deleteDisabled,
       onExportPdf,
-      onExportXlsx,
       onOpenColumnSettings,
       onImport,
       openShortcutHelp,
@@ -552,7 +538,7 @@ export function GridToolbar({
   const showDeleteSeparator = showDelete && hasLeadingIconClusterButtons
 
   const showImportExportSeparator =
-    (showImport || showExportPdf || showExportXlsx) && (hasLeadingIconClusterButtons || showDelete)
+    (showImport || showExportPdf) && (hasLeadingIconClusterButtons || showDelete)
 
   return (
     <>
@@ -756,16 +742,6 @@ export function GridToolbar({
                 />
               ) : null}
 
-              {showExportXlsx ? (
-                <Button
-                  className="page-toolbar__action-btn"
-                  stylingMode="text"
-                  icon="xlsxfile"
-                  hint={t("MSG_BTNEXPORT", "Export Excel")}
-                  disabled={exportXlsxDisabled}
-                  onClick={onExportXlsx}
-                />
-              ) : null}
             </div>
           </div>
         </div>

@@ -1,5 +1,3 @@
-import { downloadFile } from "@/lib/fileUtils"
-
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate, type NavigateFunction } from "react-router-dom"
 import type dxDataGrid from "devextreme/ui/data_grid"
@@ -10,7 +8,6 @@ import notify from "devextreme/ui/notify"
 import {
   createChit,
   deleteChit,
-  exportChitExcel,
   getChits,
   updateChit,
 } from "@/api/voucherApi"
@@ -29,7 +26,6 @@ import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import DxPage from "@/dx/DxPage"
 import { LanguageContext } from "@/lib/i18nLoader"
-import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults"
 import { isForeignCurrencyCode } from "@/lib/currency"
 import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/shortcutDefinitions"
@@ -443,7 +439,6 @@ export function ChitManagementPage({
     CO: "GL_VOUCHER_OFFSET",
     OT: "GL_VOUCHER_OTHER",
   } as const)[chitType] ?? "", [chitType])
-  const exportName = useMenuExportName(menuCode)
   const screenCd = useMemo(() => location.pathname, [location.pathname])
   const masterGridId = useMemo(() => getVoucherMasterGridId(chitType), [chitType])
   const detailGridId = useMemo(() => getVoucherDetailGridId(chitType), [chitType])
@@ -1579,23 +1574,6 @@ const openEditPopup = useCallback(
     }
   }, [fromDate, loadData, loading, pageSize, toDate])
 
-  const handleExportExcel = useCallback(async () => {
-    try {
-      const selectedKeys: Array<string | number> = gridRef.current?.getSelectedRowKeys() ?? []
-      const selectedChitId = selectedKeys.length > 0 ? Number(selectedKeys[0]) : null
-      const loadDownloadBlob = (signal: AbortSignal) => exportChitExcel(ledger, chitType, {
-        chitId: Number.isFinite(selectedChitId) && (selectedChitId ?? 0) > 0 ? selectedChitId : null,
-        fromYmd: formatDateToYmd(fromDate),
-        toYmd: formatDateToYmd(toDate),
-        accountPairFilter,
-      }, signal)
-      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
-    } catch (error) {
-      console.error("Export chit note error", error)
-      notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất thất bại")), "error", 4000)
-    }
-  }, [accountPairFilter, exportName, fromDate, ledger, chitType, t, title, toDate])
-
   const handleExportPdf = useCallback(() => {
     if (!pdfReportCode) {
       notify(t("EXPORT_PDF_FILE", "Export PDF"), "warning", 2500)
@@ -1864,9 +1842,7 @@ const openEditPopup = useCallback(
           onImport={excelEnabled ? () => setIsExcelModalOpen(true) : undefined}
           onExportPdf={pdfReportCode ? handleExportPdf : undefined}
           showExportPdf={Boolean(pdfReportCode)}
-          onExportXlsx={excelEnabled ? handleExportExcel : undefined}
           showImport={excelEnabled}
-          showExportXlsx={false}
           afterAddItems={linkToolbarItems}
           onSearchStateChange={(_value, active) => setIsMasterSearchActive(active)}
           shortcutsEnabled={!popupVisible && !isExcelModalOpen && !linkPopupVisible}

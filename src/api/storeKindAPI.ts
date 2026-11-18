@@ -55,18 +55,3 @@ export async function deleteStoreKindInfos(
   await deleteMasterRecords(BASE_URL, storeKindIds, "StoreKindIds");
   return { Success: true, Data: { deleted: storeKindIds.length } };
 }
-
-export async function exportToExcel(
-  storeKindID?: number,
-  lang?: string, abortSignal?: AbortSignal
-): Promise<Blob> {
-  const params: Record<string, string | number> = {};
-  if (storeKindID) params.STORE_KIND_ID = storeKindID;
-  if (lang) params.lang = lang;
-
-  const resp = await axios.get(`${BASE_URL}/export`, {
-    params,
-    signal: abortSignal, responseType: 'blob',
-  });
-  return resp.data;
-}

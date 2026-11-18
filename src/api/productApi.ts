@@ -39,21 +39,3 @@ export async function deleteProducts(productIds: number[]): Promise<ApiResponse<
     await deleteMasterRecords(API_URL, productIds, "ProductIds");
     return { Success: true, Data: { deleted: productIds.length } };
 }
-
-export async function exportToExcel(
-    productId?: number,
-    productCd?: string,
-    lang?: string, abortSignal?: AbortSignal,
-): Promise<Blob> {
-    const params: Record<string, string | number> = {};
-    if (productId) params.productId = productId;
-    if (productCd) params.productCd = productCd;
-    if (lang) params.lang = lang;
-
-    const resp = await axios.get(`${API_URL}/export`, {
-        params,
-        signal: abortSignal, responseType: 'blob',
-    });
-
-    return resp.data;
-}

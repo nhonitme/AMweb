@@ -331,7 +331,6 @@ export default function PitWithholdingPage({ kind }: { kind: PitKind }) {
           onToggleAdvancedSearch={() => setAdvancedOpen((value) => !value)}
           showImport={false}
           showExportPdf={false}
-          showExportXlsx={false}
           shortcutsEnabled={!editor}
           additionalShortcutActions={[SHORTCUT_ACTIONS.PRINT]}
           additionalShortcutHandlers={{

@@ -634,7 +634,6 @@ export default function EInvoiceMinutesPage() {
           customItems={toolbarItems}
           showImport={false}
           showExportPdf={false}
-          showExportXlsx={false}
           shortcutsEnabled={!popupVisible && !certificatePopupVisible && !xmlPopupVisible && !setupPopupVisible && !sendMailVisible}
         />
 

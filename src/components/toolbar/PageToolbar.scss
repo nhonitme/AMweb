@@ -341,6 +341,26 @@
     flex-shrink: 0;
   }
 
+  &__ar-invoice-options {
+    display: flex;
+    align-items: center;
+    min-height: 26px;
+    margin-bottom: 1px;
+    white-space: nowrap;
+
+    .dx-radiogroup-horizontal {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 12px;
+    }
+
+    .dx-radio-value-container,
+    .dx-item-content {
+      font-size: 13px;
+      color: #334155;
+    }
+  }
+
   &__title {
     display: flex;
     align-items: center;

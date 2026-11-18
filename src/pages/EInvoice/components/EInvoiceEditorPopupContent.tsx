@@ -195,7 +195,6 @@ import {
   setPxkSyncThucXuatNhap,
 } from "../einvoiceWarehouseDetailModel"
 import {
-  buildPrintRequestFromInvoice,
   downloadEInvoicesBatch,
   openEInvoiceReportViewer,
   type EInvoicePrintConfirmPayload,
@@ -2573,7 +2572,7 @@ export default function EInvoiceEditorPopupContent({
     }
 
     setPrintOptionsVisible(true)
-  }, [formData.INVOICE_ID, invoiceId, t])
+  }, [formData, invoiceId, t])
 
   const canSignFromPopup = Boolean(
     onSign
@@ -2732,7 +2731,7 @@ export default function EInvoiceEditorPopupContent({
         void downloadEInvoicesBatch({
           items: [{
             invoiceId: resolvedInvoiceId,
-            printRequest: buildPrintRequestFromInvoice(formData, printRequest),
+            printRequest: printRequest,
           }],
           format,
           notifyUnableToOpen: (message) => notify(message, "error", 4000),
@@ -2745,7 +2744,7 @@ export default function EInvoiceEditorPopupContent({
       void openEInvoiceReportViewer({
         invoiceIds: [resolvedInvoiceId],
         companyCd,
-        printRequest: buildPrintRequestFromInvoice(formData, printRequest),
+        printRequest: printRequest,
         notifyUnableToOpen: (message) => notify(message, "error", 4000),
         notifyInfo: (message) => notify(message, "info", 8000),
         notifySuccess: (message) => notify(message, "success", 4000),

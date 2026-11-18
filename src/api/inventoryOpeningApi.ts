@@ -38,18 +38,3 @@ export async function deleteInventoryOpenings(
   await deleteMasterRecords(BASE_URL, inputIds, "InputIds")
   return { Success: true, Data: { deleted: inputIds.length } }
 }
-
-export async function exportInventoryOpeningExcel(
-  inputId?: number,
-  lang?: string, abortSignal?: AbortSignal,
-): Promise<Blob> {
-  const params: Record<string, string | number> = {}
-  if (inputId) params.INPUT_ID = inputId
-  if (lang) params.lang = lang
-
-  const resp = await axios.get(`${BASE_URL}/export`, {
-    params,
-    signal: abortSignal, responseType: "blob",
-  })
-  return resp.data
-}

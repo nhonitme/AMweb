@@ -10,9 +10,6 @@ import { confirm } from "devextreme/ui/dialog"
 
 import DxPage from "@/dx/DxPage"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
-import { exportToExcel } from "@/lib/excelUtils"
-import { useCurrentMenuExportName } from "@/hooks/useCurrentMenuExportName"
-import type { ColumnConfig } from "@/types/table"
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
 import { useProductMaterialAllImportConfig } from "./ProductMaterialImportConfig"
 import {
@@ -32,14 +29,6 @@ const MATERIAL_DIVISION_FILTER = "152"
 const numberFormat = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 6 })
 const matchText = (input: string) => input.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
 
-function readLoadedRows(result: unknown): ProductMaterialRow[] | null {
-  if (Array.isArray(result)) return result as ProductMaterialRow[]
-  if (result && typeof result === "object" && Array.isArray((result as { data?: unknown }).data)) {
-    return (result as { data: ProductMaterialRow[] }).data
-  }
-  return null
-}
-
 function ProductMaterialContent() {
   const { translate } = useContext(LanguageContext) as {
     translate?: (key: string, fallback?: string) => string
@@ -48,7 +37,6 @@ function ProductMaterialContent() {
     (key: string, fallback: string) => translate?.(key, fallback) ?? fallback,
     [translate],
   )
-  const exportName = useCurrentMenuExportName()
   const [selectedId, setSelectedId] = useState(0)
   const [search, setSearch] = useState("")
   const [popupOpen, setPopupOpen] = useState(false)
@@ -225,80 +213,6 @@ function ProductMaterialContent() {
     }
   }
 
-  const handleExport = useCallback(async () => {
-    if (!product) return
-
-    const grid = gridRef.current
-    const exportColumns: ColumnConfig[] = (grid?.getVisibleColumns() ?? []).flatMap((column, index) => {
-      const dataField = typeof column.dataField === "string" ? column.dataField.trim() : ""
-      if (!dataField) return []
-      const width = typeof column.width === "number" && Number.isFinite(column.width) ? column.width : 120
-      return [{
-        id: dataField,
-        dataField,
-        displayName: typeof column.caption === "string" && column.caption.trim() ? column.caption : dataField,
-        width,
-        visible: column.visible !== false,
-        pinned: Boolean(column.fixed),
-        originalOrder: index,
-      }]
-    })
-
-    if (exportColumns.length === 0) {
-      notify(t("NO_COLUMNS_TO_EXPORT", "Không có cột hiển thị để xuất"), "warning", 2500)
-      return
-    }
-
-    let rows = materials
-    const dataSource = grid?.getDataSource()
-    if (dataSource) {
-      try {
-        const loaded = await dataSource.store().load({
-          filter: grid?.getCombinedFilter(true) || undefined,
-          sort: dataSource.sort() || undefined,
-        })
-        rows = readLoadedRows(loaded) ?? materials
-      } catch {
-        rows = materials
-      }
-    }
-
-    if (rows.length === 0) {
-      notify(t("NO_DATA_TO_EXPORT", "Không có dữ liệu để xuất"), "warning", 2500)
-      return
-    }
-
-    const excelRows = rows.map((row) => {
-      const item: Record<string, unknown> = {}
-      for (const column of exportColumns) {
-        item[column.dataField] = row[column.dataField as keyof ProductMaterialRow] ?? ""
-      }
-      return item
-    })
-
-    // The menu naming helper already adds a timestamp. Avoid appending
-    // PRODUCT_CD, language, company or a second DownloadQueue timestamp.
-    let fileName = "khai_bao_nvl_va_thanh_pham.xlsx"
-    let sheetName = "NguyenVatLieu"
-    try {
-      fileName = exportName.fileName("xlsx")
-        .normalize("NFKD")
-        .replace(/\p{M}/gu, "")
-        .toLocaleLowerCase("en-US")
-        .replace(/[^\p{L}\p{N}.]+/gu, "_")
-        .replace(/_+\.xlsx$/i, ".xlsx")
-      sheetName = exportName.sheetName()
-    } catch {
-      // Keep the readable fallback instead of adding extra name segments.
-    }
-
-    try {
-      await exportToExcel(excelRows, exportColumns, fileName, sheetName, { preserveFileName: true })
-    } catch (error) {
-      notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất Excel thất bại")), "error", 4000)
-    }
-  }, [exportName, materials, product, t])
-
   function openImport() {
     if (saving || popupOpen || importOpen) return
     setImportOpen(true)
@@ -367,13 +281,11 @@ function ProductMaterialContent() {
                 onAdd={openAdd}
                 onRefresh={() => { void refreshProducts(); void refreshCurrent() }}
                 onImport={openImport}
-                onExportXlsx={handleExport}
                 showDelete={false}
                 showColumnChooser={false}
                 showExportPdf={false}
                 showSearch={false}
                 importDisabled={saving || popupOpen || importOpen}
-                exportXlsxDisabled={!selectedId || saving || loadingMaterialDetails}
                 shortcutsEnabled={!popupOpen && !importOpen}
               />
             </div>

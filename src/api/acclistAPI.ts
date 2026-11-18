@@ -2,7 +2,6 @@ import axios from './axiosClient';
 import API_BASE_URL from '../config/apiConfig';
 import { getApiArrayPayload, logApiError, type ApiResponseEnvelope } from "./apiTypes";
 import type { AcclistInfo } from "@/types/acclist"
-import { normalizeMessageLanguageKey } from '@/utils/language';
 import { deleteMasterRecords } from "@/lib/masterDelete";
 
 const BASE_URL = `${API_BASE_URL}/AcclistInfo`;
@@ -46,21 +45,6 @@ export async function updateAcclistInfo(
   payload: Partial<AcclistInfo>
 ): Promise<ApiResponseEnvelope<AcclistInfo>> {
   const resp = await axios.put<ApiResponseEnvelope<AcclistInfo>>(`${BASE_URL}`, payload);
-  return resp.data;
-}
-
-export async function exportToExcel(
-  accId?: number,
-  lang?: string, abortSignal?: AbortSignal
-): Promise<Blob> {
-  const params: Record<string, string | number> = {};
-  if (accId) params.ACC_ID = accId;
-  if (lang) params.lang = normalizeMessageLanguageKey(lang);
-
-  const resp = await axios.get(`${BASE_URL}/export`, {
-    params,
-    signal: abortSignal, responseType: 'blob',
-  });
   return resp.data;
 }
 

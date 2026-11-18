@@ -1,6 +1,4 @@
 import { captureMasterPopupError } from "@/components/datagrid/masterPopupValidation";
-import { downloadFile } from "@/lib/fileUtils"
-import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { useCallback, useContext, useRef, useState } from "react";
 import { LoadPanel } from "devextreme-react";
 import { Editing } from "devextreme-react/data-grid";
@@ -15,7 +13,7 @@ import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid";
 import { GridToolbar } from "@/components/toolbar/GridToolbar";
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout";
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup";
-import { createProductKind, exportToExcel } from "@/api/productKindApi";
+import { createProductKind } from "@/api/productKindApi";
 import { getCurrentCompanyCd } from "@/lib/login";
 import { assignSequencePreviewCode, getSequenceSubmitCode } from "@/lib/codeSequence";
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage";
@@ -50,7 +48,6 @@ export default function ProductKindManagementPage({
   const screenCd = "/module/product-kind-management";
   const gridId = "product-kind-grid";
   const menuCode = "MD_PRODUCT_GROUP";
-  const exportName = useMenuExportName(menuCode)
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isUpdate, setIsUpdate] = useState(false);
   const gridRef = useRef<dxDataGrid | null>(null);
@@ -200,18 +197,6 @@ export default function ProductKindManagementPage({
     }
   }, [gridId, menuCode, screenCd, t]);
 
-  const handleExportExcel = useCallback(async () => {
-    try {
-      const keys = (gridRef.current?.getSelectedRowKeys() || []) as number[];
-      const productKindId = keys.length ? keys[0] : undefined;
-      const loadDownloadBlob = (signal: AbortSignal) => exportToExcel(productKindId, langCode, undefined, signal);
-      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
-    } catch (error) {
-      console.error("Export error", error);
-      notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất thất bại")), "error", 3000);
-    }
-  }, [exportName, langCode, t]);
-
   const configuredProductKindColumns = useProductKindColumns({})
 
   const content = (
@@ -221,7 +206,6 @@ export default function ProductKindManagementPage({
           gridRef={gridRef}
           onRefresh={() => void reloadProductKinds()}
           onExportPdf={handleExportPdf}
-          onExportXlsx={handleExportExcel}
           onImport={() => setIsExcelModalOpen(true)}
           onDelete={handleToolbarDelete}
         />

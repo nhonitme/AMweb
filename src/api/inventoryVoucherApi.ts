@@ -31,8 +31,6 @@ export type InventoryVoucherFilters = {
   pageSize?: number
 }
 
-type ExportInventoryVoucherFilters = Omit<InventoryVoucherFilters, "pageNumber" | "pageSize">
-
 function unwrapPayload<T>(response: AxiosResponse<ApiEnvelope<T> | T>): ApiEnvelope<T> | T {
   return response.data
 }
@@ -192,26 +190,4 @@ export async function deleteInventoryVoucher(
   })
   const { success, message } = normalizeResponse<number>(response)
   return { success: success ?? true, message }
-}
-
-export async function exportInventoryVoucherExcel(
-  ledger: InventoryInputType,
-  chitType: InventoryVoucherType,
-  filters: ExportInventoryVoucherFilters = {}, abortSignal?: AbortSignal,
-): Promise<Blob> {
-  const params: Record<string, string | number> = {
-    INPUT_TYPE: ledger,
-    CHIT_TYPE: chitType,
-  }
-
-  if (filters.chitId && filters.chitId > 0) params.CHIT_ID = filters.chitId
-  if (filters.fromYmd) params.FROM_YMD = filters.fromYmd
-  if (filters.toYmd) params.TO_YMD = filters.toYmd
-
-  const response = await axios.get(`${getInventoryBaseUrl()}/ExportExcel`, {
-    params,
-    signal: abortSignal, responseType: "blob",
-  })
-
-  return response.data
 }

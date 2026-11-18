@@ -148,7 +148,9 @@ export default function PublicEInvoiceLookupPage() {
   const currency = invoice?.DVTTE || "VND"
   const canDownloadPdf = invoice?.CAN_DOWNLOAD_PDF !== false
   const canDownloadXml = invoice?.CAN_DOWNLOAD_XML !== false
-  const html = useMemo(() => trimText(invoice?.HTML), [invoice])
+  const pdfUrl = useMemo(() => invoice && downloadParams
+    ? buildPublicEInvoiceDownloadUrl({ ...downloadParams, format: "pdf" }) + "&revision=" + String(invoice.MCCQT ?? "")
+    : "", [invoice, downloadParams])
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -263,11 +265,11 @@ export default function PublicEInvoiceLookupPage() {
             </div>
 
             <div className="bg-slate-100 p-4">
-              {html ? (
+              {pdfUrl ? (
                 <iframe
                   title={PUBLIC_VI.INVOICE_PREVIEW}
                   className="h-[75vh] w-full rounded border border-slate-300 bg-white"
-                  srcDoc={html}
+                  src={pdfUrl}
                 />
               ) : (
                 <div className="rounded border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">

@@ -1,6 +1,4 @@
 import { captureMasterPopupError } from "@/components/datagrid/masterPopupValidation";
-import { downloadFile } from "@/lib/fileUtils"
-import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { useCallback, useContext, useRef, useState } from "react";
 import { LoadPanel } from "devextreme-react";
 import { Editing } from 'devextreme-react/data-grid';
@@ -15,7 +13,6 @@ import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout";
 import { useStoreKindColumns } from "./Columns/StoreKindColumns";
 import { StoreKindForm } from "./Forms/StoreKindForm";
 
-import { exportToExcel } from "@/api/storeKindAPI";
 import notify from "devextreme/ui/notify";
 import { LanguageContext } from "@/lib/i18nLoader";
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup";
@@ -58,12 +55,9 @@ export default function StoreKindManagementPage({
   const importConfig = useStoreImportConfig();
   const [isUpdate, setIsUpdate] = useState(false);
   const popupTitle = translate ? translate(isUpdate ? "lblEdit" : "lblAddNew", "Store Kind info") : "Store Kind info";
-  const langCode = normalizeMessageLanguageKey(lang);
   const screenCd = "/module/store-kind-management";
   const gridId = "store-kind-grid";
   const menuCode = "MD_WAREHOUSE_TYPE";
-  const exportName = useMenuExportName(menuCode)
-
   const t = useCallback(
     (key: string, fallback?: string) => (translate ? translate(key, fallback || key) : fallback || key),
     [translate],
@@ -157,22 +151,6 @@ export default function StoreKindManagementPage({
   })();
 };
 
-  const handleExportExcel = async () => {
-    try {
-      const keys = gridRef.current?.getSelectedRowKeys() || [];
-      const storeID = keys.length ? (keys[0] as number) : undefined;
-      const loadDownloadBlob = (signal: AbortSignal) => exportToExcel(storeID, langCode, signal);
-      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
-    } catch (err) {
-      console.error('Export error', err);
-      notify(
-        getApiErrorMessage(err, translate ? translate('EXPORT_FAILED', 'Xuất thất bại') : 'Export failed'),
-        'error',
-        3000
-      );
-    }
-  };
-
   const handleExportPdf = () => {
     const keys = (gridRef.current?.getSelectedRowKeys() || []) as number[];
     const storeKindId = keys.length ? keys[0] : undefined;
@@ -256,7 +234,6 @@ const handleToolbarDelete = async () => {
           gridRef={gridRef}
           onRefresh={() => void reloadStoreKinds()}
           onExportPdf={handleExportPdf}
-          onExportXlsx={handleExportExcel}
           onImport={() => setIsExcelModalOpen(true)}
           onDelete={handleToolbarDelete}
         />

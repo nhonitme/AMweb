@@ -1,6 +1,4 @@
 import { captureMasterPopupError } from "@/components/datagrid/masterPopupValidation";
-import { downloadFile } from "@/lib/fileUtils"
-import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { useCallback, useContext, useRef, useState } from "react";
 import { LoadPanel } from "devextreme-react";
 import { Editing } from "devextreme-react/data-grid";
@@ -15,7 +13,6 @@ import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid";
 import { GridToolbar } from "@/components/toolbar/GridToolbar";
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout";
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup";
-import { exportToExcel } from "@/api/productUnitApi";
 import { getCurrentCompanyCd } from "@/lib/login";
 import { assignSequencePreviewCode, getSequenceSubmitCode } from "@/lib/codeSequence";
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage";
@@ -50,7 +47,6 @@ export default function ProductUnitManagementPage({
   const screenCd = "/module/product-unit-management";
   const gridId = "product-unit-grid";
   const menuCode = "MD_UNIT";
-  const exportName = useMenuExportName(menuCode)
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isUpdate, setIsUpdate] = useState(false);
   const gridRef = useRef<dxDataGrid | null>(null);
@@ -200,18 +196,6 @@ export default function ProductUnitManagementPage({
     }
   }, [gridId, menuCode, screenCd, t]);
 
-  const handleExportExcel = useCallback(async () => {
-    try {
-      const keys = (gridRef.current?.getSelectedRowKeys() || []) as number[];
-      const productUnitId = keys.length ? keys[0] : undefined;
-      const loadDownloadBlob = (signal: AbortSignal) => exportToExcel(productUnitId, langCode, undefined, signal);
-      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
-    } catch (error) {
-      console.error("Export error", error);
-      notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất thất bại")), "error", 3000);
-    }
-  }, [langCode, t]);
-
   const configuredProductUnitColumns = useProductUnitColumns({})
 
   const content = (
@@ -221,7 +205,6 @@ export default function ProductUnitManagementPage({
           gridRef={gridRef}
           onRefresh={() => void reloadProductUnits()}
           onExportPdf={handleExportPdf}
-          onExportXlsx={handleExportExcel}
           onImport={() => setIsExcelModalOpen(true)}
           onDelete={handleToolbarDelete}
         />

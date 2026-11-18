@@ -38,7 +38,6 @@ export interface PublicEInvoiceLookup {
   MCCQT?: string | null
   CAN_DOWNLOAD_PDF?: boolean
   CAN_DOWNLOAD_XML?: boolean
-  HTML?: string | null
   DETAILS?: PublicEInvoiceLookupDetail[]
 }
 

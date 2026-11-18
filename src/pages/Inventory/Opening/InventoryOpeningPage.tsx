@@ -4,8 +4,6 @@ import {
   mergeMasterFormDraft,
   seedMasterFormDraft,
 } from "@/components/lookup/masterFormDraft";
-import { downloadFile } from "@/lib/fileUtils"
-import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { useCallback, useContext, useRef, useState } from "react"
 import { LoadPanel } from "devextreme-react"
 import { Editing } from "devextreme-react/data-grid"
@@ -31,7 +29,6 @@ import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { getCurrentCompanyCd } from "@/lib/login"
 import { getApiErrorMessage } from "@/api/apiTypes"
-import { exportInventoryOpeningExcel } from "@/api/inventoryOpeningApi"
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
 import { buildMasterGridReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
 import { normalizeMessageLanguageKey } from "@/utils/language"
@@ -72,7 +69,6 @@ export default function InventoryOpeningPage() {
   const screenCd = "/inventory/opening"
   const gridId = "inventory-opening-grid"
   const menuCode = "INV_OPENING"
-  const exportName = useMenuExportName(menuCode)
   const popupTitle = translate ? translate(isUpdate ? "lblEdit" : "lblAddNew", "Inventory opening") : "Inventory opening"
 
   const t = useCallback(
@@ -264,17 +260,6 @@ export default function InventoryOpeningPage() {
     })()
   }
 
-  const handleExportExcel = async () => {
-    try {
-      const keys = gridRef.current?.getSelectedRowKeys() || []
-      const inputId = keys.length ? (keys[0] as number) : undefined
-      const loadDownloadBlob = (signal: AbortSignal) => exportInventoryOpeningExcel(inputId, langCode, signal)
-      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
-    } catch (err) {
-      notify(getApiErrorMessage(err, t("EXPORT_FAILED", "Xuất thất bại")), "error", 3000)
-    }
-  }
-
   const handleExportPdf = () => {
     const keys = (gridRef.current?.getSelectedRowKeys() || []) as number[]
     const inputId = keys.length ? keys[0] : undefined
@@ -335,8 +320,6 @@ export default function InventoryOpeningPage() {
             gridRef={gridRef}
             onRefresh={() => void reload()}
             onExportPdf={handleExportPdf}
-            onExportXlsx={undefined}
-            showExportXlsx={false}
             onImport={() => setIsExcelModalOpen(true)}
             onDelete={() => void handleToolbarDelete()}
           />

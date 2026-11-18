@@ -16,12 +16,9 @@ import type { ReportOption } from "@/api/reportOptionApi"
 import ReportDataGrid, {
   type ReportDataGridGroupConfig,
   type ReportDataGridHandle,
-  type ReportGridExportColumn,
   type ReportDataGridRow,
-  toLocalizedReportDataGridRows,
 } from "@/components/datagrid/ReportDataGrid"
 import ReportTreeList, { type ReportTreeListHandle } from "@/components/datagrid/ReportTreeList"
-import { prepareReportOutlineExportRows } from "@/components/datagrid/reportOutlineMetadata"
 import { ReportToolbar } from "@/components/toolbar/ReportToolbar"
 import {
   getAcclistLookupStore,
@@ -29,9 +26,7 @@ import {
 } from "@/components/lookup/AcclistLookupStore"
 import DxPage from "@/dx/DxPage"
 import { useMasterListLoadError } from "@/hooks/queries/master/masterQueryHelpers"
-import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { useReportOptionsQuery } from "@/hooks/queries/useReportQueries"
-import { EXCEL_EXPORT_GROUP_ROW_FLAG, exportToExcel } from "@/lib/excelUtils"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { createCurrentQuarterDateRange, createMonthStartDate } from "@/lib/dateRangeDefaults"
 import { getCurrentCompanyCd, buildAppPath } from "@/lib/login"
@@ -41,7 +36,7 @@ import {
   readWorkspaceTabState,
   writeWorkspaceTabState,
 } from "@/lib/workspaceTabStateCache"
-import { formatDateToYmd, formatYmdForDisplay, normalizeYmd } from "@/pages/Accounting/accountingDateUtils"
+import { formatDateToYmd, normalizeYmd } from "@/pages/Accounting/accountingDateUtils"
 import { joinReportFilterValues } from "@/pages/Accounting/reportFilterValues"
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
 import { buildReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
@@ -58,7 +53,6 @@ import {
   resolveAccountingLedger,
   type ReportVoucherEditorHostHandle,
 } from "@/pages/Reports/ReportVoucherEditorHost"
-import type { ColumnConfig } from "@/types/table"
 import type { etcData } from "@/types/etcData"
 import { resolveReportOptionCaption } from "@/utils/resolveConfigCaption"
 import { EInvoiceTableShell } from "@/pages/EInvoice/components/EInvoiceTableShell"
@@ -166,7 +160,6 @@ type JournalReportPageProps = {
   accountFilterEtcType?: EtcType
   accountFilterParam1?: string
   accountFilterParam2?: string
-  showExportExcel?: boolean
   includeEmptyFilterParams?: boolean
   reportVersion?: string
   unitDivisor?: string
@@ -174,6 +167,8 @@ type JournalReportPageProps = {
   useUseStartYmdFilter?: boolean
   /** Cost-list toolbar: Theo quý (gợi ý kỳ) + In chi tiết (lọc LEVEL_NO). */
   costListToolbarOptions?: boolean
+  /** AR invoice debt detail: radio Chỉ lấy hóa đơn trong kỳ / trong kỳ và đầu kỳ. */
+  arInvoiceToolbarOptions?: boolean
 }
 
 type ReportRouteFilterState = {
@@ -221,6 +216,7 @@ type JournalReportTabState = {
   exportPrintTemplate: ReportPrintTemplateCode
   byQuarter?: boolean
   showDetailRows?: boolean
+  includeOpeningInvoices?: boolean
 }
 
 const TOOLBAR_FIELD = "page-toolbar__field"
@@ -563,129 +559,6 @@ function resolveDefaultReportOptionCode(options: ReportOption[]): string {
   return defaultOption?.OPTION_CODE ?? ""
 }
 
-function buildExportColumns(
-  preview: ConfiguredReportPreview,
-  visibleGridColumns: ReportGridExportColumn[],
-): ColumnConfig[] {
-  const previewColumnsByField = new Map(
-    preview.COLUMNS.map((column) => [column.FIELD_NAME.trim().toUpperCase(), column] as const),
-  )
-
-  return visibleGridColumns.flatMap((gridColumn, index) => {
-    const previewColumn = previewColumnsByField.get(gridColumn.dataField.trim().toUpperCase())
-    if (!previewColumn) {
-      return []
-    }
-
-    return [{
-      id: previewColumn.COLUMN_KEY || previewColumn.FIELD_NAME,
-      dataField: previewColumn.FIELD_NAME,
-      displayName: gridColumn.caption,
-      width: gridColumn.width,
-      visible: true,
-      pinned: false,
-      originalOrder: index,
-    }]
-  })
-}
-
-const CASH_BOOK_MONEY_FIELDS = new Set([
-  "DEBIT_AMOUNT",
-  "CREDIT_AMOUNT",
-  "BALANCE",
-  "DEBIT_FC_AMOUNT",
-  "CREDIT_FC_AMOUNT",
-  "FC_BALANCE",
-])
-
-function blankZeroCashBookMoneyValues(rows: ReportDataGridRow[]): ReportDataGridRow[] {
-  return rows.map((row) => {
-    let changed = false
-    const next = { ...row }
-
-    for (const [field, value] of Object.entries(row)) {
-      if (!CASH_BOOK_MONEY_FIELDS.has(field.trim().toUpperCase())) {
-        continue
-      }
-
-      const isZero = typeof value === "number"
-        ? value === 0
-        : typeof value === "string" && value.trim() !== "" && Number(value) === 0
-      if (isZero) {
-        next[field] = ""
-        changed = true
-      }
-    }
-
-    return changed ? next : row
-  })
-}
-
-function readExportRowText(row: ReportDataGridRow, fieldName: string): string {
-  const normalized = fieldName.trim().toUpperCase()
-  for (const [key, value] of Object.entries(row)) {
-    if (key.trim().toUpperCase() !== normalized || value == null) {
-      continue
-    }
-    return String(value).trim()
-  }
-  return ""
-}
-
-function findExportRowFieldName(row: ReportDataGridRow, fieldName: string): string | null {
-  const normalized = fieldName.trim().toUpperCase()
-  return Object.keys(row).find((key) => key.trim().toUpperCase() === normalized) ?? null
-}
-
-const TAX_REDUCTION_APPENDIX_HIDDEN_EXPORT_FIELDS = new Set(["TYPE", "ITEM_KIND"])
-
-/** Insert TYPE group header rows (like the grid) and format BILL_YMD as dd/MM/yyyy. */
-function prepareTaxVatReductionAppendixExportRows(
-  rows: readonly ReportDataGridRow[],
-  visibleFields: readonly string[],
-): ReportDataGridRow[] {
-  const firstField = visibleFields[0]
-  const result: ReportDataGridRow[] = []
-  let lastType: string | null = null
-
-  for (const row of rows) {
-    const type = readExportRowText(row, "TYPE")
-    const itemKind = readExportRowText(row, "ITEM_KIND")
-
-    if (firstField && type && type !== lastType) {
-      lastType = type
-      const groupRow: ReportDataGridRow = {
-        ROW_KEY: `__GROUP__${type}`,
-        [EXCEL_EXPORT_GROUP_ROW_FLAG]: true,
-      }
-      for (const field of visibleFields) {
-        groupRow[field] = null
-      }
-      // Label sits in the first column; Excel merges the whole row.
-      groupRow[firstField] = itemKind || type
-      result.push(groupRow)
-    }
-
-    const next: ReportDataGridRow = { ...row }
-    const billYmdField = findExportRowFieldName(row, "BILL_YMD")
-    if (billYmdField) {
-      const formatted = formatYmdForDisplay(
-        typeof row[billYmdField] === "string" || row[billYmdField] instanceof Date
-          ? row[billYmdField] as string | Date
-          : row[billYmdField] == null
-            ? null
-            : String(row[billYmdField]),
-      )
-      if (formatted) {
-        next[billYmdField] = formatted
-      }
-    }
-    result.push(next)
-  }
-
-  return result
-}
-
 function buildReportPrintParams(
   params: ConfiguredReportPreviewRequest,
   printTemplate: ReportPrintTemplateCode,
@@ -744,13 +617,13 @@ export default function JournalReportPage({
   accountFilterEtcType,
   accountFilterParam1,
   accountFilterParam2,
-  showExportExcel = true,
   includeEmptyFilterParams = false,
   reportVersion,
   unitDivisor,
   reportOptionGroupCode,
   useUseStartYmdFilter = false,
   costListToolbarOptions = false,
+  arInvoiceToolbarOptions = false,
 }: JournalReportPageProps) {
   const location = useLocation()
   const tabRoute = useWorkspaceTabRoute()
@@ -876,6 +749,11 @@ export default function JournalReportPage({
   const [showDetailRows, setShowDetailRows] = useState(
     () => !costListToolbarOptions || restoredTabState?.showDetailRows !== false,
   )
+  const [includeOpeningInvoices, setIncludeOpeningInvoices] = useState(
+    () =>
+      !arInvoiceToolbarOptions ||
+      restoredTabState?.includeOpeningInvoices !== false,
+  )
 
   useEffect(() => {
     if (restoredTabState) {
@@ -911,6 +789,7 @@ export default function JournalReportPage({
       exportPrintTemplate,
       byQuarter,
       showDetailRows,
+      includeOpeningInvoices,
     })
   }, [
     accountCodes,
@@ -923,6 +802,7 @@ export default function JournalReportPage({
     exportLanguage,
     exportPrintTemplate,
     fromDate,
+    includeOpeningInvoices,
     invoiceStatus,
 	invoiceKind,
     invoiceType,
@@ -944,8 +824,6 @@ export default function JournalReportPage({
     (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
     [translate],
   )
-  const exportName = useMenuExportName(menuCode)
-
   const invoiceTypeOptions = useMemo(
     () => [
       { value: "BUY", label: t("VAT_INOUT_TYPE_BUY", "Hóa đơn đầu vào") },
@@ -1232,11 +1110,14 @@ export default function JournalReportPage({
         ...(costListToolbarOptions
           ? { includeDetail: showDetailRows ? "1" : "0" }
           : {}),
+        ...(arInvoiceToolbarOptions
+          ? { includeOpening: includeOpeningInvoices ? "1" : "0" }
+          : {}),
         gridId: effectiveReportCode,
         templateId: storedTemplateId > 0 ? String(storedTemplateId) : undefined,
       }
     },
-    [accountCd, accountCodes, accountQueryParamKey, assetStatusCodes, bankCd, bankCodes, costListToolbarOptions, currencyCodes, customerCd, customerCodes, effectiveReportOptionGroupCode, fcType, includeEmptyFilterParams, invoiceKind, showInvoiceKindFilter, invoiceStatus, invoiceType, lang, menuCode, moduleCd, productCd, productCodes, reportCode, reportOptions, reportVersion, routeFilterState.extraParams, searchText, selectedReportOptionCode, showAccountFilter, showAssetStatusFilter, showBankFilter, showCurrencyFilter, showCustomerFilter, showDetailRows, showInvoiceStatusFilter, showInvoiceTypeFilter, showProductFilter, showWarehouseFilter, storeCd, unitDivisor, useUseStartYmdFilter, warehouseCodes],
+    [accountCd, accountCodes, accountQueryParamKey, arInvoiceToolbarOptions, assetStatusCodes, bankCd, bankCodes, costListToolbarOptions, currencyCodes, customerCd, customerCodes, effectiveReportOptionGroupCode, fcType, includeEmptyFilterParams, includeOpeningInvoices, invoiceKind, showInvoiceKindFilter, invoiceStatus, invoiceType, lang, menuCode, moduleCd, productCd, productCodes, reportCode, reportOptions, reportVersion, routeFilterState.extraParams, searchText, selectedReportOptionCode, showAccountFilter, showAssetStatusFilter, showBankFilter, showCurrencyFilter, showCustomerFilter, showDetailRows, showInvoiceStatusFilter, showInvoiceTypeFilter, showProductFilter, showWarehouseFilter, storeCd, unitDivisor, useUseStartYmdFilter, warehouseCodes],
   )
 
   const releaseAutoLoadInFlight = useCallback((requestId: number) => {
@@ -1642,52 +1523,6 @@ export default function JournalReportPage({
     [accountCodes, bankCodes, currencyCodes, customerCodes, fromDate, openDrillTab, productCodes, reportCode, t, toDate, warehouseCodes],
   )
 
-  const handleExportExcel = useCallback(() => {
-    if (!preview?.ROWS.length) {
-      notify(t("NO_DATA_TO_EXPORT", "No data to export"), "warning", 2500)
-      return
-    }
-
-    const visibleGridColumns =
-      reportGridRef.current?.getVisibleExportColumns()
-      ?? reportTreeRef.current?.getVisibleExportColumns()
-      ?? []
-    let exportColumns = buildExportColumns(preview, visibleGridColumns)
-    const normalizedReportCode = reportCode.trim().toUpperCase()
-    if (normalizedReportCode === "TAX_VAT_REDUCTION_APPENDIX") {
-      // Hide TYPE/ITEM_KIND — group label is shown as a merged header row instead.
-      exportColumns = exportColumns.filter(
-        (column) => !TAX_REDUCTION_APPENDIX_HIDDEN_EXPORT_FIELDS.has(column.dataField.trim().toUpperCase()),
-      )
-    }
-    if (exportColumns.length === 0) {
-      notify(t("NO_COLUMNS_TO_EXPORT", "No visible columns to export"), "warning", 2500)
-      return
-    }
-
-    const visibleFields = exportColumns.map((column) => column.dataField)
-    let exportRows = prepareReportOutlineExportRows(
-      toLocalizedReportDataGridRows(preview, t, reportCode),
-      visibleFields,
-    )
-    if (normalizedReportCode === "TAX_VAT_REDUCTION_APPENDIX") {
-      exportRows = prepareTaxVatReductionAppendixExportRows(exportRows, visibleFields)
-    } else if (normalizedReportCode === "CASH_BOOK") {
-      exportRows = blankZeroCashBookMoneyValues(exportRows)
-    }
-    exportToExcel(
-      exportRows,
-      exportColumns,
-      exportName.fileName("xlsx"),
-      exportName.sheetName(),
-      normalizedReportCode === "CASH_BOOK"
-        ? { withBorders: true }
-        : normalizedReportCode === "TAX_VAT_REDUCTION_APPENDIX"
-          ? { mergeGroupRows: true }
-          : undefined,
-    )
-  }, [exportName, preview, reportCode, t])
-
   const openExportPopup = useCallback(() => {
     setExportPopupVisible(true)
   }, [])
@@ -1789,12 +1624,16 @@ export default function JournalReportPage({
               onByQuarterChange={costListToolbarOptions ? handleByQuarterChange : undefined}
               showDetailRows={showDetailRows}
               onShowDetailRowsChange={costListToolbarOptions ? setShowDetailRows : undefined}
+              arInvoiceOptionsVisible={arInvoiceToolbarOptions}
+              includeOpeningInvoices={includeOpeningInvoices}
+              onIncludeOpeningInvoicesChange={
+                arInvoiceToolbarOptions ? setIncludeOpeningInvoices : undefined
+              }
               onSearchTextChange={setSearchText}
               onSearch={() => void loadPreview({ showValidationMessage: true })}
               onRefresh={() => void loadPreview({ showValidationMessage: true })}
               onPrint={openExportPopup}
               onExportPdf={openExportPopup}
-              onExportExcel={showExportExcel ? handleExportExcel : undefined}
               onSysGridColumnSettings={handleOpenGridSettings}
               onFetchFromGdt={showFetchFromGdt ? () => setGdtPopupVisible(true) : undefined}
               onFormulaSettings={formulaOptionsEnabled ? handleOpenFormulaSettings : undefined}
@@ -1802,7 +1641,6 @@ export default function JournalReportPage({
               showRefresh={true}
               showPrint={false}
               showExportPdf={true}
-              showExportExcel={showExportExcel}
               showFetchFromGdt={showFetchFromGdt}
               shortcutsEnabled={!exportPopupVisible && !gdtPopupVisible}
               accountFilterEtcType={accountFilterEtcType}

@@ -1,4 +1,3 @@
-import { downloadFile } from "@/lib/fileUtils"
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import type dxDataGrid from "devextreme/ui/data_grid"
@@ -16,7 +15,6 @@ import { LoadPanel } from "devextreme-react/load-panel"
 import {
   createInventoryVoucher,
   deleteInventoryVoucher,
-  exportInventoryVoucherExcel,
   updateInventoryVoucher,
 } from "@/api/inventoryVoucherApi"
 import { clearSysCodeSequencePreviewCache } from "@/api/sysCodeSequenceApi"
@@ -33,7 +31,6 @@ import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import DxPage from "@/dx/DxPage"
 import { LanguageContext } from "@/lib/i18nLoader"
-import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { createCurrentMonthDateRange } from "@/lib/dateRangeDefaults"
 import { getCurrentCompanyCd, getCurrentUserId } from "@/lib/login"
 import type { GridColumnSettingEditorItem } from "@/types/sysGridColumnSetting"
@@ -241,7 +238,6 @@ export default function InventoryManagementPage({
   const linkedAccountingPopup = useLinkedAccountingVoucherPopup(t)
   const title = titleKey ? t(titleKey, titleFallback ?? "") : titleFallback ?? (chitType === "IR" ? "Phiếu nhập kho" : "Phiếu xuất kho")
   const menuCode = inventoryMenuCodeMap[chitType]
-  const exportName = useMenuExportName(menuCode)
   const screenCd = useMemo(() => location.pathname, [location.pathname])
   const masterGridId = useMemo(() => getInventoryMasterGridId(chitType), [chitType])
   const detailGridId = useMemo(() => getInventoryDetailGridId(chitType), [chitType])
@@ -788,21 +784,6 @@ export default function InventoryManagementPage({
     }
   }, [chitType, invalidateInventoryVouchers, ledger, t])
 
-  const handleExportExcel = useCallback(async () => {
-    try {
-      const selectedKeys: Array<string | number> = gridRef.current?.getSelectedRowKeys() ?? []
-      const selectedChitId = selectedKeys.length > 0 ? Number(selectedKeys[0]) : null
-      const loadDownloadBlob = (signal: AbortSignal) => exportInventoryVoucherExcel(ledger, chitType, {
-        chitId: selectedChitId != null && Number.isFinite(selectedChitId) && selectedChitId > 0 ? selectedChitId : null,
-        fromYmd: formatDateToYmd(fromDate),
-        toYmd: formatDateToYmd(toDate),
-      }, signal)
-      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
-    } catch (error) {
-      notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất thất bại")), "error", 4000)
-    }
-  }, [chitType, exportName, fromDate, ledger, t, title, toDate])
-
   const handleExportPdf = useCallback(() => {
     const selectedKeys: Array<string | number> = gridRef.current?.getSelectedRowKeys() ?? []
     const selectedIds = selectedKeys
@@ -1139,9 +1120,7 @@ export default function InventoryManagementPage({
           showDateRange
           onImport={excelEnabled ? () => setIsExcelModalOpen(true) : undefined}
           onExportPdf={handleExportPdf}
-          onExportXlsx={excelEnabled ? handleExportExcel : undefined}
           showExportPdf={pdfEnabled}
-          showExportXlsx={false}
           showImport={excelEnabled}
           afterAddItems={linkToolbarItems}
           shortcutsEnabled={!popupVisible && !isExcelModalOpen && !linkPopupVisible}

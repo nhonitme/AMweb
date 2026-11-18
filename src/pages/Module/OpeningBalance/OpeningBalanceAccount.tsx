@@ -1,5 +1,3 @@
-import { downloadFile } from "@/lib/fileUtils"
-import { useCurrentMenuExportName } from "@/hooks/useCurrentMenuExportName"
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { confirm } from "devextreme/ui/dialog";
 import { useNavigate} from "react-router-dom"
@@ -18,9 +16,6 @@ import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid";
 import { getCurrentLangCode } from '@/utils/language'
 import { buildBeforeStatePayload, createEmptyRow, type BeforeState, type ROW_STATE } from "@/types/openingBalance"
 import { formatNumber, SummaryCard } from "@/utils/openingBalanceHelpers"
-import {
-    exportToExcel,
-} from "@/api/openingBalanceApi"
 import {
     useOpeningBalanceAccountsMutations,
     useOpeningBalanceAccountsQuery,
@@ -55,7 +50,6 @@ function getTextValue(value: unknown): string {
 }
 
 function OpeningBalanceAccount(): React.JSX.Element {
-  const exportName = useCurrentMenuExportName()
     const [openingYmd, setOpeningYmd] = useState<string>("19000101")
 
     const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
@@ -358,22 +352,6 @@ function OpeningBalanceAccount(): React.JSX.Element {
         setIsFcSummaryExpanded((current) => !current)
     }, [])
 
-    const handleExportExcel = async () => {
-        try {
-            const keys = gridRef.current?.getSelectedRowKeys() || [];
-            const ID = keys.length ? Number(keys[0]) : undefined;
-            const loadDownloadBlob = (signal: AbortSignal) => exportToExcel(Number.isFinite(ID) && (ID as number) > 0 ? ID : undefined, getCurrentLangCode(), openingYmd, signal);
-            await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
-        } catch (err) {
-        console.error('Export error', err);
-        notify(
-            getApiErrorMessage(err, translate ? translate('EXPORT_FAILED', 'Xuất thất bại') : 'Export failed'),
-            'error',
-            3000
-        );
-        }
-  };
-
     const configuredOpeningBalanceAccountColumns = useOpeningBalanceAccountColumns({ t })
 
     return (
@@ -534,7 +512,6 @@ function OpeningBalanceAccount(): React.JSX.Element {
                                 gridRef={gridRef}
                                 onRefresh={() => void reloadAccounts()}
                                 showExportPdf={false}
-                                onExportXlsx={handleExportExcel}
                                 onImport={() => setIsExcelModalOpen(true)}
                                 onDelete={handleDeleteSelectedRows}
                             />

@@ -55,22 +55,6 @@ export async function updateStoreInfo(
   return resp.data;
 }
 
-// Export to Excel (optionally filter by store ID)
-export async function exportToExcel(
-  storeID?: number,
-  lang?: string, abortSignal?: AbortSignal
-): Promise<Blob> {
-  const params: Record<string, string | number> = {};
-  if (storeID) params.STORE_ID = storeID;
-  if (lang) params.lang = lang;
-
-  const resp = await axios.get(`${BASE_URL}/export`, {
-    params,
-    signal: abortSignal, responseType: 'blob',
-  });
-  return resp.data;
-}
-
 export async function deleteStoreInfos(
   storeIds: number[],
 ): Promise<ApiResponseEnvelope<unknown>> {

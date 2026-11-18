@@ -13,7 +13,7 @@ function readReportPageSettings(params: URLSearchParams): ReportPageSettings {
   const paperKind = params.get("printPaperKind")?.toUpperCase();
   return {
     orientation: orientation === "AUTO" || orientation === "PORTRAIT" || orientation === "LANDSCAPE" ? orientation : "",
-    paperKind: paperKind === "AUTO" || paperKind === "A4" || paperKind === "A3" ? paperKind : "",
+    paperKind: paperKind === "AUTO" || paperKind === "A4" || paperKind === "A3" || paperKind === "A5" ? paperKind : "",
   };
 }
 
@@ -94,7 +94,6 @@ export default function ConfiguredReportViewer() {
       onReportLanguageChange={handleReportLanguageChange}
       pageSettings={pageSettings}
       onPageSettingsChange={handlePageSettingsChange}
-      pageSetupEnabled={effectiveSearchParams.get("printLayout")?.toUpperCase() === "DEFAULT_GRID"}
     />
   );
 }

@@ -34,7 +34,6 @@ export const SHORTCUT_KEYS = {
   RECALCULATE_AMOUNT_BY_AFTER_TAX_PRICE: "ctrl+4",
   CREATE_PURCHASE_FROM_EINVOICE: "ctrl+i",
   IMPORT: "alt+i",
-  EXPORT_EXCEL: "alt+e",
   EXPORT_PDF: "alt+p",
   COLUMN_CHOOSER: "alt+l",
   HELP: "f1",

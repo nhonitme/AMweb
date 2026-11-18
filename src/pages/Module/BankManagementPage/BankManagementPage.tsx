@@ -17,14 +17,11 @@ import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout"
 import DxPage from "@/dx/DxPage"
-import { downloadFile } from "@/lib/fileUtils"
-import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { getCurrentCompanyCd } from "@/lib/login"
 import { assignSequencePreviewCode, getSequenceSubmitCode } from "@/lib/codeSequence"
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
 import { buildMasterGridReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
-import { exportBankInfoExcel } from "@/api/bankInfoApi"
 import MasterDataEditPopup from "@/components/datagrid/MasterDataEditPopup"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import type { BankInfo, BankInfoApi } from "@/types/bankInfo"
@@ -65,7 +62,6 @@ export default function BankManagementPage({
   const screenCd = "/module/bank-management"
   const gridId = "bank-grid"
   const menuCode = "MD_BANK"
-  const exportName = useMenuExportName(menuCode)
   const [isUpdate, setIsUpdate] = useState(false)
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false)
   const gridRef = useRef<dxDataGrid | null>(null)
@@ -231,23 +227,6 @@ export default function BankManagementPage({
     }
   }, [deleteMutation, t])
 
-  const handleExportExcel = useCallback(async () => {
-    try {
-      const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
-      const selectedBankId = selectedKeys.length > 0 ? Number(selectedKeys[0]) : undefined
-      const bankId =
-        typeof selectedBankId === "number" && Number.isFinite(selectedBankId) && selectedBankId > 0
-          ? selectedBankId
-          : undefined
-
-      const loadDownloadBlob = (signal: AbortSignal) => exportBankInfoExcel(bankId, lang, signal)
-      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
-    } catch (error) {
-      console.error("Export bank error", error)
-      notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất thất bại")), "error", 3000)
-    }
-  }, [exportName, lang, t])
-
   const handleExportPdf = useCallback(() => {
     const selectedKeys = (gridRef.current?.getSelectedRowKeys() || []) as Array<string | number>
     const selectedBankId = selectedKeys.length > 0 ? Number(selectedKeys[0]) : undefined
@@ -302,7 +281,6 @@ export default function BankManagementPage({
           onDelete={handleToolbarDelete}
           onImport={() => setIsExcelModalOpen(true)}
           onExportPdf={handleExportPdf}
-          onExportXlsx={handleExportExcel}
         />
       }
       overlays={

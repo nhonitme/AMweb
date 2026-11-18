@@ -42,8 +42,6 @@ export type GetChitsParams = {
   accountPairFilter?: string | null
 }
 
-type ExportChitsParams = GetChitsParams
-
 const inFlightGetRequestMap = new Map<string, Promise<unknown>>()
 
 const voucherControllerMap: Record<ChitLedger, Partial<Record<ChitType, string>>> = {
@@ -300,26 +298,6 @@ export async function getChits(
       resolvePageSize(filters.pageSize),
     )
   })
-}
-
-export async function exportChitExcel(
-  ledger: ChitLedger,
-  chitType: ChitType,
-  filters: ExportChitsParams = {}, abortSignal?: AbortSignal,
-): Promise<Blob> {
-  const params: Record<string, string | number> = {}
-
-  if (filters.chitId && filters.chitId > 0) params.CHIT_ID = filters.chitId
-  if (filters.fromYmd) params.FROM_YMD = filters.fromYmd
-  if (filters.toYmd) params.TO_YMD = filters.toYmd
-  if (filters.accountPairFilter) params.ACCOUNT_PAIR_FILTER = filters.accountPairFilter
-
-  const response = await axios.get(`${getBaseUrl(ledger, chitType)}/ExportExcel`, {
-    params: Object.keys(params).length > 0 ? params : undefined,
-    signal: abortSignal, responseType: "blob",
-  })
-
-  return response.data
 }
 
 export async function createChit(

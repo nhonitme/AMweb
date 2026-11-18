@@ -95,37 +95,3 @@ export async function previewFixedAssetDepreciation(
     throw error
   }
 }
-
-export async function exportFixedAssetsToExcel(options?: {
-  assetId?: number
-  status?: string
-  accCd?: string
-  lang?: string
-}, abortSignal?: AbortSignal): Promise<Blob> {
-  try {
-    const params: Record<string, string | number> = {}
-    if (options?.assetId && options.assetId > 0) {
-      params.assetId = options.assetId
-    }
-    const status = options?.status?.trim()
-    if (status) {
-      params.status = status
-    }
-    const accCd = options?.accCd?.trim()
-    if (accCd) {
-      params.accCd = accCd
-    }
-    if (options?.lang) {
-      params.lang = options.lang
-    }
-
-    const resp = await axios.get(`${BASE_URL}/export`, {
-      params: Object.keys(params).length > 0 ? params : undefined,
-      signal: abortSignal, responseType: 'blob',
-    })
-    return resp.data as Blob
-  } catch (error) {
-    logApiError('Error in exportFixedAssetsToExcel:', error)
-    throw error
-  }
-}

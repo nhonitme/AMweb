@@ -438,7 +438,6 @@ export default function MultiReferencePopup({
           showAdd={false}
           showColumnChooser={false}
           showExportPdf={false}
-          showExportXlsx={false}
           showDelete={false}
           showImport={false}
           shortcutsEnabled={false}

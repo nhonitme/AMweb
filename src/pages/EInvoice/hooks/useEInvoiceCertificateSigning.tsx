@@ -33,7 +33,7 @@ export type UseEInvoiceCertificateSigningOptions<TItem> = {
 type PickerConfirmHandler = (certificate: EInvoicePluginCertificate) => boolean | void
 
 function formatText(template: string, values: Array<string | number>): string {
-  return values.reduce((text, value, index) => text.replace(`{${index}}`, String(value)), template)
+  return values.reduce<string>((text, value, index) => text.replace(`{${index}}`, String(value)), template)
 }
 
 async function loadPluginCertificates(
@@ -91,6 +91,7 @@ export function useEInvoiceCertificateSigning<TItem>({
   const pendingItemsRef = useRef<TItem[]>([])
   const pickerConfirmRef = useRef<PickerConfirmHandler | null>(null)
   const signBatchRef = useRef(signBatch)
+  const signingInFlightRef = useRef(false)
 
   signBatchRef.current = signBatch
 
@@ -181,6 +182,7 @@ export function useEInvoiceCertificateSigning<TItem>({
   )
 
   const handleConfirm = useCallback(async () => {
+    if (signingInFlightRef.current) return
     const certificateThumbprint = selectedCertificateThumbprint.trim()
     if (!certificateThumbprint) {
       notify(fieldRequiredMessage(t, EINV_KEY.CERTIFICATE_SELECT, "Select digital certificate"), "warning", 3000)
@@ -211,6 +213,7 @@ export function useEInvoiceCertificateSigning<TItem>({
       return
     }
 
+    signingInFlightRef.current = true
     setActionLoading?.(true)
     setPopupLoading(true)
     let successCount = 0
@@ -239,6 +242,7 @@ export function useEInvoiceCertificateSigning<TItem>({
           : message
       notify(partialMessage, "error", 5000)
     } finally {
+      signingInFlightRef.current = false
       setActionLoading?.(false)
       setPopupLoading(false)
     }

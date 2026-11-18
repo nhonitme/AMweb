@@ -1,5 +1,3 @@
-import { downloadFile } from "@/lib/fileUtils"
-import { useCurrentMenuExportName } from "@/hooks/useCurrentMenuExportName"
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { confirm } from "devextreme/ui/dialog"
 import { useNavigate } from "react-router-dom"
@@ -38,7 +36,7 @@ import { useOpeningBalanceBankColumns } from "./Columns/OpeningBalanceBankColumn
 import { OpeningBalanceBankForm } from "./Forms/OpeningBalanceBankForm"
 import { openingBalanceAmountErrorMessage } from "./openingBalanceValidation"
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
-import { exportBanksToExcel, GetFiscalStartYear } from "@/api/openingBalanceApi"
+import { GetFiscalStartYear } from "@/api/openingBalanceApi"
 import { openingBalanceBankImportConfig } from "./Columns/OpeningBalanceBankImportConfig"
 import API_BASE_URL from "@/config/apiConfig"
 import { getCurrentLangCode } from "@/utils/language"
@@ -62,7 +60,6 @@ function getTextValue(value: unknown): string {
 }
 
 function OpeningBalanceBank(): React.JSX.Element {
-  const exportName = useCurrentMenuExportName()
   const [openingYmd, setOpeningYmd] = useState<string>("19000101")
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false)
   const navigate = useNavigate()
@@ -400,22 +397,6 @@ function OpeningBalanceBank(): React.JSX.Element {
     setIsFcSummaryExpanded((current) => !current)
   }, [])
 
-  const handleExportExcel = async () => {
-    try {
-      const keys = gridRef.current?.getSelectedRowKeys() || []
-      const ID = keys.length ? Number(keys[0]) : undefined
-      const loadDownloadBlob = (signal: AbortSignal) => exportBanksToExcel(Number.isFinite(ID) && (ID as number) > 0 ? ID : undefined, getCurrentLangCode(), openingYmd, signal)
-      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
-    } catch (err) {
-      console.error("Export error", err)
-      notify(
-        getApiErrorMessage(err, translate ? translate("EXPORT_FAILED", "Xuất thất bại") : "Export failed"),
-        "error",
-        3000
-      )
-    }
-  }
-
   const configuredOpeningBalanceBankColumns = useOpeningBalanceBankColumns({ t })
 
   return (
@@ -581,7 +562,6 @@ function OpeningBalanceBank(): React.JSX.Element {
               gridRef={gridRef}
               onRefresh={() => void reloadBanks()}
               showExportPdf={false}
-              onExportXlsx={handleExportExcel}
               onImport={() => setIsExcelModalOpen(true)}
               onDelete={handleDeleteSelectedRows}
             />

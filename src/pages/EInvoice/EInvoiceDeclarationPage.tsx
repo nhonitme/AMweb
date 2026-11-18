@@ -85,7 +85,7 @@ import { useEInvoiceSigningPluginSetupPrompt } from "./hooks/useEInvoiceSigningP
 import { truncateEInvoiceErrorMessage } from "./einvoiceModel"
 import { openEInvoiceDeclarationPreview } from "./einvoiceDeclarationPreviewViewer"
 import { openEInvoiceDeclarationXmlPreviewWithNotify } from "./einvoiceDocumentXmlViewer"
-import { openEInvoiceTransmissionHtmlPreview } from "./einvoiceTransmissionPreviewViewer"
+import { openEInvoiceTransmissionPdfPreview } from "./einvoiceTransmissionPreviewViewer"
 import { createEInvoicePrintToolbarItem } from "./einvoicePrintToolbar"
 import { createEInvoiceSignSendCqtToolbarItem } from "./einvoiceSignToolbar"
 import { fieldRequiredMessage } from "./einvoiceI18n"
@@ -1344,7 +1344,7 @@ export default function EInvoiceDeclarationPage() {
   const handleViewTransmissionMessage = useCallback(
     async (message: EInvoiceTransmissionMessage) => {
       try {
-        const opened = await openEInvoiceTransmissionHtmlPreview(message)
+        const opened = await openEInvoiceTransmissionPdfPreview(message)
         if (!opened) {
           notify(t("PREVIEW_OPEN_FAILED", "Could not open preview"), "warning", 3000)
         }
@@ -1767,7 +1767,6 @@ export default function EInvoiceDeclarationPage() {
           customItems={toolbarItems}
           showImport={false}
           showExportPdf={false}
-          showExportXlsx={false}
           shortcutsEnabled={!popupVisible && !certificatePopupVisible && !transmissionPopupVisible}
         />
 

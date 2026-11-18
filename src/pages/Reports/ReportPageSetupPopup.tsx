@@ -5,7 +5,7 @@ import { LanguageContext } from "@/lib/i18nLoader"
 
 export type ReportPageSettings = {
   orientation: "" | "AUTO" | "PORTRAIT" | "LANDSCAPE"
-  paperKind: "" | "AUTO" | "A4" | "A3"
+  paperKind: "" | "AUTO" | "A4" | "A3" | "A5"
 }
 
 type Props = {
@@ -58,6 +58,7 @@ export default function ReportPageSetupPopup({ settings, onClose, onApply }: Pro
             <option value="">{t("REPORT_USE_CONFIGURED_LAYOUT", "Theo cấu hình báo cáo")}</option>
             <option value="AUTO">{t("REPORT_PAGE_AUTO", "Tự động theo số cột")}</option>
             <option value="A4">A4</option>
+            <option value="A5">A5</option>
             <option value="A3">A3</option>
           </select>
         </label>

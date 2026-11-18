@@ -17,14 +17,11 @@ import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout"
 import DxPage from "@/dx/DxPage"
-import { downloadFile } from "@/lib/fileUtils"
-import { useMenuExportName } from "@/hooks/useMenuExportName"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { getCurrentCompanyCd } from "@/lib/login"
 import { assignSequencePreviewCode, getSequenceSubmitCode } from "@/lib/codeSequence"
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
 import { buildMasterGridReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
-import { exportDepartmentInfoExcel } from "@/api/departmentInfoApi"
 import { MasterDataTreeListEditPopup } from "@/components/datagrid/MasterDataEditPopup"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import type { DepartmentInfo, DepartmentInfoApi } from "@/types/departmentInfo"
@@ -68,7 +65,6 @@ export default function DepartmentManagementPage({
   const screenCd = "/master/cost-center"
   const gridId = "cost-center-grid"
   const menuCode = "MD_COST_CENTER"
-  const exportName = useMenuExportName(menuCode)
   const [isUpdate, setIsUpdate] = useState(false)
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false)
   const [selectedParentRow, setSelectedParentRow] = useState<DepartmentInfo | null>(null)
@@ -238,23 +234,6 @@ export default function DepartmentManagementPage({
     }
   }, [deleteMutation, t])
 
-  const handleExportExcel = useCallback(async () => {
-    try {
-      const selectedKeys = (treeListRef.current?.getSelectedRowKeys() || []) as Array<string | number>
-      const selectedDepartmentId = selectedKeys.length > 0 ? Number(selectedKeys[0]) : undefined
-      const departmentId =
-        typeof selectedDepartmentId === "number" && Number.isFinite(selectedDepartmentId) && selectedDepartmentId > 0
-          ? selectedDepartmentId
-          : undefined
-
-      const loadDownloadBlob = (signal: AbortSignal) => exportDepartmentInfoExcel(departmentId, lang, signal)
-      await downloadFile({ fileName: exportName.fileName("xlsx"), load: loadDownloadBlob })
-    } catch (error) {
-      console.error("Export department error", error)
-      notify(getApiErrorMessage(error, t("EXPORT_FAILED", "Xuất thất bại")), "error", 3000)
-    }
-  }, [exportName, lang, t])
-
   const handleExportPdf = useCallback(() => {
     const selectedKeys = (treeListRef.current?.getSelectedRowKeys() || []) as Array<string | number>
     const selectedDepartmentId = selectedKeys.length > 0 ? Number(selectedKeys[0]) : undefined
@@ -315,7 +294,6 @@ export default function DepartmentManagementPage({
           onDelete={handleToolbarDelete}
           onImport={() => setIsExcelModalOpen(true)}
           onExportPdf={handleExportPdf}
-          onExportXlsx={handleExportExcel}
         />
       }
       overlays={

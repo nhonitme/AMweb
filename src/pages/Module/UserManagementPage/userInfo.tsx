@@ -562,7 +562,6 @@ export default function UserManagementPage() {
             onDelete={handleToolbarDelete}
             showImport={false}
             showExportPdf={false}
-            showExportXlsx={false}
             showColumnChooser={false}
             deleteDisabled={!selectedUser || detailMode === "create"}
             onSearchStateChange={(value) => setListSearchText(value)}

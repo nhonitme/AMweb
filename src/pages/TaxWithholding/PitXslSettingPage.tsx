@@ -28,6 +28,7 @@ import "./pit.css"
 
 type EditorState = {
   xslId: number
+  XSL_CONTENT?: string
   TEMPLATE_NM: string
   SERIES: string
   FROM_DOC_NO: number
@@ -113,6 +114,10 @@ export default function PitXslSettingPage() {
       notify(t("TO_DOC_NO_INVALID", "Đến số phải là số nguyên từ 1 đến 99999999"), "warning", 3000)
       return
     }
+    if (editor.xslId === 0 && !editor.XSL_CONTENT?.trim()) {
+      notify("Hãy chọn file XSL cho mẫu mới", "warning", 3000)
+      return
+    }
     const series = editor.SERIES.trim().toUpperCase()
     if (!/^CT\d{2}[A-Z]{2}$/.test(series)) {
       notify("Ký hiệu phải là CT + hai số năm + hai chữ in hoa (ví dụ CT26AA)", "warning", 4000)
@@ -120,6 +125,7 @@ export default function PitXslSettingPage() {
     }
     await run(async () => {
       const body = {
+        XSL_CONTENT: editor.XSL_CONTENT,
         TEMPLATE_CD: "03/TNCN",
         TEMPLATE_NM: editor.TEMPLATE_NM.trim() || `Chứng từ khấu trừ TNCN · ${series}`,
         SERIES: series,
@@ -237,7 +243,6 @@ export default function PitXslSettingPage() {
             showDateRange={false}
             showImport={false}
             showExportPdf={false}
-            showExportXlsx={false}
             shortcutsEnabled={!editor}
           />
           {list.error && (
@@ -311,6 +316,16 @@ export default function PitXslSettingPage() {
         >
           {editor && (
             <div className="pit-editor">
+                {editor.xslId === 0 && <label className="block mb-3">
+                  File mẫu XSL
+                  <input type="file" accept=".xsl,.xslt" disabled={busy} onChange={async event => {
+                    const file = event.target.files?.[0]
+                    if (!file) return
+                    if (file.size > 10 * 1024 * 1024) { notify("File XSL tối đa 10 MB", "warning", 3000); return }
+                    const content = await file.text()
+                    setEditor(current => current ? { ...current, XSL_CONTENT: content } : current)
+                  }} />
+                </label>}
               <EInvoiceEditorSection title={t("PIT_TEMPLATE_INFO", "Thông tin mẫu")}>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label>
@@ -366,7 +381,7 @@ export default function PitXslSettingPage() {
                     {customToNumber && (
                       <div className="mt-2">
                         <NumberBox
-                          value={editor.TO_DOC_NO ?? null}
+                          value={editor.TO_DOC_NO ?? undefined}
                           min={1}
                           max={99999999}
                           placeholder={t("TO_DOC_NO_REQUIRED", "Hãy nhập đến số")}

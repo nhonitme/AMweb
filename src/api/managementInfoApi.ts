@@ -96,25 +96,3 @@ export async function deleteManagementInfos(
 ): Promise<{ success: boolean; message?: string }> {
   return deleteMasterRecords(BASE_URL, managementIds, "ManagementIds")
 }
-
-export async function exportManagementInfoExcel(
-  managementId?: number,
-  lang?: string, abortSignal?: AbortSignal,
-): Promise<Blob> {
-  const params: Record<string, number | string> = {}
-
-  if (typeof managementId === "number" && Number.isFinite(managementId) && managementId > 0) {
-    params.managementId = managementId
-  }
-
-  if (lang) {
-    params.lang = normalizeMessageLanguageKey(lang)
-  }
-
-  const response = await axios.get(`${BASE_URL}/export`, {
-    params,
-    signal: abortSignal, responseType: "blob",
-  })
-
-  return response.data as Blob
-}
