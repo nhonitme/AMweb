@@ -313,7 +313,7 @@ export default function ProductionCostingPage() {
               <p className="gk-muted" style={{ margin: "12px 0 0" }}>
                 {t(
                   "GK_SHARED_NOTE",
-                  "Mở lại theo thứ tự ngược. B1/B6 đang DONE trên PeriodLock phải mở sổ trước — G-K không báo thành công nếu chưa hoàn nguyên.",
+                  "Mở lại từ G-K: hệ thống tự hoàn nguyên các bước B-I bị ảnh hưởng trong cùng giao dịch. Chỉ báo thành công sau khi dữ liệu và trạng thái hai phân hệ đồng bộ.",
                 )}
               </p>
             </div>
