@@ -59,7 +59,7 @@ export function FaPrepaidLockPanel({
       rightActions={
         <>
           <Button
-            text={t("GK_CHECK", "Kiểm tra")}
+            text={t("GK_REFRESH_BI_STATUS", "Tải trạng thái B-I")}
             stylingMode="outlined"
             disabled={busy || locked}
             onClick={() => {
