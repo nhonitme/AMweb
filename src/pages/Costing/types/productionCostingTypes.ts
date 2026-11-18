@@ -1,6 +1,6 @@
 /**
  * Kiểu dữ liệu phân hệ G-K – Giá thành giản đơn (All-in-One).
- * Thiết kế sát API dự kiến để sau này thay mock bằng HTTP mà không đổi UI.
+ * Dữ liệu G-K lấy từ API thật và trạng thái lưu trong DB.
  */
 
 /** Mã bước xử lý trong G-K (0 = kiểm tra đầu vào, 1–6 = quy trình chính). */
@@ -382,7 +382,6 @@ export type CostingJobProgressState = {
 export type ProductionCostingOverview = {
   companyCd: string;
   periodYm: string;
-  demoMode: false;
   periodExists: boolean;
   statusMessage: string;
   runId: number | null;
@@ -397,18 +396,16 @@ export type ProductionCostingOverview = {
   valuationStatus: ValuationStatus;
   profitLossStatus: SharedLockStepStatus;
   activeStep: CostingStepIndex;
-  /** true khi bước tương ứng đang DONE (tương thích FE-01→03). */
+  /** true khi bước tương ứng đang DONE trên DB. */
   doneFlags: boolean[];
   /** Trạng thái chạy từng bước 1–6 (index 0 = bước 1). */
   stepStatuses: CostingStepRunStatus[];
   /** Metadata hoàn thành / mở lại từng bước. */
   stepMetas: Array<CostingStepMeta | null>;
-  /** Lịch sử thao tác theo bước (mock). */
+  /** Lịch sử thao tác theo bước. */
   stepHistory: CostingStepHistoryItem[];
   /** Bảng so sánh cũ/mới sau tính thử khi đang REOPENED. */
   compareRows: CostingCompareRow[];
-  /** Bật mô phỏng lỗi ghi nhận lần kế tiếp (DEMO). */
-  armWriteFailure: boolean;
   stats: {
     objectCount: number;
     productCount: number;
@@ -420,8 +417,6 @@ export type ProductionCostingOverview = {
   objects: CostObjectCandidate[];
   logs: CostingLogItem[];
   job: CostingJobProgressState;
-  /** @deprecated FE cũ — giữ tương thích, không dùng cho công thức mới. */
-  allocationRateA01: number;
   allocationPreviewed: boolean;
   step3Checked: boolean;
   costPreviewed: boolean;
@@ -432,19 +427,15 @@ export type ProductionCostingOverview = {
   hasPostedValuation: boolean;
   sharedLabor: number;
   sharedOverhead: number;
-  faRows: FaPrepaidPreviewRow[];
-  sourceRows: CostSourceRow[];
-  /** Kết quả dạng cũ (tương thích). */
-  allocationRows: AllocationResultRow[];
   /** Bảng trên — pool 622/627 theo công thức tài liệu. */
   allocationPoolRows: AllocationPoolRow[];
   /** Bảng dưới — phân bổ theo từng mã TP. */
   allocationProductRows: AllocationProductDetailRow[];
   /** allocate_type: 0 = NVL chính, 1 = SL TP nhập kho. */
   allocateType: AllocateType;
-  /** Setting mock is622_627_byDepartment. */
+  /** Cấu hình phân bổ theo phòng ban của RUN DB. */
   is622_627_byDepartment: boolean;
-  /** Setting mock is6212 — đưa TK 6212 vào pool. */
+  /** Cấu hình đưa TK 6212 vào pool của RUN DB. */
   is6212: boolean;
   /** Số chữ số làm tròn (NUMBER_DIGIT). */
   allocationNumberDigit: number;
