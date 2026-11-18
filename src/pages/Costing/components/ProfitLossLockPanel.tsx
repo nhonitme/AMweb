@@ -80,7 +80,7 @@ export function ProfitLossLockPanel({
       rightActions={
         <>
           <Button
-            text={t("GK_CHECK_CONDITIONS", "Kiểm tra điều kiện")}
+            text={t("GK_CHECK_CONDITIONS", "Kiểm tra B1–B5")}
             stylingMode="outlined"
             disabled={busy || locked || waiting}
             onClick={() => void runCheck()}
