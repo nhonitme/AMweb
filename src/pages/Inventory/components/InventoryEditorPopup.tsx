@@ -659,6 +659,7 @@ export default function InventoryEditorPopup({
 
     if (event.dataField === "IS_COGS" && chitType === "IO") {
       const enabled = event.value === true || event.value === "1"
+      if (draftRef.current.IS_COGS === enabled) return
 
       if (!enabled && (draftRef.current.COGS || draftRef.current.CHITDETAIL_ID_COGS)) {
         setDraft((current) => ({ ...current, IS_COGS: true }))
@@ -1238,7 +1239,7 @@ export default function InventoryEditorPopup({
     </div>
   )
 
-  const customerHeaderField = (
+  const customerHeaderField = useMemo(() => (
     <Item
       dataField="CUSTOMER_ID"
       label={headerLabels.customer}
@@ -1267,7 +1268,7 @@ export default function InventoryEditorPopup({
         />
       )}
     />
-  )
+  ), [t, headerLabels.customer])
 
   return (
     <>
