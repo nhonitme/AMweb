@@ -248,22 +248,22 @@ export default function ProductionCostingPage() {
         <div className="gk-stat">
           <div className="lbl">{t("GK_STAT_PRODUCTS", "Thành phẩm")}</div>
           <div className="val">{overview.stats.productCount}</div>
-          <div className="descr">{t("GK_STAT_PRODUCTS_D", "Gồm cả TP cảnh báo")}</div>
+          {/* <div className="descr">{t("GK_STAT_PRODUCTS_D", "Gồm cả TP cảnh báo")}</div> */}
         </div>
         <div className="gk-stat">
           <div className="lbl">{t("GK_STAT_RECEIPTS", "Phiếu nhập")}</div>
           <div className="val">{overview.stats.receiptCount}</div>
-          <div className="descr">INPUT_ID</div>
+          {/* <div className="descr">INPUT_ID</div> */}
         </div>
         <div className="gk-stat">
           <div className="lbl">{t("GK_STAT_WARNINGS", "Cảnh báo")}</div>
           <div className="val">{overview.stats.warningCount}</div>
-          <div className="descr">{t("GK_STAT_WARNINGS_D", "Lỗi / REOPENED")}</div>
+          {/* <div className="descr">{t("GK_STAT_WARNINGS_D", "Lỗi / REOPENED")}</div> */}
         </div>
         <div className="gk-stat">
           <div className="lbl">{t("GK_STAT_PROGRESS", "Tiến độ")}</div>
           <div className="val">{overview.stats.doneStepCount}/6</div>
-          <div className="descr">{overview.monthStatus}</div>
+          {/* <div className="descr">{overview.monthStatus}</div> */}
         </div>
       </div>
 
