@@ -566,7 +566,7 @@ export function ChitEditorPopup({
             visible={visible}
             // A linked IO/COGS editor owns the modal focus trap while visible.
             // Keep this parent visually open, but non-modal until the child closes.
-            shading={!Boolean(rowInventory.editor || linkedAccountingPopup.voucher || linkedCogsPopup.voucher || rowInventory.cogsDraft)}
+            shading={!Boolean(rowInventory.editor || linkedAccountingPopup.voucher || linkedCogsPopup.voucher || rowInventory.cogsDraft || multiReferencePopupVisible || columnSettingsVisible || shortcutHelpVisible)}
             onShowing={(event) => { raiseOpenedPopupAboveSiblings(event.component) }}
             onShown={(event) => {
                 disableBuiltInPopupEscape(event.component)
