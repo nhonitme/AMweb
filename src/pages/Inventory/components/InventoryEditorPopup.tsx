@@ -1201,8 +1201,10 @@ export default function InventoryEditorPopup({
   )
 
   return (
+    <>
     <Popup
       visible={visible}
+      shading={!Boolean(bomVisible || columnSettingsVisible || shortcutHelpVisible)}
       onShowing={(event) => { raiseOpenedPopupAboveSiblings(event.component) }}
       onShown={(event) => {
         disableBuiltInPopupEscape(event.component)
@@ -1422,16 +1424,6 @@ export default function InventoryEditorPopup({
 
           <LoadPanel visible={loading} shading={false} showIndicator />
         </div>
-        {showBomAllocation ? (
-          <InventoryBomAllocationPopup
-            companyCd={draft.COMPANY_CD}
-            visible={bomVisible}
-            disabled={readOnly || loading}
-            initial={bomSnapshot}
-            onClose={() => setBomVisible(false)}
-            onConfirm={handleConfirmBom}
-          />
-        ) : null}
         <GridColumnSettingsPopup
           visible={columnSettingsVisible}
           title={t("AUDIT_SETTING_SHOW_HIDE", "Column Settings")}
@@ -1448,6 +1440,17 @@ export default function InventoryEditorPopup({
       </LookupPopupProvider>
 
     </Popup>
+        {showBomAllocation ? (
+          <InventoryBomAllocationPopup
+            companyCd={draft.COMPANY_CD}
+            visible={bomVisible}
+            disabled={readOnly || loading}
+            initial={bomSnapshot}
+            onClose={() => setBomVisible(false)}
+            onConfirm={handleConfirmBom}
+          />
+        ) : null}
+    </>
   )
 }
 

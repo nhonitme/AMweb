@@ -561,8 +561,10 @@ export function ChitEditorPopup({
     })
 
     return (
+        <>
         <Popup
             visible={visible}
+            shading={!Boolean(rowInventory.editor || linkedAccountingPopup.voucher || linkedCogsPopup.voucher || rowInventory.cogsDraft || multiReferencePopupVisible || columnSettingsVisible || shortcutHelpVisible)}
             onShowing={(event) => { raiseOpenedPopupAboveSiblings(event.component) }}
             onShown={(event) => {
                 disableBuiltInPopupEscape(event.component)
@@ -779,6 +781,8 @@ export function ChitEditorPopup({
                     onReset={handleColumnSettingsReset}
                     onSaveTabs={handleColumnSettingsSave}
                 />
+            </LookupPopupProvider>
+        </Popup>
                 {rowInventory.editor ? (
                     <InventoryEditorPopup
                         visible={true}
@@ -865,8 +869,7 @@ export function ChitEditorPopup({
                         screenCd={screenCd}
                     />
                 ) : null}
-            </LookupPopupProvider>
-        </Popup>
+        </>
     )
 }
 
