@@ -14,6 +14,8 @@ import { getProductMaterials } from "@/api/productMaterialApi"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { AMButton } from "@/components/amnote/ui"
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
+import { getLookupOverlayContainer } from "@/components/lookup/lookupHelpers"
+import { raiseOverlayAboveSiblings } from "@/components/popup/raiseOverlayZIndex"
 import { disableBuiltInPopupEscape, usePopupEscapeLayer } from "@/components/popup/popupEscapeStack"
 import "@/components/toolbar/EditorActionToolbar.scss"
 import { useDecimalColumnFormats } from "@/hooks/useDecimalColumnFormats"
@@ -40,6 +42,32 @@ interface Props {
 
 const newKey = (prefix: string): string => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
 const qty = (value: unknown): number => Number(value ?? 0)
+const BOM_EDITOR_DROPDOWN_CLASS = "inventory-bom-editor-dropdown"
+
+function raiseBomEditorDropdowns(): void {
+  document.querySelectorAll<HTMLElement>(`.dx-overlay-wrapper.${BOM_EDITOR_DROPDOWN_CLASS}`).forEach((wrapper) => {
+    raiseOverlayAboveSiblings(wrapper)
+  })
+}
+
+function scheduleRaiseBomEditorDropdowns(): void {
+  // watchNewestPopupAboveSiblings also raises on the next frame and would
+  // leave this list under the fullscreen BOM popup.
+  raiseBomEditorDropdowns()
+  requestAnimationFrame(() => {
+    raiseBomEditorDropdowns()
+    requestAnimationFrame(() => {
+      raiseBomEditorDropdowns()
+      window.setTimeout(raiseBomEditorDropdowns, 0)
+    })
+  })
+}
+
+function isEditorDropdownTarget(event: unknown): boolean {
+  const record = event as { target?: EventTarget | null; originalEvent?: { target?: EventTarget | null } } | null
+  const target = record?.target ?? record?.originalEvent?.target ?? null
+  return target instanceof Element && Boolean(target.closest(".dx-dropdowneditor-overlay"))
+}
 
 export default function InventoryBomAllocationPopup({
   companyCd, visible, disabled = false, initial, onClose, onConfirm,
@@ -53,7 +81,7 @@ export default function InventoryBomAllocationPopup({
   const materialGridRef = useRef<dxDataGrid | null>(null)
   const calculateRef = useRef<(finishedRows?: InventoryBomFinishedRow[]) => Promise<void>>(async () => {})
   const [products, setProducts] = useState<Product[]>([])
-  const [catalogLoading, setCatalogLoading] = useState(false)
+  const [finishedCatalogLoading, setFinishedCatalogLoading] = useState(false)
   const [productLoadError, setProductLoadError] = useState<string | null>(null)
   const [stores, setStores] = useState<StoreInfo[]>([])
   const [materialProducts, setMaterialProducts] = useState<Product[]>([])
@@ -77,25 +105,31 @@ export default function InventoryBomAllocationPopup({
     setSelectedFinishedKeys([])
     setRequiresRecalculation(false)
     setImportVisible(false)
-    setCatalogLoading(true)
+    setFinishedCatalogLoading(true)
     setProductLoadError(null)
     setProducts([])
     setMaterialProducts([])
     setStores([])
     setSelectedProductId(null)
     let cancelled = false
+    const finishedTask = getProducts("155")
+    // Enable the finished-product list as soon as TK 155 returns. Do not wait for
+    // stores / TK 152, or the dropdown stays disabled after this response.
+    void finishedTask.then(
+      (rows) => { if (!cancelled) setProducts(rows) },
+      (error) => {
+        if (cancelled) return
+        const message = getApiErrorMessage(error, t("BOM_LOAD_PRODUCTS_FAILED", "Không tải được danh mục thành phẩm (TK 155)"))
+        setProductLoadError(message)
+        notifyAboveOverlays(message, "error", 4500)
+      },
+    ).finally(() => { if (!cancelled) setFinishedCatalogLoading(false) })
     // A missing store permission must not silently erase a successfully loaded
     // finished-product catalog. Show product errors explicitly instead.
-    void Promise.allSettled([getProducts("155"), getProducts("152"), getStoreInfos()])
+    void Promise.allSettled([finishedTask, getProducts("152"), getStoreInfos()])
       .then(([finishedResult, materialsResult, storesResult]) => {
         if (cancelled) return
-        if (finishedResult.status === "fulfilled") {
-          setProducts(finishedResult.value)
-        } else {
-          const message = getApiErrorMessage(finishedResult.reason, t("BOM_LOAD_PRODUCTS_FAILED", "Không tải được danh mục thành phẩm (TK 155)"))
-          setProductLoadError(message)
-          notifyAboveOverlays(message, "error", 4500)
-        }
+        if (finishedResult.status === "fulfilled") setProducts(finishedResult.value)
         if (materialsResult.status === "fulfilled") {
           setMaterialProducts(materialsResult.value)
         } else {
@@ -107,7 +141,6 @@ export default function InventoryBomAllocationPopup({
           notifyAboveOverlays(getApiErrorMessage(storesResult.reason, t("BOM_LOAD_STORES_FAILED", "Không tải được danh mục kho")), "warning", 4500)
         }
       })
-      .finally(() => { if (!cancelled) setCatalogLoading(false) })
     return () => { cancelled = true }
   }, [visible, initial, t])
 
@@ -116,7 +149,16 @@ export default function InventoryBomAllocationPopup({
   const productsByCode = useMemo(() => new Map(products.map(p => [p.PRODUCT_CD.trim().toUpperCase(), p])), [products])
   const storesById = useMemo(() => new Map(stores.map(s => [s.STORE_ID, s])), [stores])
   const controlsDisabled = busy || disabled
-  const canAddFinished = !controlsDisabled && !catalogLoading && selectedProductId != null && productsById.has(Number(selectedProductId)) && Number.isFinite(finishedQuantity) && finishedQuantity > 0
+  const finishedProductDisplayExpr = useCallback((item: Product | null | undefined) => (
+    item ? `${item.PRODUCT_CD} - ${item.PRODUCT_NM_VIET}` : ""
+  ), [])
+  const editorDropDownOptions = useMemo(() => ({
+    container: getLookupOverlayContainer(),
+    hideOnParentScroll: false,
+    wrapperAttr: { class: BOM_EDITOR_DROPDOWN_CLASS },
+    onShown: scheduleRaiseBomEditorDropdowns,
+  }), [])
+  const canAddFinished = !controlsDisabled && !finishedCatalogLoading && selectedProductId != null && productsById.has(Number(selectedProductId)) && Number.isFinite(finishedQuantity) && finishedQuantity > 0
 
   const addFinished = useCallback((product: Product, amount: number) => {
     if (!(amount > 0) || !Number.isFinite(amount)) {
@@ -413,7 +455,7 @@ export default function InventoryBomAllocationPopup({
         }
         onClose()
       }}
-      hideOnOutsideClick={!busy}
+      hideOnOutsideClick={(event) => !busy && !isEditorDropdownTarget(event)}
       dragEnabled={false}
       resizeEnabled={false}
       deferRendering={false}
@@ -457,12 +499,14 @@ export default function InventoryBomAllocationPopup({
                 dataSource={products}
                 searchEnabled
                 searchExpr={["PRODUCT_CD", "PRODUCT_NM_VIET"]}
-                noDataText={catalogLoading ? t("LOADING", "Đang tải thành phẩm...") : t("BOM_NO_PRODUCTS_155", "Không có thành phẩm thuộc nhóm TK 155")}
+                noDataText={finishedCatalogLoading ? t("LOADING", "Đang tải thành phẩm...") : t("BOM_NO_PRODUCTS_155", "Không có thành phẩm thuộc nhóm TK 155")}
                 valueExpr="PRODUCT_ID"
-                displayExpr={(item: Product) => item ? `${item.PRODUCT_CD} - ${item.PRODUCT_NM_VIET}` : ""}
+                displayExpr={finishedProductDisplayExpr}
                 value={selectedProductId}
                 onValueChanged={e => setSelectedProductId(e.value ?? null)}
-                disabled={controlsDisabled || catalogLoading}
+                onOpened={scheduleRaiseBomEditorDropdowns}
+                dropDownOptions={editorDropDownOptions}
+                disabled={controlsDisabled || finishedCatalogLoading}
                 stylingMode="outlined"
                 width={320}
               />
@@ -522,7 +566,7 @@ export default function InventoryBomAllocationPopup({
           </div>
           {productLoadError ? (
             <p role="alert" className="inventory-bom-catalog-hint inventory-bom-catalog-hint--error">{productLoadError}</p>
-          ) : !catalogLoading && products.length === 0 ? (
+          ) : !finishedCatalogLoading && products.length === 0 ? (
             <p className="inventory-bom-catalog-hint">{t("BOM_EMPTY_PRODUCT_CATALOG", "Chưa có thành phẩm thuộc nhóm TK 155. Kiểm tra danh mục hàng tồn kho và tài khoản phân loại trước khi phân bổ.")}</p>
           ) : null}
           {disabled ? (
@@ -624,7 +668,15 @@ export default function InventoryBomAllocationPopup({
                 <Column dataField="MATERIAL_PRODUCT_CD" caption={t("MATERIAL_PRODUCT_CD", "Mã NVL")} allowEditing={false} width={140} />
                 <Column dataField="MATERIAL_PRODUCT_NM" caption={t("MATERIAL_PRODUCT_NM", "Tên NVL")} allowEditing={false} />
                 <Column dataField="UNIT_CD" caption={t("UNIT_CD", "ĐVT")} allowEditing={false} width={90} />
-                <Column dataField="STORE_ID" caption={t("STORE_CD", "Kho xuất")} width={120}>
+                <Column
+                  dataField="STORE_ID"
+                  caption={t("STORE_CD", "Kho xuất")}
+                  width={120}
+                  editorOptions={{
+                    dropDownOptions: editorDropDownOptions,
+                    onOpened: scheduleRaiseBomEditorDropdowns,
+                  }}
+                >
                   <Lookup dataSource={stores} valueExpr="STORE_ID" displayExpr="STORE_CD" />
                 </Column>
                 <Column

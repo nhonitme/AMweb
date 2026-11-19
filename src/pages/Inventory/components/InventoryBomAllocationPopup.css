@@ -60,6 +60,12 @@
   pointer-events: none !important;
 }
 
+/* List is portaled to body and raised above the fullscreen popup in JS. */
+.dx-overlay-wrapper.inventory-bom-editor-dropdown,
+.dx-overlay-wrapper.inventory-bom-editor-dropdown .dx-overlay-content {
+  pointer-events: auto;
+}
+
 .inventory-bom-allocation-popup .dx-texteditor.dx-editor-outlined.dx-state-hover:not(.dx-state-focused):not(.dx-invalid):not(.dx-state-disabled):not(.dx-state-readonly) {
   border-color: #9da5b1;
 }
