@@ -1241,7 +1241,7 @@ export default function InventoryEditorPopup({
   const customerHeaderField = (
     <Item
       dataField="CUSTOMER_ID"
-      label={{ text: t("CUSTOMER_CD", "Customer") }}
+      label={headerLabels.customer}
       render={({ component }) => (
         <MasterLookupFormField<CustomerExt>
           form={component}
@@ -1328,53 +1328,50 @@ export default function InventoryEditorPopup({
               <Item
                 dataField="AMOUNT"
                 editorType="dxNumberBox"
-                label={{ text: t("AMOUNT", "Amount") }}
-                editorOptions={createVoucherEditorOptions({ readOnly: true, format: "#,##0.00" })}
+                label={headerLabels.amount}
+                editorOptions={headerEditorOptions.amount}
               />
               {chitType === "IO" ? (
                 <Item
                   dataField="REVENUE_AMOUNT"
                   editorType="dxNumberBox"
-                  label={{ text: t("REVENUE_AMOUNT", "Tổng doanh thu") }}
-                  editorOptions={createVoucherEditorOptions({ readOnly: true, format: "#,##0.00" })}
+                  label={headerLabels.revenue}
+                  editorOptions={headerEditorOptions.amount}
                 />
               ) : (
                 <Item
                   dataField="PAYER_INFO"
                   editorType="dxTextBox"
-                  label={{ text: t("PAYER_INFO", "Payer") }}
-                  editorOptions={createVoucherEditorOptions()}
+                  label={headerLabels.payer}
+                  editorOptions={headerEditorOptions.standard}
                 />
               )}
               <Item
                 dataField="CHIT_NO"
                 editorType="dxTextBox"
-                label={{ text: t("CHIT_NO", "Số chứng từ") }}
-                editorOptions={createVoucherEditorOptions({ validationMessageMode: "always" })}
-                validationRules={[
-                  createRequiredRule(t("MSG_MUST_ITEM", "Voucher no is required")),
-                  createTrimmedRequiredRule(t("MSG_MUST_ITEM", "Voucher no is required")),
-                ]}
+                label={headerLabels.chitNo}
+                editorOptions={headerEditorOptions.chitNo}
+                validationRules={chitNoValidationRules}
               />
               <Item
                 dataField="NOTE"
                 colSpan={2}
                 editorType="dxTextBox"
-                label={{ text: t("NOTE", "Note") }}
-                editorOptions={createVoucherEditorOptions()}
+                label={headerLabels.note}
+                editorOptions={headerEditorOptions.standard}
               />
               <Item
                 dataField="CHIT_YMD"
                 editorType="dxDateBox"
-                label={{ text: t("CHIT_YMD", "Ngày giao dịch") }}
-                editorOptions={createVoucherDateBoxEditorOptions({ validationMessageMode: "always" })}
+                label={headerLabels.chitYmd}
+                editorOptions={headerEditorOptions.chitYmd}
               />
               {chitType === "IO" ? (
                 <Item
                   dataField="PAYER_INFO"
                   editorType="dxTextBox"
-                  label={{ text: t("PAYER_INFO", "Payer") }}
-                  editorOptions={createVoucherEditorOptions()}
+                  label={headerLabels.payer}
+                  editorOptions={headerEditorOptions.standard}
                 />
               ) : null}
               {customerHeaderField}
@@ -1382,8 +1379,8 @@ export default function InventoryEditorPopup({
                 <Item
                   dataField="IS_COGS"
                   editorType="dxCheckBox"
-                  label={{ text: t("INVENTORY_IS_COGS", "Tính giá vốn") }}
-                  editorOptions={createVoucherEditorOptions({ readOnly: Boolean(draft.COGS) })}
+                  label={headerLabels.isCogs}
+                  editorOptions={headerEditorOptions.isCogs}
                 />
               ) : null}
             </Form>
