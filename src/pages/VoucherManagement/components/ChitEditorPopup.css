@@ -27,6 +27,9 @@
 /* Small divider separating the "So chung tu / Ngay giao dich" column
    from the rest of the top panel (3-column form: col index 2 = rightmost). */
 .chit-voucher-fields-panel .dx-field-item.dx-col-2 {
+    /* Keep voucher number/date inputs above adjacent form cells for mouse hit-testing. */
+    position: relative;
+    z-index: 1;
     border-left: 1px solid #dce0e5;
     padding-left: 8px;
 }
@@ -46,6 +49,8 @@
    explicitly disabled, which clashes with our red focus border. */
 .chit-editor-popup .dx-texteditor.dx-editor-outlined:before {
     border-bottom: 0 !important;
+    /* The decorative DevExtreme underline must not intercept mouse clicks. */
+    pointer-events: none !important;
 }
 
 .chit-editor-popup .dx-texteditor.dx-editor-outlined.dx-state-hover:not(.dx-state-focused):not(.dx-invalid):not(.dx-state-disabled):not(.dx-state-readonly) {
