@@ -26,6 +26,7 @@ import useShortcutHelp from "@/hooks/useShortcutHelp"
 import useStateRef from "@/hooks/useStateRef"
 import { getCurrentCompanyCd } from "@/lib/login"
 import { disableBuiltInPopupEscape, usePopupEscapeLayer } from "@/components/popup/popupEscapeStack"
+import { raiseOpenedPopupAboveSiblings } from "@/components/popup/raiseOverlayZIndex"
 
 
 import { LanguageContext } from "@/lib/i18nLoader"
@@ -562,16 +563,20 @@ export function ChitEditorPopup({
     return (
         <Popup
             visible={visible}
+            onShowing={(event) => { raiseOpenedPopupAboveSiblings(event.component) }}
             onShown={(event) => {
                 disableBuiltInPopupEscape(event.component)
-            }}
+                raiseOpenedPopupAboveSiblings(event.component)
+            }
             wrapperAttr={{ class: `chit-editor-popup am-dx-popup-title editor-mode--${isUpdate ? "edit" : "add"}`, ...createPopupShortcutWrapperAttr(popupShortcutScopeId) }}
             title={title}
             showTitle={true}
             showCloseButton={false}
             dragEnabled={false}
             deferRendering={false}
-            hideOnOutsideClick={!loading}
+            // IO and BOM child popups are portaled outside this parent's DOM.
+            // Do not treat clicks inside those children as outside-click closes.
+            hideOnOutsideClick={false}
             width="100vw"
             height="100vh"
             maxWidth="100vw"
