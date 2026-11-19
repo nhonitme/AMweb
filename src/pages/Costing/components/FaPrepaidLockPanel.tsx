@@ -49,7 +49,7 @@ export function FaPrepaidLockPanel({
       stepNo="01"
       stepIndex={1}
       title={t("GK_STEP1_TITLE", "Khóa sổ bước 1")}
-      desc={t("GK_STEP1_SUB", "TSCĐ / CP trả trước") + " · " + t("GK_ENGINE_BI", "Dùng engine B-I")}
+      desc={t("GK_STEP1_SUB", "TSCĐ / CP trả trước")}
       runStatus={runStatus}
       t={t}
       onPrev={onPrev}

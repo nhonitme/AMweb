@@ -243,7 +243,7 @@ export default function ProductionCostingPage() {
         <div className="gk-stat">
           <div className="lbl">{t("GK_STAT_OBJECTS", "Đối tượng")}</div>
           <div className="val">{overview.stats.objectCount}</div>
-          <div className="descr">{t("GK_STAT_OBJECTS_D", "Đối tượng giá thành")}</div>
+          {/* <div className="descr">{t("GK_STAT_OBJECTS_D", "Đối tượng giá thành")}</div> */}
         </div>
         <div className="gk-stat">
           <div className="lbl">{t("GK_STAT_PRODUCTS", "Thành phẩm")}</div>

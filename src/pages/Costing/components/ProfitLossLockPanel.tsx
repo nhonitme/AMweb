@@ -69,7 +69,7 @@ export function ProfitLossLockPanel({
       stepNo="06"
       stepIndex={6}
       title={t("GK_STEP6_TITLE", "Khóa sổ bước 3")}
-      desc={t("GK_STEP6_SUB", "Lãi/lỗ, chốt tháng") + " · " + t("GK_ENGINE_BI", "Dùng engine B-I")}
+      desc={t("GK_STEP6_SUB", "Lãi/lỗ, chốt tháng")}
       runStatus={runStatus}
       waiting={waiting}
       t={t}

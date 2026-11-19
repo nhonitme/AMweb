@@ -541,9 +541,9 @@
 }
 
 @media (max-width: 1150px) {
-  .gk-stats {
+  /* .gk-stats {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
+  } */
 
   .gk-layout {
     grid-template-columns: 240px minmax(0, 1fr);
