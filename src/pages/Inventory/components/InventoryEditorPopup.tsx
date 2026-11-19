@@ -143,6 +143,7 @@ export default function InventoryEditorPopup({
   const outputColumnSettingStateRef = useRef<GridColumnSettingState | null>(null)
   const autoChitNoRef = useRef<string | null>(null)
   const prevSyncValueRef = useRef(value)
+  const formRef = useRef<Form | null>(null)
   const location = useLocation()
   const navigate = useNavigate()
   const { translate } = useContext(LanguageContext)
@@ -154,11 +155,48 @@ export default function InventoryEditorPopup({
   const showBomAllocation = chitType === "IO" && location.pathname.endsWith("/cost/issue-material")
 
   const activeLines = chitType === "IR" ? draft.INPUTS : draft.OUTPUTS
-  // Revenue is always sourced from the Xuất kho detail, independent of the
-  // Giá vốn tab and IS_COGS checkbox. Keep the read-only Info field live.
-  const infoFormData = useMemo(() => chitType === "IO"
-    ? { ...draft, REVENUE_AMOUNT: calculateInventoryRevenueAmount(draft.OUTPUTS) }
-    : draft, [chitType, draft])
+  // Keep DevExtreme Form.formData's identity stable during edits.
+  // When an onFieldDataChanged setDraft() causes a new formData object, the
+  // Form can dispose and recreate editors while they receive mouse focus.
+  // This is especially visible inside the linked IO popup, where async loading
+  // and nested modal updates trigger additional React re-renders.
+  const infoFormData = useMemo(() => {
+    const source = ensureInventoryDefaultLine({
+      ...value,
+      IS_COGS: Boolean(value.IS_COGS || value.COGS),
+    })
+    return chitType === "IO"
+      ? { ...source, REVENUE_AMOUNT: calculateInventoryRevenueAmount(source.OUTPUTS) }
+      : source
+  }, [value, chitType])
+
+  // The revenue figure is derived from OUTPUTS, never from a separate editor.
+  const revenueAmount = useMemo(
+    () => calculateInventoryRevenueAmount(draft.OUTPUTS),
+    [draft.OUTPUTS],
+  )
+
+  const headerLabels = useMemo(() => ({
+    amount: { text: t("AMOUNT", "Amount") },
+    revenue: { text: t("REVENUE_AMOUNT", "Tổng doanh thu") },
+    payer: { text: t("PAYER_INFO", "Payer") },
+    chitNo: { text: t("CHIT_NO", "Số chứng từ") },
+    note: { text: t("NOTE", "Note") },
+    chitYmd: { text: t("CHIT_YMD", "Ngày giao dịch") },
+    customer: { text: t("CUSTOMER_CD", "Customer") },
+    isCogs: { text: t("INVENTORY_IS_COGS", "Tính giá vốn") },
+  }), [t])
+  const headerEditorOptions = useMemo(() => ({
+    amount: createVoucherEditorOptions({ readOnly: true, format: "#,##0.00" }),
+    standard: createVoucherEditorOptions(),
+    chitNo: createVoucherEditorOptions({ validationMessageMode: "always" }),
+    chitYmd: createVoucherDateBoxEditorOptions({ validationMessageMode: "always" }),
+    isCogs: createVoucherEditorOptions({ readOnly: Boolean(draft.COGS) }),
+  }), [Boolean(draft.COGS)])
+  const chitNoValidationRules = useMemo(() => [
+    createRequiredRule(t("MSG_MUST_ITEM", "Voucher no is required")),
+    createTrimmedRequiredRule(t("MSG_MUST_ITEM", "Voucher no is required")),
+  ], [t])
   const foreignCurrencyColumnsVisible = useMemo(() => hasForeignCurrencyRows(activeLines), [activeLines])
   const [columnSettingsVisible, setColumnSettingsVisible] = useState(false)
   const [columnSettingsTabs, setColumnSettingsTabs] = useState<GridColumnSettingsPopupTab[]>([])
@@ -634,11 +672,42 @@ export default function InventoryEditorPopup({
       return
     }
 
-    setDraft((current) => ({
-      ...current,
-      [event.dataField as keyof InventoryVoucher]: event.value,
-    }))
+    setDraft((current) => Object.is(current[event.dataField as keyof InventoryVoucher], event.value)
+      ? current
+      : {
+          ...current,
+          [event.dataField as keyof InventoryVoucher]: event.value,
+        })
   }, [chitType, draftRef, setDraft])
+
+  // Apply programmatic changes to existing editors one field at a time
+  // (auto-number, accounting reference, grid totals, BOM, etc.). The user
+  // edits already live inside DevExtreme's formData and should never be
+  // repainted just because React's draft state changed.
+  useEffect(() => {
+    if (!visible) return
+    const form = formRef.current?.instance()
+    if (!form) return
+    const current = form.option("formData") as Partial<InventoryVoucher> | undefined
+    const next: Partial<InventoryVoucher> = {
+      AMOUNT: draft.AMOUNT,
+      CHIT_NO: draft.CHIT_NO,
+      CHIT_YMD: draft.CHIT_YMD,
+      NOTE: draft.NOTE,
+      PAYER_INFO: draft.PAYER_INFO,
+      CUSTOMER_ID: draft.CUSTOMER_ID,
+      IS_COGS: draft.IS_COGS,
+      ...(chitType === "IO" ? { REVENUE_AMOUNT: revenueAmount } : {}),
+    }
+    for (const [field, nextValue] of Object.entries(next)) {
+      if (!Object.is(current?.[field as keyof InventoryVoucher], nextValue)) {
+        form.updateData(field, nextValue)
+      }
+    }
+  }, [
+    visible, chitType, draft.AMOUNT, draft.CHIT_NO, draft.CHIT_YMD,
+    draft.NOTE, draft.PAYER_INFO, draft.CUSTOMER_ID, draft.IS_COGS, revenueAmount,
+  ])
 
   const handleInputsChange = useCallback((rows: InventoryInputLine[]) => {
     setDraft((current) => ({
@@ -1255,7 +1324,7 @@ export default function InventoryEditorPopup({
       <LookupPopupProvider>
         <div className="relative flex h-full flex-col overflow-hidden bg-[#f3f4f6]">
           <div className="inventory-voucher-fields-panel flex-shrink-0 px-4 pt-3 pb-3">
-            <Form formData={infoFormData} readOnly={readOnly} labelLocation="top" colCount={3} onFieldDataChanged={handleFieldDataChanged}>
+            <Form ref={formRef} formData={infoFormData} readOnly={readOnly} labelLocation="top" colCount={3} onFieldDataChanged={handleFieldDataChanged}>
               <Item
                 dataField="AMOUNT"
                 editorType="dxNumberBox"
