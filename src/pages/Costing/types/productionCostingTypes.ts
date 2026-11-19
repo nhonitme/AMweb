@@ -255,6 +255,7 @@ export type CostingWarning = {
 
 /** Đối tượng tập hợp chi phí / thành phẩm trên lưới bước 0. */
 export type CostObjectCandidate = {
+  objectSelId: number;
   departmentId: number;
   departmentCd: string;
   departmentName: string;
