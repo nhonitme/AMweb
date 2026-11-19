@@ -25,14 +25,14 @@ export function CostingPrerequisitePanel({
     [overview.warnings],
   );
 
-  const handleToggle = async (departmentId: number, selected: boolean) => {
-    if (departmentId <= 0) {
+  const handleToggle = async (departmentId: number, productId: number, selected: boolean) => {
+    if (departmentId <= 0 || productId <= 0) {
       onError(t("GK_CANNOT_SELECT_ORPHAN", "Không chọn được TP thiếu đối tượng."));
       return;
     }
     try {
       onBusy(true);
-      const next = await toggleProductionCostObject(departmentId, selected);
+      const next = await toggleProductionCostObject(departmentId, productId, selected);
       onRefresh(next);
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
@@ -46,8 +46,8 @@ export function CostingPrerequisitePanel({
       onBusy(true);
       let next = overview;
       for (const row of overview.objects) {
-        if (row.departmentId > 0 && !row.selected) {
-          next = await toggleProductionCostObject(row.departmentId, true);
+        if (row.departmentId > 0 && Number(row.productId) > 0 && !row.selected && !row.hasWarning) {
+          next = await toggleProductionCostObject(row.departmentId, Number(row.productId), true);
         }
       }
       onRefresh(next);
@@ -135,7 +135,7 @@ export function CostingPrerequisitePanel({
       <div className="gk-sectiontitle">{t("GK_OBJECT_GRID", "Danh sách đối tượng / thành phẩm")}</div>
       <DataGrid
         dataSource={overview.objects}
-        keyExpr="productId"
+        keyExpr="objectSelId"
         showBorders
         columnAutoWidth
         hoverStateEnabled
@@ -148,6 +148,7 @@ export function CostingPrerequisitePanel({
           cellRender={(cell) => {
             const row = cell.data as {
               departmentId: number;
+              productId: number;
               selected: boolean;
               hasWarning: boolean;
             };
@@ -157,7 +158,7 @@ export function CostingPrerequisitePanel({
                 disabled={busy || row.departmentId <= 0 || row.hasWarning}
                 onValueChanged={(e) => {
                   if (typeof e.value === "boolean" && e.value !== row.selected) {
-                    void handleToggle(row.departmentId, e.value);
+                    void handleToggle(row.departmentId, row.productId, e.value);
                   }
                 }}
               />

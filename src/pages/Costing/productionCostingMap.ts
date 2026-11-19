@@ -152,14 +152,15 @@ export function mapDetailRows(items: Rec[]): AllocationProductDetailRow[] {
 
 export function mapObjects(items: Rec[]): CostObjectCandidate[] {
   return items.map((row) => ({
+    objectSelId: num(row.ObjectSelId),
     departmentId: num(row.DepartmentId),
     departmentCd: text(row.DepartmentCd),
-    departmentName: text(row.DepartmentCd),
+    departmentName: text(row.DepartmentName) || text(row.DepartmentCd),
     productId: num(row.ProductId),
     productCd: text(row.ProductCd),
-    productName: text(row.ProductCd),
-    finishedQty: 0,
-    receiptCount: 0,
+    productName: text(row.ProductName) || text(row.ProductCd),
+    finishedQty: num(row.FinishedQty),
+    receiptCount: num(row.ReceiptCount),
     hasWarning: Boolean(text(row.WarningText)),
     warningText: text(row.WarningText),
     selected: text(row.IsSelected) !== "0",
@@ -322,6 +323,7 @@ export function assembleOverview(input: {
   period: Rec;
   steps: Rec[];
   objects: Rec[];
+  sourceReceiptCount: number;
   pool: Rec[];
   detail: Rec[];
   wip: Rec[];
@@ -412,7 +414,8 @@ export function assembleOverview(input: {
     stats: {
       objectCount: objects.filter((row) => row.selected).length,
       productCount: new Set(objects.map((row) => row.productId).filter((id) => id > 0)).size,
-      receiptCount: receipts.length,
+      // Source inventory vouchers (N155/C154), not production_cost_receipt B4/B5 prep rows.
+      receiptCount: input.sourceReceiptCount,
       warningCount: objects.filter((row) => row.hasWarning).length + statuses.filter((status) => status === "ERROR" || status === "REOPENED").length,
       doneStepCount: doneCount,
     },
