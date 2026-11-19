@@ -154,11 +154,6 @@ export default function InventoryEditorPopup({
   const showBomAllocation = chitType === "IO" && location.pathname.endsWith("/cost/issue-material")
 
   const activeLines = chitType === "IR" ? draft.INPUTS : draft.OUTPUTS
-<<<<<<< HEAD
-  const infoFormData = useMemo(() => chitType === "IO"
-    ? { ...draft, REVENUE_AMOUNT: calculateInventoryRevenueAmount(draft.OUTPUTS) }
-    : draft, [chitType, draft])
-=======
   // Keep DevExtreme Form.formData's identity stable during edits.
   // When an onFieldDataChanged setDraft() causes a new formData object, the
   // Form can dispose and recreate editors while they receive mouse focus.
@@ -206,7 +201,6 @@ export default function InventoryEditorPopup({
     createRequiredRule(t("MSG_MUST_ITEM", "Voucher no is required")),
     createTrimmedRequiredRule(t("MSG_MUST_ITEM", "Voucher no is required")),
   ], [t])
->>>>>>> ea58226d2d33bce8d48c175e67f85075b3e32945
   const foreignCurrencyColumnsVisible = useMemo(() => hasForeignCurrencyRows(activeLines), [activeLines])
   const [columnSettingsVisible, setColumnSettingsVisible] = useState(false)
   const [columnSettingsTabs, setColumnSettingsTabs] = useState<GridColumnSettingsPopupTab[]>([])
