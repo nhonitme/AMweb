@@ -191,8 +191,13 @@ export default function InventoryEditorPopup({
     standard: createVoucherEditorOptions(),
     chitNo: createVoucherEditorOptions({ validationMessageMode: "always" }),
     chitYmd: createVoucherDateBoxEditorOptions({ validationMessageMode: "always" }),
-    isCogs: createVoucherEditorOptions({ readOnly: Boolean(draft.COGS) }),
-  }), [Boolean(draft.COGS)])
+  }), [])
+  // An async COGS link may alter only the checkbox's permissions, not every
+  // text/date editor's options object (which would dispose those editors).
+  const cogsEditorOptions = useMemo(
+    () => createVoucherEditorOptions({ readOnly: Boolean(draft.COGS) }),
+    [Boolean(draft.COGS)],
+  )
   const chitNoValidationRules = useMemo(() => [
     createRequiredRule(t("MSG_MUST_ITEM", "Voucher no is required")),
     createTrimmedRequiredRule(t("MSG_MUST_ITEM", "Voucher no is required")),
@@ -1381,7 +1386,7 @@ export default function InventoryEditorPopup({
                   dataField="IS_COGS"
                   editorType="dxCheckBox"
                   label={headerLabels.isCogs}
-                  editorOptions={headerEditorOptions.isCogs}
+                  editorOptions={cogsEditorOptions}
                 />
               ) : null}
             </Form>
