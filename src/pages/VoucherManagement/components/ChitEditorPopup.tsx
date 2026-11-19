@@ -216,6 +216,28 @@ export function ChitEditorPopup({
         const normalizedVoucherLabel = typeof voucherLabel === "string" ? voucherLabel.trim() : ""
         return normalizedVoucherLabel || getChitTypeLabel(chitType, t)
     }, [chitType, t, voucherLabel])
+    // DevExtreme Form must not receive a new formData object after every
+    // onFieldDataChanged event: it may recreate editors and reset Tab focus.
+    // A new source voucher starts a new data object; draft changes do not.
+    const formData = useMemo(
+        () => ({ ...normalizeDraftForEditor(cloneChit(value), chitType), CHIT_TYPE_LABEL: chitLabel }),
+        [value, chitType, chitLabel],
+    )
+    const headerEditorOptions = useMemo(() => ({
+        amount: { stylingMode: "outlined" as const, format: "#,##0.00", readOnly: true },
+        standard: createVoucherEditorOptions(),
+        chitNo: createVoucherEditorOptions({ validationMessageMode: "always" as const }),
+        chitYmd: createVoucherDateBoxEditorOptions({ validationMessageMode: "always" as const }),
+    }), [])
+    const chitNoValidationRules = useMemo(() => [
+        createRequiredRule(t("MSG_MUST_ITEM", "Document No is required")),
+        createTrimmedRequiredRule(t("MSG_MUST_ITEM", "Document No is required")),
+    ], [t])
+    const chitYmdValidationRules = useMemo(() => [
+        createRequiredRule(t("MSG_MUST_ITEM", "Chit date is required")),
+        createDateRequiredRule(t("MSG_MUST_ITEM", "Chit date is required")),
+    ], [t])
+
     const DetailColumns = useMemo(() => getVoucherDetailColumnsComponent(chitType), [chitType])
     const title = useMemo(
         () => (isUpdate ? `${t("lblEdit", "Edit")} ${chitLabel}` : `${t("lblAddNew", "Add")} ${chitLabel}`),
@@ -225,10 +247,12 @@ export function ChitEditorPopup({
     const handleFieldDataChanged = useCallback((event: { dataField?: string; value?: unknown }) => {
         if (typeof event.dataField !== "string") return
         setHasManualChanges(true)
-        setDraft((current) => ({
-            ...current,
-            [event.dataField as keyof ChitInfo]: event.value as never,
-        }))
+        setDraft((current) => Object.is(current[event.dataField as keyof ChitInfo], event.value)
+            ? current
+            : {
+                ...current,
+                [event.dataField as keyof ChitInfo]: event.value as never,
+            })
     }, [setDraft])
 
     const handleDetailsChange = useCallback((rows: ChitInfo["DETAILS"], amount: number) => {
@@ -307,6 +331,24 @@ export function ChitEditorPopup({
     } = editorReference
 
     ensureAccountingInventoryLinksForSaveRef.current = ensureAccountingInventoryLinksForSave
+
+    // Sync programmatic changes (sequence preview, linked voucher, amount)
+    // one field at a time. User edits already live inside formData, so do not
+    // repaint focused editors when the draft state changes.
+    useEffect(() => {
+        if (prevSyncValueRef.current !== value || prevSyncChitTypeRef.current !== chitType) {
+            return
+        }
+        const form = formRef.current?.instance()
+        if (!form) return
+        const currentData = form.option("formData") as Partial<ChitInfo> | undefined
+        const fields = ["AMOUNT", "PAYER_INFO", "CHIT_NO", "DESCRIPTION_VIET", "CHIT_YMD"] as const
+        for (const field of fields) {
+            if (!Object.is(currentData?.[field], draft[field])) {
+                form.updateData(field, draft[field])
+            }
+        }
+    }, [draft, chitType, value])
 
     useEffect(() => {
         if (prevSyncValueRef.current === value && prevSyncChitTypeRef.current === chitType) {
@@ -510,8 +552,6 @@ export function ChitEditorPopup({
         shouldHandleEvent: shouldHandleShortcutEvent,
     })
 
-    const formData = useMemo(() => ({ ...draft, CHIT_TYPE_LABEL: chitLabel }), [draft, chitLabel])
-
     return (
         <Popup
             visible={visible}
@@ -613,44 +653,34 @@ export function ChitEditorPopup({
                                         dataField="AMOUNT"
                                         editorType="dxNumberBox"
                                         label={{ text: t("AMOUNT", "Amount") }}
-                                        editorOptions={{ stylingMode: "outlined", format: "#,##0.00", readOnly: true }}
+                                        editorOptions={headerEditorOptions.amount}
                                     />
                                     <Item
                                         dataField="PAYER_INFO"
                                         editorType="dxTextBox"
                                         label={{ text: t("lblPayer", "Payer Info") }}
-                                        editorOptions={createVoucherEditorOptions()}
+                                        editorOptions={headerEditorOptions.standard}
                                     />
                                     <Item
                                         dataField="CHIT_NO"
                                         editorType="dxTextBox"
                                         label={{ text: t("CHIT_NO", "Document No") }}
-                                        editorOptions={createVoucherEditorOptions({
-                                            validationMessageMode: "always",
-                                        })}
-                                        validationRules={[
-                                            createRequiredRule(t("MSG_MUST_ITEM", "Document No is required")),
-                                            createTrimmedRequiredRule(t("MSG_MUST_ITEM", "Document No is required")),
-                                        ]}
+                                        editorOptions={headerEditorOptions.chitNo}
+                                        validationRules={chitNoValidationRules}
                                     />
                                     <Item
                                         dataField="DESCRIPTION_VIET"
                                         colSpan={2}
                                         editorType="dxTextBox"
                                         label={{ text: t("DESCRIPTION_VIET", "Description (VI)") }}
-                                        editorOptions={createVoucherEditorOptions()}
+                                        editorOptions={headerEditorOptions.standard}
                                     />
                                     <Item
                                         dataField="CHIT_YMD"
                                         editorType="dxDateBox"
                                         label={{ text: t("CHIT_YMD", "Note Date") }}
-                                        editorOptions={createVoucherDateBoxEditorOptions({
-                                            validationMessageMode: "always",
-                                        })}
-                                        validationRules={[
-                                            createRequiredRule(t("MSG_MUST_ITEM", "Chit date is required")),
-                                            createDateRequiredRule(t("MSG_MUST_ITEM", "Chit date is required")),
-                                        ]}
+                                        editorOptions={headerEditorOptions.chitYmd}
+                                        validationRules={chitYmdValidationRules}
                                     />
                                 </Form>
                                 <VoucherInfoDescriptionFields
