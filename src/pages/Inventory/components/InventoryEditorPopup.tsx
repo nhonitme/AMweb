@@ -1207,15 +1207,13 @@ export default function InventoryEditorPopup({
       onShown={(event) => {
         disableBuiltInPopupEscape(event.component)
         raiseOpenedPopupAboveSiblings(event.component)
-      }
+      }}
       title={popupTitle}
       showTitle
       showCloseButton={false}
       dragEnabled={false}
       resizeEnabled={false}
       deferRendering={false}
-      // A fullscreen child is portaled to body: outside-click on its parent
-      // must never close/re-shade this editor while the child is being used.
       hideOnOutsideClick={false}
       width="100vw"
       height="100vh"
