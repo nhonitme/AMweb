@@ -154,6 +154,7 @@ export async function reloadProductionCosting(): Promise<ProductionCostingOvervi
     period,
     steps: (stepsRes.Steps as Rec[]) ?? [],
     objects: (objectsRes.Items as Rec[]) ?? [],
+    sourceReceiptCount: num(objectsRes.SourceReceiptCount),
     pool: (poolRes.Items as Rec[]) ?? [],
     detail: (detailRes.Items as Rec[]) ?? [],
     wip: (wipRes.Items as Rec[]) ?? [],
