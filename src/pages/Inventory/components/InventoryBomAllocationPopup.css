@@ -143,6 +143,37 @@
   border-radius: 8px;
 }
 
+/* Nút Kiểm tra = nút Lưu popup xuất (editor-action-toolbar__save): nền primary, icon và chữ trắng.
+   icon-colors tô .dx-icon-check thành xanh nên icon biến mất trên nền primary nếu không ép lại. */
+.inventory-bom-allocation-popup .inventory-bom-allocation-footer .am-button.am-button--primary:not(:disabled) {
+  background-color: var(--am-primary);
+  border-color: var(--am-primary);
+  color: var(--am-inverse);
+}
+
+.inventory-bom-allocation-popup .inventory-bom-allocation-footer .am-button.am-button--primary:hover:not(:disabled) {
+  background-color: var(--am-primary-hover);
+  border-color: var(--am-primary-hover);
+  color: var(--am-inverse);
+}
+
+.inventory-bom-allocation-popup .inventory-bom-allocation-footer .am-button.am-button--primary:active:not(:disabled) {
+  background-color: var(--am-primary-active);
+  border-color: var(--am-primary-active);
+  color: var(--am-inverse);
+}
+
+.inventory-bom-allocation-popup .inventory-bom-allocation-footer .am-button.am-button--primary:not(:disabled) .dx-icon {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+  color: var(--am-inverse) !important;
+}
+
+.inventory-bom-allocation-popup .inventory-bom-allocation-footer .am-button.am-button--primary:disabled .dx-icon {
+  color: #475569 !important;
+}
+
 .inventory-bom-allocation-section-title {
   color: #414853;
   font-size: 13px;

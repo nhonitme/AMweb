@@ -1010,7 +1010,9 @@ export default function InventoryManagementPage({
     let failCount = 0
     const failedVoucherNos: string[] = []
     try {
+      let cogsSuccessCount = 0
       for (const pair of linkPairs) {
+        const createCogs = linkableInventoryType === "IO" && Boolean(pair.createCogs)
         try {
           await applyInventoryAccountingLinkPair({
             inventoryLedger: ledger,
@@ -1018,9 +1020,12 @@ export default function InventoryManagementPage({
             inventoryChitId: pair.inventory.chitId,
             chitDetailId: pair.detail.chitDetailId,
             chitDetailCd: pair.detail.chitDetailCd,
-            createCogsForLinkedIssue: linkableInventoryType === "IO" && createCogsForLinkedIssues,
+            createCogsForLinkedIssue: createCogs,
           })
           successCount += 1
+          if (createCogs) {
+            cogsSuccessCount += 1
+          }
         } catch (error) {
           failCount += 1
           failedVoucherNos.push(pair.inventory.chitNo || String(pair.inventory.chitId))
@@ -1038,7 +1043,7 @@ export default function InventoryManagementPage({
         : ""
 
       if (successCount > 0 && failCount === 0) {
-        const message = createCogsForLinkedIssues && linkableInventoryType === "IO"
+        const message = cogsSuccessCount > 0
           ? t(
               "LINK_VOUCHERS_COGS_SUCCESS",
               "Đã liên kết {0} phiếu xuất kho và tạo/cập nhật phiếu giá vốn cho các phiếu này",
@@ -1046,7 +1051,7 @@ export default function InventoryManagementPage({
           : t("LINK_VOUCHERS_SUCCESS", "Đã liên kết {0} phiếu kho").replace("{0}", String(successCount))
         notify(message, "success", 4000)
       } else if (successCount > 0) {
-        const message = createCogsForLinkedIssues && linkableInventoryType === "IO"
+        const message = cogsSuccessCount > 0 || linkPairs.some((pair) => pair.createCogs)
           ? t("LINK_VOUCHERS_COGS_PARTIAL", "Đã xử lý {0} phiếu xuất kho; {1} phiếu liên kết hoặc tạo giá vốn thất bại")
           : t("LINK_VOUCHERS_PARTIAL", "Đã liên kết {0} phiếu kho, lỗi {1}")
         notify(
@@ -1060,7 +1065,7 @@ export default function InventoryManagementPage({
     } finally {
       setLinkApplying(false)
     }
-  }, [createCogsForLinkedIssues, invalidateInventoryVouchers, ledger, linkPairs, linkableInventoryType, t])
+  }, [invalidateInventoryVouchers, ledger, linkPairs, linkableInventoryType, t])
 
   const linkToolbarItems = useMemo(() => {
     if (!linkableInventoryType) {
@@ -1139,8 +1144,12 @@ export default function InventoryManagementPage({
           selectedOptionKey={linkOptionKey}
           onOptionKeyChange={handleLinkOptionKeyChange}
           inventoryType={linkableInventoryType}
+          defaultCreateCogsForNewPairs={false}
+          showPerPairCreateCogs={linkableInventoryType === "IO"}
           createCogsForLinkedIssues={createCogsForLinkedIssues}
-          onCreateCogsForLinkedIssuesChange={setCreateCogsForLinkedIssues}
+          onCreateCogsForLinkedIssuesChange={
+            linkableInventoryType === "IO" ? setCreateCogsForLinkedIssues : undefined
+          }
           fromDate={linkFromDate}
           toDate={linkToDate}
           onFromDateChange={setLinkFromDate}

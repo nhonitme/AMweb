@@ -5,18 +5,9 @@ import { normalizeMenuRoutePath } from "@/lib/menuRoutePath";
 import { findMenuById, findOverviewMenu, isOverviewPath } from "@/api/menuApi";
 import { useMenuTreeQuery } from "@/hooks/queries/useMenuTreeQuery";
 import { LanguageContext } from "@/lib/i18nLoader";
-import { getCompanyCdFromPathname, getCurrentCompanyCd } from "@/lib/login";
+import { getCompanyCdFromPathname, getCurrentCompanyCd, stripCompanyPath } from "@/lib/login";
 import type { MenuTreeNode } from "@/types/menu";
 import { resolveMenuCaption } from "@/utils/resolveConfigCaption";
-
-function stripCompanyPath(pathname: string): string {
-  const companyCd = getCompanyCdFromPathname(pathname);
-  if (!companyCd) {
-    return pathname;
-  }
-
-  return pathname.replace(/^\/app\/[^/]+/i, "") || "/";
-}
 
 function getActiveMenuFromPath(pathname: string, tree: MenuTreeNode[]): string {
   if (isOverviewPath(pathname)) {

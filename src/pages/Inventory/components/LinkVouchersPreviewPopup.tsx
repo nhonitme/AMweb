@@ -37,6 +37,10 @@ export type LinkVouchersPreviewPopupProps = {
   onOptionKeyChange: (optionKey: string) => void
   /** When set (accounting list flow), show IR/IO counterpart label instead of warehouse-oriented hints. */
   inventoryType?: "IR" | "IO" | null
+  /** Default createCogs flag applied to newly added / auto-matched pairs. */
+  defaultCreateCogsForNewPairs?: boolean
+  /** When true (IO flows), show per-pair create-COGS checkbox in the pairs grid. */
+  showPerPairCreateCogs?: boolean
   createCogsForLinkedIssues?: boolean
   onCreateCogsForLinkedIssuesChange?: (value: boolean) => void
   fromDate?: Date | null
@@ -67,6 +71,8 @@ export default function LinkVouchersPreviewPopup({
   selectedOptionKey,
   onOptionKeyChange,
   inventoryType = null,
+  defaultCreateCogsForNewPairs = false,
+  showPerPairCreateCogs = false,
   createCogsForLinkedIssues = false,
   onCreateCogsForLinkedIssuesChange,
   fromDate = null,
@@ -104,6 +110,11 @@ export default function LinkVouchersPreviewPopup({
     return null
   }, [inventoryType, t])
 
+  const newPairCreateCogs = onCreateCogsForLinkedIssuesChange
+    ? createCogsForLinkedIssues
+    : defaultCreateCogsForNewPairs
+  const showCreateCogsColumn = showPerPairCreateCogs && inventoryType === "IO"
+
   const pairedInventoryIds = useMemo(() => new Set(pairs.map((pair) => pair.inventory.chitId)), [pairs])
   const pairedDetailIds = useMemo(() => new Set(pairs.map((pair) => pair.detail.chitDetailId)), [pairs])
 
@@ -120,15 +131,19 @@ export default function LinkVouchersPreviewPopup({
     () =>
       pairs.map((pair, index) => ({
         ROW_KEY: `${pair.inventory.chitId}:${pair.detail.chitDetailId}:${index}`,
+        PAIR_INDEX: index,
         INVENTORY_NO: pair.inventory.chitNo,
         ACCOUNTING_NO: pair.detail.chitNo,
         DEBIT: pair.detail.debit,
         CREDIT: pair.detail.credit,
         INVENTORY_AMOUNT: pair.inventory.amount,
         DETAIL_AMOUNT: pair.detail.amount,
+        CREATE_COGS: Boolean(pair.createCogs),
       })),
     [pairs],
   )
+
+  const allPairsCreateCogs = pairs.length > 0 && pairs.every((pair) => pair.createCogs)
 
   const handleInventorySelectionChanged = useCallback((event: DataGridTypes.SelectionChangedEvent) => {
     const row = (event.selectedRowsData?.[0] as LinkAmountCandidate | undefined) ?? null
@@ -154,14 +169,24 @@ export default function LinkVouchersPreviewPopup({
         inventory,
         detail,
         amount: inventory.amount,
+        createCogs: newPairCreateCogs,
       },
     ])
     setSelectedInventoryId(null)
     setSelectedDetailId(null)
-  }, [availableDetails, availableInventory, onPairsChange, pairs, selectedDetailId, selectedInventoryId, t])
+  }, [
+    availableDetails,
+    availableInventory,
+    newPairCreateCogs,
+    onPairsChange,
+    pairs,
+    selectedDetailId,
+    selectedInventoryId,
+    t,
+  ])
 
   const handleAutoMap = useCallback(() => {
-    const matched = autoMatchByAmount(availableInventory, availableDetails)
+    const matched = autoMatchByAmount(availableInventory, availableDetails, newPairCreateCogs)
     if (matched.pairs.length === 0) {
       notify(
         t(
@@ -176,7 +201,7 @@ export default function LinkVouchersPreviewPopup({
     onPairsChange([...pairs, ...matched.pairs])
     setSelectedInventoryId(null)
     setSelectedDetailId(null)
-  }, [availableDetails, availableInventory, onPairsChange, pairs, t])
+  }, [availableDetails, availableInventory, newPairCreateCogs, onPairsChange, pairs, t])
 
   const handleRemovePair = useCallback(
     (rowKey: string) => {
@@ -186,6 +211,36 @@ export default function LinkVouchersPreviewPopup({
       onPairsChange(next)
     },
     [onPairsChange, pairs],
+  )
+
+  const handlePairCreateCogsChange = useCallback(
+    (pairIndex: number, value: boolean) => {
+      if (pairIndex < 0 || pairIndex >= pairs.length) {
+        return
+      }
+      onPairsChange(
+        pairs.map((pair, index) => (index === pairIndex ? { ...pair, createCogs: value } : pair)),
+      )
+    },
+    [onPairsChange, pairs],
+  )
+
+  const handleToggleAllCreateCogs = useCallback(
+    (value: boolean) => {
+      onPairsChange(pairs.map((pair) => ({ ...pair, createCogs: value })))
+      onCreateCogsForLinkedIssuesChange?.(value)
+    },
+    [onCreateCogsForLinkedIssuesChange, onPairsChange, pairs],
+  )
+
+  const handleGlobalCreateCogsChange = useCallback(
+    (value: boolean) => {
+      onCreateCogsForLinkedIssuesChange?.(value)
+      if (pairs.length > 0) {
+        onPairsChange(pairs.map((pair) => ({ ...pair, createCogs: value })))
+      }
+    },
+    [onCreateCogsForLinkedIssuesChange, onPairsChange, pairs],
   )
 
   const selectedInventory = useMemo(
@@ -313,7 +368,7 @@ export default function LinkVouchersPreviewPopup({
               value={createCogsForLinkedIssues}
               text={t("LINK_VOUCHERS_CREATE_COGS", "Tạo phiếu giá vốn cho phiếu xuất được liên kết")}
               disabled={loading || applying}
-              onValueChanged={(event) => onCreateCogsForLinkedIssuesChange(Boolean(event.value))}
+              onValueChanged={(event) => handleGlobalCreateCogsChange(Boolean(event.value))}
             />
           ) : null}
           <div className="text-sm text-slate-600">
@@ -444,6 +499,47 @@ export default function LinkVouchersPreviewPopup({
             height="100%"
             noDataText={t("LINK_VOUCHERS_NO_PAIRS", "Chưa có liên kết")}
           >
+            {showCreateCogsColumn ? (
+              <Column
+                dataField="CREATE_COGS"
+                width={120}
+                alignment="center"
+                allowSorting={false}
+                headerCellRender={() => (
+                  <div className="flex items-center justify-center gap-1">
+                    <CheckBox
+                      value={allPairsCreateCogs}
+                      disabled={loading || applying || pairs.length === 0}
+                      hint={t("LINK_VOUCHERS_CREATE_COGS_ALL", "Chọn tất cả tạo giá vốn")}
+                      onValueChanged={(event) => {
+                        if (event.event) {
+                          handleToggleAllCreateCogs(Boolean(event.value))
+                        }
+                      }}
+                    />
+                    <span className="text-xs font-medium text-slate-700">
+                      {t("LINK_VOUCHERS_CREATE_COGS_SHORT", "Tạo giá vốn")}
+                    </span>
+                  </div>
+                )}
+                cellRender={(cell) => {
+                  const pairIndex = Number(cell.data?.PAIR_INDEX ?? -1)
+                  return (
+                    <div className="flex justify-center">
+                      <CheckBox
+                        value={Boolean(cell.value)}
+                        disabled={loading || applying}
+                        onValueChanged={(event) => {
+                          if (event.event) {
+                            handlePairCreateCogsChange(pairIndex, Boolean(event.value))
+                          }
+                        }}
+                      />
+                    </div>
+                  )
+                }}
+              />
+            ) : null}
             <Column dataField="INVENTORY_NO" caption={t("INVENTORY_VOUCHER_NO", "Số phiếu kho")} />
             <Column dataField="ACCOUNTING_NO" caption={t("ACCOUNTING_VOUCHER_NO", "Số chứng từ")} width={120} />
             <Column dataField="DEBIT" caption={t("DEBIT", "TK Nợ")} width={90} />

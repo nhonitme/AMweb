@@ -1480,11 +1480,15 @@ const openEditPopup = useCallback(
     }
 
     const inventoryLedger = getInventoryLedgerForInventoryType(inventoryType)
+    const canCreateCogs = inventoryType === "IO"
     setLinkApplying(true)
     let successCount = 0
     let failCount = 0
+    let cogsSuccessCount = 0
+    const failedVoucherNos: string[] = []
     try {
       for (const pair of linkPairs) {
+        const createCogs = canCreateCogs && Boolean(pair.createCogs)
         try {
           await applyInventoryAccountingLinkPair({
             inventoryLedger,
@@ -1492,10 +1496,15 @@ const openEditPopup = useCallback(
             inventoryChitId: pair.inventory.chitId,
             chitDetailId: pair.detail.chitDetailId,
             chitDetailCd: pair.detail.chitDetailCd,
+            createCogsForLinkedIssue: createCogs,
           })
           successCount += 1
+          if (createCogs) {
+            cogsSuccessCount += 1
+          }
         } catch (error) {
           failCount += 1
+          failedVoucherNos.push(pair.inventory.chitNo || String(pair.inventory.chitId))
           console.error("Apply accounting inventory link failed", error)
         }
       }
@@ -1504,22 +1513,29 @@ const openEditPopup = useCallback(
       gridRef.current?.clearSelection()
       setLinkPopupVisible(false)
 
+      const failureSummary = failedVoucherNos.length > 0
+        ? ` (${failedVoucherNos.slice(0, 3).join(", ")}${failedVoucherNos.length > 3 ? `, +${failedVoucherNos.length - 3}` : ""})`
+        : ""
+
       if (successCount > 0 && failCount === 0) {
-        notify(
-          t("LINK_VOUCHERS_SUCCESS", "Đã liên kết {0} phiếu kho").replace("{0}", String(successCount)),
-          "success",
-          3000,
-        )
+        const message = cogsSuccessCount > 0
+          ? t(
+              "LINK_VOUCHERS_COGS_SUCCESS",
+              "Đã liên kết {0} phiếu xuất kho và tạo/cập nhật phiếu giá vốn cho các phiếu này",
+            ).replace("{0}", String(successCount))
+          : t("LINK_VOUCHERS_SUCCESS", "Đã liên kết {0} phiếu kho").replace("{0}", String(successCount))
+        notify(message, "success", 4000)
       } else if (successCount > 0) {
+        const message = cogsSuccessCount > 0 || linkPairs.some((pair) => pair.createCogs)
+          ? t("LINK_VOUCHERS_COGS_PARTIAL", "Đã xử lý {0} phiếu xuất kho; {1} phiếu liên kết hoặc tạo giá vốn thất bại")
+          : t("LINK_VOUCHERS_PARTIAL", "Đã liên kết {0} phiếu kho, lỗi {1}")
         notify(
-          t("LINK_VOUCHERS_PARTIAL", "Đã liên kết {0} phiếu kho, lỗi {1}")
-            .replace("{0}", String(successCount))
-            .replace("{1}", String(failCount)),
+          `${message.replace("{0}", String(successCount)).replace("{1}", String(failCount))}${failureSummary}`,
           "warning",
-          4000,
+          7000,
         )
       } else {
-        notify(t("LINK_VOUCHERS_FAILED", "Không thể liên kết phiếu kho"), "error", 3000)
+        notify(`${t("LINK_VOUCHERS_FAILED", "Không thể liên kết phiếu kho")}${failureSummary}`, "error", 7000)
       }
     } finally {
       setLinkApplying(false)
@@ -1863,6 +1879,8 @@ const openEditPopup = useCallback(
           selectedOptionKey={linkOptionKey}
           onOptionKeyChange={setLinkOptionKey}
           inventoryType={getInventoryTypeForAccountingChitType(chitType)}
+          defaultCreateCogsForNewPairs={chitType === "SO"}
+          showPerPairCreateCogs={chitType === "SO"}
           fromDate={linkFromDate}
           toDate={linkToDate}
           onFromDateChange={setLinkFromDate}

@@ -1,4 +1,4 @@
-﻿import { lazy, memo, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+﻿import { lazy, memo, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
     SIDEBAR_COLLAPSED_WIDTH,
@@ -7,7 +7,7 @@ import {
     SIDEBAR_MIN_WIDTH,
     useSidebarWidth,
 } from '@/hooks/useSidebarWidth';
-import { BrowserRouter as Router, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Route, Routes, useLocation, useNavigate, useNavigationType, useParams } from 'react-router-dom';
 import Header from './components/Header';
 import HeaderSubMenu from './components/HeaderSubMenu';
 import { normalizeMenuRoutePath } from '@/lib/menuRoutePath';
@@ -47,7 +47,10 @@ import {
     getSession,
     isAuthenticated,
     logout,
+    rebaseAppPathToCompany,
     resolveDefaultCompanyCd,
+    stripCompanyPath,
+    updateCurrentSession,
     type AuthSession,
 } from './lib/login';
 import { getCurrentLang } from './utils/language';
@@ -150,15 +153,6 @@ function RouteLoading() {
             Loading...
         </div>
     );
-}
-
-function stripCompanyPath(pathname: string): string {
-    const companyCd = getCompanyCdFromPathname(pathname);
-    if (!companyCd) {
-        return pathname;
-    }
-
-    return pathname.replace(/^\/app\/[^/]+/i, '') || '/';
 }
 
 function getActiveMenuFromPath(pathname: string, tree: MenuTreeNode[]): string {
@@ -284,7 +278,9 @@ function AppContent({ onLogout, licenseExpired }: { onLogout: () => void; licens
     const didAutoExpandSidebarRef = useRef(false);
     const navigate = useNavigate();
     const location = useLocation();
+    const navigationType = useNavigationType();
     const currentCompanyCd = getCompanyCdFromPathname(location.pathname);
+    const stickyCompanyBootstrappedRef = useRef(false);
     const {
         data: loadedMenuTree = [],
         isPending: menuPending,
@@ -311,6 +307,51 @@ function AppContent({ onLogout, licenseExpired }: { onLogout: () => void; licens
     );
     const loading = Boolean(currentCompanyCd) && menuLoading;
     const scopedPathname = stripCompanyPath(location.pathname);
+
+    // Sticky company on Back/Forward. First pass (also POP on document load) syncs session ← URL.
+    useLayoutEffect(() => {
+        const urlCompany = currentCompanyCd?.trim() ?? "";
+        const activeCompany = resolveDefaultCompanyCd().trim();
+        if (!urlCompany) {
+            return;
+        }
+
+        const sameCompany = Boolean(activeCompany)
+            && urlCompany.toLowerCase() === activeCompany.toLowerCase();
+
+        if (!stickyCompanyBootstrappedRef.current) {
+            stickyCompanyBootstrappedRef.current = true;
+            if (activeCompany && !sameCompany) {
+                updateCurrentSession({ defaultCompanyCd: urlCompany });
+            }
+            return;
+        }
+
+        if (!activeCompany || sameCompany) {
+            return;
+        }
+
+        if (navigationType === "POP") {
+            navigate(
+                {
+                    pathname: rebaseAppPathToCompany(location.pathname, activeCompany),
+                    search: location.search,
+                    hash: location.hash,
+                },
+                { replace: true },
+            );
+            return;
+        }
+
+        updateCurrentSession({ defaultCompanyCd: urlCompany });
+    }, [
+        currentCompanyCd,
+        location.hash,
+        location.pathname,
+        location.search,
+        navigate,
+        navigationType,
+    ]);
 
     useEffect(() => {
         if (currentCompanyCd) {
@@ -948,7 +989,7 @@ function AppWorkspaceRoutes({
                         />
                         <Route
                             path="/gl/book/ar-summary"
-                            element={<JournalReportPage reportCode="GL_AR_SUMMARY_S31DN" menuCode="GL_BOOK_AR_SUM" titleKey="GL_AR_SUMMARY_S31DN" titleFallback="Sổ tổng hợp công nợ" showAccountFilter={true} accountFilterEtcType={EtcType.cbxArBookAccount} showCustomerFilter={true} showCurrencyFilter={true} includeEmptyFilterParams={true} moduleCd="" />}
+                            element={<JournalReportPage reportCode="GL_AR_SUMMARY_S31DN" menuCode="GL_BOOK_AR_SUM" titleKey="GL_AR_SUMMARY_S31DN" titleFallback="Sổ tổng hợp công nợ" showAccountFilter={true} accountLookupMode="parentChild" accountFilterEtcType={EtcType.cbxArBookAccount} showCustomerFilter={true} showCurrencyFilter={true} includeEmptyFilterParams={true} moduleCd="" showBookPrintTemplate={false} />}
                         />
                         <Route
                             path="/gl/book/ar-aging"
@@ -980,7 +1021,7 @@ function AppWorkspaceRoutes({
                         />
                         <Route
                             path="/gl/book/ar-invoice"
-                            element={<JournalReportPage reportCode="GL_BOOK_AR_INVOICE" menuCode="GL_BOOK_AR_INVOICE" titleKey="GL_BOOK_AR_INVOICE" titleFallback="Chi tiết công nợ theo hóa đơn" reportVersion="2025" unitDivisor="1" showAccountFilter={true} accountLookupMode="parentChild" accountFilterEtcType={EtcType.cbxArBookAccount} showCustomerFilter={true} showCurrencyFilter={true} includeEmptyFilterParams={true} moduleCd="" arInvoiceToolbarOptions={true} />}
+                            element={<JournalReportPage reportCode="GL_BOOK_AR_INVOICE" menuCode="GL_BOOK_AR_INVOICE" titleKey="GL_BOOK_AR_INVOICE" titleFallback="Chi tiết công nợ theo hóa đơn" reportVersion="2025" unitDivisor="1" showAccountFilter={true} accountLookupMode="parentChild" accountFilterEtcType={EtcType.cbxArInvoiceBookAccount} showCustomerFilter={true} showCurrencyFilter={true} includeEmptyFilterParams={true} moduleCd="" arInvoiceToolbarOptions={true} />}
                         />
                         <Route
                             path="/gl/fs/balance-sheet"

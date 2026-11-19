@@ -16,7 +16,6 @@ import {
 } from "@/api/companySignatureInfoApi"
 import { createSysCodeSelectBoxEditorOptions } from "@/components/forms/sysCodeSelectBoxOptions"
 import { useSysCodes } from "@/lib/sysCodeContext"
-import { getSysCodeDisplayText } from "@/lib/sysCodeUtils"
 import type { CompanySignatureInfo } from "@/types/companySignatureInfo"
 
 import {
@@ -32,6 +31,7 @@ type CompanySignatureSettingsPanelProps = {
   rows: CompanySignatureInfo[]
   onRowsChange: Dispatch<SetStateAction<CompanySignatureInfo[]>>
   onReload: () => Promise<void> | void
+  onPreviewRefresh: () => void
   t: TranslateFn
 }
 
@@ -131,14 +131,14 @@ export default function CompanySignatureSettingsPanel({
   rows,
   onRowsChange,
   onReload,
+  onPreviewRefresh,
   t,
 }: CompanySignatureSettingsPanelProps) {
-  const [keyword, setKeyword] = useState("")
   const [savingKey, setSavingKey] = useState("")
   const [uploadingKey, setUploadingKey] = useState("")
   const [adding, setAdding] = useState(false)
   const [localPreviews, setLocalPreviews] = useState<Record<string, string>>({})
-  const saveTimersRef = useRef<Map<string, number>>(new Map())
+  const [draftNames, setDraftNames] = useState<Record<string, string>>({})
   const fileInputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map())
 
   const revokeLocalPreview = useCallback((key: string) => {
@@ -170,20 +170,6 @@ export default function CompanySignatureSettingsPanel({
 
   const sortedRows = useMemo(() => rows.slice().sort(compareSignatures), [rows])
 
-  const filteredRows = useMemo(() => {
-    const normalized = keyword.trim().toLowerCase()
-    if (!normalized) {
-      return sortedRows
-    }
-
-    return sortedRows.filter((row) => {
-      const labelCode = displayLabelCodes.find((item) => String(item.CODE_CD ?? "").trim() === row.DISPLAY_LABEL.trim())
-      const labelText = labelCode ? getSysCodeDisplayText(labelCode, t) : row.DISPLAY_LABEL
-      const haystack = `${row.SIGN_CODE} ${labelText} ${row.SIGN_NAME} ${row.SIGN_TITLE}`.toLowerCase()
-      return haystack.includes(normalized)
-    })
-  }, [displayLabelCodes, keyword, sortedRows, t])
-
   const persistRow = useCallback(
     async (row: CompanySignatureInfo) => {
       if (typeof row.ID !== "number" || !Number.isFinite(row.ID) || row.ID <= 0) {
@@ -207,6 +193,7 @@ export default function CompanySignatureSettingsPanel({
               : item,
           ),
         )
+        onPreviewRefresh()
       } catch (error) {
         notify(getApiErrorMessage(error, t("UPDATE_FAILED", "Cập nhật thất bại")), "error", 3500)
         await onReload()
@@ -214,29 +201,7 @@ export default function CompanySignatureSettingsPanel({
         setSavingKey((current) => (current === key ? "" : current))
       }
     },
-    [companyCd, onReload, onRowsChange, t],
-  )
-
-  const schedulePersist = useCallback(
-    (row: CompanySignatureInfo) => {
-      if (typeof row.ID !== "number" || !Number.isFinite(row.ID) || row.ID <= 0) {
-        return
-      }
-
-      const key = rowKey(row)
-      const existing = saveTimersRef.current.get(key)
-      if (existing) {
-        window.clearTimeout(existing)
-      }
-
-      const timerId = window.setTimeout(() => {
-        saveTimersRef.current.delete(key)
-        void persistRow(row)
-      }, 450)
-
-      saveTimersRef.current.set(key, timerId)
-    },
-    [persistRow],
+    [companyCd, onPreviewRefresh, onReload, onRowsChange, t],
   )
 
   const patchRow = useCallback(
@@ -251,10 +216,10 @@ export default function CompanySignatureSettingsPanel({
 
       const updated = nextRows.find((row) => rowKey(row) === rowKey(target))
       if (persist && updated) {
-        schedulePersist(updated)
+        void persistRow(updated)
       }
     },
-    [onRowsChange, rows, schedulePersist],
+    [onRowsChange, persistRow, rows],
   )
 
   const handleAdd = useCallback(async () => {
@@ -371,6 +336,7 @@ export default function CompanySignatureSettingsPanel({
         )
         revokeLocalPreview(key)
         notify(t("SIGNATURE_IMAGE_UPLOAD_SUCCESS", "Đã cập nhật ảnh chữ ký"), "success", 2500)
+        onPreviewRefresh()
       } catch (error) {
         const message = getApiErrorMessage(error, t("SIGNATURE_IMAGE_UPLOAD_FAILED", "Tải ảnh thất bại"))
         revokeLocalPreview(key)
@@ -379,7 +345,7 @@ export default function CompanySignatureSettingsPanel({
         setUploadingKey((current) => (current === key ? "" : current))
       }
     },
-    [companyCd, onRowsChange, revokeLocalPreview, t],
+    [companyCd, onPreviewRefresh, onRowsChange, revokeLocalPreview, t],
   )
 
   const handleClearImage = useCallback(
@@ -444,58 +410,28 @@ export default function CompanySignatureSettingsPanel({
               : item
           }),
         )
+        onPreviewRefresh()
       } catch (error) {
         notify(getApiErrorMessage(error, t("UPDATE_FAILED", "Cập nhật thất bại")), "error", 3500)
         await onReload()
       }
     },
-    [companyCd, onReload, onRowsChange, rows, t],
+    [companyCd, onPreviewRefresh, onReload, onRowsChange, rows, t],
   )
 
   return (
     <div className="company-signature-editor">
-      <div className="company-signature-editor__toolbar">
-        <TextBox
-          value={keyword}
-          stylingMode="outlined"
-          mode="search"
-          placeholder={t("QUICK_SEARCH", "Tìm theo mã / chức vụ / tên...")}
-          valueChangeEvent="input"
-          onValueChanged={(event) => setKeyword(String(event.value ?? ""))}
-          width="100%"
-        />
-        <div className="company-signature-editor__actions">
-          <Button
-            icon="refresh"
-            stylingMode="outlined"
-            hint={t("btnRefresh", "Làm mới")}
-            onClick={() => void onReload()}
-          />
-          <Button
-            icon="plus"
-            type="default"
-            stylingMode="contained"
-            hint={t("lblAddNew", "Thêm chữ ký")}
-            text={t("lblAddNew", "Thêm")}
-            disabled={adding}
-            onClick={() => void handleAdd()}
-          />
-        </div>
-      </div>
-
       <div className="company-signature-editor__list">
-        {filteredRows.length === 0 ? (
+        {sortedRows.length === 0 ? (
           <div className="company-signature-editor__empty">
             {t("SIGNATURE_NO_ROWS", "Chưa có chữ ký nào.")}
           </div>
         ) : (
-          filteredRows.map((row) => {
+          sortedRows.map((row, orderIndex) => {
             const key = rowKey(row)
             const isSaving = savingKey === key
             const isUploading = uploadingKey === key
             const canDelete = !isFixedSignatureCode(row.SIGN_CODE) && row.COMPANY_CD.trim().toLowerCase() === companyCd.trim().toLowerCase()
-            const orderIndex = sortedRows.findIndex((item) => rowKey(item) === key)
-            const canReorder = !keyword.trim()
             const canPickImage = !isUploading && typeof row.ID === "number" && row.ID > 0
 
             return (
@@ -532,7 +468,7 @@ export default function CompanySignatureSettingsPanel({
                   <div className="company-signature-editor__meta">
                     <span className="company-signature-editor__code">{row.SIGN_CODE || "—"}</span>
                     <span className="company-signature-editor__seq" title={t("SORT_ORDER", "Thứ tự")}>
-                      #{orderIndex >= 0 ? orderIndex + 1 : "—"}
+                      #{orderIndex + 1}
                     </span>
                     <div className="company-signature-editor__card-tools">
                       <CheckBox
@@ -548,14 +484,14 @@ export default function CompanySignatureSettingsPanel({
                       <Button
                         icon="arrowup"
                         stylingMode="text"
-                        disabled={!canReorder || orderIndex <= 0}
+                        disabled={orderIndex <= 0}
                         hint={t("MOVE_UP", "Lên")}
                         onClick={() => void moveRow(row, -1)}
                       />
                       <Button
                         icon="arrowdown"
                         stylingMode="text"
-                        disabled={!canReorder || orderIndex < 0 || orderIndex >= sortedRows.length - 1}
+                        disabled={orderIndex >= sortedRows.length - 1}
                         hint={t("MOVE_DOWN", "Xuống")}
                         onClick={() => void moveRow(row, 1)}
                       />
@@ -565,7 +501,7 @@ export default function CompanySignatureSettingsPanel({
                           stylingMode="text"
                           type="danger"
                           hint={t("DELETE", "Xóa")}
-                          disabled={isSaving || isUploading || saveTimersRef.current.has(key)}
+                          disabled={isSaving || isUploading}
                           onClick={() => void handleDelete(row)}
                         />
                       ) : null}
@@ -588,7 +524,7 @@ export default function CompanySignatureSettingsPanel({
                       }}
                     />
                     <TextBox
-                      value={row.SIGN_NAME}
+                      value={key in draftNames ? draftNames[key] : row.SIGN_NAME}
                       stylingMode="outlined"
                       width="100%"
                       valueChangeEvent="input"
@@ -597,7 +533,21 @@ export default function CompanySignatureSettingsPanel({
                         if (event.event == null) {
                           return
                         }
-                        patchRow(row, { SIGN_NAME: String(event.value ?? "") })
+                        setDraftNames((current) => ({ ...current, [key]: String(event.value ?? "") }))
+                      }}
+                      onFocusOut={(event) => {
+                        const nextName = String(event.component.option("value") ?? "")
+                        setDraftNames((current) => {
+                          if (!(key in current)) {
+                            return current
+                          }
+                          const next = { ...current }
+                          delete next[key]
+                          return next
+                        })
+                        if (nextName !== row.SIGN_NAME) {
+                          patchRow(row, { SIGN_NAME: nextName })
+                        }
                       }}
                     />
                   </div>
@@ -606,6 +556,19 @@ export default function CompanySignatureSettingsPanel({
             )
           })
         )}
+      </div>
+
+      <div className="company-signature-editor__footer">
+        <Button
+          icon="plus"
+          type="default"
+          stylingMode="contained"
+          hint={t("lblAddNew", "Thêm chữ ký")}
+          text={t("lblAddNew", "Thêm")}
+          disabled={adding}
+          width="100%"
+          onClick={() => void handleAdd()}
+        />
       </div>
     </div>
   )

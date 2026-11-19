@@ -133,10 +133,8 @@ type ReportToolbarProps = {
   leadingFilters?: ReactNode
   /** Optional toolbar actions aligned to the far right, separate from report filters. */
   trailingActions?: ReactNode
-  /** Cost-list: show Theo quý / In chi tiết next to Search. */
+  /** Cost-list: show In chi tiết next to Search. */
   costListOptionsVisible?: boolean
-  byQuarter?: boolean
-  onByQuarterChange?: (value: boolean) => void
   showDetailRows?: boolean
   onShowDetailRowsChange?: (value: boolean) => void
   /** AR invoice debt detail: period-only vs period + opening invoices. */
@@ -249,8 +247,6 @@ export function ReportToolbar({
   leadingFilters,
   trailingActions,
   costListOptionsVisible = false,
-  byQuarter = false,
-  onByQuarterChange,
   showDetailRows = true,
   onShowDetailRowsChange,
   arInvoiceOptionsVisible = false,
@@ -293,6 +289,16 @@ export function ReportToolbar({
   const toolbarLookupProps = useMemo(
     () => ({
       variant: "toolbar" as const,
+      searchPlaceholder: t("SEARCH", "Tìm kiếm"),
+      selectAllText: t("SELECT_ALL", "Chọn tất cả"),
+      dropdownWidth: 520,
+      dropdownHeight: 420,
+      showingCountLabel: (visible: number, filtered: number) =>
+        filtered <= visible
+          ? t("LOOKUP_SHOWING_TOTAL", "{0} mục").replace("{0}", String(filtered))
+          : t("LOOKUP_SHOWING_COUNT", "Hiển thị {0} / {1}")
+              .replace("{0}", String(visible))
+              .replace("{1}", String(filtered)),
       selectedCountLabel: (count: number) =>
         t("LOOKUP_SELECTED_COUNT", "{0} selected").replace("{0}", String(count)),
     }),
@@ -1000,11 +1006,6 @@ export function ReportToolbar({
 
             {costListOptionsVisible ? (
               <div className="page-toolbar__cost-list-options flex flex-nowrap items-center gap-3">
-                <CheckBox
-                  text={t("COST_LIST_BY_QUARTER", "Theo quý")}
-                  value={byQuarter}
-                  onValueChanged={(event) => onByQuarterChange?.(Boolean(event.value))}
-                />
                 <CheckBox
                   text={t("COST_LIST_PRINT_DETAIL", "In chi tiết")}
                   value={showDetailRows}

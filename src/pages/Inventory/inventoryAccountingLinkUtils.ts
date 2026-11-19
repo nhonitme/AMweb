@@ -88,6 +88,8 @@ export type LinkAmountPair = {
   inventory: LinkAmountCandidate
   detail: LinkDetailCandidate
   amount: number
+  /** When true, confirm will set IS_COGS on the linked IO voucher. */
+  createCogs: boolean
 }
 
 export type AutoMatchByAmountResult = {
@@ -254,6 +256,7 @@ function amountKey(amount: number): string {
 export function autoMatchByAmount(
   inventoryCandidates: LinkAmountCandidate[],
   detailCandidates: LinkDetailCandidate[],
+  defaultCreateCogs = false,
 ): AutoMatchByAmountResult {
   const inventoryByAmount = new Map<string, LinkAmountCandidate[]>()
   const detailByAmount = new Map<string, LinkDetailCandidate[]>()
@@ -286,6 +289,7 @@ export function autoMatchByAmount(
         inventory: left[index],
         detail: right[index],
         amount: left[index].amount,
+        createCogs: defaultCreateCogs,
       })
     }
     unmatchedInventory.push(...left.slice(pairCount))

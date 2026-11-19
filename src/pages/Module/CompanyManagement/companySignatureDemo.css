@@ -56,20 +56,6 @@
   gap: 10px;
 }
 
-.company-signature-editor__toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  flex-shrink: 0;
-  gap: 8px;
-  align-items: center;
-}
-
-.company-signature-editor__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-}
-
 .company-signature-editor__list {
   display: flex;
   min-height: 0;
@@ -78,6 +64,12 @@
   gap: 6px;
   overflow: auto;
   padding-right: 2px;
+}
+
+.company-signature-editor__footer {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
 }
 
 .company-signature-editor__empty {
@@ -262,8 +254,21 @@
 
 .company-signature-demo__viewer .dx-report-viewer,
 .company-signature-demo__viewer .dxrd-viewer,
-.company-signature-demo__viewer .dxrd-document-viewer {
+.company-signature-demo__viewer .dxrd-document-viewer,
+.company-signature-demo__viewer .dxrd-preview.dxrd-designer-wrapper {
   height: 100% !important;
+}
+
+.company-signature-demo__viewer .dxrd-toolbar-wrapper,
+.company-signature-demo__viewer .dxrd-tab-panel-wrapper {
+  display: none !important;
+}
+
+.company-signature-demo__viewer .dxrd-preview-wrapper {
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
 }
 
 .company-signature-demo--empty {

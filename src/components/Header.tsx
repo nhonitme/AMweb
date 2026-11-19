@@ -51,6 +51,7 @@ import {
   buildAppPath,
   getCurrentCompanyCd,
   getCurrentSession,
+  stripCompanyPath,
   updateCurrentSession,
   type AuthCompany,
   type AuthSession,
@@ -104,15 +105,6 @@ function buildCompanyOption(company: AuthCompany): CompanyOption {
     TAX_CD: "",
     displayName: companyName ? `${companyCd} - ${companyName}` : companyCd,
   };
-}
-
-function stripCompanyPathname(pathname: string): string {
-  const match = /^\/app\/[^/]+/i.exec(pathname);
-  if (!match) {
-    return pathname || "/";
-  }
-
-  return pathname.slice(match[0].length) || "/";
 }
 
 function getNotificationIcon(type: NotificationDisplayType): JSX.Element {
@@ -478,15 +470,13 @@ export default function Header({
   }, []);
 
   const applyCompanySwitch = useCallback((nextCompanyCd: string) => {
-    // Navigate first so getCurrentCompanyCd()/query keys point at the new company
-    // before caches are wiped and reloaded (same race class as login→clearFrontendCaches).
-    const targetPath = `${buildAppPath(nextCompanyCd, stripCompanyPathname(location.pathname))}${location.search}${location.hash}`;
+    const targetPath = `${buildAppPath(nextCompanyCd, stripCompanyPath(location.pathname))}${location.search}${location.hash}`;
+    updateCurrentSession({ defaultCompanyCd: nextCompanyCd });
     navigate(targetPath, { replace: true });
 
     clearNotificationSummaryCache();
     clearGridColumnSettings();
     clearFrontendCaches();
-    updateCurrentSession({ defaultCompanyCd: nextCompanyCd });
 
     void (async () => {
       await Promise.allSettled([

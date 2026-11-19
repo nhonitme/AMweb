@@ -28,7 +28,7 @@ import DxPage from "@/dx/DxPage"
 import { useMasterListLoadError } from "@/hooks/queries/master/masterQueryHelpers"
 import { useReportOptionsQuery } from "@/hooks/queries/useReportQueries"
 import { LanguageContext } from "@/lib/i18nLoader"
-import { createCurrentQuarterDateRange, createMonthStartDate } from "@/lib/dateRangeDefaults"
+import { createMonthStartDate } from "@/lib/dateRangeDefaults"
 import { getCurrentCompanyCd, buildAppPath } from "@/lib/login"
 import { getStoredGridTemplateId } from "@/lib/sysGridColumnTemplateStorage"
 import {
@@ -75,6 +75,7 @@ type JournalReportPageProps = {
     | "GL_AR_AGING"
     | "GL_AR_AGING_DETAIL"
     | "GL_AR_DETAIL_S31DN"
+    | "GL_BOOK_AR_INVOICE"
     | "GL_MANAGEMENT_CODE_BOOK"
     | "GL_PL_SUMMARY"
     | "GL_PL_BY_OBJECT"
@@ -106,6 +107,7 @@ type JournalReportPageProps = {
     | "GL_BOOK_AR_AGING"
     | "GL_BOOK_AR_AGING_DETAIL"
     | "GL_BOOK_AR_DETAIL"
+    | "GL_BOOK_AR_INVOICE"
     | "GL_BOOK_MNG_REPORT"
     | "GL_BOOK_PL_SUM"
     | "GL_BOOK_PL_OBJ"
@@ -165,10 +167,12 @@ type JournalReportPageProps = {
   unitDivisor?: string
   reportOptionGroupCode?: string
   useUseStartYmdFilter?: boolean
-  /** Cost-list toolbar: Theo quý (gợi ý kỳ) + In chi tiết (lọc LEVEL_NO). */
+  /** Cost-list toolbar: In chi tiết (lọc LEVEL_NO). */
   costListToolbarOptions?: boolean
   /** AR invoice debt detail: radio Chỉ lấy hóa đơn trong kỳ / trong kỳ và đầu kỳ. */
   arInvoiceToolbarOptions?: boolean
+  /** Khi false: ẩn lookup "Mẫu in sổ", luôn in DEFAULT_GRID. */
+  showBookPrintTemplate?: boolean
 }
 
 type ReportRouteFilterState = {
@@ -214,7 +218,6 @@ type JournalReportTabState = {
   appliedReportOptionCode: string
   exportLanguage: ReportLanguageCode
   exportPrintTemplate: ReportPrintTemplateCode
-  byQuarter?: boolean
   showDetailRows?: boolean
   includeOpeningInvoices?: boolean
 }
@@ -624,6 +627,7 @@ export default function JournalReportPage({
   useUseStartYmdFilter = false,
   costListToolbarOptions = false,
   arInvoiceToolbarOptions = false,
+  showBookPrintTemplate = true,
 }: JournalReportPageProps) {
   const location = useLocation()
   const tabRoute = useWorkspaceTabRoute()
@@ -741,10 +745,12 @@ export default function JournalReportPage({
     () => restoredTabState?.exportLanguage ?? normalizeReportLanguage(lang ?? "VIET"),
   )
   const [exportPrintTemplate, setExportPrintTemplate] = useState<ReportPrintTemplateCode>(
-    () => restoredTabState?.exportPrintTemplate ?? "BOOK",
-  )
-  const [byQuarter, setByQuarter] = useState(
-    () => Boolean(costListToolbarOptions && restoredTabState?.byQuarter),
+    () => {
+      if (!showBookPrintTemplate) {
+        return "DEFAULT_GRID"
+      }
+      return restoredTabState?.exportPrintTemplate ?? "BOOK"
+    },
   )
   const [showDetailRows, setShowDetailRows] = useState(
     () => !costListToolbarOptions || restoredTabState?.showDetailRows !== false,
@@ -787,7 +793,6 @@ export default function JournalReportPage({
       appliedReportOptionCode,
       exportLanguage,
       exportPrintTemplate,
-      byQuarter,
       showDetailRows,
       includeOpeningInvoices,
     })
@@ -796,7 +801,6 @@ export default function JournalReportPage({
     appliedReportOptionCode,
     assetStatusCodes,
     bankCodes,
-    byQuarter,
     currencyCodes,
     customerCodes,
     exportLanguage,
@@ -854,11 +858,16 @@ export default function JournalReportPage({
   )
 
   const printTemplateOptions = useMemo(
-    () => [
-      { code: "BOOK", label: t("REPORT_PRINT_TEMPLATE_BOOK", "Mẫu in sổ") },
-      { code: "DEFAULT_GRID", label: t("REPORT_PRINT_TEMPLATE_DEFAULT_GRID", "In mặc định") },
-    ] satisfies { code: ReportPrintTemplateCode; label: string }[],
-    [t],
+    () =>
+      (showBookPrintTemplate
+        ? [
+            { code: "BOOK", label: t("REPORT_PRINT_TEMPLATE_BOOK", "Mẫu in sổ") },
+            { code: "DEFAULT_GRID", label: t("REPORT_PRINT_TEMPLATE_DEFAULT_GRID", "In mặc định") },
+          ]
+        : [
+            { code: "DEFAULT_GRID", label: t("REPORT_PRINT_TEMPLATE_DEFAULT_GRID", "In mặc định") },
+          ]) satisfies { code: ReportPrintTemplateCode; label: string }[],
+    [showBookPrintTemplate, t],
   )
 
   const abortPreviewRequest = useCallback(() => {
@@ -1216,23 +1225,6 @@ export default function JournalReportPage({
     ],
   )
 
-  const previousCostListShowDetailRowsRef = useRef<boolean | null>(null)
-  useEffect(() => {
-    if (!costListToolbarOptions) {
-      return
-    }
-
-    const previousShowDetailRows = previousCostListShowDetailRowsRef.current
-    previousCostListShowDetailRowsRef.current = showDetailRows
-
-    // Preview updates can recreate loadPreview without changing the detail option.
-    if (previousShowDetailRows === null || previousShowDetailRows === showDetailRows) {
-      return
-    }
-
-    void loadPreview({ showValidationMessage: false, trigger: "cost-list-detail" })
-  }, [costListToolbarOptions, loadPreview, showDetailRows])
-
   const reportGridRef = useRef<ReportDataGridHandle | null>(null)
   const reportTreeRef = useRef<ReportTreeListHandle | null>(null)
   const voucherEditorHostRef = useRef<ReportVoucherEditorHostHandle | null>(null)
@@ -1259,22 +1251,8 @@ export default function JournalReportPage({
     [appliedReportOptionCode, effectiveReportOptionGroupCode, reportCode, reportOptions],
   )
 
-  const handleByQuarterChange = useCallback(
-    (enabled: boolean) => {
-      setByQuarter(enabled)
-      if (!enabled) {
-        return
-      }
-
-      const quarterRange = createCurrentQuarterDateRange(new Date())
-      setFromDate(quarterRange.fromDate)
-      setToDate(quarterRange.toDate)
-    },
-    [],
-  )
-
   const formulaOptionsEnabled = useMemo(
-    () => ["GL_CASHFLOW_B03DN_TT", "GL_CASHFLOW_B03DN_GT", "B03_DN_TT", "B03_DN_GT", "GL_BALANCE_SHEET_B01DN", "B01_DN", "GL_PROFIT_LOSS_B02DN", "GL_PROFIT_LOSS_B02DNTT", "B02_DN", "GL_COST_LIST", "GL_BOOK_AR_INVOICE", "COST_LIST", "TAX_VAT_DECLARATION", "GTGT_01"].includes(
+    () => ["GL_CASHFLOW_B03DN_TT", "GL_CASHFLOW_B03DN_GT", "B03_DN_TT", "B03_DN_GT", "GL_BALANCE_SHEET_B01DN", "B01_DN", "GL_PROFIT_LOSS_B02DN", "GL_PROFIT_LOSS_B02DNTT", "B02_DN", "GL_COST_LIST", "COST_LIST", "TAX_VAT_DECLARATION", "GTGT_01"].includes(
       effectiveDashboardReportCode.trim().toUpperCase(),
     ),
     [effectiveDashboardReportCode],
@@ -1542,16 +1520,20 @@ export default function JournalReportPage({
         return
       }
 
+      const printTemplate: ReportPrintTemplateCode = showBookPrintTemplate
+        ? selectedPrintTemplate
+        : "DEFAULT_GRID"
+
       setExportPopupVisible(false)
       setExportLanguage(selectedReportLanguage)
-      setExportPrintTemplate(selectedPrintTemplate)
+      setExportPrintTemplate(printTemplate)
 
-      const targetUrl = buildReportViewerPageUrl(buildReportPrintParams(reportParams, selectedPrintTemplate))
+      const targetUrl = buildReportViewerPageUrl(buildReportPrintParams(reportParams, printTemplate))
       if (!openReportViewerPage(targetUrl, t(titleKey, titleFallback))) {
         notify(t("UNABLE_TO_OPEN_REPORT_VIEWER", "Không mở được trình xem báo cáo"), "error", 3000)
       }
     },
-    [buildReportParams, t, titleFallback, titleKey, validateFilter],
+    [buildReportParams, showBookPrintTemplate, t, titleFallback, titleKey, validateFilter],
   )
 
   useEffect(() => {
@@ -1620,8 +1602,6 @@ export default function JournalReportPage({
               onToDateChange={useUseStartYmdFilter ? undefined : setToDate}
               onUseStartYmdChange={useUseStartYmdFilter ? setUseStartYmd : undefined}
               costListOptionsVisible={costListToolbarOptions}
-              byQuarter={byQuarter}
-              onByQuarterChange={costListToolbarOptions ? handleByQuarterChange : undefined}
               showDetailRows={showDetailRows}
               onShowDetailRowsChange={costListToolbarOptions ? setShowDetailRows : undefined}
               arInvoiceOptionsVisible={arInvoiceToolbarOptions}
@@ -1715,12 +1695,12 @@ export default function JournalReportPage({
               accountLookupStore={accountLookupStore}
               accountLookupSingleSelect={accountLookupSingleSelect}
               defaultLanguage={exportLanguage}
-              defaultPrintTemplate={exportPrintTemplate}
+              defaultPrintTemplate={showBookPrintTemplate ? exportPrintTemplate : "DEFAULT_GRID"}
               onHide={closeExportPopup}
               onConfirm={handleExportPdf}
               description={t(titleKey, titleFallback)}
               printTemplateOptions={printTemplateOptions}
-              printTemplateLookupVisible={true}
+              printTemplateLookupVisible={showBookPrintTemplate}
               onPrintTemplateChange={setExportPrintTemplate}
               reportOption={selectedReportOptionCode}
               reportOptions={toolbarReportOptions}

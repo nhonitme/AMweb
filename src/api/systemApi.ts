@@ -162,6 +162,8 @@ export enum EtcType {
   cbxDebtClearingReceivableAccount = 15,
   /** Bù trừ công nợ: công nợ phải trả 331*. */
   cbxDebtClearingPayableAccount = 16,
+  /** Chi tiết công nợ theo hóa đơn — TK 131* / 132* / 331* (cha + con). */
+  cbxArInvoiceBookAccount = 17,
 }
 
 export async function getEtcData(

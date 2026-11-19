@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { DxReportViewer, type DxReportViewerRef, RequestOptions } from "devexpress-reporting-react/dx-report-viewer"
 import Callbacks from "devexpress-reporting-react/dx-report-viewer/options/Callbacks"
+import { PreviewElements } from "devexpress-reporting/viewer/constants"
 import "@devexpress/analytics-core/dist/css/dx-analytics.common.css"
 import "@devexpress/analytics-core/dist/css/dx-analytics.light.css"
 import "devexpress-reporting/dist/css/dx-webdocumentviewer.css"
 
 import { getChits } from "@/api/voucherApi"
-import type { CompanySignatureInfo } from "@/types/companySignatureInfo"
 import {
   buildConfiguredReportUrl,
   configureReportViewerRequests,
@@ -19,36 +19,23 @@ import "./companySignatureDemo.css"
 type TranslateFn = (key: string, fallback?: string) => string
 
 type CompanySignatureDemoPreviewProps = {
-  signatures: CompanySignatureInfo[]
+  previewToken: number
   t: TranslateFn
   language?: string
+}
+
+type CustomizeElementsPayload = {
+  args?: {
+    Elements?: Array<{ id?: string; templateName?: string }>
+  }
 }
 
 const DEMO_REPORT_CODE = "RECEIPT_VOUCHER"
 
 configureReportViewerRequests()
 
-function buildSignaturesRevision(signatures: CompanySignatureInfo[]): string {
-  return signatures
-    .map(
-      (row) =>
-        [
-          row.ID,
-          row.SIGN_CODE,
-          row.DISPLAY_LABEL,
-          row.SIGN_NAME,
-          row.SIGN_TITLE,
-          row.SIGN_IMAGE_URL,
-          row.SORT_ORDER,
-          row.IS_ACTIVE ? 1 : 0,
-          row.ISDEL ? 1 : 0,
-        ].join(":"),
-    )
-    .join("|")
-}
-
 export default function CompanySignatureDemoPreview({
-  signatures,
+  previewToken,
   t,
   language,
 }: CompanySignatureDemoPreviewProps) {
@@ -56,10 +43,8 @@ export default function CompanySignatureDemoPreview({
   const [chitId, setChitId] = useState(0)
   const [loadingSample, setLoadingSample] = useState(true)
   const [sampleError, setSampleError] = useState("")
-  const [viewerRevision, setViewerRevision] = useState(0)
 
   const reportLanguage = useMemo(() => normalizeReportLanguage(language), [language])
-  const signaturesRevision = useMemo(() => buildSignaturesRevision(signatures), [signatures])
 
   useEffect(() => {
     let cancelled = false
@@ -110,19 +95,6 @@ export default function CompanySignatureDemoPreview({
     }
   }, [t])
 
-  // Remount real report after signature edits settle (avoid reload on every keystroke).
-  useEffect(() => {
-    if (chitId <= 0) {
-      return
-    }
-
-    const timerId = window.setTimeout(() => {
-      setViewerRevision((current) => current + 1)
-    }, 700)
-
-    return () => window.clearTimeout(timerId)
-  }, [chitId, signaturesRevision])
-
   const reportUrl = useMemo(() => {
     if (chitId <= 0) {
       return ""
@@ -158,6 +130,21 @@ export default function CompanySignatureDemoPreview({
     setPreviewOptions()
   }, [setPreviewOptions])
 
+  const handleCustomizeElements = useCallback(({ args }: CustomizeElementsPayload) => {
+    const elements = args?.Elements
+    if (!Array.isArray(elements)) {
+      return
+    }
+
+    for (let index = elements.length - 1; index >= 0; index -= 1) {
+      const element = elements[index]
+      const id = element?.id ?? element?.templateName
+      if (id === PreviewElements.Toolbar || id === PreviewElements.RightPanel) {
+        elements.splice(index, 1)
+      }
+    }
+  }, [])
+
   useEffect(() => {
     if (!reportUrl) {
       return
@@ -165,7 +152,7 @@ export default function CompanySignatureDemoPreview({
 
     const timer = window.setTimeout(() => setPreviewOptions(), 120)
     return () => window.clearTimeout(timer)
-  }, [reportUrl, setPreviewOptions, viewerRevision])
+  }, [reportUrl, setPreviewOptions, previewToken])
 
   if (loadingSample) {
     return (
@@ -198,7 +185,7 @@ export default function CompanySignatureDemoPreview({
     )
   }
 
-  const viewerKey = `${reportUrl}::${viewerRevision}`
+  const viewerKey = `${reportUrl}::${previewToken}`
 
   return (
     <div className="company-signature-demo">
@@ -211,7 +198,10 @@ export default function CompanySignatureDemoPreview({
           height="100%"
         >
           <RequestOptions host={getReportViewerHost()} invokeAction="DXXRDV" />
-          <Callbacks DocumentReady={handleDocumentReady} />
+          <Callbacks
+            CustomizeElements={handleCustomizeElements}
+            DocumentReady={handleDocumentReady}
+          />
         </DxReportViewer>
       </div>
     </div>

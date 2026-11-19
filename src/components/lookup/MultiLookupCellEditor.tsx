@@ -3,7 +3,14 @@ import TagBox from "devextreme-react/tag-box"
 
 import type { LookupDataSource, LookupGridColumn } from "./BaseLookupCellEditor"
 
+import "./MultiLookupCellEditor.scss"
+
 const TOOLBAR_TAGBOX_HEIGHT = 30
+const DISPLAY_CAP = 100
+const SEARCH_DEBOUNCE_MS = 250
+const DROPDOWN_SEARCH_HOST_CLASS = "multi-lookup-dropdown-search"
+const DROPDOWN_SEARCH_INPUT_CLASS = "multi-lookup-dropdown-search__input"
+const DROPDOWN_SEARCH_META_CLASS = "multi-lookup-dropdown-search__meta"
 
 type MultiLookupCellEditorProps<T extends object> = {
   dataSource: LookupDataSource
@@ -15,6 +22,9 @@ type MultiLookupCellEditorProps<T extends object> = {
   placeholder?: string
   buttonHint?: string
   searchExpr?: string[]
+  searchPlaceholder?: string
+  selectAllText?: string
+  showingCountLabel?: (visible: number, filtered: number) => string
   noDataText?: string
   onApply: (values: string[]) => void
   onClear?: () => void
@@ -33,6 +43,10 @@ type MultiLookupCellEditorProps<T extends object> = {
 
 type LoadableLookupSource = {
   load: (options?: unknown) => Promise<unknown>
+}
+
+type TagBoxComponentLike = {
+  content?: () => Element | undefined
 }
 
 function isLoadableSource(source: unknown): source is LoadableLookupSource {
@@ -95,6 +109,73 @@ function limitSelectedValues(
   return nextValues.slice(-maxSelection)
 }
 
+function resolvePopupContent(component: TagBoxComponentLike | null | undefined): HTMLElement | null {
+  const content = component?.content?.()
+  if (!(content instanceof HTMLElement)) {
+    return null
+  }
+
+  const popupContent = content.closest(".dx-popup-content")
+  return popupContent instanceof HTMLElement ? popupContent : content
+}
+
+function buildVisibleItems<T extends object>(
+  filteredItems: readonly T[],
+  cap: number,
+): T[] {
+  // Keep filter order stable while ticking — do not move selected rows to the top.
+  if (filteredItems.length <= cap) {
+    return filteredItems as T[]
+  }
+
+  return filteredItems.slice(0, cap) as T[]
+}
+
+function getItemParts<T extends object>(
+  item: T,
+  columns: LookupGridColumn<T>[],
+  valueExpr: string,
+): { code: string; name: string } {
+  const codeRaw = getRecordValue(item, valueExpr)
+  const code = codeRaw == null ? "" : String(codeRaw).trim()
+  const name = columns
+    .filter((column) => column.dataField !== valueExpr)
+    .map((column) => {
+      if (typeof column.calculateCellValue === "function") {
+        const calculated = column.calculateCellValue(item)
+        return calculated == null ? "" : String(calculated)
+      }
+      const raw = getRecordValue(item, column.dataField)
+      return raw == null ? "" : String(raw)
+    })
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .join(" · ")
+
+  if (code && name) {
+    return { code, name }
+  }
+
+  const fallback = getItemLabel(item, columns)
+  return { code: code || fallback, name }
+}
+
+function formatShowingMeta(
+  visible: number,
+  filtered: number,
+  showingCountLabel?: (visible: number, filtered: number) => string,
+): string {
+  if (showingCountLabel) {
+    return showingCountLabel(visible, filtered)
+  }
+
+  if (filtered <= visible) {
+    return `${filtered} items`
+  }
+
+  return `Showing ${visible} / ${filtered}`
+}
+
 export default function MultiLookupCellEditor<T extends object>({
   dataSource,
   values,
@@ -105,13 +186,16 @@ export default function MultiLookupCellEditor<T extends object>({
   placeholder = "",
   buttonHint = "Open lookup",
   searchExpr,
+  searchPlaceholder = "Search",
+  selectAllText = "Select All",
+  showingCountLabel,
   noDataText = "No matching data",
   onApply,
   onClear,
   width,
   height,
-  dropdownWidth = 360,
-  dropdownHeight = 360,
+  dropdownWidth = 480,
+  dropdownHeight = 400,
   className,
   variant = "default",
   selectedCountLabel,
@@ -124,12 +208,23 @@ export default function MultiLookupCellEditor<T extends object>({
   const [searchText, setSearchText] = useState("")
   const [selectedValues, setSelectedValues] = useState<string[]>(values)
   const selectedValuesRef = useRef(values)
+  const searchTextRef = useRef(searchText)
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
+  const searchMetaRef = useRef<HTMLElement | null>(null)
+  const searchPlaceholderRef = useRef(searchPlaceholder)
+  const showingCountLabelRef = useRef(showingCountLabel)
+  const searchDebounceRef = useRef<number | null>(null)
+  const filteredIdsRef = useRef<string[]>([])
+  const visibleIdsRef = useRef<string[]>([])
   // Keep DevExtreme onValueChanged stable while the parent persists filters.
   // Recreating this handler on each checkbox click causes TagBox to rebind.
   const onApplyRef = useRef(onApply)
   const onClearRef = useRef(onClear)
   onApplyRef.current = onApply
   onClearRef.current = onClear
+  searchTextRef.current = searchText
+  searchPlaceholderRef.current = searchPlaceholder
+  showingCountLabelRef.current = showingCountLabel
   const allOptionValue = allOption?.value
   const allOptionText = allOption?.text ?? ""
   const columnsRef = useRef(columns)
@@ -195,6 +290,14 @@ export default function MultiLookupCellEditor<T extends object>({
     }
   }, [dataSource])
 
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current != null) {
+        window.clearTimeout(searchDebounceRef.current)
+      }
+    }
+  }, [])
+
   const filteredItems = useMemo(
     () => {
       if (!searchText) {
@@ -212,45 +315,40 @@ export default function MultiLookupCellEditor<T extends object>({
     [items, resolvedSearchFields, searchText],
   )
 
+  const visibleItems = useMemo(
+    () => buildVisibleItems(filteredItems, DISPLAY_CAP),
+    [filteredItems],
+  )
+
+  filteredIdsRef.current = filteredItems.map((item) => String(getRecordValue(item, valueExpr) ?? ""))
+  visibleIdsRef.current = visibleItems.map((item) => String(getRecordValue(item, valueExpr) ?? ""))
+
   // Keep the persisted/API values empty for "All", but display it as a
   // selected option so the currency filter does not appear uninitialized.
   const displayItems = useMemo(
     () => allOptionValue
-      ? [{ [valueExpr]: allOptionValue } as unknown as T, ...filteredItems]
-      : filteredItems,
-    [allOptionValue, filteredItems, valueExpr],
+      ? [{ [valueExpr]: allOptionValue } as unknown as T, ...visibleItems]
+      : visibleItems,
+    [allOptionValue, valueExpr, visibleItems],
   )
   const displayValues = useMemo(
     () => allOptionValue && selectedValues.length === 0 ? [allOptionValue] : selectedValues,
     [allOptionValue, selectedValues],
   )
 
-  const handleValueChanged = useCallback(
-    (event: { value?: unknown }) => {
-      const rawValues = normalizeSelectedValues(event.value)
-      // "All" is a display-only sentinel. Never pass it to the API's fcType filter.
-      // Selecting a real currency replaces "All"; selecting "All" clears a
-      // previously selected currency filter.
-      const valuesWithoutAll = allOptionValue
-        ? rawValues.filter((value) => value !== allOptionValue)
-        : rawValues
-      const normalizedValues = allOptionValue && rawValues.includes(allOptionValue)
-        && selectedValuesRef.current.length > 0
-        ? []
-        : valuesWithoutAll
-      const nextValues = limitSelectedValues(
-        normalizedValues,
-        selectedValuesRef.current,
-        maxSelection,
+  useEffect(() => {
+    if (searchMetaRef.current) {
+      searchMetaRef.current.textContent = formatShowingMeta(
+        visibleItems.length,
+        filteredItems.length,
+        showingCountLabel,
       )
+    }
+  }, [filteredItems.length, showingCountLabel, visibleItems.length])
 
+  const commitValues = useCallback(
+    (nextValues: string[]) => {
       if (areStringArraysEqual(nextValues, selectedValuesRef.current)) {
-        return
-      }
-
-      // TagBox can emit an empty value while the lookup store is still loading;
-      // keep the controlled selection so defaults like VND are not wiped.
-      if (nextValues.length === 0 && selectedValuesRef.current.length > 0 && items.length === 0) {
         return
       }
 
@@ -273,11 +371,173 @@ export default function MultiLookupCellEditor<T extends object>({
         onApplyRef.current(nextValues)
       })
     },
-    [allOptionValue, items.length, maxSelection],
+    [],
   )
 
-  const handleSearchChange = useCallback((event: { value?: unknown }) => {
-    setSearchText(String(event.value ?? ""))
+  const handleValueChanged = useCallback(
+    (event: { value?: unknown }) => {
+      const rawValues = normalizeSelectedValues(event.value)
+      // "All" is a display-only sentinel. Never pass it to the API's fcType filter.
+      // Selecting a real currency replaces "All"; selecting "All" clears a
+      // previously selected currency filter.
+      const valuesWithoutAll = allOptionValue
+        ? rawValues.filter((value) => value !== allOptionValue)
+        : rawValues
+      const normalizedValues = allOptionValue && rawValues.includes(allOptionValue)
+        && selectedValuesRef.current.length > 0
+        ? []
+        : valuesWithoutAll
+
+      const previousValues = selectedValuesRef.current
+      const visibleIds = visibleIdsRef.current
+      const filteredIds = filteredIdsRef.current
+      const filteredIdSet = new Set(filteredIds)
+      const visibleIdSet = new Set(visibleIds)
+
+      let resolvedValues = normalizedValues
+
+      if (!maxSelection || maxSelection > 1) {
+        const prevHadAllVisible =
+          visibleIds.length > 0 && visibleIds.every((id) => previousValues.includes(id))
+        const nextHasAllVisible =
+          visibleIds.length > 0 && visibleIds.every((id) => normalizedValues.includes(id))
+        const nextHasNoVisible =
+          visibleIds.length > 0 && visibleIds.every((id) => !normalizedValues.includes(id))
+
+        // Native Select All only sees the capped list — expand to the full filter set.
+        if (nextHasAllVisible && !prevHadAllVisible && filteredIds.length > visibleIds.length) {
+          const outsideFilter = previousValues.filter((id) => !filteredIdSet.has(id))
+          resolvedValues = [...outsideFilter, ...filteredIds]
+        } else if (prevHadAllVisible && nextHasNoVisible && filteredIds.length > 0) {
+          // Native uncheck Select All — drop every id in the current filter.
+          resolvedValues = previousValues.filter((id) => !filteredIdSet.has(id))
+        } else if (filteredIds.length > visibleIds.length) {
+          // Keep selected ids that are filtered but outside the capped visible page.
+          const retainedHidden = previousValues.filter(
+            (id) => filteredIdSet.has(id) && !visibleIdSet.has(id),
+          )
+          if (retainedHidden.length > 0) {
+            const merged = new Set([...normalizedValues, ...retainedHidden])
+            resolvedValues = [...merged]
+          }
+        }
+      }
+
+      const nextValues = limitSelectedValues(
+        resolvedValues,
+        previousValues,
+        maxSelection,
+      )
+
+      // TagBox can emit an empty value while the lookup store is still loading;
+      // keep the controlled selection so defaults like VND are not wiped.
+      if (nextValues.length === 0 && previousValues.length > 0 && items.length === 0) {
+        return
+      }
+
+      commitValues(nextValues)
+    },
+    [allOptionValue, commitValues, items.length, maxSelection],
+  )
+
+  const ensureDropdownSearch = useCallback((content: HTMLElement) => {
+    let host = content.querySelector(`.${DROPDOWN_SEARCH_HOST_CLASS}`) as HTMLElement | null
+    if (!host) {
+      host = document.createElement("div")
+      host.className = DROPDOWN_SEARCH_HOST_CLASS
+
+      const input = document.createElement("input")
+      input.type = "search"
+      input.className = DROPDOWN_SEARCH_INPUT_CLASS
+      input.autocomplete = "off"
+      input.spellcheck = false
+      input.addEventListener("mousedown", (event) => {
+        event.stopPropagation()
+      })
+      input.addEventListener("click", (event) => {
+        event.stopPropagation()
+      })
+      input.addEventListener("keydown", (event) => {
+        event.stopPropagation()
+      })
+      input.addEventListener("input", () => {
+        if (searchDebounceRef.current != null) {
+          window.clearTimeout(searchDebounceRef.current)
+        }
+        searchDebounceRef.current = window.setTimeout(() => {
+          setSearchText(input.value)
+        }, SEARCH_DEBOUNCE_MS)
+      })
+
+      const meta = document.createElement("div")
+      meta.className = DROPDOWN_SEARCH_META_CLASS
+      meta.textContent = formatShowingMeta(
+        visibleIdsRef.current.length,
+        filteredIdsRef.current.length,
+        showingCountLabelRef.current,
+      )
+
+      host.appendChild(input)
+      host.appendChild(meta)
+      content.insertBefore(host, content.firstChild)
+      searchInputRef.current = input
+      searchMetaRef.current = meta
+    }
+
+    const input = host.querySelector(`.${DROPDOWN_SEARCH_INPUT_CLASS}`) as HTMLInputElement | null
+    const meta = host.querySelector(`.${DROPDOWN_SEARCH_META_CLASS}`) as HTMLElement | null
+    if (!input) {
+      return
+    }
+
+    searchInputRef.current = input
+    searchMetaRef.current = meta
+    input.placeholder = searchPlaceholderRef.current
+    if (meta) {
+      meta.textContent = formatShowingMeta(
+        visibleIdsRef.current.length,
+        filteredIdsRef.current.length,
+        showingCountLabelRef.current,
+      )
+    }
+    // Do not overwrite while the user is typing ahead of the debounced filter.
+    if (document.activeElement !== input && input.value !== searchTextRef.current) {
+      input.value = searchTextRef.current
+    }
+  }, [])
+
+  const focusDropdownSearch = useCallback(() => {
+    requestAnimationFrame(() => {
+      const input = searchInputRef.current
+      if (!input) {
+        return
+      }
+      input.focus()
+      input.select()
+    })
+  }, [])
+
+  const handleOpened = useCallback(
+    (event: { component?: TagBoxComponentLike }) => {
+      const content = resolvePopupContent(event.component ?? null)
+      if (!content) {
+        return
+      }
+      ensureDropdownSearch(content)
+      focusDropdownSearch()
+    },
+    [ensureDropdownSearch, focusDropdownSearch],
+  )
+
+  const handleClosed = useCallback(() => {
+    if (searchDebounceRef.current != null) {
+      window.clearTimeout(searchDebounceRef.current)
+      searchDebounceRef.current = null
+    }
+    setSearchText("")
+    if (searchInputRef.current) {
+      searchInputRef.current.value = ""
+    }
   }, [])
 
   const displayExpr = useCallback((item: T | null) => {
@@ -288,13 +548,41 @@ export default function MultiLookupCellEditor<T extends object>({
     return getItemLabel(item, columnsRef.current)
   }, [allOptionText, allOptionValue, valueExpr])
 
+  const itemRender = useCallback(
+    (item: T) => {
+      if (!item) {
+        return null
+      }
+      if (allOptionValue && String(getRecordValue(item, valueExpr) ?? "") === allOptionValue) {
+        return <span className="multi-lookup-item__text">{allOptionText}</span>
+      }
+
+      const parts = getItemParts(item, columnsRef.current, valueExpr)
+      const text = parts.name ? `${parts.code} - ${parts.name}` : parts.code
+      return (
+        <span className="multi-lookup-item__text" title={text}>
+          <span className="multi-lookup-item__code">{parts.code}</span>
+          {parts.name ? <span className="multi-lookup-item__name"> - {parts.name}</span> : null}
+        </span>
+      )
+    },
+    [allOptionText, allOptionValue, valueExpr],
+  )
+
   const dropDownOptions = useMemo(
     () => ({
       closeOnOutsideClick: true,
       width: dropdownWidth,
       height: dropdownHeight,
+      wrapperAttr: { class: "multi-lookup-dropdown" },
+      onContentReady: (event: { component?: { content?: () => Element | undefined } }) => {
+        const mount = resolvePopupContent(event.component ?? null)
+        if (mount) {
+          ensureDropdownSearch(mount)
+        }
+      },
     }),
-    [dropdownHeight, dropdownWidth],
+    [dropdownHeight, dropdownWidth, ensureDropdownSearch],
   )
 
   const tagBoxHeight = isToolbarVariant
@@ -390,11 +678,11 @@ export default function MultiLookupCellEditor<T extends object>({
       value={displayValues}
       valueExpr={valueExpr}
       displayExpr={displayExpr}
-      searchExpr={resolvedSearchFields}
-      searchEnabled={true}
+      searchEnabled={false}
       showSelectionControls={!isSingleSelection}
       showDropDownButton={true}
       selectAllMode={isSingleSelection ? undefined : "allPages"}
+      selectAllText={selectAllText}
       applyValueMode="instantly"
       dropDownOptions={dropDownOptions}
       showClearButton={selectedValues.length > 0}
@@ -403,8 +691,10 @@ export default function MultiLookupCellEditor<T extends object>({
       placeholder={resolvedPlaceholder}
       hint={buttonHint}
       stylingMode="outlined"
+      itemRender={itemRender}
       onValueChanged={handleValueChanged}
-      onSearchValueChanged={handleSearchChange}
+      onOpened={handleOpened}
+      onClosed={handleClosed}
       width={width}
       height={height ?? tagBoxHeight}
       noDataText={noDataText}

@@ -20,6 +20,7 @@ interface CompanySignatureSectionProps {
 
 export default function CompanySignatureSection({ companyCd }: CompanySignatureSectionProps) {
   const [rows, setRows] = useState<CompanySignatureInfo[]>([])
+  const [previewToken, setPreviewToken] = useState(0)
 
   const {
     data: signatureResponse,
@@ -48,10 +49,15 @@ export default function CompanySignatureSection({ companyCd }: CompanySignatureS
     setRows(normalizeCompanySignatureRows(signatureResponse?.data || []))
   }, [signatureResponse])
 
+  const refreshPreview = useCallback(() => {
+    setPreviewToken((current) => current + 1)
+  }, [])
+
   const handleReload = useCallback(async () => {
     await invalidateSignatures()
     await refetchSignatures()
-  }, [invalidateSignatures, refetchSignatures])
+    refreshPreview()
+  }, [invalidateSignatures, refetchSignatures, refreshPreview])
 
   return (
     <div className="company-signature-workspace">
@@ -61,6 +67,7 @@ export default function CompanySignatureSection({ companyCd }: CompanySignatureS
           rows={rows}
           onRowsChange={setRows}
           onReload={handleReload}
+          onPreviewRefresh={refreshPreview}
           t={t}
         />
         <LoadPanel
@@ -73,7 +80,7 @@ export default function CompanySignatureSection({ companyCd }: CompanySignatureS
       </div>
 
       <div className="company-signature-workspace__preview">
-        <CompanySignatureDemoPreview signatures={rows} t={t} language={lang} />
+        <CompanySignatureDemoPreview previewToken={previewToken} t={t} language={lang} />
       </div>
     </div>
   )

@@ -13,6 +13,35 @@ const SESSION_STORAGE_KEY = "amnote_auth_session";
 const SESSION_RESTORE_HINT_KEY = "amnote_auth_restore_hint";
 export const AUTH_SESSION_CHANGED_EVENT = "amnote:session-changed";
 
+function companyExistsInSession(session: AuthSession, companyCd: string): boolean {
+  const normalized = companyCd.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return session.companies.some(
+    (company) => company.COMPANY_CD.trim().toLowerCase() === normalized,
+  );
+}
+
+/** Keep the in-app selected company when /auth/session or refresh returns DEFAULT_YN. */
+function preserveStickyDefaultCompany(session: AuthSession): AuthSession {
+  const previousDefault = sessionCache?.defaultCompanyCd?.trim() ?? "";
+  const serverDefault = session.defaultCompanyCd?.trim() ?? "";
+  if (
+    !previousDefault
+    || !companyExistsInSession(session, previousDefault)
+    || previousDefault.toLowerCase() === serverDefault.toLowerCase()
+  ) {
+    return session;
+  }
+
+  return {
+    ...session,
+    defaultCompanyCd: previousDefault,
+  };
+}
+
 interface AuthEnvelope<T> {
   Data?: T;
   Message?: string;
@@ -133,12 +162,19 @@ function setRestoreHint(enabled: boolean) {
   localStorage.removeItem(SESSION_RESTORE_HINT_KEY);
 }
 
-function setSessionCache(session: AuthSession | null) {
+function setSessionCache(
+  session: AuthSession | null,
+  options?: { preserveStickyDefault?: boolean },
+) {
   sessionRevision += 1;
   const previousIdentity = sessionCache
     ? `${sessionCache.userPkId}:${sessionCache.userId}`
     : "";
-  sessionCache = session?.isAuthenticated ? session : null;
+  const authenticated = session?.isAuthenticated ? session : null;
+  const nextSession = authenticated && options?.preserveStickyDefault
+    ? preserveStickyDefaultCompany(authenticated)
+    : authenticated;
+  sessionCache = nextSession;
   sessionResolved = true;
 
   const nextIdentity = sessionCache
@@ -279,8 +315,11 @@ async function requestSession(): Promise<AuthSession | null> {
     const response = await authHttp.get<AuthEnvelope<AuthSessionPayload> | AuthSessionPayload>("/auth/session");
     if (revision !== sessionRevision) return sessionCache;
     const session = toSession(response.data);
-    if (session) setSessionCache(session);
-    return session;
+    if (!session) {
+      return null;
+    }
+    setSessionCache(session, { preserveStickyDefault: true });
+    return sessionCache;
   } catch {
     return null;
   }
@@ -328,7 +367,7 @@ async function performRefresh(): Promise<boolean> {
     if (revision !== sessionRevision) return Boolean(sessionCache);
     const session = toSession(response.data);
     if (!session) { expireAuthSession(); return false; }
-    setSessionCache(session);
+    setSessionCache(session, { preserveStickyDefault: true });
     return true;
   } catch (error) {
     if (isMobileDeviceError(error)) return false;
@@ -448,6 +487,15 @@ export function getCompanyCdFromPathname(pathname: string): string {
   return match ? decodeURIComponent(match[1]).trim() : "";
 }
 
+export function stripCompanyPath(pathname: string): string {
+  const match = /^\/app\/[^/]+/i.exec(pathname);
+  if (!match) {
+    return pathname || "/";
+  }
+
+  return pathname.slice(match[0].length) || "/";
+}
+
 export function resolveDefaultCompanyCd(session: AuthSession | null = sessionCache): string {
   if (!session?.isAuthenticated) {
     return "";
@@ -470,4 +518,9 @@ export function buildAppPath(companyCd: string, path = "/"): string {
   }
 
   return `/app/${encodeURIComponent(normalizedCompanyCd)}${normalizedPath}`;
+}
+
+/** Keep path/search/hash shape; only swap the `/app/{company}` segment. */
+export function rebaseAppPathToCompany(pathname: string, companyCd: string): string {
+  return buildAppPath(companyCd, stripCompanyPath(pathname));
 }
