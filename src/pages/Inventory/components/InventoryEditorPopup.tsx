@@ -34,6 +34,7 @@ import { type GridColumnSettingState } from "@/components/datagrid/useGridColumn
 import { AccountingFreeDetailLookup } from "@/components/lookup"
 import { LookupPopupProvider } from "@/components/lookup/LookupPopupHost"
 import { disableBuiltInPopupEscape, usePopupEscapeLayer } from "@/components/popup/popupEscapeStack"
+import { raiseOpenedPopupAboveSiblings } from "@/components/popup/raiseOverlayZIndex"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { useDecimalColumnFormats } from "@/hooks/useDecimalColumnFormats"
 import { isForeignCurrencyCode } from "@/lib/currency"
@@ -1202,9 +1203,10 @@ export default function InventoryEditorPopup({
   return (
     <Popup
       visible={visible}
+      onShowing={(event) => { raiseOpenedPopupAboveSiblings(event.component) }}
       onShown={(event) => {
         disableBuiltInPopupEscape(event.component)
-
+        raiseOpenedPopupAboveSiblings(event.component)
       }}
       title={popupTitle}
       showTitle
@@ -1212,7 +1214,7 @@ export default function InventoryEditorPopup({
       dragEnabled={false}
       resizeEnabled={false}
       deferRendering={false}
-      hideOnOutsideClick={!loading}
+      hideOnOutsideClick={false}
       width="100vw"
       height="100vh"
       maxWidth="100vw"

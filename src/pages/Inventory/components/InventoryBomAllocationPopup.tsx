@@ -15,7 +15,7 @@ import { getApiErrorMessage } from "@/api/apiTypes"
 import { AMButton } from "@/components/amnote/ui"
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
 import { getLookupOverlayContainer } from "@/components/lookup/lookupHelpers"
-import { raiseOverlayAboveSiblings } from "@/components/popup/raiseOverlayZIndex"
+import { raiseOverlayAboveSiblings, raiseOpenedPopupAboveSiblings } from "@/components/popup/raiseOverlayZIndex"
 import { disableBuiltInPopupEscape, usePopupEscapeLayer } from "@/components/popup/popupEscapeStack"
 import "@/components/toolbar/EditorActionToolbar.scss"
 import { useDecimalColumnFormats } from "@/hooks/useDecimalColumnFormats"
@@ -442,8 +442,10 @@ export default function InventoryBomAllocationPopup({
   return (
     <Popup
       visible={visible}
+      onShowing={(event) => { raiseOpenedPopupAboveSiblings(event.component) }}
       onShown={(event) => {
         disableBuiltInPopupEscape(event.component)
+        raiseOpenedPopupAboveSiblings(event.component)
       }}
       title={t("BOM_ALLOCATION_TITLE", "Phân bổ nguyên vật liệu theo thành phẩm")}
       showTitle
