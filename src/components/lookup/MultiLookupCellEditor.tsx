@@ -37,8 +37,8 @@ type MultiLookupCellEditorProps<T extends object> = {
   selectedCountLabel?: (count: number) => string
   toolbarSingleTagDisplayExpr?: (item: T) => string
   maxSelection?: number
-  /** Optional synthetic "all" choice; empty filter values still mean no restriction. */
   allOption?: { value: string; text: string }
+  commitAllValue?: string
 }
 
 type LoadableLookupSource = {
@@ -202,6 +202,7 @@ export default function MultiLookupCellEditor<T extends object>({
   toolbarSingleTagDisplayExpr,
   maxSelection,
   allOption,
+  commitAllValue,
 }: MultiLookupCellEditorProps<T>) {
   const isToolbarVariant = variant === "toolbar"
   const [items, setItems] = useState<T[]>([])
@@ -227,8 +228,24 @@ export default function MultiLookupCellEditor<T extends object>({
   showingCountLabelRef.current = showingCountLabel
   const allOptionValue = allOption?.value
   const allOptionText = allOption?.text ?? ""
+  const resolvedCommitAllValue = commitAllValue?.trim() || undefined
   const columnsRef = useRef(columns)
   columnsRef.current = columns
+
+  const isCommitAllSelection = useCallback(
+    (candidate: readonly string[]) =>
+      Boolean(
+        resolvedCommitAllValue
+        && candidate.length === 1
+        && candidate[0].trim().toLowerCase() === resolvedCommitAllValue.toLowerCase(),
+      ),
+    [resolvedCommitAllValue],
+  )
+
+  const itemIds = useMemo(
+    () => items.map((item) => String(getRecordValue(item, valueExpr) ?? "")).filter(Boolean),
+    [items, valueExpr],
+  )
 
   const nextSearchFields = useMemo(() => {
     if (Array.isArray(searchExpr) && searchExpr.length > 0) {
@@ -323,8 +340,6 @@ export default function MultiLookupCellEditor<T extends object>({
   filteredIdsRef.current = filteredItems.map((item) => String(getRecordValue(item, valueExpr) ?? ""))
   visibleIdsRef.current = visibleItems.map((item) => String(getRecordValue(item, valueExpr) ?? ""))
 
-  // Keep the persisted/API values empty for "All", but display it as a
-  // selected option so the currency filter does not appear uninitialized.
   const displayItems = useMemo(
     () => allOptionValue
       ? [{ [valueExpr]: allOptionValue } as unknown as T, ...visibleItems]
@@ -332,8 +347,16 @@ export default function MultiLookupCellEditor<T extends object>({
     [allOptionValue, valueExpr, visibleItems],
   )
   const displayValues = useMemo(
-    () => allOptionValue && selectedValues.length === 0 ? [allOptionValue] : selectedValues,
-    [allOptionValue, selectedValues],
+    () => {
+      if (isCommitAllSelection(selectedValues)) {
+        return itemIds.length > 0 ? itemIds : selectedValues
+      }
+      if (allOptionValue && selectedValues.length === 0) {
+        return [allOptionValue]
+      }
+      return selectedValues
+    },
+    [allOptionValue, isCommitAllSelection, itemIds, selectedValues],
   )
 
   useEffect(() => {
@@ -348,7 +371,11 @@ export default function MultiLookupCellEditor<T extends object>({
 
   const commitValues = useCallback(
     (nextValues: string[]) => {
-      if (areStringArraysEqual(nextValues, selectedValuesRef.current)) {
+      const previous = selectedValuesRef.current
+      if (
+        areStringArraysEqual(nextValues, previous)
+        || (isCommitAllSelection(nextValues) && isCommitAllSelection(previous))
+      ) {
         return
       }
 
@@ -371,24 +398,27 @@ export default function MultiLookupCellEditor<T extends object>({
         onApplyRef.current(nextValues)
       })
     },
-    [],
+    [isCommitAllSelection],
   )
 
   const handleValueChanged = useCallback(
     (event: { value?: unknown }) => {
       const rawValues = normalizeSelectedValues(event.value)
-      // "All" is a display-only sentinel. Never pass it to the API's fcType filter.
-      // Selecting a real currency replaces "All"; selecting "All" clears a
-      // previously selected currency filter.
+      const previousValues = selectedValuesRef.current
+      const previousIsCommitAll = isCommitAllSelection(previousValues)
       const valuesWithoutAll = allOptionValue
         ? rawValues.filter((value) => value !== allOptionValue)
         : rawValues
-      const normalizedValues = allOptionValue && rawValues.includes(allOptionValue)
-        && selectedValuesRef.current.length > 0
-        ? []
-        : valuesWithoutAll
 
-      const previousValues = selectedValuesRef.current
+      let normalizedValues = valuesWithoutAll
+      if (allOptionValue && rawValues.includes(allOptionValue)) {
+        if (previousValues.length > 0 && !previousIsCommitAll) {
+          normalizedValues = []
+        } else if (resolvedCommitAllValue && valuesWithoutAll.length === 0) {
+          normalizedValues = [resolvedCommitAllValue]
+        }
+      }
+
       const visibleIds = visibleIdsRef.current
       const filteredIds = filteredIdsRef.current
       const filteredIdSet = new Set(filteredIds)
@@ -398,28 +428,56 @@ export default function MultiLookupCellEditor<T extends object>({
 
       if (!maxSelection || maxSelection > 1) {
         const prevHadAllVisible =
-          visibleIds.length > 0 && visibleIds.every((id) => previousValues.includes(id))
+          previousIsCommitAll
+          || (visibleIds.length > 0 && visibleIds.every((id) => previousValues.includes(id)))
         const nextHasAllVisible =
           visibleIds.length > 0 && visibleIds.every((id) => normalizedValues.includes(id))
         const nextHasNoVisible =
           visibleIds.length > 0 && visibleIds.every((id) => !normalizedValues.includes(id))
+        const isFullUnfiltered =
+          items.length > 0 && filteredIds.length === items.length && !searchTextRef.current.trim()
 
-        // Native Select All only sees the capped list — expand to the full filter set.
-        if (nextHasAllVisible && !prevHadAllVisible && filteredIds.length > visibleIds.length) {
-          const outsideFilter = previousValues.filter((id) => !filteredIdSet.has(id))
-          resolvedValues = [...outsideFilter, ...filteredIds]
+        if (nextHasAllVisible && !prevHadAllVisible) {
+          if (resolvedCommitAllValue && isFullUnfiltered) {
+            resolvedValues = [resolvedCommitAllValue]
+          } else if (filteredIds.length > visibleIds.length) {
+            const outsideFilter = previousValues.filter(
+              (id) => !filteredIdSet.has(id) && id !== resolvedCommitAllValue,
+            )
+            resolvedValues = [...outsideFilter, ...filteredIds]
+          }
         } else if (prevHadAllVisible && nextHasNoVisible && filteredIds.length > 0) {
-          // Native uncheck Select All — drop every id in the current filter.
-          resolvedValues = previousValues.filter((id) => !filteredIdSet.has(id))
+          resolvedValues = previousIsCommitAll
+            ? []
+            : previousValues.filter((id) => !filteredIdSet.has(id))
         } else if (filteredIds.length > visibleIds.length) {
-          // Keep selected ids that are filtered but outside the capped visible page.
           const retainedHidden = previousValues.filter(
-            (id) => filteredIdSet.has(id) && !visibleIdSet.has(id),
+            (id) => filteredIdSet.has(id) && !visibleIdSet.has(id) && id !== resolvedCommitAllValue,
           )
           if (retainedHidden.length > 0) {
-            const merged = new Set([...normalizedValues, ...retainedHidden])
-            resolvedValues = [...merged]
+            resolvedValues = [...new Set([...normalizedValues, ...retainedHidden])]
           }
+        }
+
+        if (
+          resolvedCommitAllValue
+          && isFullUnfiltered
+          && !isCommitAllSelection(resolvedValues)
+          && filteredIds.length > 0
+          && filteredIds.every((id) => resolvedValues.includes(id))
+        ) {
+          resolvedValues = [resolvedCommitAllValue]
+        }
+
+        if (
+          previousIsCommitAll
+          && resolvedCommitAllValue
+          && isFullUnfiltered
+          && filteredIds.length > 0
+          && filteredIds.every((id) => resolvedValues.includes(id))
+          && resolvedValues.length === filteredIds.length
+        ) {
+          resolvedValues = [resolvedCommitAllValue]
         }
       }
 
@@ -437,7 +495,14 @@ export default function MultiLookupCellEditor<T extends object>({
 
       commitValues(nextValues)
     },
-    [allOptionValue, commitValues, items.length, maxSelection],
+    [
+      allOptionValue,
+      commitValues,
+      isCommitAllSelection,
+      items.length,
+      maxSelection,
+      resolvedCommitAllValue,
+    ],
   )
 
   const ensureDropdownSearch = useCallback((content: HTMLElement) => {
@@ -614,8 +679,11 @@ export default function MultiLookupCellEditor<T extends object>({
       const selectedItems = event.selectedItems ?? []
       const count = selectedItems.length
       const pendingValues = selectedValuesRef.current
+      if (isCommitAllSelection(pendingValues)) {
+        event.text = allOptionText || selectAllText
+        return
+      }
       if (count === 0) {
-        // Controlled values can exist before TagBox resolves matching items.
         if (pendingValues.length === 1) {
           event.text = allOptionValue && pendingValues[0] === allOptionValue
             ? allOptionText
@@ -655,7 +723,16 @@ export default function MultiLookupCellEditor<T extends object>({
 
       event.text = selectedCountLabel?.(count) ?? `${count} selected`
     },
-    [allOptionText, allOptionValue, isToolbarVariant, selectedCountLabel, toolbarSingleTagDisplayExpr, valueExpr],
+    [
+      allOptionText,
+      allOptionValue,
+      isCommitAllSelection,
+      isToolbarVariant,
+      selectAllText,
+      selectedCountLabel,
+      toolbarSingleTagDisplayExpr,
+      valueExpr,
+    ],
   )
 
   const resolvedClassName = useMemo(() => {

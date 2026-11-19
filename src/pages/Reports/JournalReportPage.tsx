@@ -37,7 +37,10 @@ import {
   writeWorkspaceTabState,
 } from "@/lib/workspaceTabStateCache"
 import { formatDateToYmd, normalizeYmd } from "@/pages/Accounting/accountingDateUtils"
-import { joinReportFilterValues } from "@/pages/Accounting/reportFilterValues"
+import {
+  joinReportFilterValues,
+  splitReportFilterValues,
+} from "@/pages/Accounting/reportFilterValues"
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
 import { buildReportViewerPageUrl } from "@/pages/Reports/reportViewerConfig"
 import { normalizeReportLanguage, type ReportLanguageCode } from "@/pages/Reports/reportLanguage"
@@ -347,21 +350,7 @@ const FALLBACK_REPORT_DRILL_ROUTES: Partial<Record<JournalReportPageProps["repor
   INVENTORY_QUANTITY_REPORT: "/inventory/report/source-doc",
 }
 function splitFilterCodes(value: string | null | undefined): string[] {
-  const result: string[] = []
-  const seen = new Set<string>()
-
-  for (const item of (value ?? "").split(",")) {
-    const normalized = item.trim()
-    const key = normalized.toUpperCase()
-    if (!normalized || seen.has(key)) {
-      continue
-    }
-
-    seen.add(key)
-    result.push(normalized)
-  }
-
-  return result
+  return splitReportFilterValues(value)
 }
 
 function buildRouteFilterState(search: string): ReportRouteFilterState {

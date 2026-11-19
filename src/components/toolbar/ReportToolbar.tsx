@@ -34,6 +34,10 @@ import { inventoryLookupStore } from "@/components/lookup/inventoryLookupStore"
 import { trimLookupText } from "@/components/lookup/lookupHelpers"
 import { normalizeCurrencyCodes } from "@/lib/currency"
 import { getSysCodeDisplayText } from "@/lib/sysCodeUtils"
+import {
+  isReportFilterAllValue,
+  REPORT_FILTER_ALL_VALUE,
+} from "@/pages/Accounting/reportFilterValues"
 import { getFaStatusDisplayText } from "@/pages/Module/FixedAssetManagement/fixedAssetStatus"
 import useShortcutBindings from "@/hooks/useShortcutBindings"
 import useShortcutHelp from "@/hooks/useShortcutHelp"
@@ -264,11 +268,9 @@ export function ReportToolbar({
     [translate],
   )
 
-  // Memoize the synthetic selection so TagBox retains stable option references
-  // while users tick multiple currencies with the dropdown open.
   const currencyAllOption = useMemo(
     () => currencyAllOptionEnabled
-      ? { value: "__ALL_CURRENCIES__", text: t("ALL", "Tất cả") }
+      ? { value: REPORT_FILTER_ALL_VALUE, text: t("ALL", "Tất cả") }
       : undefined,
     [currencyAllOptionEnabled, t],
   )
@@ -291,13 +293,13 @@ export function ReportToolbar({
       variant: "toolbar" as const,
       searchPlaceholder: t("SEARCH", "Tìm kiếm"),
       selectAllText: t("SELECT_ALL", "Chọn tất cả"),
+      commitAllValue: REPORT_FILTER_ALL_VALUE,
       dropdownWidth: 520,
       dropdownHeight: 420,
       showingCountLabel: (visible: number, filtered: number) =>
         filtered <= visible
           ? t("LOOKUP_SHOWING_TOTAL", "{0} mục").replace("{0}", String(filtered))
-          : t("LOOKUP_SHOWING_COUNT", "Hiển thị {0} / {1}")
-              .replace("{0}", String(visible))
+          : t("LOOKUP_SHOWING_COUNT", "Hiển thị {0} / {1}")              .replace("{0}", String(visible))
               .replace("{1}", String(filtered)),
       selectedCountLabel: (count: number) =>
         t("LOOKUP_SELECTED_COUNT", "{0} selected").replace("{0}", String(count)),
@@ -347,7 +349,12 @@ export function ReportToolbar({
   const effectiveFromDate = fromDate ?? localFromDate
   const effectiveToDate = toDate ?? localToDate
   const effectiveUseStartYmd = useStartYmd ?? localUseStartYmd
-  const effectiveCurrencyCodes = useMemo(() => normalizeCurrencyCodes(currencyCodes), [currencyCodes])
+  const effectiveCurrencyCodes = useMemo(() => {
+    if (currencyCodes?.length === 1 && isReportFilterAllValue(currencyCodes[0])) {
+      return [REPORT_FILTER_ALL_VALUE]
+    }
+    return normalizeCurrencyCodes(currencyCodes)
+  }, [currencyCodes])
 
   const handleFromDateChange = useCallback(
     (value: Date | null) => {
@@ -420,7 +427,11 @@ export function ReportToolbar({
 
   const handleCurrencyApply = useCallback(
     (selectedKeys: string[]) => {
-      const nextCurrencies = normalizeCurrencyCodes(selectedKeys.map((value) => trimLookupText(value)))
+      const trimmed = selectedKeys.map((value) => trimLookupText(value)).filter(Boolean)
+      const nextCurrencies =
+        trimmed.length === 1 && isReportFilterAllValue(trimmed[0])
+          ? [REPORT_FILTER_ALL_VALUE]
+          : normalizeCurrencyCodes(trimmed)
       if (currencyCodes && areStringArraysEqual(nextCurrencies, currencyCodes)) {
         return
       }
@@ -782,6 +793,7 @@ export function ReportToolbar({
                 values={accountCodes ?? []}
                 valueExpr="CD"
                 maxSelection={accountLookupSingleSelect ? 1 : undefined}
+                commitAllValue={accountLookupSingleSelect ? undefined : REPORT_FILTER_ALL_VALUE}
                 searchExpr={["CD", "ACC_CD", "NM_VIET", "NM_ENG", "NM_KOR", "NM_CHINA", "ACCTITLE_NM_VIET", "ACCTITLE_NM_ENG", "ACCTITLE_NM_KOR", "ACCTITLE_NM_CHINA"]}
                 placeholder={accountPlaceholder ?? t("ACCOUNT_CODE", "Account Code")}
                 labelMode="floating"
@@ -811,6 +823,7 @@ export function ReportToolbar({
               values={secondaryAccountCodes ?? []}
               valueExpr="CD"
               maxSelection={1}
+              commitAllValue={undefined}
               searchExpr={["CD", "ACC_CD", "NM_VIET", "NM_ENG", "NM_KOR", "NM_CHINA",
                 "ACCTITLE_NM_VIET", "ACCTITLE_NM_ENG", "ACCTITLE_NM_KOR", "ACCTITLE_NM_CHINA"]}
               placeholder={secondaryAccountPlaceholder ?? t("ACCOUNT_CODE", "Mã tài khoản")}
@@ -865,6 +878,7 @@ export function ReportToolbar({
                 searchExpr={["CODE_CD", "CODE_NAME"]}
                 placeholder={t("CURRENCY", "Currency")}
                 allOption={currencyAllOption}
+                commitAllValue={currencyLookupSingleSelect ? undefined : REPORT_FILTER_ALL_VALUE}
                 labelMode="floating"
                 buttonHint={t("OPEN_CURRENCY_LOOKUP", "Open currency lookup")}
                 onApply={handleCurrencyApply}

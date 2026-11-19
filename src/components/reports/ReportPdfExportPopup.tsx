@@ -33,6 +33,7 @@ import type { Product } from "@/types/product"
 import type { SysCode } from "@/api/sysCodeService"
 import { getSysCodeDisplayText } from "@/lib/sysCodeUtils"
 import { getDataLanguageSuffix } from "@/utils/language"
+import { REPORT_FILTER_ALL_VALUE } from "@/pages/Accounting/reportFilterValues"
 
 export type ReportPrintTemplateCode = "BOOK" | "DEFAULT_GRID"
 
@@ -334,6 +335,8 @@ export default function ReportPdfExportPopup({
                     searchExpr={["CUSTOMER_CD", "CUSTOMER_NM_VIET", "CUSTOMER_NM_ENG", "CUSTOMER_NM_KOR", "CUSTOMER_NM_CHINA"]}
                     placeholder={t("CUSTOMER_CODE", "Customer Code")}
                     buttonHint={t("OPEN_CUSTOMER_LOOKUP", "Open customer lookup")}
+                    selectAllText={t("SELECT_ALL", "Chọn tất cả")}
+                    commitAllValue={REPORT_FILTER_ALL_VALUE}
                     onApply={onCustomerCodesChange}
                     onClear={() => onCustomerCodesChange([])}
                     width="100%"
@@ -359,6 +362,8 @@ export default function ReportPdfExportPopup({
                     searchExpr={["PRODUCT_CD", "PRODUCT_NM_VIET", "PRODUCT_NM_ENG", "PRODUCT_NM_KOR", "PRODUCT_NM_CHINA"]}
                     placeholder={t("PRODUCT_CODE", "Product Code")}
                     buttonHint={t("OPEN_PRODUCT_LOOKUP", "Open product lookup")}
+                    selectAllText={t("SELECT_ALL", "Chọn tất cả")}
+                    commitAllValue={REPORT_FILTER_ALL_VALUE}
                     onApply={onProductCodesChange}
                     onClear={() => onProductCodesChange([])}
                     width="100%"
@@ -385,6 +390,8 @@ export default function ReportPdfExportPopup({
                     searchExpr={["CD", "ACC_CD", "NM_VIET", "NM_ENG", "NM_KOR", "NM_CHINA", "ACCTITLE_NM_VIET", "ACCTITLE_NM_ENG", "ACCTITLE_NM_KOR", "ACCTITLE_NM_CHINA"]}
                     placeholder={t("ACCOUNT_CODE", "Account Code")}
                     buttonHint={t("OPEN_ACCOUNT_LOOKUP", "Open account lookup")}
+                    selectAllText={t("SELECT_ALL", "Chọn tất cả")}
+                    commitAllValue={REPORT_FILTER_ALL_VALUE}
                     toolbarSingleTagDisplayExpr={displayAccountOption}
                     onApply={onAccountCodesChange}
                     onClear={() => onAccountCodesChange([])}
@@ -411,6 +418,8 @@ export default function ReportPdfExportPopup({
                     searchExpr={["BANK_CD", "BANK_NM", "ACCOUNT_NUM", "ACC_CD", "PASSBOOK_NM", "CITAD_CODE"]}
                     placeholder={t("BANK_CD", "Bank")}
                     buttonHint={t("OPEN_BANK_LOOKUP", "Open bank lookup")}
+                    selectAllText={t("SELECT_ALL", "Chọn tất cả")}
+                    commitAllValue={REPORT_FILTER_ALL_VALUE}
                     onApply={onBankCodesChange}
                     onClear={() => onBankCodesChange([])}
                     width="100%"
@@ -432,6 +441,8 @@ export default function ReportPdfExportPopup({
                     searchExpr={["CODE_CD", "CODE_NAME"]}
                     placeholder={t("CURRENCY", "Currency")}
                     buttonHint={t("OPEN_CURRENCY_LOOKUP", "Open currency lookup")}
+                    selectAllText={t("SELECT_ALL", "Chọn tất cả")}
+                    commitAllValue={REPORT_FILTER_ALL_VALUE}
                     onApply={onCurrencyCodesChange}
                     onClear={() => onCurrencyCodesChange([])}
                     width="100%"
@@ -457,6 +468,8 @@ export default function ReportPdfExportPopup({
                     searchExpr={["CODE_CD", "CODE_NAME"]}
                     placeholder={t("VAT_RATE", "VAT Rate")}
                     buttonHint={t("OPEN_VAT_RATE_LOOKUP", "Open VAT rate lookup")}
+                    selectAllText={t("SELECT_ALL", "Chọn tất cả")}
+                    commitAllValue={REPORT_FILTER_ALL_VALUE}
                     onApply={onVatRatesChange}
                     onClear={() => onVatRatesChange([])}
                     width="100%"
@@ -482,6 +495,8 @@ export default function ReportPdfExportPopup({
                     searchExpr={["STORE_CD", "STORE_NM_VIET", "STORE_NM_ENG", "STORE_NM_KOR", "STORE_KIND_CD", "STORE_KIND_NM_VIET"]}
                     placeholder={t("WAREHOUSE_CODE", "Warehouse Code")}
                     buttonHint={t("OPEN_WAREHOUSE_LOOKUP", "Open warehouse lookup")}
+                    selectAllText={t("SELECT_ALL", "Chọn tất cả")}
+                    commitAllValue={REPORT_FILTER_ALL_VALUE}
                     onApply={onWarehouseCodesChange}
                     onClear={() => onWarehouseCodesChange([])}
                     width="100%"
@@ -503,6 +518,8 @@ export default function ReportPdfExportPopup({
                     searchExpr={["DEPARTMENT_CD", "DEP_NAME_VIET", "DEP_NAME_ENG", "DEP_NAME_KOR", "DEP_NAME_CHINA"]}
                     placeholder={t("DEPARTMENT_CODE", "Department Code")}
                     buttonHint={t("OPEN_DEPARTMENT_LOOKUP", "Open department lookup")}
+                    selectAllText={t("SELECT_ALL", "Chọn tất cả")}
+                    commitAllValue={REPORT_FILTER_ALL_VALUE}
                     onApply={onDepartmentCodesChange}
                     onClear={() => onDepartmentCodesChange([])}
                     width="100%"

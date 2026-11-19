@@ -1017,7 +1017,7 @@ function AppWorkspaceRoutes({
                         />
                         <Route
                             path="/gl/book/cost-list"
-                            element={<JournalReportPage reportCode="GL_COST_LIST" menuCode="GL_BOOK_COST_LIST" titleKey="GL_COST_LIST" titleFallback="Bảng giá thành" reportVersion="2025" unitDivisor="1" costListToolbarOptions={true} />}
+                            element={<JournalReportPage reportCode="GL_COST_LIST" menuCode="GL_BOOK_COST_LIST" titleKey="GL_COST_LIST" titleFallback="Bảng giá thành" reportVersion="2025" unitDivisor="1" costListToolbarOptions={true} showBookPrintTemplate={false} />}
                         />
                         <Route
                             path="/gl/book/ar-invoice"

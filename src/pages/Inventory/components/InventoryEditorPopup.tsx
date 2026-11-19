@@ -149,13 +149,10 @@ export default function InventoryEditorPopup({
   const t = useCallback((key: string, fallback: string) => translate(key, fallback), [translate])
   const { getFormat } = useDecimalColumnFormats()
   const screenCd = location.pathname
-  // Xuất NVL theo định mức belongs to the OT material-issue workflow only.
-  // This popup is reused by ordinary inventory/issue and other accounting screens.
+
   const showBomAllocation = chitType === "IO" && location.pathname.endsWith("/cost/issue-material")
 
   const activeLines = chitType === "IR" ? draft.INPUTS : draft.OUTPUTS
-  // Revenue is always sourced from the Xuất kho detail, independent of the
-  // Giá vốn tab and IS_COGS checkbox. Keep the read-only Info field live.
   const infoFormData = useMemo(() => chitType === "IO"
     ? { ...draft, REVENUE_AMOUNT: calculateInventoryRevenueAmount(draft.OUTPUTS) }
     : draft, [chitType, draft])
@@ -497,7 +494,6 @@ export default function InventoryEditorPopup({
               setLinkedAccountingChitNo(chitNo)
             }
           } catch {
-            // Keep CHIT_CD fallback already set above.
           }
         }
       })
@@ -559,7 +555,6 @@ export default function InventoryEditorPopup({
             setLinkedCogsVoucherNo(chitNo)
           }
         } catch {
-          // Keep CHIT_CD as the display fallback.
         }
       })
       .catch((error: unknown) => {
@@ -660,9 +655,6 @@ export default function InventoryEditorPopup({
     }))
   }, [chitType])
 
-  // The BOM grids are an immutable calculation snapshot; IO remains the posting
-  // source. Correlate with ROW_KEY until OUTPUT_ID is assigned inside the DB transaction.
-  // Get inventory returns BOM: null (not hydrated); only GetBomSnapshot has saved rows.
   const handleOpenBom = useCallback(async () => {
     if (!showBomAllocation || loading || bomLoading) return
     setBomLoading(true)
@@ -676,7 +668,6 @@ export default function InventoryEditorPopup({
         : chitId > 0
           ? await getInventoryBomSnapshot(chitId)
           : null
-      // Keep draft in sync so reopen / save reuse the loaded snapshot.
       if (snapshot != null && draftRef.current.BOM == null) {
         setDraft(current => ({ ...current, BOM: snapshot }))
       }
@@ -693,8 +684,6 @@ export default function InventoryEditorPopup({
       .map(row => Number(row.OUTPUT_ID)).filter(id => id > 0))
     const oldOutputKeys = new Set(((previous.BOM ?? bomSnapshot)?.MATERIALS ?? [])
       .map(row => row.OUTPUT_CLIENT_KEY).filter(Boolean))
-    // Keep the current accounting link: BOM regenerates IO lines from defaults
-    // (CHITDETAIL_ID null), so without re-stamping the "Đã liên kết" badge vanishes.
     const linkedDetailId = getLinkedChitDetailIdFromInventoryDraft(previous, "IO")
     const linkedDetailCd = linkedDetailId > 0
       ? String(
@@ -702,8 +691,6 @@ export default function InventoryEditorPopup({
           ?.CHITDETAIL_CD ?? "",
       ).trim()
       : ""
-    // A saved BOM's output is replaced, never silently added twice. Manual IO
-    // lines are preserved; accounting link is re-applied to the final set below.
     const retained = previous.OUTPUTS.filter(row =>
       !oldOutputIds.has(Number(row.OUTPUT_ID)) && !oldOutputKeys.has(row.ROW_KEY)
       && (row.ISDEL || Number(row.PRODUCT_ID) > 0),
@@ -1135,7 +1122,6 @@ export default function InventoryEditorPopup({
   const handleSelectIssueTab = useCallback(async (nextTab: "output" | "cogs") => {
     if (nextTab === activeInventoryIssueTab || loading) return
     try {
-      // Batch-mode changes must be committed to the shared OUTPUTS draft before switching money families.
       const rows = await outputGridRef.current?.savePendingChanges()
       if (rows) handleOutputsChange(rows)
       setActiveInventoryIssueTab(nextTab)

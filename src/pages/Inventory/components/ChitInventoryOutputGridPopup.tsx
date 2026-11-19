@@ -128,12 +128,10 @@ interface ChitInventoryOutputGridPopupProps {
     foreignCurrencyColumnsVisible?: boolean
     adjustmentMode?: boolean
     columnSettingStateRef?: MutableRefObject<GridColumnSettingState | null>
-    /** Rendered after Hoàn tác on the detail toolbar (e.g. accounting link UI). */
     linkSlot?: ReactNode
     beforeGridSlot?: ReactNode
     alternateContent?: ReactNode
     costMode?: boolean
-    /** Selects the revenue money family on the Xuất kho tab when true. */
     isCogsVoucher?: boolean
 }
 
@@ -287,10 +285,6 @@ function normalizeOutputLine(
     }
 }
 
-// Keep saved sys_grid_column widths, captions and formats. With Tính giá vốn
-// enabled, the Xuất kho tab swaps its AMOUNT_* fields for REVENUE_* fields in
-// the *same positions*. In particular FX rate/FC amounts must stay BEFORE the
-// VND unit price, just as they do when Tính giá vốn is unchecked.
 function syncOutputMoneyColumnSettings<T extends {
     columnName: string
     isVisible: boolean
@@ -312,8 +306,6 @@ function syncOutputMoneyColumnSettings<T extends {
     })
     if (!showRevenueAmounts) return formatted
 
-    // Default catalog has IS_VISIBLE=0 for REVENUE_* while IS_COGS=false.
-    // The revenue family is active only on the output tab when IS_COGS=true.
     const revenueVisibility = new Map<string, boolean>([
         ["UNIT_PRICE_CC", false],
         ["AMOUNT_CC", false],
@@ -332,9 +324,6 @@ function syncOutputMoneyColumnSettings<T extends {
         return override === undefined ? item : { ...item, isVisible: override }
     })
 
-    // Each revenue field takes the VISIBLE_INDEX of its matching standard field.
-    // Do not position revenue VND amounts immediately after QUANTITY: doing so
-    // incorrectly moves them ahead of EXCHANGE_RATES and the FC amount columns.
     const sourcePositions = new Map<string, string>([
         ["REVENUE_UNIT_PRICE_FC", "UNIT_PRICE_FC"],
         ["REVENUE_AMOUNT_FC", "AMOUNT_FC"],
@@ -351,17 +340,9 @@ function syncOutputMoneyColumnSettings<T extends {
     const visible = activeSettings.filter((item) => item.isVisible).sort(byPosition)
     const hidden = activeSettings.filter((item) => !item.isVisible).sort(byPosition)
 
-    // Assign unique sequential positions, including hidden columns, and apply
-    // settings in this order. DevExtreme otherwise shifts previously assigned
-    // visibleIndex values as columns become visible/hidden on checkbox changes.
     return [...visible, ...hidden].map((item, index) => ({ ...item, visibleIndex: index + 1 }))
 }
 
-// DevExtreme adjusts other visibleIndex values whenever a single column's
-// index is set. On initial mount, saved settings and runtime money-family
-// visibility are applied at different times, so the final live order can differ
-// from the configured order. Reconcile the rendered order only after visibility
-// has been applied; do not touch widths or saved sys_grid_column settings.
 function reconcileOutputVisibleColumnOrder(
     grid: dxDataGrid<InventoryOutputLine, string>,
     items: ReadonlyArray<{ columnName: string; isVisible: boolean; visibleIndex?: number | null }>,
@@ -380,14 +361,11 @@ function reconcileOutputVisibleColumnOrder(
         .map((column) => field(String(column.dataField ?? column.name ?? "")))
         .filter((name) => desiredSet.has(name))
 
-    // The grid can fire onContentReady before it has finished hydrating the
-    // sys_grid_column layout. Wait for the full active set before reordering.
     if (visible.length !== desired.length || desired.some((name) => !visible.includes(name))) return false
     if (visible.every((name, index) => name === desired[index])) return false
 
     grid.beginUpdate()
     try {
-        // Move visible columns from left to right so each subsequent insert uses final order.
         desired.forEach((name, index) => {
             if (grid.columnOption(name, "visibleIndex") !== index) {
                 grid.columnOption(name, "visibleIndex", index)
@@ -632,8 +610,6 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
             ),
             [columnSettingState.cachedEditorItems, showRevenueAmounts, runtimeForeignCurrencyColumnsVisible],
         )
-        // Apply the active money family after sys_grid_column restores grid settings.
-        // Revenue amounts must render with exactly the same FORMAT_TYPE as AMOUNT_CC.
         const amountFormatAliases = useMemo(() => ({
             REVENUE_AMOUNT_CC: "AMOUNT_CC",
             REVENUE_AMOUNT_TOTAL: "AMOUNT_CC",
@@ -641,8 +617,6 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
         }), [])
 
         const runtimeMoneyVisibility = useMemo(() => {
-            // The money family switches by IS_COGS, but sys_grid_column remains
-            // the source of truth for which FIELD_NAME exists in the IO grid.
             const configuredFields = new Set(
                 columnSettingsWithAmountPrecision.map((item) => item.columnName.trim().toUpperCase()),
             )
@@ -1267,7 +1241,6 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
 
             let cancelled = false
 
-            // Read the saved sys_grid_column widths, not live widths squeezed before FC columns appear.
             void columnSettingState.loadEditorItems().then((items) => {
                 if (cancelled || !gridRef.current || items.length === 0) {
                     return

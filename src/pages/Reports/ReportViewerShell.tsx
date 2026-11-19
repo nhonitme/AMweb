@@ -157,10 +157,6 @@ export default function ReportViewerShell({
     reportPreview.showMultipagePreview = true
   }, [resolveExportFileName])
 
-  const handleDocumentReady = useCallback(() => {
-    setPreviewOptions()
-  }, [setPreviewOptions])
-
   useEffect(() => {
     const timer = window.setTimeout(() => setPreviewOptions(), 100)
     return () => window.clearTimeout(timer)
@@ -254,7 +250,7 @@ export default function ReportViewerShell({
             CustomizeElements={handleCustomizeElements}
             CustomizeMenuActions={handleCustomizeMenuActions}
             CustomizeExportOptions={handleCustomizeExportOptions}
-            DocumentReady={handleDocumentReady}
+            DocumentReady={setPreviewOptions}
           />
         </DxReportViewer>
       </div>

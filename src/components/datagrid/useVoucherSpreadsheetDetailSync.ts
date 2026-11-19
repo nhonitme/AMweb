@@ -59,6 +59,13 @@ export function useVoucherSpreadsheetDetailSync<TRow, TKey extends string | numb
       return
     }
 
+    if (reason === "pointer-outside"
+      && !grid.hasEditData()
+      && grid.option("editing.editRowKey") == null
+      && grid.option("editing.editColumnName") == null) {
+      return
+    }
+
     commitInFlightRef.current = true
     try {
       if (reason === "pointer-outside") {
@@ -145,6 +152,12 @@ export function useVoucherSpreadsheetDetailSync<TRow, TKey extends string | numb
 
       const gridContainer = gridContainerRef.current
       if (!gridContainer || !(target instanceof Node) || gridContainer.contains(target)) {
+        return
+      }
+
+      const sourcePopup = gridContainer.closest(".dx-overlay-wrapper")
+      const targetPopup = target instanceof Element ? target.closest(".dx-overlay-wrapper") : null
+      if (sourcePopup && targetPopup && sourcePopup !== targetPopup) {
         return
       }
 
