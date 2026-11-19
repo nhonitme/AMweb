@@ -567,15 +567,13 @@ export function ChitEditorPopup({
             onShown={(event) => {
                 disableBuiltInPopupEscape(event.component)
                 raiseOpenedPopupAboveSiblings(event.component)
-            }
+            }}
             wrapperAttr={{ class: `chit-editor-popup am-dx-popup-title editor-mode--${isUpdate ? "edit" : "add"}`, ...createPopupShortcutWrapperAttr(popupShortcutScopeId) }}
             title={title}
             showTitle={true}
             showCloseButton={false}
             dragEnabled={false}
             deferRendering={false}
-            // IO and BOM child popups are portaled outside this parent's DOM.
-            // Do not treat clicks inside those children as outside-click closes.
             hideOnOutsideClick={false}
             width="100vw"
             height="100vh"
