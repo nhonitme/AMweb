@@ -64,7 +64,9 @@ export function raiseOpenedPopupAboveSiblings(component: { content: () => Elemen
   return raisePopupWrapperAboveVisiblePopups(overlayWrapperFromPopupContent(component.content()))
 }
 
-const POPUP_WRAPPER_SELECTOR = ".dx-overlay-wrapper.dx-popup-wrapper"
+// Do not treat SelectBox/grid dropdown overlays as modal popups, even when
+// DevExtreme gives their wrapper the dx-popup-wrapper class.
+const POPUP_WRAPPER_SELECTOR = ".dx-overlay-wrapper.dx-popup-wrapper:not(.dx-dropdowneditor-overlay):not(.am-grid-lookup-dropdown)"
 
 function isShownPopup(wrapper: HTMLElement): boolean {
   const content = wrapper.querySelector<HTMLElement>(".dx-overlay-content")
