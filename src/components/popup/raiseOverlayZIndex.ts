@@ -56,7 +56,27 @@ export function overlayWrapperFromPopupContent(content: Element | null | undefin
   return content?.closest(OVERLAY_SELECTOR) ?? null
 }
 
+/** Bring the popup that actually opened above other fullscreen modal shades.
+ * React can mount a hidden child Popup before it is made visible, so DOM
+ * insertion order alone does not represent the active popup stack.
+ */
+export function raiseOpenedPopupAboveSiblings(component: { content: () => Element }): number {
+  return raiseOverlayAboveSiblings(overlayWrapperFromPopupContent(component.content()))
+}
+
 const POPUP_WRAPPER_SELECTOR = ".dx-overlay-wrapper.dx-popup-wrapper"
+
+function isShownPopup(wrapper: HTMLElement): boolean {
+  const content = wrapper.querySelector<HTMLElement>(".dx-overlay-content")
+  if (!content || wrapper.classList.contains("dx-state-invisible") || content.classList.contains("dx-state-invisible")) {
+    return false
+  }
+  const wrapperStyle = window.getComputedStyle(wrapper)
+  const contentStyle = window.getComputedStyle(content)
+  return wrapperStyle.display !== "none" && wrapperStyle.visibility !== "hidden"
+    && contentStyle.display !== "none" && contentStyle.visibility !== "hidden"
+    && content.getClientRects().length > 0
+}
 
 let watchingNewestPopup = false
 
@@ -70,7 +90,10 @@ export function watchNewestPopupAboveSiblings(): void {
 
   const raiseNewest = () => {
     frame = 0
-    const nodes = document.querySelectorAll<HTMLElement>(POPUP_WRAPPER_SELECTOR)
+    // Never raise a pre-rendered hidden popup (deferRendering=false).
+    // A later invisible BOM/lookup must not cover the currently active IO.
+    const nodes = Array.from(document.querySelectorAll<HTMLElement>(POPUP_WRAPPER_SELECTOR))
+      .filter(isShownPopup)
     if (nodes.length < 2) {
       return
     }
@@ -96,8 +119,8 @@ export function watchNewestPopupAboveSiblings(): void {
           continue
         }
         if (
-          node.classList.contains("dx-overlay-wrapper")
-          || node.querySelector(".dx-overlay-wrapper")
+          node.matches(POPUP_WRAPPER_SELECTOR)
+          || node.querySelector(POPUP_WRAPPER_SELECTOR)
         ) {
           schedule()
           return
