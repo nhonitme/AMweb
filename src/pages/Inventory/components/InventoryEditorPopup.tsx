@@ -1206,7 +1206,7 @@ export default function InventoryEditorPopup({
       visible={visible}
       // When BOM is open it becomes the only modal layer; the IO remains visible
       // but must no longer trap mouse/keyboard focus on its own editors.
-      shading={!bomVisible}
+      shading={!Boolean(bomVisible || columnSettingsVisible || shortcutHelpVisible)}
       onShowing={(event) => { raiseOpenedPopupAboveSiblings(event.component) }}
       onShown={(event) => {
         disableBuiltInPopupEscape(event.component)
