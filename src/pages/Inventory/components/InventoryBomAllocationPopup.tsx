@@ -53,6 +53,8 @@ export default function InventoryBomAllocationPopup({
   const materialGridRef = useRef<dxDataGrid | null>(null)
   const calculateRef = useRef<(finishedRows?: InventoryBomFinishedRow[]) => Promise<void>>(async () => {})
   const [products, setProducts] = useState<Product[]>([])
+  const [catalogLoading, setCatalogLoading] = useState(false)
+  const [productLoadError, setProductLoadError] = useState<string | null>(null)
   const [stores, setStores] = useState<StoreInfo[]>([])
   const [materialProducts, setMaterialProducts] = useState<Product[]>([])
   const [finished, setFinished] = useState<InventoryBomFinishedRow[]>([])
@@ -75,20 +77,37 @@ export default function InventoryBomAllocationPopup({
     setSelectedFinishedKeys([])
     setRequiresRecalculation(false)
     setImportVisible(false)
+    setCatalogLoading(true)
+    setProductLoadError(null)
+    setProducts([])
+    setMaterialProducts([])
+    setStores([])
+    setSelectedProductId(null)
     let cancelled = false
-    void Promise.all([getProducts("155"), getProducts("152"), getStoreInfos()])
-      .then(([list, rawMaterials, result]) => {
-        if (!cancelled) { setProducts(list); setMaterialProducts(rawMaterials); setStores(result.data) }
-      })
-      .catch(error => {
-        if (!cancelled) {
-          notifyAboveOverlays(
-            getApiErrorMessage(error, t("BOM_LOAD_CATALOG_FAILED", "Không đọc được danh mục thành phẩm/kho")),
-            "error",
-            4500,
-          )
+    // A missing store permission must not silently erase a successfully loaded
+    // finished-product catalog. Show product errors explicitly instead.
+    void Promise.allSettled([getProducts("155"), getProducts("152"), getStoreInfos()])
+      .then(([finishedResult, materialsResult, storesResult]) => {
+        if (cancelled) return
+        if (finishedResult.status === "fulfilled") {
+          setProducts(finishedResult.value)
+        } else {
+          const message = getApiErrorMessage(finishedResult.reason, t("BOM_LOAD_PRODUCTS_FAILED", "Không tải được danh mục thành phẩm (TK 155)"))
+          setProductLoadError(message)
+          notifyAboveOverlays(message, "error", 4500)
+        }
+        if (materialsResult.status === "fulfilled") {
+          setMaterialProducts(materialsResult.value)
+        } else {
+          notifyAboveOverlays(getApiErrorMessage(materialsResult.reason, t("BOM_LOAD_MATERIALS_FAILED", "Không tải được danh mục nguyên vật liệu (TK 152)")), "warning", 4500)
+        }
+        if (storesResult.status === "fulfilled") {
+          setStores(storesResult.value.data)
+        } else {
+          notifyAboveOverlays(getApiErrorMessage(storesResult.reason, t("BOM_LOAD_STORES_FAILED", "Không tải được danh mục kho")), "warning", 4500)
         }
       })
+      .finally(() => { if (!cancelled) setCatalogLoading(false) })
     return () => { cancelled = true }
   }, [visible, initial, t])
 
@@ -97,6 +116,7 @@ export default function InventoryBomAllocationPopup({
   const productsByCode = useMemo(() => new Map(products.map(p => [p.PRODUCT_CD.trim().toUpperCase(), p])), [products])
   const storesById = useMemo(() => new Map(stores.map(s => [s.STORE_ID, s])), [stores])
   const controlsDisabled = busy || disabled
+  const canAddFinished = !controlsDisabled && !catalogLoading && selectedProductId != null && productsById.has(Number(selectedProductId)) && Number.isFinite(finishedQuantity) && finishedQuantity > 0
 
   const addFinished = useCallback((product: Product, amount: number) => {
     if (!(amount > 0) || !Number.isFinite(amount)) {
@@ -437,11 +457,12 @@ export default function InventoryBomAllocationPopup({
                 dataSource={products}
                 searchEnabled
                 searchExpr={["PRODUCT_CD", "PRODUCT_NM_VIET"]}
+                noDataText={catalogLoading ? t("LOADING", "Đang tải thành phẩm...") : t("BOM_NO_PRODUCTS_155", "Không có thành phẩm thuộc nhóm TK 155")}
                 valueExpr="PRODUCT_ID"
                 displayExpr={(item: Product) => item ? `${item.PRODUCT_CD} - ${item.PRODUCT_NM_VIET}` : ""}
                 value={selectedProductId}
                 onValueChanged={e => setSelectedProductId(e.value ?? null)}
-                disabled={controlsDisabled}
+                disabled={controlsDisabled || catalogLoading}
                 stylingMode="outlined"
                 width={320}
               />
@@ -461,7 +482,8 @@ export default function InventoryBomAllocationPopup({
             <div className="am-soft-footer inventory-bom-allocation-actions">
               <AMButton
                 icon="plus"
-                disabled={controlsDisabled}
+                disabled={!canAddFinished}
+                title={!selectedProductId ? t("BOM_SELECT_FINISHED_FIRST", "Chọn thành phẩm trước khi thêm") : undefined}
                 onClick={addSelected}
               >
                 {t("ADD", "Thêm")}
@@ -498,6 +520,14 @@ export default function InventoryBomAllocationPopup({
               </AMButton>
             </div>
           </div>
+          {productLoadError ? (
+            <p role="alert" className="inventory-bom-catalog-hint inventory-bom-catalog-hint--error">{productLoadError}</p>
+          ) : !catalogLoading && products.length === 0 ? (
+            <p className="inventory-bom-catalog-hint">{t("BOM_EMPTY_PRODUCT_CATALOG", "Chưa có thành phẩm thuộc nhóm TK 155. Kiểm tra danh mục hàng tồn kho và tài khoản phân loại trước khi phân bổ.")}</p>
+          ) : null}
+          {disabled ? (
+            <p className="inventory-bom-catalog-hint inventory-bom-catalog-hint--error">{t("BOM_READONLY_NOTICE", "Chứng từ đang ở chế độ chỉ xem; không thể thêm hoặc xác nhận phân bổ.")}</p>
+          ) : null}
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 py-3">
@@ -636,7 +666,7 @@ export default function InventoryBomAllocationPopup({
               variant="primary"
               icon="check"
               loading={busyAction === "confirm"}
-              disabled={controlsDisabled || requiresRecalculation}
+              disabled={controlsDisabled || requiresRecalculation || finished.length === 0 || materials.length === 0}
               onClick={() => { void confirmAllocation() }}
             >
               {t("CONFIRM", "Xác nhận")}
