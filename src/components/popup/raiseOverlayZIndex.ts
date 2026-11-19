@@ -56,12 +56,12 @@ export function overlayWrapperFromPopupContent(content: Element | null | undefin
   return content?.closest(OVERLAY_SELECTOR) ?? null
 }
 
-/** Bring the popup that actually opened above other fullscreen modal shades.
- * React can mount a hidden child Popup before it is made visible, so DOM
- * insertion order alone does not represent the active popup stack.
+/** Raise the active modal above other visible modals, NOT above dropdown lists.
+ * Grid lookup dropdowns intentionally use a fixed z-index (20000). Raising a
+ * fullscreen popup above those dropdowns would make their items unclickable.
  */
 export function raiseOpenedPopupAboveSiblings(component: { content: () => Element }): number {
-  return raiseOverlayAboveSiblings(overlayWrapperFromPopupContent(component.content()))
+  return raisePopupWrapperAboveVisiblePopups(overlayWrapperFromPopupContent(component.content()))
 }
 
 const POPUP_WRAPPER_SELECTOR = ".dx-overlay-wrapper.dx-popup-wrapper"
@@ -76,6 +76,18 @@ function isShownPopup(wrapper: HTMLElement): boolean {
   return wrapperStyle.display !== "none" && wrapperStyle.visibility !== "hidden"
     && contentStyle.display !== "none" && contentStyle.visibility !== "hidden"
     && content.getClientRects().length > 0
+}
+
+function raisePopupWrapperAboveVisiblePopups(wrapper: HTMLElement | null): number {
+  if (!wrapper) return 0
+  let top = 0
+  document.querySelectorAll<HTMLElement>(POPUP_WRAPPER_SELECTOR).forEach((other) => {
+    if (other !== wrapper && isShownPopup(other)) top = Math.max(top, readZIndex(other))
+  })
+  const current = readZIndex(wrapper)
+  const next = Math.max(current, top + 1)
+  if (next !== current) wrapper.style.setProperty("z-index", String(next), "important")
+  return next
 }
 
 let watchingNewestPopup = false
@@ -98,7 +110,7 @@ export function watchNewestPopupAboveSiblings(): void {
       return
     }
 
-    raiseOverlayAboveSiblings(nodes[nodes.length - 1])
+    raisePopupWrapperAboveVisiblePopups(nodes[nodes.length - 1])
   }
 
   const schedule = () => {
