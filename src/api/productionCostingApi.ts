@@ -199,9 +199,11 @@ export async function setProductionCostingActiveStep(step: CostingStepIndex): Pr
   return next;
 }
 
-export async function toggleProductionCostObject(departmentId: number, selected: boolean): Promise<ProductionCostingOverview> {
+export async function toggleProductionCostObject(departmentId: number, productId: number, selected: boolean): Promise<ProductionCostingOverview> {
   const identity = requireIdentity();
-  await put("/objects/selection", { ...identity, DepartmentId: departmentId, ProductId: 0, Selected: selected });
+  // ProductId=0 updates every product of a department. Step-0 works per
+  // OBJECT_SEL_ID / DEPARTMENT_ID + PRODUCT_ID, so select only that row.
+  await put("/objects/selection", { ...identity, DepartmentId: departmentId, ProductId: productId, Selected: selected });
   return reloadProductionCosting();
 }
 
