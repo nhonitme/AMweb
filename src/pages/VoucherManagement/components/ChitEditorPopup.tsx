@@ -229,6 +229,13 @@ export function ChitEditorPopup({
         chitNo: createVoucherEditorOptions({ validationMessageMode: "always" as const }),
         chitYmd: createVoucherDateBoxEditorOptions({ validationMessageMode: "always" as const }),
     }), [])
+    const headerLabels = useMemo(() => ({
+        amount: { text: t("AMOUNT", "Amount") },
+        payer: { text: t("lblPayer", "Payer Info") },
+        chitNo: { text: t("CHIT_NO", "Document No") },
+        description: { text: t("DESCRIPTION_VIET", "Description (VI)") },
+        chitYmd: { text: t("CHIT_YMD", "Note Date") },
+    }), [t])
     const chitNoValidationRules = useMemo(() => [
         createRequiredRule(t("MSG_MUST_ITEM", "Document No is required")),
         createTrimmedRequiredRule(t("MSG_MUST_ITEM", "Document No is required")),
@@ -652,19 +659,19 @@ export function ChitEditorPopup({
                                     <Item
                                         dataField="AMOUNT"
                                         editorType="dxNumberBox"
-                                        label={{ text: t("AMOUNT", "Amount") }}
+                                        label={headerLabels.amount}
                                         editorOptions={headerEditorOptions.amount}
                                     />
                                     <Item
                                         dataField="PAYER_INFO"
                                         editorType="dxTextBox"
-                                        label={{ text: t("lblPayer", "Payer Info") }}
+                                        label={headerLabels.payer}
                                         editorOptions={headerEditorOptions.standard}
                                     />
                                     <Item
                                         dataField="CHIT_NO"
                                         editorType="dxTextBox"
-                                        label={{ text: t("CHIT_NO", "Document No") }}
+                                        label={headerLabels.chitNo}
                                         editorOptions={headerEditorOptions.chitNo}
                                         validationRules={chitNoValidationRules}
                                     />
@@ -672,13 +679,13 @@ export function ChitEditorPopup({
                                         dataField="DESCRIPTION_VIET"
                                         colSpan={2}
                                         editorType="dxTextBox"
-                                        label={{ text: t("DESCRIPTION_VIET", "Description (VI)") }}
+                                        label={headerLabels.description}
                                         editorOptions={headerEditorOptions.standard}
                                     />
                                     <Item
                                         dataField="CHIT_YMD"
                                         editorType="dxDateBox"
-                                        label={{ text: t("CHIT_YMD", "Note Date") }}
+                                        label={headerLabels.chitYmd}
                                         editorOptions={headerEditorOptions.chitYmd}
                                         validationRules={chitYmdValidationRules}
                                     />
