@@ -56,6 +56,8 @@
 
 .inventory-bom-allocation-popup .dx-texteditor.dx-editor-outlined:before {
   border-bottom: 0 !important;
+  /* Do not let the decorative line intercept the finished-product dropdown. */
+  pointer-events: none !important;
 }
 
 .inventory-bom-allocation-popup .dx-texteditor.dx-editor-outlined.dx-state-hover:not(.dx-state-focused):not(.dx-invalid):not(.dx-state-disabled):not(.dx-state-readonly) {
@@ -69,6 +71,27 @@
 
 .inventory-bom-allocation-popup .dx-texteditor.dx-state-readonly.dx-editor-outlined {
   background-color: #f5f6f8;
+}
+
+
+/* Disabled controls are still visibly disabled, but their labels stay readable.
+   The shared UI kit uses 50% opacity, which washes the Confirm/Add text out. */
+.inventory-bom-allocation-popup .am-ui .am-button:disabled {
+  opacity: 1;
+  color: #475569;
+  background-color: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+.inventory-bom-catalog-hint {
+  margin: 0;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.inventory-bom-catalog-hint--error {
+  color: #b91c1c;
 }
 
 /* ---------- Detail grids ---------- */
