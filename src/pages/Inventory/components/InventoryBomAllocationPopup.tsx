@@ -440,8 +440,10 @@ export default function InventoryBomAllocationPopup({
   )
 
   return (
+    <>
     <Popup
       visible={visible}
+      shading={!importVisible}
       onShowing={(event) => { raiseOpenedPopupAboveSiblings(event.component) }}
       onShown={(event) => {
         disableBuiltInPopupEscape(event.component)
@@ -738,6 +740,7 @@ export default function InventoryBomAllocationPopup({
         </div>
       </div>
 
+    </Popup>
       <BaseExcelImportPopup
         visible={importVisible}
         onClose={() => setImportVisible(false)}
@@ -753,6 +756,6 @@ export default function InventoryBomAllocationPopup({
         showSheetSelector
         popupContainer="body"
       />
-    </Popup>
+    </>
   )
 }
