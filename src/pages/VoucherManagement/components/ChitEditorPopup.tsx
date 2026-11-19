@@ -696,9 +696,9 @@ export function ChitEditorPopup({
                                     t={t}
                                     excludeFields={["DESCRIPTION_VIET"]}
                                     values={{
-                                        DESCRIPTION_VIET: formData.DESCRIPTION_VIET,
-                                        DESCRIPTION_ENG: formData.DESCRIPTION_ENG,
-                                        DESCRIPTION_KOR: formData.DESCRIPTION_KOR,
+                                        DESCRIPTION_VIET: draft.DESCRIPTION_VIET,
+                                        DESCRIPTION_ENG: draft.DESCRIPTION_ENG,
+                                        DESCRIPTION_KOR: draft.DESCRIPTION_KOR,
                                     }}
                                     onChange={(field, value) => {
                                         handleFieldDataChanged({ dataField: field, value })
