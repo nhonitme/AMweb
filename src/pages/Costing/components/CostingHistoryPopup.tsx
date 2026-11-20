@@ -1,7 +1,9 @@
 /**
- * Popup nhật ký thao tác demo / lịch sử phiên (mock).
+ * Popup nhật ký thao tác / lịch sử phiên.
+ * Portal ra body — tránh widget DX chiếm chỗ flex .gk-page khi mở.
  */
 
+import { createPortal } from "react-dom";
 import Popup from "devextreme-react/popup";
 import Button from "devextreme-react/button";
 import type { CostingLogItem } from "../types/productionCostingTypes";
@@ -14,7 +16,9 @@ type CostingHistoryPopupProps = {
 };
 
 export function CostingHistoryPopup({ visible, logs, t, onClose }: CostingHistoryPopupProps) {
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <Popup
       visible={visible}
       onHiding={onClose}
@@ -23,6 +27,8 @@ export function CostingHistoryPopup({ visible, logs, t, onClose }: CostingHistor
       title={t("GK_HISTORY_TITLE", "Nhật ký thao tác demo")}
       width={560}
       height={420}
+      container="body"
+      position={{ my: "center", at: "center", of: window }}
     >
       <div style={{ padding: "8px 4px", maxHeight: 320, overflow: "auto" }}>
         {logs.length === 0 ? (
@@ -39,6 +45,7 @@ export function CostingHistoryPopup({ visible, logs, t, onClose }: CostingHistor
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
         <Button text={t("CLOSE", "Đóng")} onClick={onClose} />
       </div>
-    </Popup>
+    </Popup>,
+    document.body,
   );
 }

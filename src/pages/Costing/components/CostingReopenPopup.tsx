@@ -1,9 +1,11 @@
 /**
  * Popup xác nhận mở lại bước (FE-04).
  * Hủy → không đổi trạng thái. Xác nhận → REOPENED, giữ số liệu cũ.
+ * Portal ra body để widget DX không chiếm chỗ trong flex .gk-page (tránh nhảy size).
  */
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Popup from "devextreme-react/popup";
 import Button from "devextreme-react/button";
 import TextArea from "devextreme-react/text-area";
@@ -37,11 +39,11 @@ export function CostingReopenPopup({
     }
   }, [visible, info?.stepIndex]);
 
-  if (!info) return null;
+  if (!info || typeof document === "undefined") return null;
 
   const canSubmit = info.canReopen && reason.trim().length >= 3 && !busy;
 
-  return (
+  return createPortal(
     <Popup
       visible={visible}
       onHiding={onClose}
@@ -51,6 +53,9 @@ export function CostingReopenPopup({
       width={640}
       height="auto"
       maxHeight="90vh"
+      container="body"
+      position={{ my: "center", at: "center", of: window }}
+      wrapperAttr={{ class: "gk-reopen-popup" }}
     >
       <div style={{ padding: "4px 2px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
         <div className="gk-columns">
@@ -136,6 +141,7 @@ export function CostingReopenPopup({
           />
         </div>
       </div>
-    </Popup>
+    </Popup>,
+    document.body,
   );
 }

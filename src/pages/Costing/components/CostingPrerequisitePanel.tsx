@@ -246,7 +246,7 @@ export function CostingPrerequisitePanel({
             <Column dataField="productName" caption={t("PRODUCT_NM", "Thành phẩm")} />
             <Column dataField="finishedQty" caption={t("QTY", "SL")} width={80} dataType="number" />
             <Column dataField="receiptCount" caption={t("RECEIPT_COUNT", "Phiếu NK")} width={90} />
-            <Column dataField="warningText" caption={t("WARNING", "Cảnh báo")} />
+            {/* <Column dataField="warningText" caption={t("WARNING", "Cảnh báo")} /> */}
           </DataGrid>
         </div>
       </div>

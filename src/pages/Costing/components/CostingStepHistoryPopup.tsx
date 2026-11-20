@@ -1,7 +1,9 @@
 /**
  * Popup lịch sử thực hiện / mở lại theo bước (FE-04).
+ * Portal ra body — tránh widget DX chiếm chỗ flex .gk-page khi mở.
  */
 
+import { createPortal } from "react-dom";
 import Popup from "devextreme-react/popup";
 import Button from "devextreme-react/button";
 import DataGrid, { Column, Paging, Scrolling } from "devextreme-react/data-grid";
@@ -34,7 +36,9 @@ export function CostingStepHistoryPopup({
 }: CostingStepHistoryPopupProps) {
   const filtered = stepIndex ? items.filter((x) => x.stepIndex === stepIndex) : items;
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <Popup
       visible={visible}
       onHiding={onClose}
@@ -47,6 +51,8 @@ export function CostingStepHistoryPopup({
       }
       width={900}
       height={480}
+      container="body"
+      position={{ my: "center", at: "center", of: window }}
     >
       <DataGrid dataSource={filtered} keyExpr="id" showBorders columnAutoWidth height={360}>
         <Paging pageSize={12} />
@@ -71,6 +77,7 @@ export function CostingStepHistoryPopup({
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
         <Button text={t("CLOSE", "Đóng")} onClick={onClose} />
       </div>
-    </Popup>
+    </Popup>,
+    document.body,
   );
 }

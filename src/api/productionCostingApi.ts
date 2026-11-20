@@ -416,7 +416,27 @@ export async function saveProductionCostObjectSelectionIfDirty(): Promise<Produc
   return updateProductionCostObjectSelections(changes);
 }
 
-async function runPeriodLock(step: "FA_PREPAID_LOCK" | "PROFIT_LOSS_REPORT"): Promise<ProductionCostingOverview> {
+type PeriodLockProgressNotify = (overview: ProductionCostingOverview) => void;
+
+function publishJobProgress(
+  running: boolean,
+  percent: number,
+  message: string,
+  onProgress?: PeriodLockProgressNotify,
+) {
+  if (!session.overview) return;
+  const next = {
+    ...session.overview,
+    job: { running, percent, message },
+  };
+  session.overview = next;
+  onProgress?.(next);
+}
+
+async function runPeriodLock(
+  step: "FA_PREPAID_LOCK" | "PROFIT_LOSS_REPORT",
+  onProgress?: PeriodLockProgressNotify,
+): Promise<ProductionCostingOverview> {
   const year = Number(session.periodYm.slice(0, 4));
   const started = await startPeriodLock({
     Year: year,
@@ -433,15 +453,18 @@ async function runPeriodLock(step: "FA_PREPAID_LOCK" | "PROFIT_LOSS_REPORT"): Pr
   });
   const jobId = started.data.JobId;
   let percent = 0;
-  let message = "Äang cháº¡y PeriodLock.";
+  let message = "Đang chạy PeriodLock.";
+  publishJobProgress(true, 0, message, onProgress);
   let completed = false;
   for (let attempt = 0; attempt < 60; attempt += 1) {
     const progress = await getPeriodLockProgress(jobId);
     percent = progress.data.Percent ?? 0;
     message = progress.data.Message || progress.data.CurrentStepName || message;
     const status = progress.data.Status;
-    if (status === "ERROR") throw new Error(message || "PeriodLock bÃ¡o lá»—i.");
-    // KhÃ´ng suy diá»…n thÃ nh cÃ´ng chá»‰ vÃ¬ Percent=100.
+    // Đẩy tiến độ job hiện có lên UI — không thêm polling riêng.
+    publishJobProgress(true, percent, message, onProgress);
+    if (status === "ERROR") throw new Error(message || "PeriodLock báo lỗi.");
+    // Không suy diễn thành công chỉ vì Percent=100.
     if (status === "DONE") {
       completed = true;
       break;
@@ -449,18 +472,23 @@ async function runPeriodLock(step: "FA_PREPAID_LOCK" | "PROFIT_LOSS_REPORT"): Pr
     await new Promise((resolve) => setTimeout(resolve, 1500));
   }
   if (!completed) {
-    throw new Error(`PeriodLock chÆ°a xÃ¡c nháº­n DONE cho ká»³ ${session.periodYm}. ${message} Kiá»ƒm tra láº¡i tiáº¿n Ä‘á»™ job trÆ°á»›c khi thao tÃ¡c tiáº¿p.`);
+    throw new Error(
+      `PeriodLock chưa xác nhận DONE cho kỳ ${session.periodYm}. ${message} Kiểm tra lại tiến độ job trước khi thao tác tiếp.`,
+    );
   }
   const overview = await reloadProductionCosting();
   overview.job = { running: false, percent, message };
   session.overview = overview;
+  onProgress?.(overview);
   return overview;
 }
 
-export async function runProductionCostingStep1(): Promise<ProductionCostingOverview> {
-  const overview = await runPeriodLock("FA_PREPAID_LOCK");
+export async function runProductionCostingStep1(
+  onProgress?: PeriodLockProgressNotify,
+): Promise<ProductionCostingOverview> {
+  const overview = await runPeriodLock("FA_PREPAID_LOCK", onProgress);
   if (overview.stepStatuses[0] !== "DONE") {
-    throw new Error(overview.job.message || "PeriodLock chÆ°a ghi nháº­n FA_PREPAID_LOCK = DONE.");
+    throw new Error(overview.job.message || "PeriodLock chưa ghi nhận FA_PREPAID_LOCK = DONE.");
   }
   return overview;
 }

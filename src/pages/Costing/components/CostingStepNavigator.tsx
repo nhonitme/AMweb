@@ -133,13 +133,13 @@ export function CostingStepNavigator({
         })}
       </div>
 
-      <div className="gk-sidenav-foot">
+      {/* <div className="gk-sidenav-foot">
         <b>{t("GK_MODE", "Chế độ")}:</b> {t("GK_MODE_SIMPLE", "Giá thành giản đơn")}
         <br />
         <b>{t("GK_RULE_STEP2", "Rule khóa bước 2")}:</b> EXP_TO_154_ONLY
         <br />
         <b>{t("GK_PERIOD_STATUS", "Trạng thái kỳ")}:</b> {monthStatus}
-      </div>
+      </div> */}
     </aside>
   );
 }
