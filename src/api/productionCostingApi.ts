@@ -182,6 +182,9 @@ export async function setProductionCostingPeriod(companyCd: string, periodYm: st
 
 export async function ensureProductionCostingPeriod(): Promise<ProductionCostingOverview> {
   await post("/period/ensure", { PeriodYm: session.periodYm });
+  // Sau khởi tạo lại kỳ: về bước 0 và tiến độ 0/6.
+  session.activeStep = 0;
+  pendingOps.clear();
   return reloadProductionCosting();
 }
 

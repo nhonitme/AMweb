@@ -165,7 +165,7 @@ export function CostingPrerequisitePanel({
             );
           }}
         />
-        <Column dataField="departmentCd" caption={t("DEPARTMENT_CD", "Mã ĐT")} width={100} />
+        <Column dataField="departmentCd" caption={t("DEPARTMENT_CD", "Mã ĐT")} width={200} />
         <Column dataField="departmentName" caption={t("DEPARTMENT_NM", "Đối tượng")} />
         <Column dataField="productCd" caption={t("PRODUCT_CD", "Mã TP")} width={100} />
         <Column dataField="productName" caption={t("PRODUCT_NM", "Thành phẩm")} />

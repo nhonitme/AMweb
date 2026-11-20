@@ -5,7 +5,9 @@
 
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import LoadPanel from "devextreme-react/load-panel";
+import { confirm } from "devextreme/ui/dialog";
 import notify from "devextreme/ui/notify";
+import DxPage from "@/dx/DxPage";
 import { LanguageContext } from "@/lib/i18nLoader";
 import { getCurrentCompanyCd } from "@/lib/login";
 import {
@@ -170,6 +172,11 @@ export default function ProductionCostingPage() {
   };
 
   const handleEnsurePeriod = async () => {
+    const ok = await confirm(
+      t("MSG_ARE_YOU_SURE", "Bạn có chắc chắn không?"),
+      t("CONFIRM", "Xác nhận"),
+    );
+    if (!ok) return;
     try {
       setBusy(true);
       refresh(await ensureProductionCostingPeriod());
@@ -213,155 +220,115 @@ export default function ProductionCostingPage() {
     }
   };
 
-  if (booting || !overview || !panelProps) {
-    return (
-      <div className="gk-page">
-        <LoadPanel visible />
-      </div>
-    );
-  }
-
-  const active = overview.activeStep;
-  const recentLogs = overview.logs.slice(0, 3);
+  const ready = Boolean(overview && panelProps);
+  const active = overview?.activeStep ?? 0;
 
   return (
-    <div className="gk-page">
-      <LoadPanel visible={busy} showIndicator showPane shading={false} />
-
-      <CostingHeader
-        periodYm={overview.periodYm}
-        busy={busy}
-        t={t}
-        onChangePeriod={(p) => void handleChangePeriod(p)}
-        onEnsurePeriod={() => void handleEnsurePeriod()}
-        onSyncObjects={() => void handleSyncObjects()}
-        onOpenPrerequisite={() => void handleSelectStep(0)}
-        onOpenHistory={() => setHistoryOpen(true)}
-      />
-
-      <div className="gk-stats">
-        <div className="gk-stat">
-          <div className="lbl">{t("GK_STAT_OBJECTS", "Đối tượng")}</div>
-          <div className="val">{overview.stats.objectCount}</div>
-          {/* <div className="descr">{t("GK_STAT_OBJECTS_D", "Đối tượng giá thành")}</div> */}
+    <DxPage>
+      <div className="gk-page">
+        {/* Overlay tuyệt đối — không đưa LoadPanel vào flex column (tránh nhảy chiều cao khi đồng bộ). */}
+        <div className="gk-load-host" id="gk-load-host" aria-hidden>
+          <LoadPanel
+            visible={booting || busy}
+            showIndicator
+            showPane
+            shading
+            shadingColor="rgba(255, 255, 255, 0.45)"
+            hideOnOutsideClick={false}
+            container="#gk-load-host"
+            position={{ of: "#gk-load-host" }}
+          />
         </div>
-        <div className="gk-stat">
-          <div className="lbl">{t("GK_STAT_PRODUCTS", "Thành phẩm")}</div>
-          <div className="val">{overview.stats.productCount}</div>
-          {/* <div className="descr">{t("GK_STAT_PRODUCTS_D", "Gồm cả TP cảnh báo")}</div> */}
-        </div>
-        <div className="gk-stat">
-          <div className="lbl">{t("GK_STAT_RECEIPTS", "Phiếu nhập")}</div>
-          <div className="val">{overview.stats.receiptCount}</div>
-          {/* <div className="descr">INPUT_ID</div> */}
-        </div>
-        <div className="gk-stat">
-          <div className="lbl">{t("GK_STAT_WARNINGS", "Cảnh báo")}</div>
-          <div className="val">{overview.stats.warningCount}</div>
-          {/* <div className="descr">{t("GK_STAT_WARNINGS_D", "Lỗi / REOPENED")}</div> */}
-        </div>
-        <div className="gk-stat">
-          <div className="lbl">{t("GK_STAT_PROGRESS", "Tiến độ")}</div>
-          <div className="val">{overview.stats.doneStepCount}/6</div>
-          {/* <div className="descr">{overview.monthStatus}</div> */}
-        </div>
-      </div>
 
-      <div className="gk-layout">
-        <CostingStepNavigator
-          activeStep={overview.activeStep}
-          doneFlags={overview.doneFlags}
-          stepStatuses={overview.stepStatuses}
-          monthStatus={overview.monthStatus}
-          t={t}
-          onSelectStep={(s) => void handleSelectStep(s)}
-        />
+        {ready && overview && panelProps ? (
+          <>
+            <CostingHeader
+              periodYm={overview.periodYm}
+              busy={busy || booting}
+              t={t}
+              onChangePeriod={(p) => void handleChangePeriod(p)}
+              onEnsurePeriod={() => void handleEnsurePeriod()}
+              onSyncObjects={() => void handleSyncObjects()}
+              onOpenPrerequisite={() => void handleSelectStep(0)}
+              onOpenHistory={() => setHistoryOpen(true)}
+            />
 
-        <main className="gk-content">
-          <CostingJobProgress job={overview.job} t={t} />
-
-          {active === 0 ? <CostingPrerequisitePanel {...panelProps} /> : null}
-          {active === 1 ? <FaPrepaidLockPanel {...panelProps} /> : null}
-          {active === 2 ? <CostAllocationPanel {...panelProps} /> : null}
-          {active === 3 ? <CostTransferPanel {...panelProps} /> : null}
-          {active === 4 ? <CostCalculationPanel {...panelProps} /> : null}
-          {active === 5 ? <CostValuationPanel {...panelProps} /> : null}
-          {active === 6 ? <ProfitLossLockPanel {...panelProps} /> : null}
-
-          <div className="gk-card">
-            <div className="gk-cardhead">
-              <h2 style={{ fontSize: 13, margin: 0 }}>
-                {t("GK_SHARED_STATUS", "Trạng thái dùng chung với B-I")}
-              </h2>
-              <span className="gk-pill">{t("GK_ONE_FLOW", "Trạng thái lấy từ cơ sở dữ liệu")}</span>
-            </div>
-            <div className="gk-cardbody">
-              <div className="gk-workflow">
-                <span className={overview.doneFlags[0] ? "mark" : ""}>
-                  {t("GK_FLOW_STEP1", "Bước 1")}: {overview.stepStatuses[0]}
-                </span>
-                <span className={overview.doneFlags[2] ? "mark" : ""}>
-                  {t("GK_FLOW_STEP2", "Bước 2")}: {overview.stepStatuses[2]}
-                </span>
-                <span className={overview.doneFlags[5] ? "mark" : ""}>
-                  {t("GK_FLOW_STEP3", "Bước 3")}: {overview.stepStatuses[5]}
-                </span>
-                <span>
-                  {t("GK_MONTH", "Tháng")}: {overview.monthStatus}
-                </span>
+            <div className="gk-stats">
+              <div className="gk-stat">
+                <div className="lbl">{t("GK_STAT_OBJECTS", "Đối tượng")}</div>
+                <div className="val">{overview.stats.objectCount}</div>
               </div>
-              <p className="gk-muted" style={{ margin: "12px 0 0" }}>
-                {t(
-                  "GK_SHARED_NOTE",
-                  "Mở lại từ G-K: hệ thống tự hoàn nguyên các bước B-I bị ảnh hưởng trong cùng giao dịch. Chỉ báo thành công sau khi dữ liệu và trạng thái hai phân hệ đồng bộ.",
-                )}
-              </p>
+              <div className="gk-stat">
+                <div className="lbl">{t("GK_STAT_PRODUCTS", "Thành phẩm")}</div>
+                <div className="val">{overview.stats.productCount}</div>
+              </div>
+              <div className="gk-stat">
+                <div className="lbl">{t("GK_STAT_RECEIPTS", "Phiếu nhập")}</div>
+                <div className="val">{overview.stats.receiptCount}</div>
+              </div>
+              <div className="gk-stat">
+                <div className="lbl">{t("GK_STAT_WARNINGS", "Cảnh báo")}</div>
+                <div className="val">{overview.stats.warningCount}</div>
+              </div>
+              <div className="gk-stat">
+                <div className="lbl">{t("GK_STAT_PROGRESS", "Tiến độ")}</div>
+                <div className="val">{overview.stats.doneStepCount}/6</div>
+              </div>
             </div>
-          </div>
-        </main>
-      </div>
 
-      <div className="gk-footer-log">
-        <div className="title">{t("GK_RECENT_LOG", "Nhật ký gần nhất")}</div>
-        {recentLogs.length === 0 ? (
-          <div className="gk-muted">{t("GK_HISTORY_EMPTY", "Chưa có thao tác.")}</div>
-        ) : (
-          recentLogs.map((item, idx) => (
-            <div className="gk-log-line" key={`${item.at}-${idx}`}>
-              <span className="gk-log-time">{item.at}</span>
-              <span>{item.message}</span>
+            <div className="gk-layout">
+              <CostingStepNavigator
+                activeStep={overview.activeStep}
+                doneFlags={overview.doneFlags}
+                stepStatuses={overview.stepStatuses}
+                monthStatus={overview.monthStatus}
+                t={t}
+                onSelectStep={(s) => void handleSelectStep(s)}
+              />
+
+              <main className="gk-content">
+                <CostingJobProgress job={overview.job} t={t} />
+
+                {active === 0 ? <CostingPrerequisitePanel {...panelProps} /> : null}
+                {active === 1 ? <FaPrepaidLockPanel {...panelProps} /> : null}
+                {active === 2 ? <CostAllocationPanel {...panelProps} /> : null}
+                {active === 3 ? <CostTransferPanel {...panelProps} /> : null}
+                {active === 4 ? <CostCalculationPanel {...panelProps} /> : null}
+                {active === 5 ? <CostValuationPanel {...panelProps} /> : null}
+                {active === 6 ? <ProfitLossLockPanel {...panelProps} /> : null}
+              </main>
             </div>
-          ))
-        )}
+
+            <CostingHistoryPopup
+              visible={historyOpen}
+              logs={overview.logs}
+              t={t}
+              onClose={() => setHistoryOpen(false)}
+            />
+
+            <CostingStepHistoryPopup
+              visible={stepHistoryOpen}
+              stepIndex={stepHistoryIndex}
+              items={overview.stepHistory}
+              t={t}
+              onClose={() => setStepHistoryOpen(false)}
+            />
+
+            <CostingReopenPopup
+              visible={reopenOpen}
+              info={reopenInfo}
+              busy={busy}
+              t={t}
+              onClose={() => {
+                // TC-07: Hủy Popup — không đổi trạng thái.
+                setReopenOpen(false);
+                setReopenInfo(null);
+              }}
+              onConfirm={(reason) => void handleConfirmReopen(reason)}
+            />
+          </>
+        ) : null}
       </div>
-
-      <CostingHistoryPopup
-        visible={historyOpen}
-        logs={overview.logs}
-        t={t}
-        onClose={() => setHistoryOpen(false)}
-      />
-
-      <CostingStepHistoryPopup
-        visible={stepHistoryOpen}
-        stepIndex={stepHistoryIndex}
-        items={overview.stepHistory}
-        t={t}
-        onClose={() => setStepHistoryOpen(false)}
-      />
-
-      <CostingReopenPopup
-        visible={reopenOpen}
-        info={reopenInfo}
-        busy={busy}
-        t={t}
-        onClose={() => {
-          // TC-07: Hủy Popup — không đổi trạng thái.
-          setReopenOpen(false);
-          setReopenInfo(null);
-        }}
-        onConfirm={(reason) => void handleConfirmReopen(reason)}
-      />
-    </div>
+    </DxPage>
   );
 }

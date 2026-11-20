@@ -4,14 +4,37 @@
  */
 
 .gk-page {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 12px 16px 24px;
+  gap: 10px;
+  padding: 8px 10px 10px;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
   min-height: 0;
+  overflow: hidden;
+}
+
+/* Host tuyệt đối: LoadPanel không tham gia flex → không làm đổi chiều cao trang khi busy/sync */
+.gk-load-host {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.gk-load-host .dx-overlay-wrapper,
+.gk-load-host .dx-loadpanel {
+  pointer-events: auto;
 }
 
 .gk-header {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -44,6 +67,7 @@
 }
 
 .gk-stats {
+  flex: none;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
@@ -78,10 +102,12 @@
 }
 
 .gk-layout {
+  flex: 1 1 auto;
+  min-height: 0;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
   gap: 12px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .gk-sidebar,
@@ -92,9 +118,10 @@
 }
 
 .gk-sidebar {
-  position: sticky;
-  top: 8px;
-  overflow: hidden;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .gk-sidetop {
@@ -231,9 +258,29 @@
 
 .gk-content {
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overflow: auto;
+}
+
+.gk-content > .gk-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.gk-content > .gk-card > .gk-cardbody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.gk-content > .gk-card > .gk-cardfoot {
+  flex: none;
 }
 
 .gk-cardhead {
@@ -552,12 +599,15 @@
 
 @media (max-width: 760px) {
   .gk-layout {
-    display: block;
+    display: flex;
+    flex-direction: column;
   }
 
   .gk-sidebar {
     position: static;
-    margin-bottom: 12px;
+    max-height: 40%;
+    margin-bottom: 0;
+    flex: none;
   }
 
   .gk-stage-list {
