@@ -348,6 +348,224 @@ export function mapPrerequisiteValidation(raw: unknown): PrerequisiteValidationR
   };
 }
 
+function objectSelectionKey(departmentId: number, productId: number): string {
+  return `${departmentId}:${productId}`;
+}
+
+/**
+ * Tính lại tiền kiểm Bước 00 từ danh sách đối tượng sau khi đổi IS_SELECTED,
+ * không gọi lại API. Giữ các issue không phụ thuộc lựa chọn (kỳ / nguồn phiếu / mapping trùng).
+ */
+export function recomputePrerequisiteAfterSelection(
+  overview: ProductionCostingOverview,
+  objects: CostObjectCandidate[],
+): PrerequisiteValidationResult {
+  if (!overview.periodExists || !overview.runId) {
+    return {
+      status: "NOT_CHECKED",
+      errorCount: 0,
+      warningCount: 0,
+      issues: [
+        {
+          level: "WARNING",
+          code: "PERIOD_NOT_READY",
+          message:
+            "Kỳ G-K chưa được khởi tạo hoặc chưa tải được RUN. Hãy khởi tạo kỳ trước khi kiểm tra đầu vào.",
+        },
+      ],
+    };
+  }
+
+  const issues: PrerequisiteIssue[] = [];
+  for (const issue of overview.prerequisiteValidation.issues) {
+    if (issue.code === "PERIOD_NOT_READY" || issue.code === "NO_SOURCE_RECEIPT" || issue.code === "DUPLICATE_MAPPING") {
+      issues.push(issue);
+    }
+  }
+
+  if (overview.stats.receiptCount <= 0 && !issues.some((issue) => issue.code === "NO_SOURCE_RECEIPT")) {
+    issues.push({
+      level: "ERROR",
+      code: "NO_SOURCE_RECEIPT",
+      message:
+        "Không có chứng từ nhập thành phẩm nguồn hợp lệ trong kỳ (Nợ 155% / Có 154%). " +
+        "Đồng bộ đối tượng từ nhập kho hoặc kiểm tra hạch toán phiếu nhập.",
+    });
+  }
+
+  const selected = objects.filter((row) => row.selected);
+  if (selected.length === 0) {
+    issues.push({
+      level: "ERROR",
+      code: "NO_SELECTED_PRODUCT",
+      message:
+        "Chưa có thành phẩm được chọn để tính giá thành. " +
+        "Chọn đối tượng hợp lệ trên Bước 00 trước khi ghi các bước G-K.",
+    });
+  }
+
+  for (const row of objects) {
+    const productId = Number(row.productId ?? 0);
+    if (productId <= 0) {
+      issues.push({
+        level: "ERROR",
+        code: "MISSING_PRODUCT_ID",
+        message:
+          `Thành phẩm nguồn thiếu PRODUCT_ID bắt buộc` +
+          (row.productCd ? ` (mã ${row.productCd}).` : ".") +
+          " Không thể tính giá thành cho dòng này.",
+        productId,
+        departmentId: row.departmentId,
+      });
+    }
+    if (row.departmentId <= 0) {
+      issues.push({
+        level: "ERROR",
+        code: "MISSING_DEPARTMENT_ID",
+        message:
+          `Thành phẩm phát sinh nguồn thiếu DEPARTMENT_ID hợp lệ` +
+          (row.productCd ? ` (TP ${row.productCd}).` : ".") +
+          " Gán đối tượng tập hợp chi phí trên danh mục sản phẩm rồi đồng bộ lại.",
+        productId: productId > 0 ? productId : undefined,
+        departmentId: row.departmentId,
+      });
+    }
+  }
+
+  for (const row of selected) {
+    const productId = Number(row.productId ?? 0);
+    if (productId <= 0 || row.departmentId <= 0) continue;
+    if (row.finishedQty <= 0) {
+      issues.push({
+        level: "ERROR",
+        code: "INVALID_QUANTITY",
+        message:
+          `Thành phẩm được chọn có số lượng không hợp lệ (SL=${row.finishedQty})` +
+          (row.productCd ? ` — TP ${row.productCd}.` : ".") +
+          " Kiểm tra phiếu nhập Nợ 155% / Có 154% trong kỳ.",
+        productId,
+        departmentId: row.departmentId,
+      });
+      issues.push({
+        level: "ERROR",
+        code: "MISSING_ACCOUNTING_LINK",
+        message:
+          `Không liên kết được chứng từ nhập kho với hạch toán Nợ 155% / Có 154% cho thành phẩm được chọn` +
+          (row.productCd ? ` (TP ${row.productCd}).` : "."),
+        productId,
+        departmentId: row.departmentId,
+      });
+    }
+  }
+
+  for (const row of objects) {
+    const productId = Number(row.productId ?? 0);
+    if (
+      row.selected ||
+      productId <= 0 ||
+      row.departmentId <= 0 ||
+      row.finishedQty <= 0 ||
+      row.receiptCount <= 0
+    ) {
+      continue;
+    }
+    issues.push({
+      level: "WARNING",
+      code: "DESELECTED_SOURCE_PRODUCT",
+      message:
+        `Thành phẩm có nhập kho hợp lệ trong kỳ nhưng chưa được chọn tính giá thành` +
+        (row.productCd ? ` (TP ${row.productCd}).` : ".") +
+        " Bỏ qua nếu cố ý loại khỏi phạm vi tính.",
+      productId,
+      departmentId: row.departmentId,
+    });
+  }
+
+  const deduped = [
+    ...new Map(
+      issues.map((issue) => [
+        `${issue.level}|${issue.code}|${issue.productId ?? 0}|${issue.departmentId ?? 0}|${issue.message}`,
+        issue,
+      ]),
+    ).values(),
+  ];
+  const errorCount = deduped.filter((issue) => issue.level === "ERROR").length;
+  const warningCount = deduped.filter((issue) => issue.level === "WARNING").length;
+  const status: PrerequisiteValidationStatus =
+    errorCount > 0 ? "ERROR" : warningCount > 0 ? "WARNING" : "SUCCESS";
+
+  return { status, errorCount, warningCount, issues: deduped };
+}
+
+/**
+ * Cập nhật state lựa chọn đối tượng trên overview hiện có (không reload G-K).
+ * Đồng bộ objectCount + tiền kiểm Bước 00; giữ nguyên productCount / receiptCount.
+ */
+export function applyObjectSelection(
+  overview: ProductionCostingOverview,
+  updates: Array<{ departmentId: number; productId: number; selected: boolean }>,
+): ProductionCostingOverview {
+  if (updates.length === 0) return overview;
+
+  const patch = new Map(
+    updates.map((item) => [objectSelectionKey(item.departmentId, item.productId), item.selected]),
+  );
+  const objects = overview.objects.map((row) => {
+    const productId = Number(row.productId ?? 0);
+    const nextSelected = patch.get(objectSelectionKey(row.departmentId, productId));
+    if (nextSelected === undefined || nextSelected === row.selected) return row;
+    return { ...row, selected: nextSelected };
+  });
+
+  const prerequisiteValidation = recomputePrerequisiteAfterSelection(overview, objects);
+  const objectCount = objects.filter((row) => row.selected).length;
+  const warningCount =
+    prerequisiteValidation.warningCount +
+    prerequisiteValidation.errorCount +
+    overview.stepStatuses.filter((status) => status === "ERROR" || status === "REOPENED").length;
+
+  const warnings = [
+    ...overview.warnings.filter((row) => row.id === "period"),
+    ...prerequisiteValidation.issues.map((issue, index) => ({
+      id: `prereq-${issue.code}-${issue.departmentId ?? 0}-${issue.productId ?? 0}-${index}`,
+      level: (issue.level === "ERROR" ? "error" : "warn") as "error" | "warn",
+      message: issue.message,
+      departmentId: issue.departmentId,
+      productId: issue.productId,
+    })),
+    ...objects
+      .filter((row) => row.warningText)
+      .filter(
+        (row) =>
+          !prerequisiteValidation.issues.some(
+            (issue) =>
+              issue.departmentId === row.departmentId &&
+              issue.productId === (row.productId ?? undefined) &&
+              issue.message.includes(row.warningText.slice(0, 40)),
+          ),
+      )
+      .map((row) => ({
+        id: `obj-${row.departmentId}-${row.productId}`,
+        level: "error" as const,
+        message: row.warningText,
+        departmentId: row.departmentId,
+        productId: row.productId ?? undefined,
+      })),
+  ];
+
+  return {
+    ...overview,
+    objects,
+    prerequisiteValidation,
+    stats: {
+      ...overview.stats,
+      objectCount,
+      warningCount,
+    },
+    warnings,
+  };
+}
+
 export function assembleOverview(input: {
   companyCd: string;
   periodYm: string;

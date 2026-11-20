@@ -1,12 +1,18 @@
 /**
  * Bước 00 — Kiểm tra dữ liệu đầu vào trước khi chạy các bước khóa/tính.
  * Trạng thái lấy từ backend PrerequisiteValidation; không có nút kiểm tra thủ công.
+ * Tick/chọn tất cả: 1 PUT lựa chọn + cập nhật state local (không reload toàn bộ G-K).
  */
 
+import { useState } from "react";
 import DataGrid, { Column, Paging } from "devextreme-react/data-grid";
 import Button from "devextreme-react/button";
 import CheckBox from "devextreme-react/check-box";
-import { toggleProductionCostObject } from "@/api/productionCostingApi";
+import {
+  getProductionCostingSessionOverview,
+  toggleProductionCostObject,
+  updateProductionCostObjectSelections,
+} from "@/api/productionCostingApi";
 import { formatGkMessage, Notice, StepShell, type PanelCommonProps } from "./costingPanelShared";
 import type { PrerequisiteValidationStatus } from "../types/productionCostingTypes";
 
@@ -29,6 +35,10 @@ function statusPill(
   };
 }
 
+function rowLockKey(departmentId: number, productId: number): string {
+  return `${departmentId}:${productId}`;
+}
+
 export function CostingPrerequisitePanel({
   overview,
   busy,
@@ -43,37 +53,73 @@ export function CostingPrerequisitePanel({
   const pill = statusPill(validation.status, t);
   const canProceed =
     validation.status === "SUCCESS" || validation.status === "WARNING";
+  const [pendingRows, setPendingRows] = useState<Set<string>>(() => new Set());
+
+  const markPending = (keys: string[], on: boolean) => {
+    setPendingRows((prev) => {
+      const next = new Set(prev);
+      for (const key of keys) {
+        if (on) next.add(key);
+        else next.delete(key);
+      }
+      return next;
+    });
+  };
 
   const handleToggle = async (departmentId: number, productId: number, selected: boolean) => {
     if (departmentId <= 0 || productId <= 0) {
       onError(t("GK_CANNOT_SELECT_ORPHAN", "Không chọn được TP thiếu đối tượng."));
       return;
     }
+    const key = rowLockKey(departmentId, productId);
+    if (pendingRows.has(key)) return;
+
     try {
-      onBusy(true);
+      markPending([key], true);
       const next = await toggleProductionCostObject(departmentId, productId, selected);
       onRefresh(next);
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
+      // Đồng bộ lại từ session (có thể đã có patch dòng khác thành công) — không dùng overview closure cũ.
+      const snapshot = getProductionCostingSessionOverview() ?? overview;
+      onRefresh({ ...snapshot, objects: snapshot.objects.map((row) => ({ ...row })) });
     } finally {
-      onBusy(false);
+      markPending([key], false);
     }
   };
 
   const handleSelectAllValid = async () => {
+    const targets = overview.objects.filter(
+      (row) =>
+        row.departmentId > 0 &&
+        Number(row.productId) > 0 &&
+        !row.selected &&
+        !row.hasWarning,
+    );
+    if (targets.length === 0) {
+      onSuccess(t("GK_SELECT_ALL_OK", "Đã chọn tất cả đối tượng hợp lệ."));
+      return;
+    }
+
+    const keys = targets.map((row) => rowLockKey(row.departmentId, Number(row.productId)));
     try {
+      markPending(keys, true);
       onBusy(true);
-      let next = overview;
-      for (const row of overview.objects) {
-        if (row.departmentId > 0 && Number(row.productId) > 0 && !row.selected && !row.hasWarning) {
-          next = await toggleProductionCostObject(row.departmentId, Number(row.productId), true);
-        }
-      }
+      const next = await updateProductionCostObjectSelections(
+        targets.map((row) => ({
+          departmentId: row.departmentId,
+          productId: Number(row.productId),
+          selected: true,
+        })),
+      );
       onRefresh(next);
       onSuccess(t("GK_SELECT_ALL_OK", "Đã chọn tất cả đối tượng hợp lệ."));
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
+      const snapshot = getProductionCostingSessionOverview() ?? overview;
+      onRefresh({ ...snapshot, objects: snapshot.objects.map((row) => ({ ...row })) });
     } finally {
+      markPending(keys, false);
       onBusy(false);
     }
   };
@@ -85,13 +131,14 @@ export function CostingPrerequisitePanel({
       desc={t("GK_STEP0_SUB", "Đối tượng · Thành phẩm · Phiếu nhập")}
       done={canProceed}
       waiting={validation.status === "NOT_CHECKED"}
+      fillBody
       t={t}
       onNext={canProceed ? onNext : undefined}
       rightActions={
         <Button
           text={t("GK_SELECT_ALL_VALID", "Chọn tất cả hợp lệ")}
           stylingMode="outlined"
-          disabled={busy}
+          disabled={busy || pendingRows.size > 0}
           onClick={() => void handleSelectAllValid()}
         />
       }
@@ -127,53 +174,66 @@ export function CostingPrerequisitePanel({
         </div>
       </div>
 
-      <div className="gk-sectiontitle">{t("GK_OBJECT_GRID", "Danh sách đối tượng / thành phẩm")}</div>
-      <DataGrid
-        dataSource={overview.objects}
-        keyExpr="objectSelId"
-        showBorders
-        columnAutoWidth
-        hoverStateEnabled
-        height={280}
-      >
-        <Paging pageSize={10} />
-        <Column
-          caption={t("SELECT", "Chọn")}
-          width={70}
-          cellRender={(cell) => {
-            const row = cell.data as {
-              departmentId: number;
-              productId: number;
-              selected: boolean;
-              hasWarning: boolean;
-            };
-            return (
-              <CheckBox
-                value={row.selected}
-                disabled={busy || row.departmentId <= 0 || row.hasWarning}
-                onValueChanged={(e) => {
-                  if (typeof e.value === "boolean" && e.value !== row.selected) {
-                    void handleToggle(row.departmentId, row.productId, e.value);
-                  }
-                }}
-              />
-            );
-          }}
-        />
-        <Column dataField="departmentCd" caption={t("DEPARTMENT_CD", "Mã ĐT")} width={200} />
-        <Column dataField="departmentName" caption={t("DEPARTMENT_NM", "Đối tượng")} />
-        <Column dataField="productCd" caption={t("PRODUCT_CD", "Mã TP")} width={100} />
-        <Column dataField="productName" caption={t("PRODUCT_NM", "Thành phẩm")} />
-        <Column dataField="finishedQty" caption={t("QTY", "SL")} width={80} dataType="number" />
-        <Column dataField="receiptCount" caption={t("RECEIPT_COUNT", "Phiếu NK")} width={90} />
-        <Column dataField="warningText" caption={t("WARNING", "Cảnh báo")} />
-      </DataGrid>
+      <div className="gk-object-grid-block">
+        <div className="gk-sectiontitle">{t("GK_OBJECT_GRID", "Danh sách đối tượng / thành phẩm")}</div>
+        <div className="gk-object-grid-container">
+          <DataGrid
+            dataSource={overview.objects}
+            keyExpr="objectSelId"
+            showBorders
+            columnAutoWidth
+            hoverStateEnabled
+            height="100%"
+            className="gk-object-grid"
+          >
+            <Paging enabled={false} />
+            <Column
+              caption={t("SELECT", "Chọn")}
+              width={70}
+              cellRender={(cell) => {
+                const row = cell.data as {
+                  departmentId: number;
+                  productId: number;
+                  selected: boolean;
+                  hasWarning: boolean;
+                };
+                const key = rowLockKey(row.departmentId, Number(row.productId));
+                const rowBusy = pendingRows.has(key);
+                return (
+                  <CheckBox
+                    value={row.selected}
+                    disabled={
+                      busy ||
+                      rowBusy ||
+                      row.departmentId <= 0 ||
+                      Number(row.productId) <= 0 ||
+                      row.hasWarning
+                    }
+                    onValueChanged={(e) => {
+                      if (typeof e.value === "boolean" && e.value !== row.selected) {
+                        void handleToggle(row.departmentId, Number(row.productId), e.value);
+                      }
+                    }}
+                  />
+                );
+              }}
+            />
+            <Column dataField="departmentCd" caption={t("DEPARTMENT_CD", "Mã ĐT")} width={200} />
+            <Column dataField="departmentName" caption={t("DEPARTMENT_NM", "Đối tượng")} />
+            <Column dataField="productCd" caption={t("PRODUCT_CD", "Mã TP")} width={100} />
+            <Column dataField="productName" caption={t("PRODUCT_NM", "Thành phẩm")} />
+            <Column dataField="finishedQty" caption={t("QTY", "SL")} width={80} dataType="number" />
+            <Column dataField="receiptCount" caption={t("RECEIPT_COUNT", "Phiếu NK")} width={90} />
+            <Column dataField="warningText" caption={t("WARNING", "Cảnh báo")} />
+          </DataGrid>
+        </div>
 
-      {overview.warnings.map((w) => (
-        <Notice key={w.id} type={w.level === "error" ? "err" : w.level === "warn" ? "warn" : "info"}>
-          {w.message}
-        </Notice>
-      ))}
+        {overview.warnings.map((w) => (
+          <Notice key={w.id} type={w.level === "error" ? "err" : w.level === "warn" ? "warn" : "info"}>
+            {w.message}
+          </Notice>
+        ))}
+      </div>
     </StepShell>
   );
 }

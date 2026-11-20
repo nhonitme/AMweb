@@ -47,6 +47,11 @@ type StepShellProps = {
   /** Tương thích FE-03: done=true ↔ DONE. */
   done?: boolean;
   waiting?: boolean;
+  /**
+   * Body flex column + overflow hidden để vùng con (vd. DataGrid) chiếm chiều cao còn lại.
+   * Chỉ bật khi panel cần fill height; mặc định giữ hành vi cuộn body của bước 01–06.
+   */
+  fillBody?: boolean;
   t: (key: string, fallback: string) => string;
   children: ReactNode;
   leftActions?: ReactNode;
@@ -90,6 +95,7 @@ export function StepShell({
   runStatus,
   done,
   waiting,
+  fillBody = false,
   t,
   children,
   leftActions,
@@ -135,7 +141,7 @@ export function StepShell({
           {statusPill(resolvedStatus, waiting, t)}
         </div>
       </div>
-      <div className="gk-cardbody">{children}</div>
+      <div className={`gk-cardbody${fillBody ? " gk-cardbody--fill" : ""}`}>{children}</div>
       <div className="gk-cardfoot">
         <div>
           {leftActions}

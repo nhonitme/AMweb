@@ -6,6 +6,7 @@
 import axios from "./axiosClient";
 import { getPeriodLockProgress, startPeriodLock } from "./periodLockApi";
 import {
+  applyObjectSelection,
   assembleOverview,
   buildReopenInfo,
   emptyOverview,
@@ -47,6 +48,8 @@ const session: SessionState = {
 };
 
 const pendingOps = new Map<string, string>();
+/** Khóa dòng đang ghi lựa chọn — chặn tick trùng cùng DEPARTMENT_ID+PRODUCT_ID. */
+const pendingObjectSelection = new Set<string>();
 
 function operationId(key: string): string {
   const existing = pendingOps.get(key);
@@ -60,6 +63,27 @@ function operationId(key: string): string {
 
 function clearOp(key: string) {
   pendingOps.delete(key);
+}
+
+function objectSelectionLockKey(departmentId: number, productId: number): string {
+  return `${departmentId}:${productId}`;
+}
+
+function applySelectionToSession(
+  updates: Array<{ departmentId: number; productId: number; selected: boolean }>,
+): ProductionCostingOverview {
+  const current = session.overview;
+  if (!current) {
+    throw new Error("Chưa tải overview G-K.");
+  }
+  const next = applyObjectSelection(current, updates);
+  session.overview = next;
+  return next;
+}
+
+/** Snapshot overview đang giữ trên client (sau các lần patch lựa chọn / reload). */
+export function getProductionCostingSessionOverview(): ProductionCostingOverview | null {
+  return session.overview;
 }
 
 function unwrap<T>(payload: unknown): T {
@@ -178,6 +202,7 @@ export async function setProductionCostingPeriod(companyCd: string, periodYm: st
   session.companyCd = companyCd;
   session.periodYm = periodYm;
   pendingOps.clear();
+  pendingObjectSelection.clear();
   return reloadProductionCosting();
 }
 
@@ -197,9 +222,10 @@ export async function ensureProductionCostingPeriod(): Promise<EnsurePeriodResul
     Message?: string;
     SyncedObjectCount?: number;
   }>("/period/ensure", { PeriodYm: session.periodYm });
-  // Sau khá»Ÿi táº¡o láº¡i ká»³: vá» bÆ°á»›c 0 vÃ  tiáº¿n Ä‘á»™ 0/6; xÃ³a state RUN cÅ© trÃªn client.
+  // Sau khởi tạo lại kỳ: về bước 0 và tiến độ 0/6; xóa state RUN cũ trên client.
   session.activeStep = 0;
   pendingOps.clear();
+  pendingObjectSelection.clear();
   const overview = await reloadProductionCosting();
   return {
     overview,
@@ -229,12 +255,83 @@ export async function setProductionCostingActiveStep(step: CostingStepIndex): Pr
   return next;
 }
 
-export async function toggleProductionCostObject(departmentId: number, productId: number, selected: boolean): Promise<ProductionCostingOverview> {
+/**
+ * Tick/bỏ tick một dòng: 1 PUT /objects/selection, cập nhật state local.
+ * Không gọi reloadProductionCosting().
+ */
+export async function toggleProductionCostObject(
+  departmentId: number,
+  productId: number,
+  selected: boolean,
+): Promise<ProductionCostingOverview> {
+  if (departmentId <= 0 || productId <= 0) {
+    throw new Error("Không chọn được TP thiếu DEPARTMENT_ID hoặc PRODUCT_ID.");
+  }
+  const lockKey = objectSelectionLockKey(departmentId, productId);
+  if (pendingObjectSelection.has(lockKey)) {
+    throw new Error("Đang cập nhật lựa chọn dòng này. Vui lòng đợi.");
+  }
+
   const identity = requireIdentity();
-  // ProductId=0 updates every product of a department. Step-0 works per
-  // OBJECT_SEL_ID / DEPARTMENT_ID + PRODUCT_ID, so select only that row.
-  await put("/objects/selection", { ...identity, DepartmentId: departmentId, ProductId: productId, Selected: selected });
-  return reloadProductionCosting();
+  pendingObjectSelection.add(lockKey);
+  try {
+    await put("/objects/selection", {
+      ...identity,
+      DepartmentId: departmentId,
+      ProductId: productId,
+      Selected: selected,
+    });
+    return applySelectionToSession([{ departmentId, productId, selected }]);
+  } finally {
+    pendingObjectSelection.delete(lockKey);
+  }
+}
+
+export type ProductionCostObjectSelectionItem = {
+  departmentId: number;
+  productId: number;
+  selected: boolean;
+};
+
+/**
+ * Chọn hàng loạt đối tượng hợp lệ: 1 PUT /objects/selection (Items), cập nhật state local.
+ * Không gọi reloadProductionCosting().
+ */
+export async function updateProductionCostObjectSelections(
+  items: ProductionCostObjectSelectionItem[],
+): Promise<ProductionCostingOverview> {
+  const normalized = items
+    .filter((item) => item.departmentId > 0 && item.productId > 0)
+    .map((item) => ({
+      departmentId: item.departmentId,
+      productId: item.productId,
+      selected: item.selected,
+    }));
+  if (normalized.length === 0) {
+    if (!session.overview) throw new Error("Chưa tải overview G-K.");
+    return session.overview;
+  }
+
+  const lockKeys = normalized.map((item) => objectSelectionLockKey(item.departmentId, item.productId));
+  if (lockKeys.some((key) => pendingObjectSelection.has(key))) {
+    throw new Error("Đang cập nhật lựa chọn đối tượng. Vui lòng đợi thao tác trước hoàn tất.");
+  }
+
+  const identity = requireIdentity();
+  for (const key of lockKeys) pendingObjectSelection.add(key);
+  try {
+    await put("/objects/selection", {
+      ...identity,
+      Items: normalized.map((item) => ({
+        DepartmentId: item.departmentId,
+        ProductId: item.productId,
+        Selected: item.selected,
+      })),
+    });
+    return applySelectionToSession(normalized);
+  } finally {
+    for (const key of lockKeys) pendingObjectSelection.delete(key);
+  }
 }
 
 async function runPeriodLock(step: "FA_PREPAID_LOCK" | "PROFIT_LOSS_REPORT"): Promise<ProductionCostingOverview> {

@@ -309,6 +309,53 @@
   overflow: auto;
 }
 
+/* Bước 00: body flex để DataGrid chiếm chiều cao còn lại; footer card không bị đẩy. */
+.gk-content > .gk-card > .gk-cardbody.gk-cardbody--fill {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.gk-cardbody--fill > .gk-summary-band,
+.gk-cardbody--fill > .gk-columns {
+  flex: none;
+}
+
+.gk-object-grid-block {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.gk-object-grid-block > .gk-sectiontitle {
+  flex: none;
+  margin-top: 0;
+}
+
+.gk-object-grid-block > .gk-notice {
+  flex: none;
+  margin-bottom: 0;
+}
+
+.gk-object-grid-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  /* height:0 + flex:1 → chiều cao xác định để DataGrid height="100%" resolve đúng */
+  height: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.gk-object-grid-container > .dx-widget,
+.gk-object-grid-container > .gk-object-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  height: 100% !important;
+}
+
 .gk-content > .gk-card > .gk-cardfoot {
   flex: none;
 }
