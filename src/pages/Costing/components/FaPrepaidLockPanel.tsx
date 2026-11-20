@@ -92,9 +92,9 @@ export function FaPrepaidLockPanel({
       }
     >
       <div className="gk-summary-band">
-        <div className="big">B-I</div>
+        <div className="big">01</div>
         <div className="explain">
-          <div className="title">{t("GK_STEP1_BAND", "Dùng lại engine khóa sổ bước 1 của B-I")}</div>
+          <div className="title">{t("GK_STEP1_BAND", "Khóa sổ bước 1")}</div>
           <div className="desc">
             {t(
               "GK_STEP1_BAND_DESC",
@@ -102,18 +102,18 @@ export function FaPrepaidLockPanel({
             )}
           </div>
         </div>
-        <span className="gk-pill active">{t("GK_SHARED_BI", "Dùng chung B-I")}</span>
+        {/* <span className="gk-pill active">{t("GK_SHARED_BI", "Dùng chung B-I")}</span> */}
       </div>
 
-      <Notice type="info">
+      {/* <Notice type="info">
         {t(
           "GK_STEP1_REAL_ENGINE",
           "Chứng từ khấu hao và phân bổ được kiểm tra, tính toán và ghi nhận bởi PeriodLock B-I khi thực hiện. " +
             "G-K không mô phỏng bút toán hoặc hiển thị số tiền xem trước chưa được xác nhận từ DB.",
         )}
-      </Notice>
+      </Notice> */}
 
-      <Notice type={locked ? "good" : runStatus === "REOPENED" ? "warn" : "info"}>
+      {/* <Notice type={locked ? "good" : runStatus === "REOPENED" ? "warn" : "info"}>
         {locked
           ? formatGkMessage(
               t("GK_STEP1_DONE_MSG", "B1 trên DB đang DONE. Chứng từ đã được PeriodLock ghi nhận."),
@@ -127,7 +127,7 @@ export function FaPrepaidLockPanel({
                 "GK_STEP1_HINT",
                 "Kiểm tra trạng thái DB, sau đó thực hiện bằng PeriodLock B-I. Chỉ xác nhận thành công khi job và bước trên DB đều DONE.",
               )}
-      </Notice>
+      </Notice> */}
     </StepShell>
   );
 }

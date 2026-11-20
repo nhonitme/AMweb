@@ -183,6 +183,7 @@ export function CostingPrerequisitePanel({
             showBorders
             columnAutoWidth
             hoverStateEnabled
+            focusedRowEnabled={false}
             height="100%"
             className="gk-object-grid"
           >
@@ -190,6 +191,9 @@ export function CostingPrerequisitePanel({
             <Column
               caption={t("SELECT", "Chọn")}
               width={70}
+              // Tránh DataGrid gắn focus overlay (gạch dưới Fluent) khi tick checkbox trong cell.
+              cssClass="dx-cell-focus-disabled"
+              allowSorting={false}
               cellRender={(cell) => {
                 const row = cell.data as {
                   departmentId: number;
@@ -199,22 +203,29 @@ export function CostingPrerequisitePanel({
                 };
                 const key = rowLockKey(row.departmentId, Number(row.productId));
                 const rowBusy = pendingRows.has(key);
+                // Không disable khi rowBusy: disabled làm mất focus checkbox → DX focus cell → gạch xanh.
+                const cannotSelect =
+                  busy ||
+                  row.departmentId <= 0 ||
+                  Number(row.productId) <= 0 ||
+                  row.hasWarning;
                 return (
-                  <CheckBox
-                    value={row.selected}
-                    disabled={
-                      busy ||
-                      rowBusy ||
-                      row.departmentId <= 0 ||
-                      Number(row.productId) <= 0 ||
-                      row.hasWarning
-                    }
-                    onValueChanged={(e) => {
-                      if (typeof e.value === "boolean" && e.value !== row.selected) {
-                        void handleToggle(row.departmentId, Number(row.productId), e.value);
-                      }
-                    }}
-                  />
+                  <div
+                    className="gk-object-select-cell"
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <CheckBox
+                      value={row.selected}
+                      disabled={cannotSelect}
+                      onValueChanged={(e) => {
+                        if (rowBusy) return;
+                        if (typeof e.value === "boolean" && e.value !== row.selected) {
+                          void handleToggle(row.departmentId, Number(row.productId), e.value);
+                        }
+                      }}
+                    />
+                  </div>
                 );
               }}
             />

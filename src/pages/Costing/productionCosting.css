@@ -356,6 +356,25 @@
   height: 100% !important;
 }
 
+/*
+ * Fluent theme (dx.fluent.blue.light.compact):
+ *   .dx-datagrid-focus-overlay::after { height:2px; background:#3f89ca; bottom:0 }
+ * Chính là đường kẻ ngang khi tick checkbox (cell bị DataGrid focus).
+ * Chỉ tắt ::after trong lưới chọn đối tượng/TP — không đụng focus toàn cục.
+ */
+.gk-object-grid .dx-datagrid-focus-overlay::after {
+  content: none !important;
+  display: none !important;
+}
+
+.gk-object-select-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 100%;
+}
+
 .gk-content > .gk-card > .gk-cardfoot {
   flex: none;
 }
