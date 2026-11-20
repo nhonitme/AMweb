@@ -207,7 +207,6 @@ export default function CostObjectSetupPage() {
               <Button
                 icon="folder"
                 text={t("COST_OBJECT_MASTER_CATALOG", "Đối tượng tập hợp chi phí")}
-                hint="/master/cost-center"
                 stylingMode="outlined"
                 disabled={loadingCatalog !== null}
                 onClick={() => void openCatalog("cost-center")}
@@ -215,7 +214,6 @@ export default function CostObjectSetupPage() {
               <Button
                 icon="box"
                 text={t("INVENTORY_ITEM_SETUP", "Khai báo hàng tồn kho")}
-                hint="/master/inventory"
                 stylingMode="outlined"
                 disabled={loadingCatalog !== null}
                 onClick={() => void openCatalog("inventory")}

@@ -38,6 +38,8 @@ type SessionState = {
   periodYm: string;
   activeStep: CostingStepIndex;
   overview: ProductionCostingOverview | null;
+  /** Lựa chọn đã lưu (Saved selection) — đối chiếu Draft trên overview.objects. */
+  savedObjectSelection: Map<string, boolean> | null;
 };
 
 const session: SessionState = {
@@ -45,10 +47,17 @@ const session: SessionState = {
   periodYm: "",
   activeStep: 0,
   overview: null,
+  savedObjectSelection: null,
+};
+
+export type ProductionCostObjectSelectionItem = {
+  departmentId: number;
+  productId: number;
+  selected: boolean;
 };
 
 const pendingOps = new Map<string, string>();
-/** Khóa dòng đang ghi lựa chọn — chặn tick trùng cùng DEPARTMENT_ID+PRODUCT_ID. */
+/** Khóa dòng đang ghi lựa chọn — chặn lưu batch trùng khi đang PUT. */
 const pendingObjectSelection = new Set<string>();
 
 function operationId(key: string): string {
@@ -69,6 +78,20 @@ function objectSelectionLockKey(departmentId: number, productId: number): string
   return `${departmentId}:${productId}`;
 }
 
+function snapshotObjectSelection(overview: ProductionCostingOverview): Map<string, boolean> {
+  const map = new Map<string, boolean>();
+  for (const row of overview.objects) {
+    const productId = Number(row.productId ?? 0);
+    if (row.departmentId <= 0 || productId <= 0) continue;
+    map.set(objectSelectionLockKey(row.departmentId, productId), row.selected);
+  }
+  return map;
+}
+
+function rememberSavedObjectSelection(overview: ProductionCostingOverview) {
+  session.savedObjectSelection = snapshotObjectSelection(overview);
+}
+
 function applySelectionToSession(
   updates: Array<{ departmentId: number; productId: number; selected: boolean }>,
 ): ProductionCostingOverview {
@@ -84,6 +107,72 @@ function applySelectionToSession(
 /** Snapshot overview đang giữ trên client (sau các lần patch lựa chọn / reload). */
 export function getProductionCostingSessionOverview(): ProductionCostingOverview | null {
   return session.overview;
+}
+
+/** Draft selection khác Saved selection hay chưa. */
+export function isProductionCostObjectSelectionDirty(): boolean {
+  const overview = session.overview;
+  const saved = session.savedObjectSelection;
+  if (!overview || !saved) return false;
+  const current = snapshotObjectSelection(overview);
+  if (current.size !== saved.size) return true;
+  for (const [key, selected] of current) {
+    if (saved.get(key) !== selected) return true;
+  }
+  return false;
+}
+
+/** Các dòng Draft khác Saved — dùng khi lưu batch lúc Bước tiếp. */
+export function getProductionCostObjectSelectionChanges(): ProductionCostObjectSelectionItem[] {
+  const overview = session.overview;
+  const saved = session.savedObjectSelection;
+  if (!overview || !saved) return [];
+  const changes: ProductionCostObjectSelectionItem[] = [];
+  for (const row of overview.objects) {
+    const productId = Number(row.productId ?? 0);
+    if (row.departmentId <= 0 || productId <= 0) continue;
+    const key = objectSelectionLockKey(row.departmentId, productId);
+    const savedSelected = saved.get(key);
+    if (savedSelected === undefined || savedSelected !== row.selected) {
+      changes.push({
+        departmentId: row.departmentId,
+        productId,
+        selected: row.selected,
+      });
+    }
+  }
+  return changes;
+}
+
+/**
+ * Tick/bỏ tick trên frontend — chỉ cập nhật Draft selection.
+ * Không gọi API / không ghi database.
+ */
+export function applyDraftProductionCostObjectSelection(
+  updates: Array<{ departmentId: number; productId: number; selected: boolean }>,
+): ProductionCostingOverview {
+  return applySelectionToSession(updates);
+}
+
+/** Khôi phục Draft về Saved (bỏ thay đổi chưa lưu). */
+export function discardDraftProductionCostObjectSelection(): ProductionCostingOverview {
+  const overview = session.overview;
+  const saved = session.savedObjectSelection;
+  if (!overview) {
+    throw new Error("Chưa tải overview G-K.");
+  }
+  if (!saved) return overview;
+  const updates: Array<{ departmentId: number; productId: number; selected: boolean }> = [];
+  for (const row of overview.objects) {
+    const productId = Number(row.productId ?? 0);
+    if (row.departmentId <= 0 || productId <= 0) continue;
+    const savedSelected = saved.get(objectSelectionLockKey(row.departmentId, productId));
+    if (savedSelected !== undefined && savedSelected !== row.selected) {
+      updates.push({ departmentId: row.departmentId, productId, selected: savedSelected });
+    }
+  }
+  if (updates.length === 0) return overview;
+  return applySelectionToSession(updates);
 }
 
 function unwrap<T>(payload: unknown): T {
@@ -189,6 +278,7 @@ export async function reloadProductionCosting(): Promise<ProductionCostingOvervi
     run,
   });
   session.overview = overview;
+  rememberSavedObjectSelection(overview);
   return overview;
 }
 
@@ -203,6 +293,7 @@ export async function setProductionCostingPeriod(companyCd: string, periodYm: st
   session.periodYm = periodYm;
   pendingOps.clear();
   pendingObjectSelection.clear();
+  session.savedObjectSelection = null;
   return reloadProductionCosting();
 }
 
@@ -256,8 +347,8 @@ export async function setProductionCostingActiveStep(step: CostingStepIndex): Pr
 }
 
 /**
- * Tick/bỏ tick một dòng: 1 PUT /objects/selection, cập nhật state local.
- * Không gọi reloadProductionCosting().
+ * Tick/bỏ tick một dòng — chỉ Draft trên frontend (0 API).
+ * Giữ chữ ký async để tương thích chỗ gọi cũ.
  */
 export async function toggleProductionCostObject(
   departmentId: number,
@@ -267,35 +358,12 @@ export async function toggleProductionCostObject(
   if (departmentId <= 0 || productId <= 0) {
     throw new Error("Không chọn được TP thiếu DEPARTMENT_ID hoặc PRODUCT_ID.");
   }
-  const lockKey = objectSelectionLockKey(departmentId, productId);
-  if (pendingObjectSelection.has(lockKey)) {
-    throw new Error("Đang cập nhật lựa chọn dòng này. Vui lòng đợi.");
-  }
-
-  const identity = requireIdentity();
-  pendingObjectSelection.add(lockKey);
-  try {
-    await put("/objects/selection", {
-      ...identity,
-      DepartmentId: departmentId,
-      ProductId: productId,
-      Selected: selected,
-    });
-    return applySelectionToSession([{ departmentId, productId, selected }]);
-  } finally {
-    pendingObjectSelection.delete(lockKey);
-  }
+  return applyDraftProductionCostObjectSelection([{ departmentId, productId, selected }]);
 }
 
-export type ProductionCostObjectSelectionItem = {
-  departmentId: number;
-  productId: number;
-  selected: boolean;
-};
-
 /**
- * Chọn hàng loạt đối tượng hợp lệ: 1 PUT /objects/selection (Items), cập nhật state local.
- * Không gọi reloadProductionCosting().
+ * Lưu lựa chọn xuống DB: 1 PUT /objects/selection (Items) trong một transaction.
+ * Dùng khi nhấn Bước tiếp (hoặc khi có thay đổi cần ghi). Không gọi reloadProductionCosting().
  */
 export async function updateProductionCostObjectSelections(
   items: ProductionCostObjectSelectionItem[],
@@ -328,10 +396,24 @@ export async function updateProductionCostObjectSelections(
         Selected: item.selected,
       })),
     });
-    return applySelectionToSession(normalized);
+    const next = applySelectionToSession(normalized);
+    rememberSavedObjectSelection(next);
+    return next;
   } finally {
     for (const key of lockKeys) pendingObjectSelection.delete(key);
   }
+}
+
+/**
+ * Lưu Draft → DB chỉ khi có thay đổi; không đổi thì trả overview hiện tại (0 request ghi).
+ */
+export async function saveProductionCostObjectSelectionIfDirty(): Promise<ProductionCostingOverview> {
+  const changes = getProductionCostObjectSelectionChanges();
+  if (changes.length === 0) {
+    if (!session.overview) throw new Error("Chưa tải overview G-K.");
+    return session.overview;
+  }
+  return updateProductionCostObjectSelections(changes);
 }
 
 async function runPeriodLock(step: "FA_PREPAID_LOCK" | "PROFIT_LOSS_REPORT"): Promise<ProductionCostingOverview> {

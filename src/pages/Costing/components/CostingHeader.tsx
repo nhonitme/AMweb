@@ -1,6 +1,6 @@
 /**
- * Header trang G-K: chọn kỳ, khởi tạo / đồng bộ, Lịch sử.
- * Bước 00 nằm trên sidebar — không còn nút "Kiểm tra đầu vào".
+ * Header trang G-K: chọn kỳ, khởi tạo kỳ, Lịch sử.
+ * Đồng bộ đối tượng nằm ở footer Bước 00 (cạnh Bước tiếp).
  */
 
 import Button from "devextreme-react/button";
@@ -27,7 +27,6 @@ type CostingHeaderProps = {
   t: (key: string, fallback: string) => string;
   onChangePeriod: (periodYm: string) => void;
   onEnsurePeriod: () => void;
-  onSyncObjects: () => void;
   onOpenHistory: () => void;
 };
 
@@ -37,7 +36,6 @@ export function CostingHeader({
   t,
   onChangePeriod,
   onEnsurePeriod,
-  onSyncObjects,
   onOpenHistory,
 }: CostingHeaderProps) {
   return (
@@ -64,12 +62,6 @@ export function CostingHeader({
           stylingMode="outlined"
           disabled={busy}
           onClick={onEnsurePeriod}
-        />
-        <Button
-          text={t("GK_SYNC_OBJECTS", "Đồng bộ đối tượng từ nhập kho")}
-          stylingMode="outlined"
-          disabled={busy}
-          onClick={onSyncObjects}
         />
       </div>
       <div className="gk-header-actions">

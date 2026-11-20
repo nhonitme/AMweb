@@ -1,20 +1,21 @@
 /**
  * Bước 00 — Kiểm tra dữ liệu đầu vào trước khi chạy các bước khóa/tính.
- * Trạng thái lấy từ backend PrerequisiteValidation; không có nút kiểm tra thủ công.
- * Tick/chọn tất cả: 1 PUT lựa chọn + cập nhật state local (không reload toàn bộ G-K).
+ * Tick checkbox: chỉ Draft trên frontend (0 API). Lưu DB một lần khi nhấn Bước tiếp.
  */
 
-import { useState } from "react";
+import { useMemo } from "react";
 import DataGrid, { Column, Paging } from "devextreme-react/data-grid";
 import Button from "devextreme-react/button";
 import CheckBox from "devextreme-react/check-box";
 import {
-  getProductionCostingSessionOverview,
-  toggleProductionCostObject,
-  updateProductionCostObjectSelections,
+  applyDraftProductionCostObjectSelection,
+  saveProductionCostObjectSelectionIfDirty,
 } from "@/api/productionCostingApi";
-import { formatGkMessage, Notice, StepShell, type PanelCommonProps } from "./costingPanelShared";
-import type { PrerequisiteValidationStatus } from "../types/productionCostingTypes";
+import { formatGkMessage, StepShell, type PanelCommonProps } from "./costingPanelShared";
+import type {
+  CostObjectCandidate,
+  PrerequisiteValidationStatus,
+} from "../types/productionCostingTypes";
 
 function statusPill(
   status: PrerequisiteValidationStatus,
@@ -35,8 +36,12 @@ function statusPill(
   };
 }
 
-function rowLockKey(departmentId: number, productId: number): string {
-  return `${departmentId}:${productId}`;
+function isSelectableObject(row: CostObjectCandidate): boolean {
+  return (
+    row.departmentId > 0 &&
+    Number(row.productId) > 0 &&
+    !row.hasWarning
+  );
 }
 
 export function CostingPrerequisitePanel({
@@ -46,80 +51,75 @@ export function CostingPrerequisitePanel({
   onRefresh,
   onBusy,
   onError,
-  onSuccess,
   onNext,
+  onSyncObjects,
 }: PanelCommonProps) {
   const validation = overview.prerequisiteValidation;
   const pill = statusPill(validation.status, t);
   const canProceed =
     validation.status === "SUCCESS" || validation.status === "WARNING";
-  const [pendingRows, setPendingRows] = useState<Set<string>>(() => new Set());
 
-  const markPending = (keys: string[], on: boolean) => {
-    setPendingRows((prev) => {
-      const next = new Set(prev);
-      for (const key of keys) {
-        if (on) next.add(key);
-        else next.delete(key);
-      }
-      return next;
-    });
+  const selectableRows = useMemo(
+    () => overview.objects.filter(isSelectableObject),
+    [overview.objects],
+  );
+
+  const headerCheckValue = useMemo((): boolean | null => {
+    if (selectableRows.length === 0) return false;
+    const selectedCount = selectableRows.filter((row) => row.selected).length;
+    if (selectedCount === 0) return false;
+    if (selectedCount === selectableRows.length) return true;
+    return null;
+  }, [selectableRows]);
+
+  const applyDraft = (
+    updates: Array<{ departmentId: number; productId: number; selected: boolean }>,
+  ) => {
+    if (updates.length === 0) return;
+    try {
+      onRefresh(applyDraftProductionCostObjectSelection(updates));
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err));
+    }
   };
 
-  const handleToggle = async (departmentId: number, productId: number, selected: boolean) => {
+  const handleToggle = (departmentId: number, productId: number, selected: boolean) => {
     if (departmentId <= 0 || productId <= 0) {
       onError(t("GK_CANNOT_SELECT_ORPHAN", "Không chọn được TP thiếu đối tượng."));
       return;
     }
-    const key = rowLockKey(departmentId, productId);
-    if (pendingRows.has(key)) return;
-
-    try {
-      markPending([key], true);
-      const next = await toggleProductionCostObject(departmentId, productId, selected);
-      onRefresh(next);
-    } catch (err) {
-      onError(err instanceof Error ? err.message : String(err));
-      // Đồng bộ lại từ session (có thể đã có patch dòng khác thành công) — không dùng overview closure cũ.
-      const snapshot = getProductionCostingSessionOverview() ?? overview;
-      onRefresh({ ...snapshot, objects: snapshot.objects.map((row) => ({ ...row })) });
-    } finally {
-      markPending([key], false);
-    }
+    applyDraft([{ departmentId, productId, selected }]);
   };
 
-  const handleSelectAllValid = async () => {
-    const targets = overview.objects.filter(
-      (row) =>
-        row.departmentId > 0 &&
-        Number(row.productId) > 0 &&
-        !row.selected &&
-        !row.hasWarning,
-    );
-    if (targets.length === 0) {
-      onSuccess(t("GK_SELECT_ALL_OK", "Đã chọn tất cả đối tượng hợp lệ."));
+  const handleHeaderToggle = (selected: boolean) => {
+    const updates = selectableRows
+      .filter((row) => row.selected !== selected)
+      .map((row) => ({
+        departmentId: row.departmentId,
+        productId: Number(row.productId),
+        selected,
+      }));
+    applyDraft(updates);
+  };
+
+  const handleNext = async () => {
+    if (!canProceed) {
+      onError(
+        t(
+          "GK_PREREQ_BLOCKED",
+          "Còn lỗi chặn trên Bước 00. Kiểm tra danh sách đối tượng trước khi sang bước tiếp.",
+        ),
+      );
       return;
     }
-
-    const keys = targets.map((row) => rowLockKey(row.departmentId, Number(row.productId)));
     try {
-      markPending(keys, true);
       onBusy(true);
-      const next = await updateProductionCostObjectSelections(
-        targets.map((row) => ({
-          departmentId: row.departmentId,
-          productId: Number(row.productId),
-          selected: true,
-        })),
-      );
+      const next = await saveProductionCostObjectSelectionIfDirty();
       onRefresh(next);
-      onSuccess(t("GK_SELECT_ALL_OK", "Đã chọn tất cả đối tượng hợp lệ."));
+      onNext?.();
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
-      const snapshot = getProductionCostingSessionOverview() ?? overview;
-      onRefresh({ ...snapshot, objects: snapshot.objects.map((row) => ({ ...row })) });
     } finally {
-      markPending(keys, false);
       onBusy(false);
     }
   };
@@ -133,18 +133,20 @@ export function CostingPrerequisitePanel({
       waiting={validation.status === "NOT_CHECKED"}
       fillBody
       t={t}
-      onNext={canProceed ? onNext : undefined}
+      onNext={canProceed ? () => void handleNext() : undefined}
       rightActions={
-        <Button
-          text={t("GK_SELECT_ALL_VALID", "Chọn tất cả hợp lệ")}
-          stylingMode="outlined"
-          disabled={busy || pendingRows.size > 0}
-          onClick={() => void handleSelectAllValid()}
-        />
+        onSyncObjects ? (
+          <Button
+            text={t("GK_SYNC_OBJECTS", "Đồng bộ đối tượng từ nhập kho")}
+            stylingMode="outlined"
+            disabled={busy}
+            onClick={onSyncObjects}
+          />
+        ) : null
       }
     >
       <div className="gk-summary-band">
-        <div className="big">00</div>
+        <div className="big"></div>
         <div className="explain">
           <div className="title">{t("GK_PREREQ_BAND", "Chuẩn bị trước khi chạy 6 bước")}</div>
           <div className="desc">
@@ -156,7 +158,7 @@ export function CostingPrerequisitePanel({
         </div>
         <span className={pill.className}>
           {validation.status === "ERROR"
-            ? formatGkMessage(t("GK_PREREQ_ERROR_COUNT", "{0} lỗi chặn"), validation.errorCount)
+            ? t("GK_PREREQ_ERROR_COUNT", "lỗi chặn")
             : validation.status === "WARNING"
               ? formatGkMessage(t("GK_WARN_COUNT", "{0} cảnh báo"), validation.warningCount)
               : pill.label}
@@ -189,26 +191,35 @@ export function CostingPrerequisitePanel({
           >
             <Paging enabled={false} />
             <Column
-              caption={t("SELECT", "Chọn")}
-              width={70}
-              // Tránh DataGrid gắn focus overlay (gạch dưới Fluent) khi tick checkbox trong cell.
-              cssClass="dx-cell-focus-disabled"
+              caption=""
+              width={50}
+              alignment="center"
               allowSorting={false}
+              allowFiltering={false}
+              allowReordering={false}
+              // Tránh DataGrid gắn focus overlay (gạch dưới Fluent) khi tick checkbox trong cell.
+              cssClass="dx-cell-focus-disabled gk-object-select-col"
+              headerCellRender={() => (
+                <div
+                  className="gk-object-select-cell gk-object-select-header"
+                  onMouseDown={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <CheckBox
+                    value={headerCheckValue}
+                    disabled={busy || selectableRows.length === 0}
+                    enableThreeStateBehavior={false}
+                    onValueChanged={(e) => {
+                      if (!e.event) return;
+                      if (typeof e.value !== "boolean") return;
+                      handleHeaderToggle(e.value);
+                    }}
+                  />
+                </div>
+              )}
               cellRender={(cell) => {
-                const row = cell.data as {
-                  departmentId: number;
-                  productId: number;
-                  selected: boolean;
-                  hasWarning: boolean;
-                };
-                const key = rowLockKey(row.departmentId, Number(row.productId));
-                const rowBusy = pendingRows.has(key);
-                // Không disable khi rowBusy: disabled làm mất focus checkbox → DX focus cell → gạch xanh.
-                const cannotSelect =
-                  busy ||
-                  row.departmentId <= 0 ||
-                  Number(row.productId) <= 0 ||
-                  row.hasWarning;
+                const row = cell.data as CostObjectCandidate;
+                const cannotSelect = busy || !isSelectableObject(row);
                 return (
                   <div
                     className="gk-object-select-cell"
@@ -219,9 +230,9 @@ export function CostingPrerequisitePanel({
                       value={row.selected}
                       disabled={cannotSelect}
                       onValueChanged={(e) => {
-                        if (rowBusy) return;
+                        if (!e.event) return;
                         if (typeof e.value === "boolean" && e.value !== row.selected) {
-                          void handleToggle(row.departmentId, Number(row.productId), e.value);
+                          handleToggle(row.departmentId, Number(row.productId), e.value);
                         }
                       }}
                     />
@@ -238,12 +249,6 @@ export function CostingPrerequisitePanel({
             <Column dataField="warningText" caption={t("WARNING", "Cảnh báo")} />
           </DataGrid>
         </div>
-
-        {overview.warnings.map((w) => (
-          <Notice key={w.id} type={w.level === "error" ? "err" : w.level === "warn" ? "warn" : "info"}>
-            {w.message}
-          </Notice>
-        ))}
       </div>
     </StepShell>
   );

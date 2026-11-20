@@ -367,12 +367,27 @@
   display: none !important;
 }
 
-.gk-object-select-cell {
+.gk-object-grid td.gk-object-select-col,
+.gk-object-grid .dx-datagrid-headers td.gk-object-select-col {
+  text-align: center;
+  vertical-align: middle;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.gk-object-select-cell,
+.gk-object-select-header {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   min-height: 100%;
+}
+
+/* Checkbox vẫn focus được bằng bàn phím; không để outline kéo ngang ô DataGrid. */
+.gk-object-grid .gk-object-select-col .dx-checkbox:focus-visible {
+  outline: 2px solid #3f89ca;
+  outline-offset: 1px;
 }
 
 .gk-content > .gk-card > .gk-cardfoot {

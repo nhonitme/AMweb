@@ -11,8 +11,10 @@ import DxPage from "@/dx/DxPage";
 import { LanguageContext } from "@/lib/i18nLoader";
 import { getCurrentCompanyCd } from "@/lib/login";
 import {
+  discardDraftProductionCostObjectSelection,
   ensureProductionCostingPeriod,
   getReopenInfo,
+  isProductionCostObjectSelectionDirty,
   reopenCostingStep,
   setProductionCostingActiveStep,
   setProductionCostingPeriod,
@@ -71,6 +73,26 @@ export default function ProductionCostingPage() {
     notify(message, "success", 2500);
   }, []);
 
+  /** Cảnh báo thay đổi lựa chọn đối tượng chưa lưu; OK = bỏ Draft và tiếp tục. */
+  const confirmDiscardObjectSelectionDraft = useCallback(async (): Promise<boolean> => {
+    if (!isProductionCostObjectSelectionDirty()) return true;
+    const ok = await confirm(
+      t(
+        "GK_UNSAVED_SELECTION",
+        "Bạn có thay đổi lựa chọn đối tượng chưa lưu. Bỏ thay đổi và tiếp tục?",
+      ),
+      t("CONFIRM", "Xác nhận"),
+    );
+    if (!ok) return false;
+    try {
+      refresh(discardDraftProductionCostObjectSelection());
+    } catch (err) {
+      showError(err instanceof Error ? err.message : String(err));
+      return false;
+    }
+    return true;
+  }, [t, refresh, showError]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -90,6 +112,16 @@ export default function ProductionCostingPage() {
       cancelled = true;
     };
   }, [companyCd, showError]);
+
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!isProductionCostObjectSelectionDirty()) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [overview]);
 
   const handleRequestReopen = useCallback(
     async (stepIndex: 1 | 2 | 3 | 4 | 5 | 6) => {
@@ -112,86 +144,8 @@ export default function ProductionCostingPage() {
     setStepHistoryOpen(true);
   }, []);
 
-  const panelProps = useMemo(() => {
-    if (!overview) return null;
-    return {
-      overview,
-      busy,
-      t,
-      onRefresh: refresh,
-      onBusy: setBusy,
-      onError: showError,
-      onSuccess: showSuccess,
-      onPrev: () => {
-        const cur = overview.activeStep;
-        const prev = Math.max(0, cur - 1) as CostingStepIndex;
-        void setProductionCostingActiveStep(prev).then(refresh);
-      },
-      onNext: () => {
-        const cur = overview.activeStep;
-        const nextStep = Math.min(6, cur + 1) as CostingStepIndex;
-        void setProductionCostingActiveStep(nextStep).then(refresh);
-      },
-      onRequestReopen: handleRequestReopen,
-      onRequestStepHistory: handleRequestStepHistory,
-    };
-  }, [
-    overview,
-    busy,
-    t,
-    refresh,
-    showError,
-    showSuccess,
-    handleRequestReopen,
-    handleRequestStepHistory,
-  ]);
-
-  const handleSelectStep = async (step: CostingStepIndex) => {
-    try {
-      setBusy(true);
-      const next = await setProductionCostingActiveStep(step);
-      refresh(next);
-    } catch (err) {
-      showError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleChangePeriod = async (periodYm: string) => {
-    try {
-      setBusy(true);
-      const next = await setProductionCostingPeriod(companyCd, periodYm);
-      refresh(next);
-      showSuccess(t("GK_PERIOD_CHANGED", "Đã tải kỳ từ máy chủ."));
-    } catch (err) {
-      showError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleEnsurePeriod = async () => {
-    const ok = await confirm(
-      t("MSG_ARE_YOU_SURE", "Bạn có chắc chắn muốn thực hiện thao tác này?"),
-      t("CONFIRM", "Xác nhận"),
-    );
-    if (!ok) return;
-    try {
-      setBusy(true);
-      const result = await ensureProductionCostingPeriod();
-      refresh(result.overview);
-      showSuccess(
-        t("GK_PERIOD_ENSURE_OK", "Đã khởi tạo kỳ trên máy chủ."),
-      );
-    } catch (err) {
-      showError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleSyncObjects = async () => {
+  const handleSyncObjects = useCallback(async () => {
+    if (!(await confirmDiscardObjectSelectionDraft())) return;
     try {
       setBusy(true);
       const result = await syncProductionCostObjects();
@@ -206,6 +160,104 @@ export default function ProductionCostingPage() {
               "GK_SYNC_OBJECTS_EMPTY",
               "Đã đồng bộ xong. Chưa có phiếu nhập thành phẩm hợp lệ — danh sách đối tượng trống.",
             ),
+      );
+    } catch (err) {
+      showError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }, [confirmDiscardObjectSelectionDraft, refresh, showSuccess, showError, t]);
+
+  const panelProps = useMemo(() => {
+    if (!overview) return null;
+    return {
+      overview,
+      busy,
+      t,
+      onRefresh: refresh,
+      onBusy: setBusy,
+      onError: showError,
+      onSuccess: showSuccess,
+      onPrev: () => {
+        const goPrev = async () => {
+          if (!(await confirmDiscardObjectSelectionDraft())) return;
+          const cur = overview.activeStep;
+          const prev = Math.max(0, cur - 1) as CostingStepIndex;
+          refresh(await setProductionCostingActiveStep(prev));
+        };
+        void goPrev().catch((err) => showError(err instanceof Error ? err.message : String(err)));
+      },
+      onNext: () => {
+        const goNext = async () => {
+          // Bước 00 tự lưu Draft trước khi gọi onNext; các bước khác chỉ cần cảnh báo nếu còn dirty.
+          if (overview.activeStep !== 0 && !(await confirmDiscardObjectSelectionDraft())) {
+            return;
+          }
+          const cur = overview.activeStep;
+          const nextStep = Math.min(6, cur + 1) as CostingStepIndex;
+          refresh(await setProductionCostingActiveStep(nextStep));
+        };
+        void goNext().catch((err) => showError(err instanceof Error ? err.message : String(err)));
+      },
+      onSyncObjects: () => {
+        void handleSyncObjects();
+      },
+      onRequestReopen: handleRequestReopen,
+      onRequestStepHistory: handleRequestStepHistory,
+    };
+  }, [
+    overview,
+    busy,
+    t,
+    refresh,
+    showError,
+    showSuccess,
+    confirmDiscardObjectSelectionDraft,
+    handleSyncObjects,
+    handleRequestReopen,
+    handleRequestStepHistory,
+  ]);
+
+  const handleSelectStep = async (step: CostingStepIndex) => {
+    if (!(await confirmDiscardObjectSelectionDraft())) return;
+    try {
+      setBusy(true);
+      const next = await setProductionCostingActiveStep(step);
+      refresh(next);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleChangePeriod = async (periodYm: string) => {
+    if (!(await confirmDiscardObjectSelectionDraft())) return;
+    try {
+      setBusy(true);
+      const next = await setProductionCostingPeriod(companyCd, periodYm);
+      refresh(next);
+      showSuccess(t("GK_PERIOD_CHANGED", "Đã tải kỳ từ máy chủ."));
+    } catch (err) {
+      showError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleEnsurePeriod = async () => {
+    if (!(await confirmDiscardObjectSelectionDraft())) return;
+    const ok = await confirm(
+      t("MSG_ARE_YOU_SURE", "Bạn có chắc chắn muốn thực hiện thao tác này?"),
+      t("CONFIRM", "Xác nhận"),
+    );
+    if (!ok) return;
+    try {
+      setBusy(true);
+      const result = await ensureProductionCostingPeriod();
+      refresh(result.overview);
+      showSuccess(
+        t("GK_PERIOD_ENSURE_OK", "Đã khởi tạo kỳ trên máy chủ."),
       );
     } catch (err) {
       showError(err instanceof Error ? err.message : String(err));
@@ -263,7 +315,6 @@ export default function ProductionCostingPage() {
               t={t}
               onChangePeriod={(p) => void handleChangePeriod(p)}
               onEnsurePeriod={() => void handleEnsurePeriod()}
-              onSyncObjects={() => void handleSyncObjects()}
               onOpenHistory={() => setHistoryOpen(true)}
             />
 

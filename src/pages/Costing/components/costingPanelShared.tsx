@@ -16,6 +16,8 @@ export type PanelCommonProps = {
   onSuccess: (message: string) => void;
   onPrev?: () => void;
   onNext?: () => void;
+  /** Bước 00: đồng bộ đối tượng từ phiếu nhập kho. */
+  onSyncObjects?: () => void;
   /** FE-04: mở Popup mở lại bước (1–6). */
   onRequestReopen?: (stepIndex: 1 | 2 | 3 | 4 | 5 | 6) => void;
   /** FE-04: mở Popup lịch sử bước. */
