@@ -3,6 +3,9 @@ import type {
   AllocationProductDetailRow,
   CostAggregateRow,
   CostObjectCandidate,
+  PrerequisiteIssue,
+  PrerequisiteValidationResult,
+  PrerequisiteValidationStatus,
   CostingCompareRow,
   CostingReopenInfo,
   CostingStepHistoryItem,
@@ -14,6 +17,7 @@ import type {
   ValuationSaleRow,
   WipDetailRow,
 } from "./types/productionCostingTypes";
+import { emptyPrerequisiteValidation } from "./types/productionCostingTypes";
 
 type Rec = Record<string, unknown>;
 
@@ -77,6 +81,7 @@ export function emptyOverview(companyCd: string, periodYm: string, message: stri
     compareRows: [],
     stats: { objectCount: 0, productCount: 0, receiptCount: 0, warningCount: 0, doneStepCount: 0 },
     warnings: message ? [{ id: "period", level: "warn", message }] : [],
+    prerequisiteValidation: emptyPrerequisiteValidation(),
     objects: [],
     logs: [],
     job: { running: false, percent: 0, message: "" },
@@ -316,6 +321,33 @@ export function buildReopenInfo(
   };
 }
 
+export function mapPrerequisiteValidation(raw: unknown): PrerequisiteValidationResult {
+  if (!raw || typeof raw !== "object") return emptyPrerequisiteValidation();
+  const row = raw as Rec;
+  const statusRaw = text(row.Status || row.status).toUpperCase();
+  const status: PrerequisiteValidationStatus =
+    statusRaw === "SUCCESS" || statusRaw === "WARNING" || statusRaw === "ERROR" || statusRaw === "NOT_CHECKED"
+      ? statusRaw
+      : "NOT_CHECKED";
+  const issuesRaw = (row.Issues ?? row.issues) as Rec[] | undefined;
+  const issues: PrerequisiteIssue[] = (issuesRaw ?? []).map((item) => {
+    const levelRaw = text(item.Level || item.level).toUpperCase();
+    return {
+      level: levelRaw === "WARNING" ? "WARNING" : "ERROR",
+      code: text(item.Code || item.code),
+      message: text(item.Message || item.message),
+      productId: num(item.ProductId ?? item.productId) || undefined,
+      departmentId: num(item.DepartmentId ?? item.departmentId) || undefined,
+    };
+  });
+  return {
+    status,
+    errorCount: num(row.ErrorCount ?? row.errorCount),
+    warningCount: num(row.WarningCount ?? row.warningCount),
+    issues,
+  };
+}
+
 export function assembleOverview(input: {
   companyCd: string;
   periodYm: string;
@@ -324,6 +356,7 @@ export function assembleOverview(input: {
   steps: Rec[];
   objects: Rec[];
   sourceReceiptCount: number;
+  prerequisiteValidation?: unknown;
   pool: Rec[];
   detail: Rec[];
   wip: Rec[];
@@ -334,6 +367,7 @@ export function assembleOverview(input: {
 }): ProductionCostingOverview {
   const base = emptyOverview(input.companyCd, input.periodYm, text(input.period.Message));
   const periodExists = input.period.PeriodExists === true && num(input.run?.RunId) > 0;
+  const prerequisiteValidation = mapPrerequisiteValidation(input.prerequisiteValidation);
   const statuses = [1, 2, 3, 4, 5, 6].map((index) => {
     const step = input.steps.find((row) => num(row.StepIndex) === index);
     return step ? authoritativeStatus(step) : "NOT_STARTED";
@@ -411,23 +445,46 @@ export function assembleOverview(input: {
     hasPostedValuation: statuses[4] === "DONE",
     sharedLabor: pool.filter((row) => row.accountCd.startsWith("622")).reduce((sum, row) => sum + row.allocationCosts, 0),
     sharedOverhead: pool.filter((row) => row.accountCd.startsWith("627")).reduce((sum, row) => sum + row.allocationCosts, 0),
+    prerequisiteValidation,
     stats: {
       objectCount: objects.filter((row) => row.selected).length,
       productCount: new Set(objects.map((row) => row.productId).filter((id) => id > 0)).size,
       // Source inventory vouchers (N155/C154), not production_cost_receipt B4/B5 prep rows.
       receiptCount: input.sourceReceiptCount,
-      warningCount: objects.filter((row) => row.hasWarning).length + statuses.filter((status) => status === "ERROR" || status === "REOPENED").length,
+      warningCount:
+        prerequisiteValidation.warningCount +
+        prerequisiteValidation.errorCount +
+        statuses.filter((status) => status === "ERROR" || status === "REOPENED").length,
       doneStepCount: doneCount,
     },
     warnings: [
       ...(text(input.period.Message) ? [{ id: "period", level: "info" as const, message: text(input.period.Message) }] : []),
-      ...objects.filter((row) => row.warningText).map((row) => ({
-        id: `obj-${row.departmentId}-${row.productId}`,
-        level: "warn" as const,
-        message: row.warningText,
-        departmentId: row.departmentId,
-        productId: row.productId ?? undefined,
+      ...prerequisiteValidation.issues.map((issue, index) => ({
+        id: `prereq-${issue.code}-${issue.departmentId ?? 0}-${issue.productId ?? 0}-${index}`,
+        level: (issue.level === "ERROR" ? "error" : "warn") as "error" | "warn",
+        message: issue.message,
+        departmentId: issue.departmentId,
+        productId: issue.productId,
       })),
+      // Object-level WarningText not already covered by structured issues
+      ...objects
+        .filter((row) => row.warningText)
+        .filter(
+          (row) =>
+            !prerequisiteValidation.issues.some(
+              (issue) =>
+                issue.departmentId === row.departmentId &&
+                issue.productId === (row.productId ?? undefined) &&
+                issue.message.includes(row.warningText.slice(0, 40)),
+            ),
+        )
+        .map((row) => ({
+          id: `obj-${row.departmentId}-${row.productId}`,
+          level: "error" as const,
+          message: row.warningText,
+          departmentId: row.departmentId,
+          productId: row.productId ?? undefined,
+        })),
     ],
     profitLossConditions: [
       { id: "b1", label: "B1 TSCĐ/CPTT DONE trên PeriodLock", ok: statuses[0] === "DONE" },

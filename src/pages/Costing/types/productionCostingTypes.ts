@@ -226,11 +226,11 @@ export type WipDetailRow = {
   errors: string[];
 };
 
-/** Định nghĩa một bước trên sidebar. */
+/** Định nghĩa một bước trên sidebar (0 = tiền kiểm UI; 1–6 = bước DB). */
 export type CostingStepDefinition = {
-  /** Chỉ số bước 1–6 (sidebar không gồm bước 0). */
-  index: 1 | 2 | 3 | 4 | 5 | 6;
-  /** Mã nghiệp vụ ổn định. */
+  /** Chỉ số bước: 0 = kiểm tra đầu vào (không lưu DB); 1–6 = quy trình chính. */
+  index: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  /** Mã nghiệp vụ ổn định (UI). Không đổi STEP_CODE DB khi thêm mục 00. */
   code: string;
   /** Khóa i18n tiêu đề. */
   titleKey: string;
@@ -240,8 +240,28 @@ export type CostingStepDefinition = {
   subKey: string;
   /** Fallback mô tả phụ. */
   subFallback: string;
-  /** Nguồn xử lý: tái sử dụng B-I hay nghiệp vụ G-K. */
-  engine: "BI" | "GK";
+  /** Nguồn xử lý: tái sử dụng B-I hay nghiệp vụ G-K / tiền kiểm. */
+  engine: "BI" | "GK" | "PRE";
+};
+
+/** Trạng thái kiểm tra Bước 00 từ backend (không suy từ số toast FE). */
+export type PrerequisiteValidationStatus = "NOT_CHECKED" | "SUCCESS" | "WARNING" | "ERROR";
+
+/** Một vấn đề trong kết quả tiền kiểm Bước 00. */
+export type PrerequisiteIssue = {
+  level: "ERROR" | "WARNING";
+  code: string;
+  message: string;
+  productId?: number;
+  departmentId?: number;
+};
+
+/** Kết quả kiểm tra dữ liệu đầu vào (GET /objects.PrerequisiteValidation). */
+export type PrerequisiteValidationResult = {
+  status: PrerequisiteValidationStatus;
+  errorCount: number;
+  warningCount: number;
+  issues: PrerequisiteIssue[];
 };
 
 /** Cảnh báo kiểm tra dữ liệu đầu vào. */
@@ -415,6 +435,8 @@ export type ProductionCostingOverview = {
     doneStepCount: number;
   };
   warnings: CostingWarning[];
+  /** Kết quả Bước 00 — làm mới mỗi lần reload/objects; không cache Đạt vĩnh viễn. */
+  prerequisiteValidation: PrerequisiteValidationResult;
   objects: CostObjectCandidate[];
   logs: CostingLogItem[];
   job: CostingJobProgressState;
@@ -451,7 +473,18 @@ export type ProductionCostingOverview = {
   allocationMethod: AllocationMethod;
 };
 
-/** Định nghĩa 6 bước sidebar. */
+/** Bước 00 — tiền kiểm UI (không map STEP_INDEX DB). */
+export const COSTING_PREREQUISITE_STEP: CostingStepDefinition = {
+  index: 0,
+  code: "PREREQUISITE_CHECK",
+  titleKey: "GK_PREREQ_TITLE",
+  titleFallback: "Kiểm tra dữ liệu đầu vào",
+  subKey: "GK_STEP0_SUB",
+  subFallback: "Đối tượng · Thành phẩm · Phiếu nhập",
+  engine: "PRE",
+};
+
+/** 6 bước G-K/B-I (khớp STEP_INDEX DB 1–6). */
 export const COSTING_STEPS: CostingStepDefinition[] = [
   {
     index: 1,
@@ -508,3 +541,13 @@ export const COSTING_STEPS: CostingStepDefinition[] = [
     engine: "BI",
   },
 ];
+
+/** Sidebar: mục 00 + 6 bước xử lý (tiến độ vẫn đếm 0/6). */
+export const COSTING_SIDEBAR_STEPS: CostingStepDefinition[] = [
+  COSTING_PREREQUISITE_STEP,
+  ...COSTING_STEPS,
+];
+
+export function emptyPrerequisiteValidation(): PrerequisiteValidationResult {
+  return { status: "NOT_CHECKED", errorCount: 0, warningCount: 0, issues: [] };
+}

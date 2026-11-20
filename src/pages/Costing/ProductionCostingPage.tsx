@@ -173,14 +173,17 @@ export default function ProductionCostingPage() {
 
   const handleEnsurePeriod = async () => {
     const ok = await confirm(
-      t("MSG_ARE_YOU_SURE", "Bạn có chắc chắn không?"),
+      t("MSG_ARE_YOU_SURE", "Bạn có chắc chắn muốn thực hiện thao tác này?"),
       t("CONFIRM", "Xác nhận"),
     );
     if (!ok) return;
     try {
       setBusy(true);
-      refresh(await ensureProductionCostingPeriod());
-      showSuccess(t("GK_PERIOD_ENSURE_OK", "Đã khởi tạo kỳ trên máy chủ."));
+      const result = await ensureProductionCostingPeriod();
+      refresh(result.overview);
+      showSuccess(
+        t("GK_PERIOD_ENSURE_OK", "Đã khởi tạo kỳ trên máy chủ."),
+      );
     } catch (err) {
       showError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -191,7 +194,19 @@ export default function ProductionCostingPage() {
   const handleSyncObjects = async () => {
     try {
       setBusy(true);
-      refresh(await syncProductionCostObjects());
+      const result = await syncProductionCostObjects();
+      refresh(result.overview);
+      showSuccess(
+        result.syncedCount > 0
+          ? formatGkMessage(
+              t("GK_SYNC_OBJECTS_OK", "Đã đồng bộ {0} đối tượng từ phiếu nhập kho."),
+              result.syncedCount,
+            )
+          : t(
+              "GK_SYNC_OBJECTS_EMPTY",
+              "Đã đồng bộ xong. Chưa có phiếu nhập thành phẩm hợp lệ — danh sách đối tượng trống.",
+            ),
+      );
     } catch (err) {
       showError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -249,7 +264,6 @@ export default function ProductionCostingPage() {
               onChangePeriod={(p) => void handleChangePeriod(p)}
               onEnsurePeriod={() => void handleEnsurePeriod()}
               onSyncObjects={() => void handleSyncObjects()}
-              onOpenPrerequisite={() => void handleSelectStep(0)}
               onOpenHistory={() => setHistoryOpen(true)}
             />
 
@@ -281,6 +295,7 @@ export default function ProductionCostingPage() {
                 activeStep={overview.activeStep}
                 doneFlags={overview.doneFlags}
                 stepStatuses={overview.stepStatuses}
+                prerequisiteStatus={overview.prerequisiteValidation.status}
                 monthStatus={overview.monthStatus}
                 t={t}
                 onSelectStep={(s) => void handleSelectStep(s)}

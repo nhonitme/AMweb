@@ -1,5 +1,6 @@
 /**
- * Header trang G-K: chọn kỳ, khởi tạo / đồng bộ, rồi Kiểm tra đầu vào và Lịch sử.
+ * Header trang G-K: chọn kỳ, khởi tạo / đồng bộ, Lịch sử.
+ * Bước 00 nằm trên sidebar — không còn nút "Kiểm tra đầu vào".
  */
 
 import Button from "devextreme-react/button";
@@ -27,7 +28,6 @@ type CostingHeaderProps = {
   onChangePeriod: (periodYm: string) => void;
   onEnsurePeriod: () => void;
   onSyncObjects: () => void;
-  onOpenPrerequisite: () => void;
   onOpenHistory: () => void;
 };
 
@@ -38,7 +38,6 @@ export function CostingHeader({
   onChangePeriod,
   onEnsurePeriod,
   onSyncObjects,
-  onOpenPrerequisite,
   onOpenHistory,
 }: CostingHeaderProps) {
   return (
@@ -74,12 +73,6 @@ export function CostingHeader({
         />
       </div>
       <div className="gk-header-actions">
-        <Button
-          text={t("GK_CHECK_INPUT", "Kiểm tra đầu vào")}
-          stylingMode="outlined"
-          disabled={busy}
-          onClick={onOpenPrerequisite}
-        />
         <Button
           text={t("GK_HISTORY", "Lịch sử")}
           stylingMode="outlined"

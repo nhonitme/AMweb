@@ -981,7 +981,7 @@ function AppWorkspaceRoutes({
                         />
                         <Route
                             path="/gl/book/account-detail"
-                            element={<JournalReportPage reportCode="GL_ACCOUNT_DETAIL_S38DN" menuCode="GL_BOOK_ACC_DETAIL" titleKey="GL_ACCOUNT_DETAIL_S38DN" titleFallback="Sổ chi tiết tài khoản" showAccountFilter={true} showCurrencyFilter={true} includeEmptyFilterParams={true} moduleCd="" />}
+                            element={<JournalReportPage reportCode="GL_ACCOUNT_DETAIL_S38DN" menuCode="GL_BOOK_ACC_DETAIL" titleKey="GL_ACCOUNT_DETAIL_S38DN" titleFallback="Sổ chi tiết tài khoản" showAccountFilter={true} accountFilterEtcType={EtcType.cbxAccountParentChild} showCurrencyFilter={true} includeEmptyFilterParams={true} moduleCd="" />}
                         />
                         <Route
                             path="/gl/book/ar-detail"

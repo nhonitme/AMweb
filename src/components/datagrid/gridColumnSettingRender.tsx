@@ -65,9 +65,8 @@ function resolveDevExtremeColumnFormat(formatType: string | null | undefined): s
 
   switch (normalized.toLowerCase()) {
     case "date":
-      return "dd/MM/yyyy"
     case "datetime":
-      return "dd/MM/yyyy HH:mm"
+      return undefined
     case "number0":
     case "integer":
       return "#,##0"

@@ -1,14 +1,33 @@
 /**
- * Bước 0 — Kiểm tra dữ liệu đầu vào trước khi chạy các bước khóa/tính.
+ * Bước 00 — Kiểm tra dữ liệu đầu vào trước khi chạy các bước khóa/tính.
+ * Trạng thái lấy từ backend PrerequisiteValidation; không có nút kiểm tra thủ công.
  */
 
-import { useMemo } from "react";
 import DataGrid, { Column, Paging } from "devextreme-react/data-grid";
 import Button from "devextreme-react/button";
 import CheckBox from "devextreme-react/check-box";
-import notify from "devextreme/ui/notify";
 import { toggleProductionCostObject } from "@/api/productionCostingApi";
 import { formatGkMessage, Notice, StepShell, type PanelCommonProps } from "./costingPanelShared";
+import type { PrerequisiteValidationStatus } from "../types/productionCostingTypes";
+
+function statusPill(
+  status: PrerequisiteValidationStatus,
+  t: (key: string, fallback: string) => string,
+): { className: string; label: string } {
+  if (status === "SUCCESS") {
+    return { className: "gk-pill done", label: t("GK_PREREQ_STATUS_SUCCESS", "✓ Đạt") };
+  }
+  if (status === "WARNING") {
+    return { className: "gk-pill warn", label: t("GK_PREREQ_STATUS_WARNING", "⚠ Cảnh báo") };
+  }
+  if (status === "ERROR") {
+    return { className: "gk-pill error", label: t("GK_PREREQ_STATUS_ERROR", "✕ Lỗi chặn") };
+  }
+  return {
+    className: "gk-pill",
+    label: t("GK_PREREQ_STATUS_NOT_CHECKED", "○ Chưa kiểm tra"),
+  };
+}
 
 export function CostingPrerequisitePanel({
   overview,
@@ -20,10 +39,10 @@ export function CostingPrerequisitePanel({
   onSuccess,
   onNext,
 }: PanelCommonProps) {
-  const errorCount = useMemo(
-    () => overview.warnings.filter((w) => w.level === "error").length,
-    [overview.warnings],
-  );
+  const validation = overview.prerequisiteValidation;
+  const pill = statusPill(validation.status, t);
+  const canProceed =
+    validation.status === "SUCCESS" || validation.status === "WARNING";
 
   const handleToggle = async (departmentId: number, productId: number, selected: boolean) => {
     if (departmentId <= 0 || productId <= 0) {
@@ -59,52 +78,26 @@ export function CostingPrerequisitePanel({
     }
   };
 
-  const handleValidate = () => {
-    if (errorCount > 0) {
-      notify(
-        formatGkMessage(
-          t(
-            "GK_PREREQ_HAS_ERROR",
-            "Có {0} cảnh báo lỗi. Không ghi nhận giá thành cho TP thiếu đối tượng.",
-          ),
-          errorCount,
-        ),
-        "warning",
-        3500,
-      );
-      return;
-    }
-    onSuccess(t("GK_PREREQ_OK", "Dữ liệu đầu vào hợp lệ cho các đối tượng đã chọn."));
-  };
-
   return (
     <StepShell
       stepNo="00"
       title={t("GK_PREREQ_TITLE", "Kiểm tra dữ liệu đầu vào")}
-      desc={t("GK_PREREQ_DESC", "Đối tượng · thành phẩm · phiếu nhập · cảnh báo")}
-      done={errorCount === 0}
-      waiting={false}
+      desc={t("GK_STEP0_SUB", "Đối tượng · Thành phẩm · Phiếu nhập")}
+      done={canProceed}
+      waiting={validation.status === "NOT_CHECKED"}
       t={t}
-      onNext={onNext}
+      onNext={canProceed ? onNext : undefined}
       rightActions={
-        <>
-          <Button
-            text={t("GK_SELECT_ALL_VALID", "Chọn tất cả hợp lệ")}
-            stylingMode="outlined"
-            disabled={busy}
-            onClick={() => void handleSelectAllValid()}
-          />
-          <Button
-            text={t("GK_VALIDATE", "Kiểm tra dữ liệu")}
-            type="default"
-            disabled={busy}
-            onClick={handleValidate}
-          />
-        </>
+        <Button
+          text={t("GK_SELECT_ALL_VALID", "Chọn tất cả hợp lệ")}
+          stylingMode="outlined"
+          disabled={busy}
+          onClick={() => void handleSelectAllValid()}
+        />
       }
     >
       <div className="gk-summary-band">
-        <div className="big">0</div>
+        <div className="big">00</div>
         <div className="explain">
           <div className="title">{t("GK_PREREQ_BAND", "Chuẩn bị trước khi chạy 6 bước")}</div>
           <div className="desc">
@@ -114,10 +107,12 @@ export function CostingPrerequisitePanel({
             )}
           </div>
         </div>
-        <span className={`gk-pill ${errorCount ? "error" : "done"}`}>
-          {errorCount
-            ? formatGkMessage(t("GK_WARN_COUNT", "{0} cảnh báo"), errorCount)
-            : t("GK_NO_ERROR", "Không lỗi chặn")}
+        <span className={pill.className}>
+          {validation.status === "ERROR"
+            ? formatGkMessage(t("GK_PREREQ_ERROR_COUNT", "{0} lỗi chặn"), validation.errorCount)
+            : validation.status === "WARNING"
+              ? formatGkMessage(t("GK_WARN_COUNT", "{0} cảnh báo"), validation.warningCount)
+              : pill.label}
         </span>
       </div>
 

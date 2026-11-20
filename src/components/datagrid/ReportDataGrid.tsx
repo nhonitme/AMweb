@@ -44,7 +44,6 @@ import { useCompanyLangRevision } from "@/lib/companyLang"
 import { useSysCodes } from "@/lib/sysCodeContext";
 import GridColumnSettingsPopup from "@/components/datagrid/GridColumnSettingsPopup"
 import { useGridColumnSettingState, type GridColumnSettingEditorItem } from "@/components/datagrid/useGridColumnSettingState"
-import { normalizeYmd } from "@/pages/Accounting/accountingDateUtils"
 import { translateReportColumnCaption, translateReportItemCaption } from "@/utils/reportColumnCaption"
 
 export type ReportDataGridRow = {
@@ -240,10 +239,6 @@ function formatUsesGrouping(format: string | null | undefined): boolean {
   return !format || /^n\d{1,2}$/i.test(format.trim()) || format.includes(",") || format.includes("#")
 }
 
-function isYmdFieldName(fieldName: string | null | undefined): boolean {
-  return typeof fieldName === "string" && fieldName.trim().toUpperCase().endsWith("_YMD")
-}
-
 /**
  * Report preview carries a format *type* token (`number2`, `date`, `text`, ...),
  * not a DevExtreme format string, whenever the column has a sys_grid_column
@@ -272,11 +267,9 @@ export function resolveDevExtremeColumnFormat(format: string | null | undefined)
     case "string":
     case "boolean":
     case "bool":
-      return undefined
     case "date":
-      return "dd/MM/yyyy"
     case "datetime":
-      return "dd/MM/yyyy HH:mm"
+      return undefined
     case "number0":
     case "integer":
       return "#,##0"
@@ -300,10 +293,6 @@ export function resolveColumnDisplayFormat(
   column: ReportPreviewColumn,
   tempDecimalPlacesByField: Readonly<Record<string, number>> = {},
 ): string | undefined {
-  if (isYmdFieldName(column.FIELD_NAME) || resolveColumnDataType(column) === "date") {
-    return resolveDevExtremeColumnFormat(column.FORMAT) ?? "dd/MM/yyyy"
-  }
-
   if (resolveColumnDataType(column) !== "number") {
     return resolveDevExtremeColumnFormat(column.FORMAT)
   }
@@ -314,10 +303,6 @@ export function resolveColumnDisplayFormat(
   }
 
   return buildNumberFormat(overridePlaces, formatUsesGrouping(column.FORMAT))
-}
-
-function resolveYmdCellValue(row: ReportDataGridRow, fieldName: string): Date | null {
-  return normalizeYmd(row[fieldName])
 }
 
 export function makeReportCellKey(rowKey: string, fieldName: string): string {
@@ -1316,13 +1301,9 @@ function formatCellValue(value: ReportPreviewCellValue | undefined, text: string
 }
 
 export function resolveColumnDataType(column: ReportPreviewColumn): ReportPreviewColumnDataType {
-  if (isYmdFieldName(column.FIELD_NAME)) {
-    return "date"
-  }
-
   const formatToken = normalizeNullableString(column.FORMAT)?.toLowerCase()
-  if (formatToken === "date" || formatToken === "datetime") {
-    return "date"
+  if (formatToken === "date" || formatToken === "datetime" || column.DATA_TYPE === "date") {
+    return "string"
   }
 
   return column.DATA_TYPE || "string"
@@ -1414,18 +1395,6 @@ function formatPinnedBottomCellValue(
   }
 
   const format = normalizeNullableString(column.format)
-
-  if (column.dataType === "date" || isYmdFieldName(column.fieldName)) {
-    const dateValue = normalizeYmd(value)
-    if (!dateValue) {
-      return ""
-    }
-
-    const day = `${dateValue.getDate()}`.padStart(2, "0")
-    const month = `${dateValue.getMonth() + 1}`.padStart(2, "0")
-    const year = dateValue.getFullYear()
-    return `${day}/${month}/${year}`
-  }
 
   if (column.dataType === "number") {
     const numericValue = toFiniteNumber(value)
@@ -1758,7 +1727,6 @@ function ReportDataGrid(
         groupedFieldApplied = true
       }
 
-      const ymdColumn = isYmdFieldName(column.FIELD_NAME) || resolveColumnDataType(column) === "date"
       const periodHeaderText = hasPeriodHeaderCaptions
         ? resolveFinancialStatementHeaderPeriod(reportCode, column.FIELD_NAME, fromDate, toDate)
         : null
@@ -1807,14 +1775,9 @@ function ReportDataGrid(
                 }
               : undefined
           }
-          calculateCellValue={
-            ymdColumn
-              ? (row: ReportDataGridRow) => resolveYmdCellValue(row, column.FIELD_NAME)
-              : undefined
-          }
           alignment="left"
           cssClass={resolveColumnAlignClass(column.ALIGN)}
-          customizeText={ymdColumn ? undefined : customizeZeroAsBlankText}
+          customizeText={customizeZeroAsBlankText}
         />
       )
     })

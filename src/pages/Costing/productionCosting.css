@@ -237,6 +237,36 @@
   color: #a47213;
 }
 
+.gk-stage.prereq-ok .gk-step-circle {
+  background: #e3f6ee;
+  border-color: #b9e7d2;
+  color: #168867;
+}
+
+.gk-stage.prereq-ok .smallstatus {
+  color: #168764;
+}
+
+.gk-stage.prereq-warn .gk-step-circle {
+  background: #fff4dc;
+  border-color: #f0d59a;
+  color: #a47213;
+}
+
+.gk-stage.prereq-warn .smallstatus {
+  color: #a47213;
+}
+
+.gk-stage.prereq-error .gk-step-circle {
+  background: #fde8e8;
+  border-color: #f0b4b4;
+  color: #c0392b;
+}
+
+.gk-stage.prereq-error .smallstatus {
+  color: #c0392b;
+}
+
 .gk-side-tip {
   margin: 0 8px 10px;
   padding: 10px 12px;

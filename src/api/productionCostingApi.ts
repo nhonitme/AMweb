@@ -1,6 +1,6 @@
-/**
- * Client G-K — chỉ gọi /api/production-cost và PeriodLock.
- * Không giữ số liệu kế toán mẫu. Trạng thái bước lấy lại từ GET sau khi ghi.
+﻿/**
+ * Client G-K â€” chá»‰ gá»i /api/production-cost vÃ  PeriodLock.
+ * KhÃ´ng giá»¯ sá»‘ liá»‡u káº¿ toÃ¡n máº«u. Tráº¡ng thÃ¡i bÆ°á»›c láº¥y láº¡i tá»« GET sau khi ghi.
  */
 
 import axios from "./axiosClient";
@@ -107,7 +107,7 @@ async function put<T>(path: string, body: unknown): Promise<T> {
 function requireIdentity() {
   const overview = session.overview;
   if (!overview?.runId || !overview.runVersion) {
-    throw new Error(overview?.statusMessage || "Kỳ chưa có RUN. Hãy khởi tạo kỳ trước khi ghi.");
+    throw new Error(overview?.statusMessage || "Ká»³ chÆ°a cÃ³ RUN. HÃ£y khá»Ÿi táº¡o ká»³ trÆ°á»›c khi ghi.");
   }
   return {
     PeriodYm: overview.periodYm,
@@ -120,7 +120,7 @@ export async function reloadProductionCosting(): Promise<ProductionCostingOvervi
   const companyCd = session.companyCd;
   const periodYm = session.periodYm;
   if (!companyCd || !periodYm) {
-    throw new Error("Chưa chọn công ty hoặc kỳ.");
+    throw new Error("ChÆ°a chá»n cÃ´ng ty hoáº·c ká»³.");
   }
 
   const period = await get<Rec>("/period", { periodYm });
@@ -155,6 +155,7 @@ export async function reloadProductionCosting(): Promise<ProductionCostingOvervi
     steps: (stepsRes.Steps as Rec[]) ?? [],
     objects: (objectsRes.Items as Rec[]) ?? [],
     sourceReceiptCount: num(objectsRes.SourceReceiptCount),
+    prerequisiteValidation: objectsRes.PrerequisiteValidation,
     pool: (poolRes.Items as Rec[]) ?? [],
     detail: (detailRes.Items as Rec[]) ?? [],
     wip: (wipRes.Items as Rec[]) ?? [],
@@ -180,22 +181,48 @@ export async function setProductionCostingPeriod(companyCd: string, periodYm: st
   return reloadProductionCosting();
 }
 
-export async function ensureProductionCostingPeriod(): Promise<ProductionCostingOverview> {
-  await post("/period/ensure", { PeriodYm: session.periodYm });
-  // Sau khởi tạo lại kỳ: về bước 0 và tiến độ 0/6.
+export type EnsurePeriodResult = {
+  overview: ProductionCostingOverview;
+  message: string;
+  syncedObjectCount: number;
+};
+
+export type SyncObjectsResult = {
+  overview: ProductionCostingOverview;
+  syncedCount: number;
+};
+
+export async function ensureProductionCostingPeriod(): Promise<EnsurePeriodResult> {
+  const result = await post<{
+    Message?: string;
+    SyncedObjectCount?: number;
+  }>("/period/ensure", { PeriodYm: session.periodYm });
+  // Sau khá»Ÿi táº¡o láº¡i ká»³: vá» bÆ°á»›c 0 vÃ  tiáº¿n Ä‘á»™ 0/6; xÃ³a state RUN cÅ© trÃªn client.
   session.activeStep = 0;
   pendingOps.clear();
-  return reloadProductionCosting();
+  const overview = await reloadProductionCosting();
+  return {
+    overview,
+    message: text(result?.Message),
+    syncedObjectCount: num(result?.SyncedObjectCount),
+  };
 }
 
-export async function syncProductionCostObjects(): Promise<ProductionCostingOverview> {
+export async function syncProductionCostObjects(): Promise<SyncObjectsResult> {
   const identity = requireIdentity();
-  await post("/objects/sync-receipts", identity);
-  return reloadProductionCosting();
+  const syncedCount = await post<number>("/objects/sync-receipts", identity);
+  return {
+    overview: await reloadProductionCosting(),
+    syncedCount: typeof syncedCount === "number" ? syncedCount : num(syncedCount),
+  };
 }
 
 export async function setProductionCostingActiveStep(step: CostingStepIndex): Promise<ProductionCostingOverview> {
   session.activeStep = step;
+  // Mở lại Bước 00 → làm mới kết quả kiểm tra từ backend (không giữ Đạt cũ).
+  if (step === 0) {
+    return reloadProductionCosting();
+  }
   if (!session.overview) return emptyOverview(session.companyCd, session.periodYm, "");
   const next = { ...session.overview, activeStep: step };
   session.overview = next;
@@ -227,15 +254,15 @@ async function runPeriodLock(step: "FA_PREPAID_LOCK" | "PROFIT_LOSS_REPORT"): Pr
   });
   const jobId = started.data.JobId;
   let percent = 0;
-  let message = "Đang chạy PeriodLock.";
+  let message = "Äang cháº¡y PeriodLock.";
   let completed = false;
   for (let attempt = 0; attempt < 60; attempt += 1) {
     const progress = await getPeriodLockProgress(jobId);
     percent = progress.data.Percent ?? 0;
     message = progress.data.Message || progress.data.CurrentStepName || message;
     const status = progress.data.Status;
-    if (status === "ERROR") throw new Error(message || "PeriodLock báo lỗi.");
-    // Không suy diễn thành công chỉ vì Percent=100.
+    if (status === "ERROR") throw new Error(message || "PeriodLock bÃ¡o lá»—i.");
+    // KhÃ´ng suy diá»…n thÃ nh cÃ´ng chá»‰ vÃ¬ Percent=100.
     if (status === "DONE") {
       completed = true;
       break;
@@ -243,7 +270,7 @@ async function runPeriodLock(step: "FA_PREPAID_LOCK" | "PROFIT_LOSS_REPORT"): Pr
     await new Promise((resolve) => setTimeout(resolve, 1500));
   }
   if (!completed) {
-    throw new Error(`PeriodLock chưa xác nhận DONE cho kỳ ${session.periodYm}. ${message} Kiểm tra lại tiến độ job trước khi thao tác tiếp.`);
+    throw new Error(`PeriodLock chÆ°a xÃ¡c nháº­n DONE cho ká»³ ${session.periodYm}. ${message} Kiá»ƒm tra láº¡i tiáº¿n Ä‘á»™ job trÆ°á»›c khi thao tÃ¡c tiáº¿p.`);
   }
   const overview = await reloadProductionCosting();
   overview.job = { running: false, percent, message };
@@ -254,7 +281,7 @@ async function runPeriodLock(step: "FA_PREPAID_LOCK" | "PROFIT_LOSS_REPORT"): Pr
 export async function runProductionCostingStep1(): Promise<ProductionCostingOverview> {
   const overview = await runPeriodLock("FA_PREPAID_LOCK");
   if (overview.stepStatuses[0] !== "DONE") {
-    throw new Error(overview.job.message || "PeriodLock chưa ghi nhận FA_PREPAID_LOCK = DONE.");
+    throw new Error(overview.job.message || "PeriodLock chÆ°a ghi nháº­n FA_PREPAID_LOCK = DONE.");
   }
   return overview;
 }
@@ -314,7 +341,7 @@ async function confirmGkStep(path: string, opKey: string, stepIndex: 1 | 2 | 3 |
   const overview = await reloadProductionCosting();
   const noop = text(result.IdempotencyAction) === "NoopAlreadyWritten";
   if (overview.stepStatuses[stepIndex - 1] !== "DONE" && !noop) {
-    throw new Error(text(result.Message) || "Backend chưa chuyển bước sang DONE.");
+    throw new Error(text(result.Message) || "Backend chÆ°a chuyá»ƒn bÆ°á»›c sang DONE.");
   }
   clearOp(opKey);
   overview.statusMessage = text(result.Message);
@@ -329,7 +356,7 @@ export function confirmAllocation(): Promise<ProductionCostingOverview> {
 export async function checkCostTransferPreconditions(): Promise<ProductionCostingOverview> {
   const overview = await reloadProductionCosting();
   if (overview.stepStatuses[1] !== "DONE") {
-    throw new Error("B2 chưa DONE trên DB. Không kết chuyển.");
+    throw new Error("B2 chÆ°a DONE trÃªn DB. KhÃ´ng káº¿t chuyá»ƒn.");
   }
   return { ...overview, step3Checked: true };
 }
@@ -357,7 +384,7 @@ export async function setIncompleteCostPreset(presetKey: string): Promise<Produc
 
 export async function patchWipRow(productId: number, patch: WipPatchFields): Promise<ProductionCostingOverview> {
   if (patch.amount154Direct != null || patch.closingIncompleteAmount154 != null || patch.beforeAmountResult621 != null || patch.beforeAmountResult62N != null) {
-    throw new Error("154 trực tiếp và số đầu kỳ lấy từ sổ cái / kỳ trước. Chỉ lưu % hoàn thành, số lượng dở dang, giảm trừ và SL đầu kỳ.");
+    throw new Error("154 trá»±c tiáº¿p vÃ  sá»‘ Ä‘áº§u ká»³ láº¥y tá»« sá»• cÃ¡i / ká»³ trÆ°á»›c. Chá»‰ lÆ°u % hoÃ n thÃ nh, sá»‘ lÆ°á»£ng dá»Ÿ dang, giáº£m trá»« vÃ  SL Ä‘áº§u ká»³.");
   }
   const identity = requireIdentity();
   const row = session.overview?.wipDetailRows.find((item) => item.productId === productId);
@@ -417,7 +444,7 @@ export async function confirmValuation(): Promise<ProductionCostingOverview> {
   const overview = await reloadProductionCosting();
   const noop = text(result.IdempotencyAction) === "NoopAlreadyWritten";
   if (overview.stepStatuses[4] !== "DONE" && !noop) {
-    throw new Error(text(result.Message) || "Backend chưa ghi nhận VALUATION = DONE.");
+    throw new Error(text(result.Message) || "Backend chÆ°a ghi nháº­n VALUATION = DONE.");
   }
   clearOp("b5");
   overview.valuationRows = mapCogsRows((result.Cogs632Preview as Rec[]) ?? []);
@@ -429,7 +456,7 @@ export async function confirmValuation(): Promise<ProductionCostingOverview> {
 export async function checkProfitLossPreconditions(): Promise<ProductionCostingOverview> {
   const overview = await reloadProductionCosting();
   if (overview.profitLossConditions.some((row) => !row.ok)) {
-    throw new Error("Chưa đủ bước 1–5 DONE trên DB.");
+    throw new Error("ChÆ°a Ä‘á»§ bÆ°á»›c 1â€“5 DONE trÃªn DB.");
   }
   return { ...overview, step6Checked: true };
 }
@@ -437,7 +464,7 @@ export async function checkProfitLossPreconditions(): Promise<ProductionCostingO
 export async function lockProfitLoss(): Promise<ProductionCostingOverview> {
   const overview = await runPeriodLock("PROFIT_LOSS_REPORT");
   if (overview.stepStatuses[5] !== "DONE") {
-    throw new Error(overview.job.message || "PeriodLock chưa ghi nhận PROFIT_LOSS_REPORT = DONE.");
+    throw new Error(overview.job.message || "PeriodLock chÆ°a ghi nháº­n PROFIT_LOSS_REPORT = DONE.");
   }
   return overview;
 }
@@ -466,7 +493,7 @@ export async function reopenCostingStep(stepIndex: 1 | 2 | 3 | 4 | 5 | 6, reason
   });
   const overview = await reloadProductionCosting();
   if (text(result.IdempotencyAction) !== "NoopAlreadyWritten" && result.Persisted !== true) {
-    throw new Error(text(result.Message) || "Backend chưa ghi REOPEN.");
+    throw new Error(text(result.Message) || "Backend chÆ°a ghi REOPEN.");
   }
   clearOp(`reopen-${stepIndex}`);
   overview.statusMessage = text(result.Message);
