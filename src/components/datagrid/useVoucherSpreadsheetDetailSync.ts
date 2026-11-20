@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useRef, type RefObject } from "react"
+import { useCallback, useEffect, useRef, type MutableRefObject, type RefObject } from "react"
 import type dxDataGrid from "devextreme/ui/data_grid"
 import type { FocusedCellChangedEvent } from "devextreme/ui/data_grid"
 
 import { flushActiveEditorValue } from "@/lib/shortcuts/shortcutUtils"
 import {
-  commitVoucherSpreadsheetGridCell,
   isVoucherSpreadsheetDropdownOverlayTarget,
   resolveVoucherSpreadsheetFocusTransition,
   type VoucherSpreadsheetCommitReason,
@@ -14,6 +13,9 @@ import {
 type UseVoucherSpreadsheetDetailSyncOptions<TRow, TKey extends string | number = string> = {
   visible: boolean
   isReadOnly: boolean
+  /** Prefer ref so opening a lookup popup does not re-render the detail grid. */
+  isLookupPopupOpenRef?: MutableRefObject<boolean> | null
+  /** @deprecated Use isLookupPopupOpenRef to avoid grid remount / load loops. */
   isLookupPopupOpen?: boolean
   gridRef: RefObject<dxDataGrid<TRow, TKey> | null>
   gridContainerRef: RefObject<HTMLElement | null>
@@ -27,6 +29,7 @@ type UseVoucherSpreadsheetDetailSyncOptions<TRow, TKey extends string | number =
 export function useVoucherSpreadsheetDetailSync<TRow, TKey extends string | number = string>({
   visible,
   isReadOnly,
+  isLookupPopupOpenRef = null,
   isLookupPopupOpen = false,
   gridRef,
   gridContainerRef,
@@ -38,6 +41,8 @@ export function useVoucherSpreadsheetDetailSync<TRow, TKey extends string | numb
 }: UseVoucherSpreadsheetDetailSyncOptions<TRow, TKey>) {
   const focusRef = useRef<VoucherSpreadsheetFocusCell | null>(null)
   const commitInFlightRef = useRef(false)
+  const lookupPopupOpenFallbackRef = useRef(isLookupPopupOpen)
+  lookupPopupOpenFallbackRef.current = isLookupPopupOpen
 
   const syncTotalsFromGrid = useCallback(() => {
     if (preserveScrollForSync) {
@@ -72,15 +77,21 @@ export function useVoucherSpreadsheetDetailSync<TRow, TKey extends string | numb
         await flushActiveEditorValue()
       }
 
-      const hadEditDataBeforeClose = Boolean(grid.hasEditData?.())
-      await commitVoucherSpreadsheetGridCell(grid)
+      try {
+        await grid.closeEditCell()
+      } catch {
+      }
 
-      if (
-        hadEditDataBeforeClose
-        || reason === "pointer-outside"
-        || reason === "focus-leave"
-        || reason === "focus-row"
-      ) {
+      const needsSave = Boolean(grid.hasEditData?.())
+      if (needsSave) {
+        try {
+          await grid.saveEditData()
+        } catch {
+        }
+      }
+
+      // Single sync after save/leave. Skip empty focus-row (avoids remount after state-append).
+      if (needsSave || reason === "pointer-outside" || reason === "focus-leave") {
         syncTotalsFromGrid()
       }
     } finally {
@@ -94,6 +105,8 @@ export function useVoucherSpreadsheetDetailSync<TRow, TKey extends string | numb
     }
     syncTotalsFromGrid()
   }, [syncTotalsFromGrid])
+
+  const isCommitInFlight = useCallback(() => commitInFlightRef.current, [])
 
   const handleFocusedCellChanged = useCallback(
     (event: FocusedCellChangedEvent<TRow, TKey>) => {
@@ -141,7 +154,7 @@ export function useVoucherSpreadsheetDetailSync<TRow, TKey extends string | numb
     }
 
     const handlePointerDown = (event: PointerEvent) => {
-      if (isLookupPopupOpen) {
+      if (isLookupPopupOpenRef?.current || lookupPopupOpenFallbackRef.current) {
         return
       }
 
@@ -168,11 +181,12 @@ export function useVoucherSpreadsheetDetailSync<TRow, TKey extends string | numb
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown, true)
     }
-  }, [commitGridEdits, gridContainerRef, isLookupPopupOpen, isReadOnly, visible])
+  }, [commitGridEdits, gridContainerRef, isLookupPopupOpenRef, isReadOnly, visible])
 
   return {
     commitGridEdits,
     handleSaved,
     handleFocusedCellChanged,
+    isCommitInFlight,
   }
 }

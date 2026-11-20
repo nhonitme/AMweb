@@ -243,10 +243,8 @@ export function mapReceipts(items: Rec[]): ReceiptUpdateRow[] {
 
 export function mapHistory(items: Rec[]): CostingStepHistoryItem[] {
   return items.map((row) => {
-    const actionRaw = text(row.ActionCode).toUpperCase();
-    const action = actionRaw === "CONFIRM" || actionRaw === "REOPEN" || actionRaw === "PREVIEW" || actionRaw === "ERROR"
-      ? actionRaw
-      : "EXECUTE";
+    // Giữ nguyên ACTION_CODE từ DB — không ánh xạ mã lạ thành EXECUTE.
+    const action = text(row.ActionCode).toUpperCase();
     const stepIndex = Math.min(6, Math.max(1, num(row.StepIndex) || 1)) as 1 | 2 | 3 | 4 | 5 | 6;
     return {
       id: text(row.HistoryId),

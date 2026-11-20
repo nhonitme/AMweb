@@ -16,6 +16,7 @@ import BaseTreeList from "@/components/datagrid/BaseTreeList"
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout"
+import { useMasterLookupGridReady } from "@/components/datagrid/useMasterLookupGridReady"
 import DxPage from "@/dx/DxPage"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { getCurrentCompanyCd } from "@/lib/login"
@@ -283,9 +284,13 @@ export default function DepartmentManagementPage({
   }, [isLookup, onCloseLookup, onPickDepartment])
 
   const configuredDepartmentInfoColumns = useDepartmentInfoColumns({ onAddChild: handleAddChild })
+  const { lookupGridReady, holdToolbarUntilReady, onLookupContentReady } = useMasterLookupGridReady(isLookup, !isLoading || gridData.length > 0)
 
   const content = (
     <MasterDataPageLayout
+      holdToolbarUntilReady={holdToolbarUntilReady}
+      contentReady={lookupGridReady}
+      openingLabel={t("LOADING", "Đang tải…")}
       toolbar={
         <GridToolbar
           gridRef={treeListRef}
@@ -321,6 +326,7 @@ export default function DepartmentManagementPage({
         copyExcludeFields={Array.from(excludedFields)}
         actionButtonsPosition="start"
         onRowDblClick={onRowDblClick}
+        onContentReady={onLookupContentReady}
         onEditingStart={(event) => {
           const rowId = Number(event.key)
           setIsUpdate(Number.isFinite(rowId) && rowId > 0)
@@ -367,7 +373,7 @@ export default function DepartmentManagementPage({
 
       <LoadPanel
         shadingColor="rgba(0, 0, 0, 0.4)"
-        visible={loading}
+        visible={!isLookup && loading}
         showIndicator={true}
         shading={true}
         showPane={true}

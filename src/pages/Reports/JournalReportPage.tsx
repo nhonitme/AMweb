@@ -1206,7 +1206,9 @@ export default function JournalReportPage({
       buildReportParams,
       effectiveReportOptionGroupCode,
       fromDate,
+      menuCode,
       releaseAutoLoadInFlight,
+      reportCode,
       reportOptionsLoaded,
       selectedReportOptionCode,
       t,
@@ -1290,6 +1292,7 @@ export default function JournalReportPage({
   }, [])
 
   const useReportTreeList = preview?.VIEW_TYPE?.trim().toUpperCase() === "TREE_LIST"
+
   const handleOpenGridSettings = useCallback(() => {
     if (useReportTreeList) {
       void reportTreeRef.current?.openColumnSettings()

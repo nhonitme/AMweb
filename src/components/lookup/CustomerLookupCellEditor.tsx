@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react"
+import { useCallback, useMemo, useState } from "react"
 
 import type { CustomerExt } from "@/types/customerExt"
 import BaseLookupCellEditor, { type LookupDataSource } from "./BaseLookupCellEditor"
@@ -10,7 +10,6 @@ import {
 import { customerLookupStore } from "./customerLookupStore"
 import { renderSharedCustomerLookupPage } from "./sharedMasterLookupPages"
 import Button from "devextreme-react/button"
-import { useState } from "react"
 import { VatCustomerQuickCreatePopup } from "./VatQuickCreatePopups"
 import type { LookupOpenMode } from "./LookupGridCellDisplay"
 import {
@@ -82,16 +81,12 @@ export default function CustomerLookupCellEditor({
     (customer: CustomerExt) => {
       const customerId = toLookupNumber(customer.CUSTOMER_ID)
       const customerCd = trimLookupText(customer.CUSTOMER_CD)
+      const customerNm = getCustomerLookupName(customer, customerNmField)
 
       setValue(customerId)
       setLookupGridCellValue(grid, rowIndex, customerIdField, customerId)
       setLookupGridCellValue(grid, rowIndex, customerCdField, customerCd)
-      setLookupGridCellValue(
-        grid,
-        rowIndex,
-        customerNmField,
-        getCustomerLookupName(customer, customerNmField),
-      )
+      setLookupGridCellValue(grid, rowIndex, customerNmField, customerNm)
 
       if (hasLookupRowField(rowData, taxCdField)) {
         setLookupGridCellValue(grid, rowIndex, taxCdField, trimLookupText(customer.TAX_CD))

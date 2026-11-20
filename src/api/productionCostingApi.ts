@@ -486,11 +486,15 @@ async function runPeriodLock(
 export async function runProductionCostingStep1(
   onProgress?: PeriodLockProgressNotify,
 ): Promise<ProductionCostingOverview> {
-  const overview = await runPeriodLock("FA_PREPAID_LOCK", onProgress);
-  if (overview.stepStatuses[0] !== "DONE") {
-    throw new Error(overview.job.message || "PeriodLock chưa ghi nhận FA_PREPAID_LOCK = DONE.");
+  const current = session.overview;
+  // Đã DONE: chỉ retry ghi history EXECUTE (idempotent) — không chạy lại PeriodLock.
+  if (current?.stepStatuses[0] !== "DONE") {
+    const locked = await runPeriodLock("FA_PREPAID_LOCK", onProgress);
+    if (locked.stepStatuses[0] !== "DONE") {
+      throw new Error(locked.job.message || "PeriodLock chưa ghi nhận FA_PREPAID_LOCK = DONE.");
+    }
   }
-  return overview;
+  return confirmGkStep("/fa-prepaid/confirm", "b1", 1);
 }
 
 export async function setAllocateType(allocateType: AllocateType): Promise<ProductionCostingOverview> {
@@ -669,11 +673,14 @@ export async function checkProfitLossPreconditions(): Promise<ProductionCostingO
 }
 
 export async function lockProfitLoss(): Promise<ProductionCostingOverview> {
-  const overview = await runPeriodLock("PROFIT_LOSS_REPORT");
-  if (overview.stepStatuses[5] !== "DONE") {
-    throw new Error(overview.job.message || "PeriodLock chÆ°a ghi nháº­n PROFIT_LOSS_REPORT = DONE.");
+  const current = session.overview;
+  if (current?.stepStatuses[5] !== "DONE") {
+    const locked = await runPeriodLock("PROFIT_LOSS_REPORT");
+    if (locked.stepStatuses[5] !== "DONE") {
+      throw new Error(locked.job.message || "PeriodLock chưa ghi nhận PROFIT_LOSS_REPORT = DONE.");
+    }
   }
-  return overview;
+  return confirmGkStep("/profit-loss/confirm", "b6", 6);
 }
 
 export async function getReopenInfo(stepIndex: 1 | 2 | 3 | 4 | 5 | 6): Promise<CostingReopenInfo> {

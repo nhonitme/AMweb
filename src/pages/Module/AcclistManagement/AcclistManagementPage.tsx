@@ -8,6 +8,7 @@ import type dxTreeList  from "devextreme/ui/tree_list";
 
 import { MasterDataTreeListEditPopup } from "@/components/datagrid/MasterDataEditPopup";
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout";
+import { useMasterLookupGridReady } from "@/components/datagrid/useMasterLookupGridReady";
 import BaseTreeList from "@/components/datagrid/BaseTreeList";
 import { GridToolbar } from "@/components/toolbar/GridToolbar";
 
@@ -247,9 +248,13 @@ export default function AcclistManagementPage({
 };
 
   const configuredAcclistColumns = useAcclistColumns({ onAddChild: handleAddChild })
+  const { lookupGridReady, holdToolbarUntilReady, onLookupContentReady } = useMasterLookupGridReady(isLookup, !isLoading || gridData.length > 0)
 
   return (
     <MasterDataPageLayout
+      holdToolbarUntilReady={holdToolbarUntilReady}
+      contentReady={lookupGridReady}
+      openingLabel={t("LOADING", "Đang tải…")}
       toolbar={
         <GridToolbar
           gridRef={treeListRef}
@@ -273,6 +278,7 @@ export default function AcclistManagementPage({
         onInitialized={(e) => {
           treeListRef.current = e.component ?? null;
         }}
+        onContentReady={onLookupContentReady}
         onRowDblClick={handleRowDblClick}
         wordWrapEnabled={true}
         onRowInserting={onRowInserting}
@@ -319,7 +325,7 @@ export default function AcclistManagementPage({
 
       <LoadPanel
         shadingColor="rgba(0, 0, 0, 0.4)"
-        visible={loading}
+        visible={!isLookup && loading}
         showIndicator={true}
         shading={true}
         showPane={true}

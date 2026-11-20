@@ -38,6 +38,7 @@ import type {
   RowClickEvent,
   RowDblClickEvent,
   CellPreparedEvent,
+  ContentReadyEvent,
   EditorPreparingEvent,
   SavingEvent,
 } from "devextreme/ui/tree_list";
@@ -77,6 +78,7 @@ interface BaseTreeListProps<T extends object> {
   onInitNewRow?: (e: InitNewRowEvent) => void;
   onEditorPreparing?: (e: EditorPreparingEvent) => void;
   onSelectionChanged?: (e: SelectionChangedEvent) => void;
+  onContentReady?: (e: ContentReadyEvent) => void;
 
   wordWrapEnabled?: boolean;
 }
@@ -112,6 +114,7 @@ export function BaseTreeList<T extends object>({
   onEditingStart,
   onInitNewRow,
   onSelectionChanged,
+  onContentReady,
   wordWrapEnabled,
   onEditorPreparing
 }: BaseTreeListProps<T>) {
@@ -455,6 +458,7 @@ export function BaseTreeList<T extends object>({
         rowAlternationEnabled
         onRowClick={handleRowClickInternal}
         onRowDblClick={onRowDblClick}
+        onContentReady={onContentReady}
         onInitialized={(e) => {
           treeListInstanceRef.current = e.component ?? null;
           columnSettingState.bindGridComponent(e.component);

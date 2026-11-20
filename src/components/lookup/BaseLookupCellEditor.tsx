@@ -534,7 +534,10 @@ export default function BaseLookupCellEditor<T extends object>({
     }
 
     if (lookupPopupHost) {
-      selectBoxRef.current?.close()
+      // Hide dropdown via controlled state; do not call selectBox.close() —
+      // that tears down the cell editor and fights the host popup (visible jitter).
+      setOpened(false)
+      onOpenedChange?.(false)
       lookupPopupHost.openLookupPopup({
         title: popupTitle,
         width: popupWidth,
@@ -552,6 +555,7 @@ export default function BaseLookupCellEditor<T extends object>({
     setPopupVisible(true)
   }, [
     lookupPopupHost,
+    onOpenedChange,
     popupHeight,
     popupGridHeight,
     popupTitle,
@@ -676,14 +680,21 @@ export default function BaseLookupCellEditor<T extends object>({
           })
         }}
         onOpenedChange={handleOpenedChange}
-        onClosed={onClosed}
+        onClosed={(event) => {
+          if (lookupPopupHost?.isLookupPopupOpenRef.current) {
+            return
+          }
+          onClosed?.(event)
+        }}
         onKeyDown={navigateField ? handleTabNavigation : undefined}
         onInput={(event) => {
           selectBoxRef.current = event.component ?? null
           openDropdownNow(event.component ?? null)
           onInput?.(event)
         }}
-        onValueChanged={handleValueChanged}
+        onValueChanged={(event) => {
+          handleValueChanged(event)
+        }}
       >
         <DropDownOptions
           maxWidth={Math.min(dropDownWidth, window.innerWidth - 24)}

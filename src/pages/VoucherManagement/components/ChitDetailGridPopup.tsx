@@ -23,7 +23,7 @@ import VoucherSpreadsheetSummaryBar from "@/components/datagrid/VoucherSpreadshe
 import {
     AM_GRID_READONLY_COLUMN_CELL_CLASS,
     createSpreadsheetContinueRowKeyDownHandler,
-    focusNewRowWithoutTopJump,
+    focusAppendedSpreadsheetRow,
     formatSpreadsheetSummaryNumber,
     prepareVoucherSpreadsheetToolbar,
     readGridScrollTop,
@@ -44,7 +44,7 @@ import { useVoucherSpreadsheetAddRow } from "@/components/datagrid/useVoucherSpr
 import { useVoucherSpreadsheetDetailSync } from "@/components/datagrid/useVoucherSpreadsheetDetailSync"
 import { readPendingGridUpdatesByKey } from "@/components/datagrid/voucherSpreadsheetDetailSync"
 import { isForeignCurrencyCode } from "@/lib/currency"
-import { useLookupPopupHost } from "@/components/lookup/LookupPopupHost"
+import { useLookupPopupCommands } from "@/components/lookup/LookupPopupHost"
 import {
     CHIT_DETAIL_LIVE_INPUT_FIELDS,
     CHIT_DETAIL_LOOKUP_FIELDS,
@@ -268,7 +268,7 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
         ref,
     ) {
         const navigate = useNavigate()
-        const lookupPopupHost = useLookupPopupHost()
+        const lookupPopupCommands = useLookupPopupCommands()
         const gridRef = useRef<dxDataGrid<ChitDetail, string> | null>(null)
         const searchContainerRef = useRef<HTMLDivElement | null>(null)
         const currentRowKeyRef = useRef<string | null>(null)
@@ -531,11 +531,62 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
 
         const syncRows = useCallback(() => emitRowsChange(buildMergedRows()), [buildMergedRows, emitRowsChange])
 
+        const applySoftValidationForRow = useCallback((row: ChitDetail | null | undefined) => {
+            if (!row || row.ISDEL) {
+                return
+            }
+
+            const rowKey = row.ROW_KEY
+            const missingFields = getChitDetailMissingAccountFields(row)
+            setRowValidationWarnings((current) => {
+                const next = { ...current }
+                if (missingFields.length === 0) {
+                    delete next[rowKey]
+                } else {
+                    next[rowKey] = missingFields
+                }
+                return next
+            })
+        }, [])
+
+        const handleLeaveFocusCell = useCallback((prev: { rowIndex: number }) => {
+            const previousRow = gridRef.current?.getVisibleRows().find((row) => row.rowIndex === prev.rowIndex)
+            if (previousRow?.rowType === "data" && previousRow.data) {
+                applySoftValidationForRow(previousRow.data)
+            }
+        }, [applySoftValidationForRow])
+
+        const { handleFocusedCellChanged, isCommitInFlight } = useVoucherSpreadsheetDetailSync({
+            visible: isVisible,
+            isReadOnly: readOnly,
+            isLookupPopupOpenRef: lookupPopupCommands?.isLookupPopupOpenRef ?? null,
+            gridRef,
+            gridContainerRef: containerRef,
+            syncRows,
+            liveInputFields: CHIT_DETAIL_LIVE_INPUT_FIELDS,
+            lookupFields: CHIT_DETAIL_LOOKUP_FIELDS,
+            onLeaveFocusCell: handleLeaveFocusCell,
+        })
+
+        const appendDetailRowInState = useCallback(() => {
+            const currentRows = buildMergedRows()
+            const nextSort = getActiveChitDetails(currentRows).length + 1
+            const newRow = createDefaultChitDetail(nextSort, companyCd)
+            const nextRows = renumberActiveSort([...currentRows, newRow], "SORT")
+            currentRowKeyRef.current = newRow.ROW_KEY
+            emitRowsChange(nextRows)
+            return newRow.ROW_KEY
+        }, [buildMergedRows, companyCd, emitRowsChange])
+
         const { handleAddRow, handleSaved } = useVoucherSpreadsheetAddRow({
             gridRef,
             syncRows,
             dataSource: visibleDetails,
-            shouldSkipSavedSync: () => deleteFlowRef.current,
+            shouldSkipSavedSync: () => deleteFlowRef.current || isCommitInFlight(),
+            appendRowInState: appendDetailRowInState,
+            focusAppendedRow: (grid, rowKey, scrollTop) => {
+                focusAppendedSpreadsheetRow(grid, rowKey, scrollTop, "DEBIT")
+            },
         })
 
         const handleCurrencyValueChanged = useCallback(
@@ -656,16 +707,10 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
 
                 requestAnimationFrame(() => {
                     const nextGrid = gridRef.current
-                    focusNewRowWithoutTopJump(nextGrid, scrollTop)
-                    void Promise.resolve(nextGrid?.navigateToRow?.(newRowKey)).then(() => {
-                        if (!nextGrid) {
-                            return
-                        }
-                        const rowIndex = nextGrid.getRowIndexByKey(newRowKey)
-                        if (rowIndex >= 0) {
-                            nextGrid.editCell(rowIndex, "DEBIT")
-                        }
-                    })
+                    if (!nextGrid) {
+                        return
+                    }
+                    focusAppendedSpreadsheetRow(nextGrid, newRowKey, scrollTop, "DEBIT")
                 })
             },
             [buildMergedRows, companyCd, emitRowsChange, getCurrentRowKey, readOnly],
@@ -778,43 +823,6 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
 
             currentRowKeyRef.current = resolveChitDetailRowKey(event.key, event.data)
         }, [])
-
-        const applySoftValidationForRow = useCallback((row: ChitDetail | null | undefined) => {
-            if (!row || row.ISDEL) {
-                return
-            }
-
-            const rowKey = row.ROW_KEY
-            const missingFields = getChitDetailMissingAccountFields(row)
-            setRowValidationWarnings((current) => {
-                const next = { ...current }
-                if (missingFields.length === 0) {
-                    delete next[rowKey]
-                } else {
-                    next[rowKey] = missingFields
-                }
-                return next
-            })
-        }, [])
-
-        const handleLeaveFocusCell = useCallback((prev: { rowIndex: number }) => {
-            const previousRow = gridRef.current?.getVisibleRows().find((row) => row.rowIndex === prev.rowIndex)
-            if (previousRow?.rowType === "data" && previousRow.data) {
-                applySoftValidationForRow(previousRow.data)
-            }
-        }, [applySoftValidationForRow])
-
-        const { handleFocusedCellChanged } = useVoucherSpreadsheetDetailSync({
-            visible: isVisible,
-            isReadOnly: readOnly,
-            isLookupPopupOpen: Boolean(lookupPopupHost?.isLookupPopupOpen),
-            gridRef,
-            gridContainerRef: containerRef,
-            syncRows,
-            liveInputFields: CHIT_DETAIL_LIVE_INPUT_FIELDS,
-            lookupFields: CHIT_DETAIL_LOOKUP_FIELDS,
-            onLeaveFocusCell: handleLeaveFocusCell,
-        })
 
         const handleCellPrepared = useCallback((event: CellPreparedEvent<ChitDetail, string>) => {
             if (event.rowType !== "data" || !event.cellElement || !event.column?.dataField) {

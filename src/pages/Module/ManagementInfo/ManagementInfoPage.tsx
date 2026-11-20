@@ -23,6 +23,7 @@ import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid"
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout"
+import { useMasterLookupGridReady } from "@/components/datagrid/useMasterLookupGridReady"
 import DxPage from "@/dx/DxPage"
 import {
 } from "@/api/managementInfoApi"
@@ -266,8 +267,13 @@ export default function ManagementInfoPage({
     }
   }, [isLookup, onCloseLookup, onPickManagement])
 
+  const { lookupGridReady, holdToolbarUntilReady, onLookupContentReady } = useMasterLookupGridReady(isLookup, !isLoading || gridData.length > 0)
+
   const content = (
     <MasterDataPageLayout
+      holdToolbarUntilReady={holdToolbarUntilReady}
+      contentReady={lookupGridReady}
+      openingLabel={t("LOADING", "Đang tải…")}
       toolbar={
         <GridToolbar
           gridRef={gridRef}
@@ -302,6 +308,7 @@ export default function ManagementInfoPage({
         actionButtons
         actionButtonsPosition="start"
         onRowDblClick={onRowDblClick}
+        onContentReady={onLookupContentReady}
         onEditingStart={(event) => {
           const rowId = Number(event.key)
           setIsUpdate(Number.isFinite(rowId) && rowId > 0)
@@ -351,7 +358,7 @@ export default function ManagementInfoPage({
 
       <LoadPanel
         shadingColor="rgba(0, 0, 0, 0.4)"
-        visible={loading}
+        visible={!isLookup && loading}
         showIndicator={true}
         shading={true}
         showPane={true}

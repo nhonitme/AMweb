@@ -338,6 +338,7 @@ function CustomerColumns({
 
   return (
     <>
+      <Column dataField="CUSTOMER_ID" visible={false} allowEditing={false} />
       <Column
         dataField={dataField}
         caption={t("CUSTOMER_CD", "Customer")}

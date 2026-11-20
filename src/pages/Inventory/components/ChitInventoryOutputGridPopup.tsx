@@ -26,7 +26,7 @@ import VoucherSpreadsheetSummaryBar from "@/components/datagrid/VoucherSpreadshe
 import {
     AM_GRID_READONLY_COLUMN_CELL_CLASS,
     createSpreadsheetContinueRowKeyDownHandler,
-    focusNewRowWithoutTopJump,
+    focusAppendedSpreadsheetRow,
     formatSpreadsheetSummaryNumber,
     prepareVoucherSpreadsheetToolbar,
     readGridScrollTop,
@@ -52,7 +52,7 @@ import WarehouseLookupCellEditor from "@/components/lookup/WarehouseLookupCellEd
 import UnitLookupCellEditor from "@/components/lookup/UnitLookupCellEditor"
 import CurrencyLookupCellEditor from "@/components/lookup/CurrencyLookupCellEditor"
 import { LookupGridCellEditor, consumeLookupCellOpen, type LookupOpenMode } from "@/components/lookup/LookupGridCellDisplay"
-import { useLookupPopupHost } from "@/components/lookup/LookupPopupHost"
+import { useLookupPopupCommands } from "@/components/lookup/LookupPopupHost"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { DEFAULT_CURRENCY_CODE, isForeignCurrencyCode } from "@/lib/currency"
 import type { ChitDateValue, InventoryOutputLine } from "@/types/voucher"
@@ -439,7 +439,7 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
         const { translate } = useContext(LanguageContext) as {
             translate?: (key: string, fallback?: string) => string
         }
-        const lookupPopupHost = useLookupPopupHost()
+        const lookupPopupCommands = useLookupPopupCommands()
         const { getFormat } = useDecimalColumnFormats()
         const gridRef = useRef<dxDataGrid<InventoryOutputLine, string> | null>(null)
         const searchContainerRef = useRef<HTMLDivElement | null>(null)
@@ -742,22 +742,39 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
 
         const syncRows = useCallback(() => emitRowsChange(buildMergedRows()), [buildMergedRows, emitRowsChange])
 
-        const { handleAddRow, handleSaved } = useVoucherSpreadsheetAddRow({
-            gridRef,
-            syncRows,
-            dataSource: visibleRows,
-            shouldSkipSavedSync: () => deleteFlowRef.current,
-        })
+        const appendOutputRowInState = useCallback(() => {
+            const currentRows = buildMergedRows()
+            const nextSort = getActiveOutputLines(currentRows).length + 1
+            const newRow = normalizeOutputLine(
+                { SORT: nextSort, QUANTITY: 0 },
+                { companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd },
+            )
+            const nextRows = renumberActiveSort([...currentRows, newRow], "SORT")
+            currentRowKeyRef.current = newRow.ROW_KEY
+            emitRowsChange(nextRows)
+            return newRow.ROW_KEY
+        }, [buildMergedRows, chitDetailCd, chitDetailId, companyCd, detailRowKey, emitRowsChange, inventoryYmd])
 
-        const { handleFocusedCellChanged: handleCalcFocusedCellChanged } = useVoucherSpreadsheetDetailSync({
+        const { handleFocusedCellChanged: handleCalcFocusedCellChanged, isCommitInFlight } = useVoucherSpreadsheetDetailSync({
             visible: isVisible,
             isReadOnly: Boolean(disabled),
-            isLookupPopupOpen: Boolean(lookupPopupHost?.isLookupPopupOpen),
+            isLookupPopupOpenRef: lookupPopupCommands?.isLookupPopupOpenRef ?? null,
             gridRef,
             gridContainerRef: containerRef,
             syncRows,
             liveInputFields: INVENTORY_OUTPUT_LIVE_INPUT_FIELDS,
             lookupFields: INVENTORY_OUTPUT_LOOKUP_FIELDS,
+        })
+
+        const { handleAddRow, handleSaved } = useVoucherSpreadsheetAddRow({
+            gridRef,
+            syncRows,
+            dataSource: visibleRows,
+            shouldSkipSavedSync: () => deleteFlowRef.current || isCommitInFlight(),
+            appendRowInState: appendOutputRowInState,
+            focusAppendedRow: (grid, rowKey, scrollTop) => {
+                focusAppendedSpreadsheetRow(grid, rowKey, scrollTop, "PRODUCT_CD")
+            },
         })
 
         const focusSearchInput = useCallback(() => {
@@ -856,13 +873,10 @@ export const ChitInventoryOutputGridPopup = forwardRef<ChitInventoryOutputGridPo
 
                 requestAnimationFrame(() => {
                     const nextGrid = gridRef.current
-                    focusNewRowWithoutTopJump(nextGrid, scrollTop)
-                    void nextGrid?.navigateToRow?.(newRowKey).then(() => {
-                        const rowIndex = nextGrid.getRowIndexByKey(newRowKey)
-                        if (rowIndex >= 0) {
-                            nextGrid.editCell(rowIndex, "PRODUCT_CD")
-                        }
-                    })
+                    if (!nextGrid) {
+                        return
+                    }
+                    focusAppendedSpreadsheetRow(nextGrid, newRowKey, scrollTop, "PRODUCT_CD")
                 })
             },
             [buildMergedRows, chitDetailCd, chitDetailId, companyCd, detailRowKey, disabled, emitRowsChange, getCurrentRowKey, inventoryYmd],

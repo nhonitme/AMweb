@@ -12,6 +12,7 @@ import { LanguageContext } from "@/lib/i18nLoader";
 import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid";
 import { GridToolbar } from "@/components/toolbar/GridToolbar";
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout";
+import { useMasterLookupGridReady } from "@/components/datagrid/useMasterLookupGridReady";
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup";
 import { createProductKind } from "@/api/productKindApi";
 import { getCurrentCompanyCd } from "@/lib/login";
@@ -198,9 +199,13 @@ export default function ProductKindManagementPage({
   }, [gridId, menuCode, screenCd, t]);
 
   const configuredProductKindColumns = useProductKindColumns({})
+  const { lookupGridReady, holdToolbarUntilReady, onLookupContentReady } = useMasterLookupGridReady(isLookup, !isLoading || gridData.length > 0)
 
   const content = (
     <MasterDataPageLayout
+      holdToolbarUntilReady={holdToolbarUntilReady}
+      contentReady={lookupGridReady}
+      openingLabel={t("LOADING", "Đang tải…")}
       toolbar={
         <GridToolbar
           gridRef={gridRef}
@@ -236,6 +241,7 @@ export default function ProductKindManagementPage({
           onInitialized={(event) => {
             gridRef.current = event.component ?? null;
           }}
+          onContentReady={onLookupContentReady}
           onRowInserting={handleRowInserting}
           onRowUpdating={handleRowUpdating}
           onRowRemoving={handleRowRemoving}
@@ -271,7 +277,7 @@ export default function ProductKindManagementPage({
 
         <LoadPanel
           shadingColor="rgba(0, 0, 0, 0.4)"
-          visible={loading}
+          visible={!isLookup && loading}
           showIndicator={true}
           shading={true}
           showPane={true}

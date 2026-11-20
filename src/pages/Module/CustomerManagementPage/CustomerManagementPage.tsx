@@ -18,6 +18,7 @@ import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid"
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout"
+import { useMasterLookupGridReady } from "@/components/datagrid/useMasterLookupGridReady"
 import MasterDataEditPopup from "@/components/datagrid/MasterDataEditPopup"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { getCurrentCompanyCd } from "@/lib/login"
@@ -99,6 +100,8 @@ export default function CustomerManagementPage({
     const rows = normalizeCustomerExtRows(customerRows)
     return rows
   }, [customerRows])
+
+
   const reloadCustomers = useMasterListReload(refetchCustomers, gridRef)
 
   const { getCodesByType } = useSysCodes()
@@ -333,7 +336,6 @@ export default function CustomerManagementPage({
   const onRowRemovingRef = useRef(onRowRemoving)
   onRowRemovingRef.current = onRowRemoving
 
-
   const onEditingStart = useCallback((event: { key?: TKey; data?: CustomerExt; component?: dxDataGrid<CustomerExt, TKey> }) => {
     const changes = (event.component?.option("editing.changes") ?? []) as Array<{ type?: string }>
     const inserting = insertSessionRef.current || changes.some((change) => change.type === "insert")
@@ -350,9 +352,13 @@ export default function CustomerManagementPage({
   }
 
   const configuredCustomerColumns = useCustomerColumns({ categoryCodes, customerTypeCodes })
+  const { lookupGridReady, holdToolbarUntilReady, onLookupContentReady } = useMasterLookupGridReady(isLookup, !isLoading || gridData.length > 0)
 
   return (
     <MasterDataPageLayout
+      holdToolbarUntilReady={holdToolbarUntilReady}
+      contentReady={lookupGridReady}
+      openingLabel={t("LOADING", "Đang tải…")}
       toolbar={
         <GridToolbar
           gridRef={gridRef}
@@ -388,6 +394,9 @@ export default function CustomerManagementPage({
         actionButtonsPosition="start"
         onRowDblClick={(event) => onRowDblClickRef.current(event)}
         onEditingStart={(event) => onEditingStartRef.current(event)}
+        onContentReady={() => {
+          onLookupContentReady()
+        }}
         onInitialized={(event) => {
           const component = event.component ?? null
           gridRef.current = component
@@ -452,7 +461,7 @@ export default function CustomerManagementPage({
 
       <LoadPanel
         shadingColor="rgba(0, 0, 0, 0.4)"
-        visible={loading}
+        visible={!isLookup && loading}
         showIndicator={true}
         shading={true}
         showPane={true}

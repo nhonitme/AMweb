@@ -9,6 +9,7 @@ import DxPage from "@/dx/DxPage";
 import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid";
 import { GridToolbar } from "@/components/toolbar/GridToolbar";
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout";
+import { useMasterLookupGridReady } from "@/components/datagrid/useMasterLookupGridReady";
 
 import { useStoreKindColumns } from "./Columns/StoreKindColumns";
 import { StoreKindForm } from "./Forms/StoreKindForm";
@@ -226,9 +227,13 @@ const handleToolbarDelete = async () => {
 };
 
   const configuredStoreKindColumns = useStoreKindColumns({})
+  const { lookupGridReady, holdToolbarUntilReady, onLookupContentReady } = useMasterLookupGridReady(isLookup, !isLoading || gridData.length > 0)
 
   const content = (
     <MasterDataPageLayout
+      holdToolbarUntilReady={holdToolbarUntilReady}
+      contentReady={lookupGridReady}
+      openingLabel={t("LOADING", "Đang tải…")}
       toolbar={
         <GridToolbar
           gridRef={gridRef}
@@ -266,6 +271,7 @@ const handleToolbarDelete = async () => {
           onInitialized={(e) => {
             gridRef.current = e.component ?? null;
           }}
+          onContentReady={onLookupContentReady}
           onRowInserting={onRowInserting}
           onRowUpdating={onRowUpdating}
           onRowRemoving={onRowRemoving}
@@ -304,7 +310,7 @@ const handleToolbarDelete = async () => {
 
         <LoadPanel
           shadingColor="rgba(0, 0, 0, 0.4)"
-          visible={loading}
+          visible={!isLookup && loading}
           showIndicator={true}
           shading={true}
           showPane={true}

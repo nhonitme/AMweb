@@ -24,7 +24,7 @@ function formatPeriodDisplay(periodYm: string): string {
 }
 
 function formatDisplayAt(value: string): string {
-  if (!value) return "";
+  if (!value) return "—";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   const dd = String(parsed.getDate()).padStart(2, "0");
@@ -32,7 +32,28 @@ function formatDisplayAt(value: string): string {
   const yyyy = parsed.getFullYear();
   const hh = String(parsed.getHours()).padStart(2, "0");
   const mi = String(parsed.getMinutes()).padStart(2, "0");
-  return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
+  const ss = String(parsed.getSeconds()).padStart(2, "0");
+  return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`;
+}
+
+function isSuccessfulLockAction(action: string): boolean {
+  const code = (action || "").toUpperCase();
+  return code === "EXECUTE" || code === "CONFIRM";
+}
+
+function pickLatestSuccessfulLock(
+  items: CostingStepHistoryItem[],
+  stepIndex: 1,
+): CostingStepHistoryItem | null {
+  const rows = items.filter(
+    (row) => row.stepIndex === stepIndex && isSuccessfulLockAction(row.action),
+  );
+  if (rows.length === 0) return null;
+  return rows.reduce((best, row) => {
+    const bestAt = Date.parse(best.at) || 0;
+    const rowAt = Date.parse(row.at) || 0;
+    return rowAt >= bestAt ? row : best;
+  });
 }
 
 function prereqPill(
@@ -74,19 +95,6 @@ function biLockPill(
   return { className: "gk-pill", label: t("GK_BI_STATUS_NOT_STARTED", "Chưa thực hiện") };
 }
 
-function pickLatestStepHistory(
-  items: CostingStepHistoryItem[],
-  stepIndex: 1,
-): CostingStepHistoryItem | null {
-  const rows = items.filter((row) => row.stepIndex === stepIndex);
-  if (rows.length === 0) return null;
-  return rows.reduce((best, row) => {
-    const bestAt = Date.parse(best.at) || 0;
-    const rowAt = Date.parse(row.at) || 0;
-    return rowAt >= bestAt ? row : best;
-  });
-}
-
 export function FaPrepaidLockPanel({
   overview,
   busy,
@@ -103,14 +111,16 @@ export function FaPrepaidLockPanel({
   const runStatus = overview.stepStatuses[0];
   const locked = runStatus === "DONE";
   const processing = busy || runStatus === "PROCESSING" || overview.job.running;
-  const meta = overview.stepMetas[0];
   const prereq = overview.prerequisiteValidation;
   const prereqView = prereqPill(prereq.status, t);
   const biView = biLockPill(runStatus, processing, t);
-  const latestHistory = useMemo(
-    () => pickLatestStepHistory(overview.stepHistory, 1),
+  const latestSuccessfulLock = useMemo(
+    () => pickLatestSuccessfulLock(overview.stepHistory, 1),
     [overview.stepHistory],
   );
+  const hasExecuteHistory = latestSuccessfulLock != null;
+  /** Cho phép retry ghi history khi B-I đã DONE nhưng chưa có EXECUTE (lỗi ghi nhật ký trước đó). */
+  const lockButtonDisabled = busy || (locked && hasExecuteHistory);
 
   const conditionTone: TimelineTone = (() => {
     if (!overview.periodExists) return "error";
@@ -218,73 +228,64 @@ export function FaPrepaidLockPanel({
     );
   })();
 
+  const lockStatusLabel = (() => {
+    if (processing || runStatus === "PROCESSING") {
+      return t("GK_BI_STATUS_PROCESSING", "Đang xử lý");
+    }
+    if (runStatus === "DONE") return t("GK_BI_STATUS_DONE", "Hoàn thành");
+    if (runStatus === "ERROR") return t("GK_BI_STATUS_ERROR", "Lỗi");
+    if (runStatus === "REOPENED") return t("GK_BI_STATUS_REOPENED", "Đã mở lại");
+    return t("GK_BI_STATUS_NOT_STARTED", "Chưa thực hiện");
+  })();
+
   const resultBlock = (() => {
-    if (processing) {
+    const lockAt = latestSuccessfulLock
+      ? formatDisplayAt(latestSuccessfulLock.at)
+      : "—";
+    const lockUser = latestSuccessfulLock?.userName?.trim() || "—";
+
+    if (processing || runStatus === "PROCESSING") {
       return {
         tone: "info" as const,
-        statusLabel: t("GK_PROCESSING", "Đang xử lý"),
-        message:
-          overview.job.message ||
-          t("GK_STEP1_RESULT_PROCESSING", "PeriodLock đang xử lý FA_PREPAID_LOCK."),
-        at: "",
-        user: "",
+        statusLabel: lockStatusLabel,
+        at: lockAt,
+        user: lockUser,
       };
     }
     if (runStatus === "DONE") {
       return {
         tone: "good" as const,
-        statusLabel: t("GK_DONE", "✓ Đã hoàn thành"),
-        message:
-          latestHistory?.resultAfter ||
-          overview.job.message ||
-          overview.statusMessage ||
-          t("GK_STEP1_DONE_MSG", "B1 trên DB đang DONE. Chứng từ đã được PeriodLock ghi nhận."),
-        at: formatDisplayAt(meta?.completedAt || latestHistory?.at || ""),
-        user: meta?.completedBy || latestHistory?.userName || "",
+        statusLabel: lockStatusLabel,
+        at: lockAt,
+        user: lockUser,
       };
     }
     if (runStatus === "ERROR") {
       return {
         tone: "err" as const,
-        statusLabel: t("GK_ERROR", "Lỗi"),
-        message:
-          latestHistory?.resultAfter ||
-          overview.job.message ||
-          overview.statusMessage ||
-          t("GK_STEP1_RESULT_ERROR", "Thực hiện khóa sổ bước 1 thất bại."),
-        at: formatDisplayAt(latestHistory?.at || ""),
-        user: latestHistory?.userName || "",
+        statusLabel: lockStatusLabel,
+        at: lockAt,
+        user: lockUser,
       };
     }
     if (runStatus === "REOPENED") {
       return {
         tone: "warn" as const,
-        statusLabel: t("GK_REOPENED", "↺ Đã mở lại"),
-        message:
-          latestHistory?.reason ||
-          latestHistory?.resultAfter ||
-          t(
-            "GK_STEP1_REOPENED",
-            "Bước 1 đã mở lại. Chạy lại PeriodLock B-I để tính và ghi nhận chứng từ mới.",
-          ),
-        at: formatDisplayAt(latestHistory?.at || ""),
-        user: latestHistory?.userName || "",
+        statusLabel: lockStatusLabel,
+        at: lockAt,
+        user: lockUser,
       };
     }
     return {
       tone: "info" as const,
-      statusLabel: t("GK_STEP1_RESULT_EMPTY_STATUS", "Chưa có kết quả"),
-      message: t(
-        "GK_STEP1_RESULT_EMPTY",
-        "Chưa thực hiện khóa sổ bước 1 trong kỳ này.",
-      ),
-      at: "",
-      user: "",
+      statusLabel: lockStatusLabel,
+      at: lockAt,
+      user: lockUser,
     };
   })();
 
   const runLock = async () => {
-    if (locked || processing) return;
+    if (lockButtonDisabled || processing) return;
     const ok = await confirm(
       t(
         "GK_STEP1_CONFIRM",
@@ -357,7 +358,7 @@ export function FaPrepaidLockPanel({
           <Button
             text={t("GK_STEP1_RUN", "Thực hiện khóa bước 1")}
             type="default"
-            disabled={busy || locked}
+            disabled={lockButtonDisabled}
             onClick={() => void runLock()}
           />
         </>
@@ -478,30 +479,24 @@ export function FaPrepaidLockPanel({
         </section>
       </div>
 
-      {/* Khu vực D — Kết quả gần nhất */}
+      {/* Khu vực D — Trạng thái khóa sổ bước 1 (không hiển thị chuỗi kỹ thuật) */}
       <section
         className={`gk-step1-result gk-notice${resultBlock.tone === "info" ? "" : ` ${resultBlock.tone}`}`}
-        aria-label={t("GK_STEP1_RESULT_TITLE", "Kết quả khóa sổ gần nhất")}
+        aria-label={t("GK_STEP1_LOCK_STATUS_TITLE", "Trạng thái khóa sổ bước 1")}
       >
         <div className="gk-step1-result-head">
-          <strong>{t("GK_STEP1_RESULT_TITLE", "Kết quả khóa sổ gần nhất")}</strong>
+          <strong>{t("GK_STEP1_LOCK_STATUS_TITLE", "Trạng thái khóa sổ bước 1")}</strong>
           <span className={biView.className}>{resultBlock.statusLabel}</span>
         </div>
-        <p className="gk-step1-result-msg">{resultBlock.message}</p>
-        {resultBlock.at || resultBlock.user ? (
-          <div className="gk-step1-result-meta">
-            {resultBlock.at ? (
-              <span>
-                {t("GK_STEP1_RESULT_AT", "Thời gian")}: {resultBlock.at}
-              </span>
-            ) : null}
-            {resultBlock.user ? (
-              <span>
-                {t("GK_STEP1_RESULT_BY", "Người thực hiện")}: {resultBlock.user}
-              </span>
-            ) : null}
-          </div>
-        ) : null}
+        <div className="gk-step1-result-meta">
+          <span>
+            {t("GK_STEP1_RESULT_AT", "Thời gian khóa sổ thành công gần nhất")}: {resultBlock.at}
+          </span>
+          <span>
+            {t("GK_STEP1_RESULT_BY", "Người thực hiện khóa sổ thành công gần nhất")}:{" "}
+            {resultBlock.user}
+          </span>
+        </div>
       </section>
     </StepShell>
   );

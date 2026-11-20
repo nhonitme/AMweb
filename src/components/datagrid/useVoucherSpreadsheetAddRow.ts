@@ -13,11 +13,26 @@ type UseVoucherSpreadsheetAddRowOptions = {
   syncRows: () => void
   dataSource: readonly unknown[]
   shouldSkipSavedSync?: () => boolean
+  /**
+   * Preferred: append via React state (smooth). Return new row key after emit.
+   * When omitted, falls back to DevExtreme `grid.addRow()` (legacy).
+   */
+  appendRowInState?: () => string | null
+  focusAppendedRow?: (
+    grid: dxDataGrid<unknown, string | number>,
+    rowKey: string,
+    scrollTop: number,
+  ) => void
 }
 
-type PendingAddRowState = {
+type PendingLegacyAdd = {
   scrollTop: number
   resolve: () => void
+}
+
+type PendingStateAppend = {
+  scrollTop: number
+  rowKey: string
 }
 
 export function useVoucherSpreadsheetAddRow({
@@ -25,10 +40,17 @@ export function useVoucherSpreadsheetAddRow({
   syncRows,
   dataSource,
   shouldSkipSavedSync,
+  appendRowInState,
+  focusAppendedRow,
 }: UseVoucherSpreadsheetAddRowOptions) {
   const addRowFlowRef = useRef(false)
   const pendingScrollTopRef = useRef<number | null>(null)
-  const pendingAddRowRef = useRef<PendingAddRowState | null>(null)
+  const pendingLegacyAddRef = useRef<PendingLegacyAdd | null>(null)
+  const pendingStateAppendRef = useRef<PendingStateAppend | null>(null)
+  const appendRowInStateRef = useRef(appendRowInState)
+  appendRowInStateRef.current = appendRowInState
+  const focusAppendedRowRef = useRef(focusAppendedRow)
+  focusAppendedRowRef.current = focusAppendedRow
 
   useLayoutEffect(() => {
     if (pendingScrollTopRef.current !== null) {
@@ -37,17 +59,29 @@ export function useVoucherSpreadsheetAddRow({
       restoreGridScrollTopImmediate(gridRef.current, scrollTop)
     }
 
-    const pendingAddRow = pendingAddRowRef.current
     const grid = gridRef.current
-    if (!pendingAddRow || !grid) {
+    const pendingStateAppend = pendingStateAppendRef.current
+    if (pendingStateAppend && grid) {
+      pendingStateAppendRef.current = null
+      const focusRow = focusAppendedRowRef.current
+      if (focusRow) {
+        focusRow(grid, pendingStateAppend.rowKey, pendingStateAppend.scrollTop)
+      } else {
+        focusNewRowWithoutTopJump(grid, pendingStateAppend.scrollTop)
+      }
       return
     }
 
-    pendingAddRowRef.current = null
+    const pendingLegacyAdd = pendingLegacyAddRef.current
+    if (!pendingLegacyAdd || !grid) {
+      return
+    }
+
+    pendingLegacyAddRef.current = null
     grid.addRow()
-    focusNewRowWithoutTopJump(grid, pendingAddRow.scrollTop)
+    focusNewRowWithoutTopJump(grid, pendingLegacyAdd.scrollTop)
     addRowFlowRef.current = false
-    pendingAddRow.resolve()
+    pendingLegacyAdd.resolve()
   }, [dataSource, gridRef])
 
   const scheduleScrollRestoreAfterDataSourceUpdate = useCallback((scrollTop: number) => {
@@ -56,17 +90,39 @@ export function useVoucherSpreadsheetAddRow({
 
   const handleAddRow = useCallback(async () => {
     const grid = gridRef.current
-    if (!grid) {
+    const appendInState = appendRowInStateRef.current
+    if (!grid && !appendInState) {
       return
     }
 
-    addRowFlowRef.current = true
+    const hasEditData = Boolean(grid?.hasEditData?.())
     const scrollTopBeforeAdd = readGridScrollTop(grid)
 
-    if (grid.hasEditData()) {
+    addRowFlowRef.current = true
+
+    if (appendInState) {
+      if (hasEditData && grid) {
+        await grid.saveEditData()
+      }
+
+      pendingScrollTopRef.current = scrollTopBeforeAdd
+      const newRowKey = appendInState()
+      if (newRowKey) {
+        pendingStateAppendRef.current = { scrollTop: scrollTopBeforeAdd, rowKey: newRowKey }
+      }
+      addRowFlowRef.current = false
+      return
+    }
+
+    if (!grid) {
+      addRowFlowRef.current = false
+      return
+    }
+
+    if (hasEditData) {
       await grid.saveEditData()
       await new Promise<void>((resolve) => {
-        pendingAddRowRef.current = { scrollTop: scrollTopBeforeAdd, resolve }
+        pendingLegacyAddRef.current = { scrollTop: scrollTopBeforeAdd, resolve }
         syncRows()
       })
       return

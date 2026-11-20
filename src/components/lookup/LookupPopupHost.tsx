@@ -39,15 +39,19 @@ export function LookupPopupProvider({ children }: { children: ReactNode }) {
   const [popupOptions, setPopupOptions] = useState<LookupPopupOptions | null>(null)
   const explicitCloseRef = useRef(false)
   const popupWrapperRef = useRef<HTMLElement | null>(null)
+  // Updated synchronously in open/close so pointer handlers see the flag before React re-renders.
+  const isLookupPopupOpenRef = useRef(false)
 
   const closeLookupPopup = useCallback(() => {
     explicitCloseRef.current = true
+    isLookupPopupOpenRef.current = false
     popupWrapperRef.current = null
     setPopupOptions(null)
   }, [])
 
   const openLookupPopup = useCallback((options: LookupPopupOptions) => {
     explicitCloseRef.current = false
+    isLookupPopupOpenRef.current = true
     setPopupOptions(options)
   }, [])
 
@@ -61,13 +65,15 @@ export function LookupPopupProvider({ children }: { children: ReactNode }) {
 
     raiseDialogsAboveSiblings()
 
-    const observer = new MutationObserver(() => {
+    // Raise once more after overlays settle. Avoid body+subtree MutationObserver:
+    // DataGrid mount mutates DOM heavily and was thrashing z-index (popup jitter).
+    const timer = window.setTimeout(() => {
       raiseDialogsAboveSiblings()
-    })
-    observer.observe(document.body, { childList: true, subtree: true })
+      raiseOverlayAboveSiblings(popupWrapperRef.current)
+    }, 50)
 
     return () => {
-      observer.disconnect()
+      window.clearTimeout(timer)
     }
   }, [isLookupPopupOpen])
 
@@ -81,11 +87,16 @@ export function LookupPopupProvider({ children }: { children: ReactNode }) {
   )
 
   const getPopupContainer = () => getLookupOverlayContainer()
-  const isLookupPopupOpenRef = useRef(isLookupPopupOpen)
-  isLookupPopupOpenRef.current = isLookupPopupOpen
   const commandValue = useMemo(
     () => ({ openLookupPopup, closeLookupPopup, isLookupPopupOpenRef }),
     [closeLookupPopup, openLookupPopup],
+  )
+
+  // Keep the same element tree across parent re-renders (draft sync, etc.)
+  // so the lookup DataGrid is not remounted and does not call store.load() again.
+  const popupContent = useMemo(
+    () => (popupOptions ? popupOptions.renderContent({ closePopup: closeLookupPopup }) : null),
+    [closeLookupPopup, popupOptions],
   )
 
   return (
@@ -119,7 +130,7 @@ export function LookupPopupProvider({ children }: { children: ReactNode }) {
             closeLookupPopup()
           }}
         >
-          {popupOptions.renderContent({ closePopup: closeLookupPopup })}
+          {popupContent}
         </Popup>
       ) : null}
     </LookupPopupCommandsContext.Provider>

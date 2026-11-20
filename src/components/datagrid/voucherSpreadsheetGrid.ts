@@ -313,6 +313,22 @@ export function focusNewRowWithoutTopJump(
   })
 }
 
+/** After React-state append: restore scroll, then edit the first cell of the new row. */
+export function focusAppendedSpreadsheetRow(
+  grid: dxDataGrid<unknown, string | number>,
+  rowKey: string,
+  scrollTop: number,
+  dataField: string,
+): void {
+  focusNewRowWithoutTopJump(grid, scrollTop)
+  void Promise.resolve(grid.navigateToRow?.(rowKey)).then(() => {
+    const rowIndex = grid.getRowIndexByKey(rowKey)
+    if (rowIndex >= 0) {
+      grid.editCell(rowIndex, dataField)
+    }
+  })
+}
+
 export function focusDetailCellWithoutScrollJump(
   grid: dxDataGrid<unknown, string | number>,
   rowKey: string,

@@ -48,7 +48,7 @@ import { formatEinvLhhdtrungDisplay } from "@/components/lookup/EinvLhhdtrungLoo
 import type { EinvLhhdtrungLookupItem } from "@/components/lookup/einvLhhdtrungLookupStore"
 import { LHHDTRUNG_CODE_TYPE } from "@/components/lookup/einvLhhdtrungLookupStore"
 import ShortcutHelpPopup from "@/components/shortcuts/ShortcutHelpPopup"
-import { useLookupPopupHost } from "@/components/lookup/LookupPopupHost"
+import { useLookupPopupCommands, useLookupPopupHost } from "@/components/lookup/LookupPopupHost"
 import useShortcutBindings from "@/hooks/useShortcutBindings"
 import useShortcutHelp from "@/hooks/useShortcutHelp"
 import {
@@ -263,6 +263,7 @@ export default function EInvoiceEditorPopupContent({
   onSign,
 }: EInvoiceEditorPopupProps) {
   const lookupPopupHost = useLookupPopupHost()
+  const lookupPopupCommands = useLookupPopupCommands()
 
   const queryClient = useQueryClient()
   const popupShortcutScopeId = usePopupShortcutScopeId("einvoice-editor")
@@ -1025,7 +1026,7 @@ export default function EInvoiceEditorPopupContent({
   const { handleDetailSaved, handleDetailFocusedCellChanged } = useEInvoiceDetailCalcSync({
     visible,
     isReadOnly,
-    isLookupPopupOpen: Boolean(lookupPopupHost?.isLookupPopupOpen),
+    isLookupPopupOpenRef: lookupPopupCommands?.isLookupPopupOpenRef ?? null,
     detailGridRef,
     detailGridContainerRef,
     syncDetailRows,

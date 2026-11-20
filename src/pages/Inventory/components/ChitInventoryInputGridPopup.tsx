@@ -21,7 +21,7 @@ import VoucherSpreadsheetSummaryBar from "@/components/datagrid/VoucherSpreadshe
 import {
     AM_GRID_READONLY_COLUMN_CELL_CLASS,
     createSpreadsheetContinueRowKeyDownHandler,
-    focusNewRowWithoutTopJump,
+    focusAppendedSpreadsheetRow,
     formatSpreadsheetSummaryNumber,
     prepareVoucherSpreadsheetToolbar,
     readGridScrollTop,
@@ -49,7 +49,7 @@ import WarehouseLookupCellEditor from "@/components/lookup/WarehouseLookupCellEd
 import UnitLookupCellEditor from "@/components/lookup/UnitLookupCellEditor"
 import CurrencyLookupCellEditor from "@/components/lookup/CurrencyLookupCellEditor"
 import { LookupGridCellEditor, consumeLookupCellOpen, type LookupOpenMode } from "@/components/lookup/LookupGridCellDisplay"
-import { useLookupPopupHost } from "@/components/lookup/LookupPopupHost"
+import { useLookupPopupCommands } from "@/components/lookup/LookupPopupHost"
 import { DEFAULT_CURRENCY_CODE, isForeignCurrencyCode } from "@/lib/currency"
 
 const INVENTORY_INPUT_LIVE_INPUT_FIELDS = new Set<string>([
@@ -255,7 +255,7 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
         const { translate } = useContext(LanguageContext) as {
             translate?: (key: string, fallback?: string) => string
         }
-        const lookupPopupHost = useLookupPopupHost()
+        const lookupPopupCommands = useLookupPopupCommands()
         const { getFormat } = useDecimalColumnFormats()
         const gridRef = useRef<dxDataGrid<InventoryInputLine, string> | null>(null)
         const searchContainerRef = useRef<HTMLDivElement | null>(null)
@@ -496,22 +496,39 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
 
         const syncRows = useCallback(() => emitRowsChange(buildMergedRows()), [buildMergedRows, emitRowsChange])
 
-        const { handleAddRow, handleSaved } = useVoucherSpreadsheetAddRow({
-            gridRef,
-            syncRows,
-            dataSource: visibleRows,
-            shouldSkipSavedSync: () => deleteFlowRef.current,
-        })
+        const appendInputRowInState = useCallback(() => {
+            const currentRows = buildMergedRows()
+            const nextSort = getActiveInventoryLines(currentRows).length + 1
+            const newRow = normalizeInputLine(
+                { SORT: nextSort },
+                { companyCd, chitDetailId, chitDetailCd, detailRowKey, inventoryYmd },
+            )
+            const nextRows = renumberActiveSort([...currentRows, newRow], "SORT")
+            currentRowKeyRef.current = newRow.ROW_KEY
+            emitRowsChange(nextRows)
+            return newRow.ROW_KEY
+        }, [buildMergedRows, chitDetailCd, chitDetailId, companyCd, detailRowKey, emitRowsChange, inventoryYmd])
 
-        const { handleFocusedCellChanged } = useVoucherSpreadsheetDetailSync({
+        const { handleFocusedCellChanged, isCommitInFlight } = useVoucherSpreadsheetDetailSync({
             visible: isVisible,
             isReadOnly: Boolean(disabled),
-            isLookupPopupOpen: Boolean(lookupPopupHost?.isLookupPopupOpen),
+            isLookupPopupOpenRef: lookupPopupCommands?.isLookupPopupOpenRef ?? null,
             gridRef,
             gridContainerRef: containerRef,
             syncRows,
             liveInputFields: INVENTORY_INPUT_LIVE_INPUT_FIELDS,
             lookupFields: INVENTORY_INPUT_LOOKUP_FIELDS,
+        })
+
+        const { handleAddRow, handleSaved } = useVoucherSpreadsheetAddRow({
+            gridRef,
+            syncRows,
+            dataSource: visibleRows,
+            shouldSkipSavedSync: () => deleteFlowRef.current || isCommitInFlight(),
+            appendRowInState: appendInputRowInState,
+            focusAppendedRow: (grid, rowKey, scrollTop) => {
+                focusAppendedSpreadsheetRow(grid, rowKey, scrollTop, "PRODUCT_CD")
+            },
         })
 
         const focusSearchInput = useCallback(() => {
@@ -610,13 +627,10 @@ export const ChitInventoryInputGridPopup = forwardRef<ChitInventoryInputGridPopu
 
                 requestAnimationFrame(() => {
                     const nextGrid = gridRef.current
-                    focusNewRowWithoutTopJump(nextGrid, scrollTop)
-                    void nextGrid?.navigateToRow?.(newRowKey).then(() => {
-                        const rowIndex = nextGrid.getRowIndexByKey(newRowKey)
-                        if (rowIndex >= 0) {
-                            nextGrid.editCell(rowIndex, "PRODUCT_CD")
-                        }
-                    })
+                    if (!nextGrid) {
+                        return
+                    }
+                    focusAppendedSpreadsheetRow(nextGrid, newRowKey, scrollTop, "PRODUCT_CD")
                 })
             },
             [buildMergedRows, chitDetailCd, chitDetailId, companyCd, detailRowKey, disabled, emitRowsChange, getCurrentRowKey, inventoryYmd],

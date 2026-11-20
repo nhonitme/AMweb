@@ -246,6 +246,7 @@ function ReportTreeList(
     )
     return treeRows.filter((row) => idsWithChildren.has(row.ID)).map((row) => row.ID)
   }, [treeRows])
+
   const defaultExpandedIds = useMemo(
     () => (defaultExpandAll ? parentIds : []),
     [defaultExpandAll, parentIds],

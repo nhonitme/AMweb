@@ -1,4 +1,4 @@
-import type { RefObject } from "react"
+import type { MutableRefObject, RefObject } from "react"
 import type dxDataGrid from "devextreme/ui/data_grid"
 
 import { useVoucherSpreadsheetDetailSync } from "@/components/datagrid/useVoucherSpreadsheetDetailSync"
@@ -8,7 +8,7 @@ import type { EInvoiceDetailRow, EInvoiceFormData, GridKey } from "./EInvoiceEdi
 type UseEInvoiceDetailCalcSyncOptions = {
   visible: boolean
   isReadOnly: boolean
-  isLookupPopupOpen?: boolean
+  isLookupPopupOpenRef?: MutableRefObject<boolean> | null
   detailGridRef: RefObject<dxDataGrid<EInvoiceDetailRow, GridKey> | null>
   detailGridContainerRef: RefObject<HTMLElement | null>
   syncDetailRows: () => EInvoiceFormData
@@ -18,7 +18,7 @@ type UseEInvoiceDetailCalcSyncOptions = {
 export function useEInvoiceDetailCalcSync({
   visible,
   isReadOnly,
-  isLookupPopupOpen = false,
+  isLookupPopupOpenRef = null,
   detailGridRef,
   detailGridContainerRef,
   syncDetailRows,
@@ -30,7 +30,7 @@ export function useEInvoiceDetailCalcSync({
   >({
     visible,
     isReadOnly,
-    isLookupPopupOpen,
+    isLookupPopupOpenRef,
     gridRef: detailGridRef,
     gridContainerRef: detailGridContainerRef,
     syncRows: () => {

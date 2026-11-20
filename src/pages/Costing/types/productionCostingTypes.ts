@@ -29,8 +29,10 @@ export type CostingHistoryAction =
   | "EXECUTE"
   | "REOPEN"
   | "PREVIEW"
+  | "RECALCULATE"
   | "CONFIRM"
-  | "ERROR";
+  | "ERROR"
+  | string;
 
 /** Một dòng lịch sử thực hiện / mở lại theo bước. */
 export type CostingStepHistoryItem = {

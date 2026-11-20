@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef } from "react"
 import type dxSelectBox from "devextreme/ui/select_box"
 
+import type { AcclistInfo } from "@/types/acclist"
 import BaseLookupCellEditor, { type LookupDataSource } from "./BaseLookupCellEditor"
 import {
   accountMatchesSearchText,
@@ -21,6 +22,7 @@ import {
   setLookupGridCellValue,
   trimLookupText,
 } from "./lookupHelpers"
+import { mapAcclistToEtcData, renderSharedAcclistLookupPage } from "./sharedMasterLookupPages"
 
 type Props = {
   dataSource: LookupDataSource
@@ -83,15 +85,6 @@ export default function AccountLookupCellEditor({
     [LookupCodeField, LookupNameField],
   )
 
-  // Same getEtcData_info etcType=0 (TK con); avoid AcclistManagementPage full tree.
-  const popupColumns = useMemo(
-    () => [
-      { dataField: LookupCodeField, caption: "Mã tài khoản", width: 180 },
-      { dataField: LookupNameField, caption: "Tên tài khoản", minWidth: 280 },
-    ],
-    [LookupCodeField, LookupNameField],
-  )
-
   const applyAccount = useCallback(
     (account: AccountLookupItem) => {
       const accountId = getAccountLookupId(account)
@@ -130,6 +123,13 @@ export default function AccountLookupCellEditor({
       rowIndex,
       setValue,
     ],
+  )
+
+  const applyAcclistRow = useCallback(
+    (row: AcclistInfo) => {
+      applyAccount(mapAcclistToEtcData(row) as AccountLookupItem)
+    },
+    [applyAccount],
   )
 
   const clearAccount = useCallback(() => {
@@ -223,7 +223,6 @@ export default function AccountLookupCellEditor({
         )
       }}
       searchExpr={searchExpr}
-      filterFocusField={LookupCodeField}
       placeholder={placeholder}
       popupTitle={popupTitle}
       buttonHint={buttonHint}
@@ -246,7 +245,9 @@ export default function AccountLookupCellEditor({
       }}
       onApply={applyAccount}
       onClear={clearAccount}
-      columns={popupColumns}
+      renderPopupContent={({ closePopup }) =>
+        renderSharedAcclistLookupPage({ closePopup, onPick: applyAcclistRow })
+      }
     />
   )
 }
