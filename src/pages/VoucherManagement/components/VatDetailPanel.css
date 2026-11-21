@@ -1,6 +1,6 @@
 .voucher-vat-detail-panel {
-  border-top: 1px solid #dce0e5;
-  background: #fafbfc;
+  border-top: 1px solid #c5ced8;
+  background: #ffffff;
   flex-shrink: 0;
   max-height: min(280px, 38vh);
   overflow: auto;
@@ -11,19 +11,21 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 10px 4px;
+  padding: 8px 12px;
   position: sticky;
   top: 0;
   z-index: 1;
-  background: #fafbfc;
-  border-bottom: 1px solid #e8ebef;
+  background: #e8eef5;
+  border-bottom: 1px solid #c5ced8;
+  box-shadow: inset 3px 0 0 #2563eb;
 }
 
 .voucher-vat-detail-panel__title {
   margin: 0;
   font-size: 13px;
-  font-weight: 600;
-  color: #414853;
+  font-weight: 700;
+  color: #1f2937;
+  letter-spacing: 0.01em;
 }
 
 .voucher-vat-detail-panel__close {
@@ -32,7 +34,7 @@
   justify-content: center;
   width: 26px;
   height: 26px;
-  border: 1px solid #cbd0d7;
+  border: 1px solid #b8c0cc;
   border-radius: 5px;
   background: #fff;
   color: #5b6573;
@@ -41,6 +43,7 @@
 
 .voucher-vat-detail-panel__close:hover {
   background: #f3f4f6;
+  border-color: #9aa3b0;
 }
 
 .voucher-vat-detail-panel__body {
@@ -48,6 +51,7 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px 10px;
   padding: 8px 10px 10px;
+  background-color: #ffffff;
 }
 
 @media (max-width: 1200px) {
@@ -86,10 +90,65 @@
 }
 
 .voucher-vat-detail-panel__label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
-  color: #5b6573;
+  color: #414853;
   line-height: 1.2;
+}
+
+/*
+ * Match ChitEditorPopup header editors (CHIT_NO / CHIT_YMD / PAYER_INFO).
+ * Fluent filled mode uses #f5f5f5 — force white for every editor mode in this panel.
+ */
+.voucher-vat-detail-panel__body .dx-texteditor,
+.voucher-vat-detail-panel__body .dx-texteditor.dx-editor-outlined,
+.voucher-vat-detail-panel__body .dx-texteditor.dx-editor-filled,
+.voucher-vat-detail-panel__body .dx-texteditor.dx-state-hover,
+.voucher-vat-detail-panel__body .dx-texteditor.dx-state-focused {
+  border-radius: 5px !important;
+  border: 1px solid #cbd0d7 !important;
+  box-shadow: none !important;
+  background-color: #ffffff !important;
+  background-image: none !important;
+}
+
+.voucher-vat-detail-panel__body .dx-texteditor .dx-texteditor-input,
+.voucher-vat-detail-panel__body .dx-texteditor .dx-texteditor-input-container,
+.voucher-vat-detail-panel__body .dx-texteditor .dx-dropdowneditor-input-wrapper,
+.voucher-vat-detail-panel__body .dx-texteditor .dx-texteditor-container {
+  background-color: #ffffff !important;
+  background-image: none !important;
+}
+
+.voucher-vat-detail-panel__body .dx-texteditor:before,
+.voucher-vat-detail-panel__body .dx-texteditor:after {
+  border-bottom: 0 !important;
+  pointer-events: none !important;
+  background: transparent !important;
+}
+
+.voucher-vat-detail-panel__body .dx-texteditor.dx-state-hover:not(.dx-state-focused):not(.dx-invalid):not(.dx-state-disabled):not(.dx-state-readonly) {
+  border-color: #9da5b1 !important;
+}
+
+.voucher-vat-detail-panel__body .dx-texteditor.dx-state-focused:not(.dx-invalid) {
+  border-color: #c83239 !important;
+  box-shadow: 0 0 0 2px rgba(200, 50, 57, 0.14) !important;
+}
+
+/* Keep locked fields visually distinct — do not force white. */
+.voucher-vat-detail-panel__body .dx-texteditor.dx-state-readonly,
+.voucher-vat-detail-panel__body .dx-texteditor.dx-state-disabled {
+  background-color: #f5f6f8 !important;
+}
+
+.voucher-vat-detail-panel__body .dx-texteditor.dx-state-readonly .dx-texteditor-input,
+.voucher-vat-detail-panel__body .dx-texteditor.dx-state-readonly .dx-texteditor-input-container,
+.voucher-vat-detail-panel__body .dx-texteditor.dx-state-readonly .dx-texteditor-container,
+.voucher-vat-detail-panel__body .dx-texteditor.dx-state-disabled .dx-texteditor-input,
+.voucher-vat-detail-panel__body .dx-texteditor.dx-state-disabled .dx-texteditor-input-container,
+.voucher-vat-detail-panel__body .dx-texteditor.dx-state-disabled .dx-texteditor-container {
+  background-color: transparent !important;
 }
 
 .voucher-vat-detail-panel__more {
@@ -97,6 +156,7 @@
   border-top: 1px dashed #dce0e5;
   padding-top: 4px;
   margin-top: 2px;
+  background-color: #ffffff;
 }
 
 .voucher-vat-detail-panel__more-toggle {
@@ -117,6 +177,7 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px 10px;
   margin-top: 6px;
+  background-color: #ffffff;
 }
 
 @media (max-width: 1200px) {

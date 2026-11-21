@@ -11,6 +11,10 @@ import { getCachedSysCodes } from "@/lib/sysCodeCache"
 import { formatSysCodeOptionText, getSysCodeCd } from "@/lib/sysCodeUtils"
 import type { ChitDateValue } from "@/types/voucher"
 
+import {
+  createVoucherDateBoxEditorOptions,
+  createVoucherEditorOptions,
+} from "../forms/documentFieldConfig"
 import type { VoucherVatDetail } from "./voucherVatTypes"
 import "./VatDetailPanel.css"
 
@@ -59,7 +63,8 @@ export default function VatDetailPanel({
   onChange,
   onClose,
 }: VatDetailPanelProps) {
-  const { translate } = useContext(LanguageContext) as {
+  const { lang, translate } = useContext(LanguageContext) as {
+    lang?: string
     translate?: (key: string, fallback?: string) => string
   }
   const t = useCallback(
@@ -88,18 +93,52 @@ export default function VatDetailPanel({
     }
   }, [])
 
+  // CODE_NAME from SysCode is a language key — translate for the active UI language.
+  const taxRateDisplayOptions = useMemo(
+    () =>
+      taxRateOptions.map((item) => ({
+        ...item,
+        CODE_NAME: t(item.CODE_NAME, item.NOTE || item.CODE_NAME),
+      })),
+    [t, taxRateOptions],
+  )
+
+  const taxRateDisplayExpr = useCallback(
+    (item: SysCode | null) => formatSysCodeOptionText(item),
+    [],
+  )
+
+  // Same outlined editor kit as voucher header (CHIT_NO / CHIT_YMD / PAYER_INFO).
   const editorOptions = useMemo(
-    () => ({
-      stylingMode: "outlined" as const,
-      height: 28,
-      readOnly,
-    }),
+    () => createVoucherEditorOptions({ stylingMode: "outlined" as const, readOnly }),
+    [readOnly],
+  )
+  const dateEditorOptions = useMemo(
+    () =>
+      createVoucherDateBoxEditorOptions({
+        stylingMode: "outlined" as const,
+        readOnly,
+        showClearButton: !readOnly,
+      }),
+    [readOnly],
+  )
+  const totalAmountEditorOptions = useMemo(
+    () =>
+      createVoucherEditorOptions({
+        stylingMode: "outlined" as const,
+        format: "#,##0.##",
+        readOnly: true,
+      }),
+    [],
+  )
+  const noteEditorOptions = useMemo(
+    () => createVoucherEditorOptions({ stylingMode: "outlined" as const, height: 56, readOnly }),
     [readOnly],
   )
 
   const title = rowLabel
-    ? `${t("VAT_INFO", "Thông tin VAT")} · ${rowLabel}`
-    : t("VAT_INFO", "Thông tin VAT")
+    ? `${t("VAT_INFO1", "Thông tin VAT")} · ${rowLabel}`
+    : t("VAT_INFO1", "Thông tin VAT")
 
   return (
     <section className="voucher-vat-detail-panel" aria-label={title} data-vat-row-key={rowKey}>
@@ -120,11 +159,7 @@ export default function VatDetailPanel({
         <VatField label={t("VAT_INVOICE_DATE", "Ngày hóa đơn")}>
           <DateBox
             value={value.invoiceDate as Date | string | number | null}
-            type="date"
-            displayFormat="dd/MM/yyyy"
-            useMaskBehavior
-            showClearButton={!readOnly}
-            {...editorOptions}
+            {...dateEditorOptions}
             onValueChanged={(event) => {
               onChange({ invoiceDate: (event.value ?? null) as ChitDateValue })
             }}
@@ -138,6 +173,17 @@ export default function VatDetailPanel({
             {...editorOptions}
             onValueChanged={(event) => {
               onChange({ invoiceNo: String(event.value ?? "") })
+            }}
+          />
+        </VatField>
+
+        <VatField label={t("VAT_INVOICE_TEMPLATE_SYMBOL", "Ký hiệu mẫu hóa đơn")}>
+          <TextBox
+            value={value.invoiceTemplateSymbol}
+            showClearButton={!readOnly}
+            {...editorOptions}
+            onValueChanged={(event) => {
+              onChange({ invoiceTemplateSymbol: String(event.value ?? "") })
             }}
           />
         </VatField>
@@ -175,39 +221,15 @@ export default function VatDetailPanel({
           />
         </VatField>
 
-        <VatField
-          label={t("VAT_INFO_TYPE", "Loại ghi chú / hàng hóa dịch vụ")}
-          className="voucher-vat-detail-panel__field--span-2"
-        >
-          <TextBox
-            value={value.infoType}
-            showClearButton={!readOnly}
-            {...editorOptions}
-            onValueChanged={(event) => {
-              onChange({ infoType: String(event.value ?? "") })
-            }}
-          />
-        </VatField>
-
-        <VatField label={t("VAT_GOODS_AMOUNT", "Giá trị hàng hóa, dịch vụ")}>
-          <NumberBox
-            value={value.goodsAmount}
-            format="#,##0.##"
-            showClearButton={!readOnly}
-            {...editorOptions}
-            onValueChanged={(event) => {
-              onChange({ goodsAmount: event.value == null ? null : Number(event.value) })
-            }}
-          />
-        </VatField>
-
         <VatField label={t("VAT_TAX_RATE", "Thuế suất (%)")}>
           <SelectBox
-            dataSource={taxRateOptions}
+            key={`vat-tax-rate-${lang ?? "VIET"}`}
+            dataSource={taxRateDisplayOptions}
             value={value.taxRateCode || null}
             valueExpr="CODE_CD"
-            displayExpr={(item: SysCode | null) => formatSysCodeOptionText(item, t)}
+            displayExpr={taxRateDisplayExpr}
             searchEnabled
+            searchExpr={["CODE_CD", "CODE_NAME"]}
             showClearButton={!readOnly}
             acceptCustomValue
             {...editorOptions}
@@ -235,6 +257,18 @@ export default function VatDetailPanel({
           />
         </VatField>
 
+        <VatField label={t("VAT_GOODS_AMOUNT", "Giá trị hàng hóa, dịch vụ")}>
+          <NumberBox
+            value={value.goodsAmount}
+            format="#,##0.##"
+            showClearButton={!readOnly}
+            {...editorOptions}
+            onValueChanged={(event) => {
+              onChange({ goodsAmount: event.value == null ? null : Number(event.value) })
+            }}
+          />
+        </VatField>
+
         <VatField label={t("VAT_TAX_AMOUNT", "Tiền thuế GTGT")}>
           <NumberBox
             value={value.taxAmount}
@@ -248,13 +282,7 @@ export default function VatDetailPanel({
         </VatField>
 
         <VatField label={t("VAT_TOTAL_AMOUNT", "Tổng tiền")}>
-          <NumberBox
-            value={value.totalAmount}
-            format="#,##0.##"
-            readOnly
-            stylingMode="outlined"
-            height={28}
-          />
+          <NumberBox value={value.totalAmount} {...totalAmountEditorOptions} />
         </VatField>
 
         <div className="voucher-vat-detail-panel__more">
@@ -299,17 +327,6 @@ export default function VatDetailPanel({
                 />
               </VatField>
 
-              <VatField label={t("VAT_INVOICE_TEMPLATE_SYMBOL", "Ký hiệu mẫu hóa đơn")}>
-                <TextBox
-                  value={value.invoiceTemplateSymbol}
-                  showClearButton={!readOnly}
-                  {...editorOptions}
-                  onValueChanged={(event) => {
-                    onChange({ invoiceTemplateSymbol: String(event.value ?? "") })
-                  }}
-                />
-              </VatField>
-
               <VatField label={t("VAT_INQUIRY_AT", "Tra cứu tại")}>
                 <TextBox
                   value={value.inquiryAt}
@@ -338,9 +355,7 @@ export default function VatDetailPanel({
               >
                 <TextArea
                   value={value.detailNote}
-                  height={56}
-                  readOnly={readOnly}
-                  stylingMode="outlined"
+                  {...noteEditorOptions}
                   onValueChanged={(event) => {
                     onChange({ detailNote: String(event.value ?? "") })
                   }}

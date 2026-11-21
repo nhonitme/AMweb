@@ -68,8 +68,8 @@ export default function VoucherDetailActions({
   const linked = inventoryTargets.length > 0
 
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-1" data-row-key={rowKey}>
-      <div className="flex items-center justify-center gap-0.5">
+    <div className="inline-flex flex-col items-center justify-center gap-1 leading-none" data-row-key={rowKey}>
+      <div className="inline-flex items-center justify-center gap-0.5">
         {showInventoryButton ? (
           <button
             type="button"
@@ -88,9 +88,9 @@ export default function VoucherDetailActions({
             }}
             className={`${ACTION_BUTTON_CLASS} ${inventoryButtonColors(inventoryPending, linked)}`}
           >
-            <span className="dx-icon dx-icon-box" aria-hidden />
-            <span>{inventoryLabel}</span>
-            {linked ? <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden /> : null}
+            <span className="dx-icon dx-icon-box !m-0 flex items-center justify-center text-[14px] leading-none" aria-hidden />
+            <span className="leading-none">{inventoryLabel}</span>
+            {linked ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden /> : null}
           </button>
         ) : null}
 
@@ -108,10 +108,10 @@ export default function VoucherDetailActions({
           }}
           className={`${ACTION_BUTTON_CLASS} ${vatButtonColors(isVatActive, hasVatData)}`}
         >
-          <span className="dx-icon dx-icon-formulaordinal" aria-hidden />
-          <span>{vatLabel}</span>
+          <span className="dx-icon dx-icon-percent !m-0 flex items-center justify-center text-[14px] leading-none" aria-hidden />
+          <span className="leading-none">{vatLabel}</span>
           {hasVatData && !isVatActive ? (
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden />
           ) : null}
         </button>
       </div>

@@ -161,26 +161,71 @@ function hasForeignCurrencyDetails(rows: readonly ChitDetail[]): boolean {
     return rows.some((row) => isForeignCurrencyCode(row.FC_TYPE))
 }
 
+const DETAIL_ACTIONS_CELL_ATTR = "data-detail-actions-cell"
+const DETAIL_ACTIONS_CELL_PADDING = 12
+
+function estimateActionButtonWidth(label: string): number {
+    const text = label.trim() || "VAT"
+    // icon + gap + padding + border + status-dot reserve
+    const chrome = 14 + 4 + 12 + 2 + 8
+    let textWidth = 0
+    for (const ch of text) {
+        textWidth += ch.charCodeAt(0) > 255 ? 12 : 7.2
+    }
+    return Math.ceil(chrome + textWidth)
+}
+
 function resolveDetailActionsColumnWidth(options: {
     showInventory: boolean
     showVat: boolean
     hasDetailLink: boolean
+    inventoryLabel?: string
+    vatLabel?: string
 }): number {
-    const { showInventory, showVat, hasDetailLink } = options
-    let width = 0
+    const { showInventory, showVat, hasDetailLink, inventoryLabel = "Kho", vatLabel = "VAT" } = options
+    const gap = 2
+    let content = 0
+    let buttonCount = 0
+
     if (showInventory) {
-        width += 72
+        content += estimateActionButtonWidth(inventoryLabel)
+        buttonCount += 1
     }
     if (showVat) {
-        width += 64
+        content += estimateActionButtonWidth(vatLabel)
+        buttonCount += 1
     }
     if (hasDetailLink) {
-        width += 72
+        content += 72
+        buttonCount += 1
     }
-    if (showInventory && showVat) {
-        width += 8
+    if (buttonCount > 1) {
+        content += gap * (buttonCount - 1)
     }
-    return Math.max(width, 64)
+
+    return Math.max(DETAIL_ACTIONS_CELL_PADDING + content, 56)
+}
+
+function measureDetailActionsColumnWidth(gridElement: HTMLElement | null | undefined): number | null {
+    if (!gridElement) {
+        return null
+    }
+
+    const cells = gridElement.querySelectorAll<HTMLElement>(`[${DETAIL_ACTIONS_CELL_ATTR}="true"]`)
+    let maxContentWidth = 0
+    cells.forEach((cell) => {
+        const content = cell.querySelector<HTMLElement>("[data-detail-actions-content='true']")
+        const width = content?.scrollWidth ?? cell.scrollWidth
+        if (width > maxContentWidth) {
+            maxContentWidth = width
+        }
+    })
+
+    if (maxContentWidth <= 0) {
+        return null
+    }
+
+    return Math.ceil(maxContentWidth + DETAIL_ACTIONS_CELL_PADDING)
 }
 
 export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGridProps>(
@@ -260,11 +305,26 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
         const showInventoryLinkActions = showInventoryLinkActionsProp ?? isInventoryLinkedAccountingVoucherType(chitType)
         const showVatActions = showVatDetailActionsProp ?? Boolean(onOpenVat)
         const showDetailActionsColumn = Boolean(renderDetailLink || showInventoryLinkActions || showVatActions)
-        const detailActionsColumnWidth = resolveDetailActionsColumnWidth({
-            showInventory: showInventoryLinkActions,
-            showVat: showVatActions,
-            hasDetailLink: Boolean(renderDetailLink),
-        })
+        const inventoryActionLabel = useMemo(() => t("INVENTORY_BUTTON", "Kho"), [t])
+        const vatActionLabel = useMemo(() => t("VAT_BUTTON", "VAT"), [t])
+        const estimatedDetailActionsColumnWidth = useMemo(
+            () =>
+                resolveDetailActionsColumnWidth({
+                    showInventory: showInventoryLinkActions,
+                    showVat: showVatActions,
+                    hasDetailLink: Boolean(renderDetailLink),
+                    inventoryLabel: inventoryActionLabel,
+                    vatLabel: vatActionLabel,
+                }),
+            [
+                inventoryActionLabel,
+                renderDetailLink,
+                showInventoryLinkActions,
+                showVatActions,
+                vatActionLabel,
+            ],
+        )
+        const [detailActionsColumnWidth, setDetailActionsColumnWidth] = useState(estimatedDetailActionsColumnWidth)
         const usePercentHeight = height === "100%"
         const activeDetailIdsKey = useMemo(
             () =>
@@ -316,6 +376,34 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
         useEffect(() => {
             contentReadyHandledRef.current = false
         }, [isVisible, layoutVersion])
+
+        useEffect(() => {
+            setDetailActionsColumnWidth(estimatedDetailActionsColumnWidth)
+        }, [estimatedDetailActionsColumnWidth])
+
+        useLayoutEffect(() => {
+            if (!isVisible || !showDetailActionsColumn) {
+                return
+            }
+
+            const measured = measureDetailActionsColumnWidth(gridRef.current?.element() ?? null)
+            if (measured == null) {
+                return
+            }
+
+            setDetailActionsColumnWidth((current) => (Math.abs(current - measured) > 2 ? measured : current))
+        }, [
+            isVisible,
+            showDetailActionsColumn,
+            showInventoryLinkActions,
+            showVatActions,
+            inventoryActionLabel,
+            vatActionLabel,
+            visibleDetails.length,
+            linkedInventoryVersion,
+            estimatedDetailActionsColumnWidth,
+            layoutVersion,
+        ])
 
         useEffect(() => {
             if (!isVisible || !showInventoryLinkActions) {
@@ -1106,13 +1194,17 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                             <Column
                                 name="DETAIL_ACTIONS"
                                 width={detailActionsColumnWidth}
+                                minWidth={56}
                                 fixed={true}
                                 fixedPosition="left"
                                 visibleIndex={1}
+                                alignment="center"
                                 allowFixing={false}
                                 allowEditing={false}
+                                allowResizing={false}
                                 allowReordering={false}
                                 showInColumnChooser={false}
+                                cssClass={AM_GRID_READONLY_COLUMN_CELL_CLASS}
                                 cellRender={(cellInfo: ColumnCellTemplateData<ChitDetail, string>) => {
                                     const rowKey = resolveChitDetailRowKey(cellInfo.row?.key, cellInfo.data)
                                     const detailId = Number(cellInfo.data?.CHITDETAIL_ID ?? 0)
@@ -1143,41 +1235,49 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                                             : t("ENTER_INVENTORY_VOUCHER", "Nhập phiếu hàng tồn kho")
 
                                     return (
-                                        <div className="flex h-full w-full items-center justify-center gap-0.5">
-                                            {cellInfo.data && renderDetailLink ? renderDetailLink(cellInfo.data) : null}
-                                            {showInventoryLinkActions || showVatActions ? (
-                                                <VoucherDetailActions
-                                                    rowKey={resolvedRowKey}
-                                                    showInventoryButton={showInventoryLinkActions}
-                                                    hasVatData={vatHasData}
-                                                    isVatActive={vatActive}
-                                                    inventoryLabel={t("INVENTORY", "Kho")}
-                                                    inventoryHint={inventoryHint}
-                                                    vatLabel={t("VAT", "VAT")}
-                                                    vatHint={vatActive
-                                                        ? t("VAT_CLOSE_PANEL", "Đóng thông tin VAT")
-                                                        : vatHasData
-                                                          ? t("VAT_EDIT_INFO", "Sửa thông tin VAT")
-                                                          : t("VAT_ENTER_INFO", "Nhập thông tin VAT")}
-                                                    inventoryPending={inventoryPending}
-                                                    inventoryDisabled={inventoryDisabled}
-                                                    inventoryTargets={linkedTargets}
-                                                    vatDisabled={!resolvedRowKey || !cellInfo.data}
-                                                    onInventoryClick={(target) => {
-                                                        if (detailId > 0 && linkLoadFailed) {
-                                                            setLinkRetryVersion((version) => version + 1)
-                                                            return
-                                                        }
-                                                        if (cellInfo.data && onOpenInventory) void onOpenInventory(cellInfo.data, target)
-                                                        else if (target) handleOpenLinkedInventory(target)
-                                                    }}
-                                                    onVatClick={() => {
-                                                        if (cellInfo.data && onOpenVat) {
-                                                            onOpenVat(cellInfo.data)
-                                                        }
-                                                    }}
-                                                />
-                                            ) : null}
+                                        <div
+                                            data-detail-actions-cell="true"
+                                            className="flex h-full w-full items-center justify-center"
+                                        >
+                                            <div
+                                                data-detail-actions-content="true"
+                                                className="inline-flex max-w-none items-center justify-center gap-0.5 whitespace-nowrap"
+                                            >
+                                                {cellInfo.data && renderDetailLink ? renderDetailLink(cellInfo.data) : null}
+                                                {showInventoryLinkActions || showVatActions ? (
+                                                    <VoucherDetailActions
+                                                        rowKey={resolvedRowKey}
+                                                        showInventoryButton={showInventoryLinkActions}
+                                                        hasVatData={vatHasData}
+                                                        isVatActive={vatActive}
+                                                        inventoryLabel={inventoryActionLabel}
+                                                        inventoryHint={inventoryHint}
+                                                        vatLabel={vatActionLabel}
+                                                        vatHint={vatActive
+                                                            ? t("VAT_CLOSE_PANEL", "Đóng thông tin VAT")
+                                                            : vatHasData
+                                                              ? t("VAT_EDIT_INFO", "Sửa thông tin VAT")
+                                                              : t("VAT_ENTER_INFO", "Nhập thông tin VAT")}
+                                                        inventoryPending={inventoryPending}
+                                                        inventoryDisabled={inventoryDisabled}
+                                                        inventoryTargets={linkedTargets}
+                                                        vatDisabled={!resolvedRowKey || !cellInfo.data}
+                                                        onInventoryClick={(target) => {
+                                                            if (detailId > 0 && linkLoadFailed) {
+                                                                setLinkRetryVersion((version) => version + 1)
+                                                                return
+                                                            }
+                                                            if (cellInfo.data && onOpenInventory) void onOpenInventory(cellInfo.data, target)
+                                                            else if (target) handleOpenLinkedInventory(target)
+                                                        }}
+                                                        onVatClick={() => {
+                                                            if (cellInfo.data && onOpenVat) {
+                                                                onOpenVat(cellInfo.data)
+                                                            }
+                                                        }}
+                                                    />
+                                                ) : null}
+                                            </div>
                                         </div>
                                     )
                                 }}

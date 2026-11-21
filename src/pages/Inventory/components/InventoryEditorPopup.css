@@ -8,15 +8,28 @@
     max-width: 100%;
 }
 
-.inventory-editor-popup .inventory-issue-tabs .dx-tabs-wrapper {
-    width: auto;
+.inventory-editor-popup .inventory-issue-tabs .dx-tabs-wrapper,
+.inventory-editor-popup .inventory-issue-tabs .dx-tabs-nav-wrap,
+.inventory-editor-popup .inventory-issue-tabs .dx-tabs-nav {
+    width: auto !important;
+    display: inline-flex;
 }
 
 .inventory-editor-popup .inventory-issue-tabs .dx-tab {
-    width: auto;
-    min-width: 0;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: max-content !important;
+    max-width: none !important;
     padding: 8px 16px;
     white-space: nowrap;
+}
+
+.inventory-editor-popup .inventory-issue-tabs .dx-tab .dx-tab-content,
+.inventory-editor-popup .inventory-issue-tabs .dx-tab .dx-tab-text {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    max-width: none !important;
+    white-space: nowrap !important;
 }
 
 .inventory-editor-popup .inventory-issue-tabs .dx-tab.dx-tab-selected {
