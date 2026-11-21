@@ -97,13 +97,19 @@
 }
 
 /*
- * Match the voucher header's outlined DevExtreme editors (CHIT_NO / CHIT_YMD).
- * Fluent draws parts of the outline and focus states itself; overriding the
- * texteditor pseudo-elements or inner wrappers breaks that rendering.
- * Keep the VAT input surface white and let the shared popup styles own borders.
+ * VAT editors must all look like editable white fields, including the calculated
+ * readOnly total. The shared popup deliberately gives readOnly editors a gray
+ * background, so override only the background within this panel. Leave
+ * DevExtreme outlines, focus borders and pseudo-elements untouched.
  */
-.voucher-vat-detail-panel__body .dx-texteditor.dx-editor-outlined:not(.dx-state-readonly):not(.dx-state-disabled) {
-  background-color: #ffffff;
+.voucher-vat-detail-panel__body .dx-texteditor.dx-editor-outlined,
+.voucher-vat-detail-panel__body .dx-texteditor.dx-editor-outlined.dx-state-readonly,
+.voucher-vat-detail-panel__body .dx-texteditor.dx-editor-outlined.dx-state-disabled,
+.voucher-vat-detail-panel__body .dx-texteditor .dx-texteditor-container,
+.voucher-vat-detail-panel__body .dx-texteditor .dx-texteditor-input-container,
+.voucher-vat-detail-panel__body .dx-texteditor .dx-texteditor-input,
+.voucher-vat-detail-panel__body .dx-texteditor .dx-dropdowneditor-input-wrapper {
+  background-color: #ffffff !important;
 }
 
 .voucher-vat-detail-panel__more {
