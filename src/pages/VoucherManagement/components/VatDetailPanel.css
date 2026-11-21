@@ -1,6 +1,8 @@
 .voucher-vat-detail-panel {
   border-top: 1px solid #c5ced8;
-  background: #ffffff;
+  /* Same gray canvas as the voucher header / info section. */
+  --voucher-vat-panel-bg: #f3f4f6;
+  background: var(--voucher-vat-panel-bg);
   flex-shrink: 0;
   max-height: min(280px, 38vh);
   overflow: auto;
@@ -51,7 +53,7 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px 10px;
   padding: 8px 10px 10px;
-  background-color: #ffffff;
+  background-color: var(--voucher-vat-panel-bg);
 }
 
 @media (max-width: 1200px) {
@@ -113,7 +115,7 @@
   border-top: 1px dashed #dce0e5;
   padding-top: 4px;
   margin-top: 2px;
-  background-color: #ffffff;
+  background-color: var(--voucher-vat-panel-bg);
 }
 
 .voucher-vat-detail-panel__more-toggle {
@@ -134,7 +136,7 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px 10px;
   margin-top: 6px;
-  background-color: #ffffff;
+  background-color: var(--voucher-vat-panel-bg);
 }
 
 @media (max-width: 1200px) {
