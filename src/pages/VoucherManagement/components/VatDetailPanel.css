@@ -97,58 +97,13 @@
 }
 
 /*
- * Match ChitEditorPopup header editors (CHIT_NO / CHIT_YMD / PAYER_INFO).
- * Fluent filled mode uses #f5f5f5 — force white for every editor mode in this panel.
+ * Match the voucher header's outlined DevExtreme editors (CHIT_NO / CHIT_YMD).
+ * Fluent draws parts of the outline and focus states itself; overriding the
+ * texteditor pseudo-elements or inner wrappers breaks that rendering.
+ * Keep the VAT input surface white and let the shared popup styles own borders.
  */
-.voucher-vat-detail-panel__body .dx-texteditor,
-.voucher-vat-detail-panel__body .dx-texteditor.dx-editor-outlined,
-.voucher-vat-detail-panel__body .dx-texteditor.dx-editor-filled,
-.voucher-vat-detail-panel__body .dx-texteditor.dx-state-hover,
-.voucher-vat-detail-panel__body .dx-texteditor.dx-state-focused {
-  border-radius: 5px !important;
-  border: 1px solid #cbd0d7 !important;
-  box-shadow: none !important;
-  background-color: #ffffff !important;
-  background-image: none !important;
-}
-
-.voucher-vat-detail-panel__body .dx-texteditor .dx-texteditor-input,
-.voucher-vat-detail-panel__body .dx-texteditor .dx-texteditor-input-container,
-.voucher-vat-detail-panel__body .dx-texteditor .dx-dropdowneditor-input-wrapper,
-.voucher-vat-detail-panel__body .dx-texteditor .dx-texteditor-container {
-  background-color: #ffffff !important;
-  background-image: none !important;
-}
-
-.voucher-vat-detail-panel__body .dx-texteditor:before,
-.voucher-vat-detail-panel__body .dx-texteditor:after {
-  border-bottom: 0 !important;
-  pointer-events: none !important;
-  background: transparent !important;
-}
-
-.voucher-vat-detail-panel__body .dx-texteditor.dx-state-hover:not(.dx-state-focused):not(.dx-invalid):not(.dx-state-disabled):not(.dx-state-readonly) {
-  border-color: #9da5b1 !important;
-}
-
-.voucher-vat-detail-panel__body .dx-texteditor.dx-state-focused:not(.dx-invalid) {
-  border-color: #c83239 !important;
-  box-shadow: 0 0 0 2px rgba(200, 50, 57, 0.14) !important;
-}
-
-/* Keep locked fields visually distinct — do not force white. */
-.voucher-vat-detail-panel__body .dx-texteditor.dx-state-readonly,
-.voucher-vat-detail-panel__body .dx-texteditor.dx-state-disabled {
-  background-color: #f5f6f8 !important;
-}
-
-.voucher-vat-detail-panel__body .dx-texteditor.dx-state-readonly .dx-texteditor-input,
-.voucher-vat-detail-panel__body .dx-texteditor.dx-state-readonly .dx-texteditor-input-container,
-.voucher-vat-detail-panel__body .dx-texteditor.dx-state-readonly .dx-texteditor-container,
-.voucher-vat-detail-panel__body .dx-texteditor.dx-state-disabled .dx-texteditor-input,
-.voucher-vat-detail-panel__body .dx-texteditor.dx-state-disabled .dx-texteditor-input-container,
-.voucher-vat-detail-panel__body .dx-texteditor.dx-state-disabled .dx-texteditor-container {
-  background-color: transparent !important;
+.voucher-vat-detail-panel__body .dx-texteditor.dx-editor-outlined:not(.dx-state-readonly):not(.dx-state-disabled) {
+  background-color: #ffffff;
 }
 
 .voucher-vat-detail-panel__more {
