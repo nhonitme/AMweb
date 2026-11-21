@@ -97,18 +97,14 @@
 }
 
 /*
- * VAT editors must all look like editable white fields, including the calculated
- * readOnly total. The shared popup deliberately gives readOnly editors a gray
- * background, so override only the background within this panel. Leave
- * DevExtreme outlines, focus borders and pseudo-elements untouched.
+ * Keep the VAT form white in all states, including the calculated read-only
+ * total. Only color the OUTER editor surface: painting its inner wrappers and
+ * input over the theme's outlined edges makes borders look clipped/broken.
+ * Let the same DevExtreme popup styles as the voucher header draw the outline.
  */
 .voucher-vat-detail-panel__body .dx-texteditor.dx-editor-outlined,
 .voucher-vat-detail-panel__body .dx-texteditor.dx-editor-outlined.dx-state-readonly,
-.voucher-vat-detail-panel__body .dx-texteditor.dx-editor-outlined.dx-state-disabled,
-.voucher-vat-detail-panel__body .dx-texteditor .dx-texteditor-container,
-.voucher-vat-detail-panel__body .dx-texteditor .dx-texteditor-input-container,
-.voucher-vat-detail-panel__body .dx-texteditor .dx-texteditor-input,
-.voucher-vat-detail-panel__body .dx-texteditor .dx-dropdowneditor-input-wrapper {
+.voucher-vat-detail-panel__body .dx-texteditor.dx-editor-outlined.dx-state-disabled {
   background-color: #ffffff !important;
 }
 
