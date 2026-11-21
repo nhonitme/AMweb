@@ -31,8 +31,13 @@ interface ChitDocumentEditorPanelProps {
   showInventoryLinkActions?: boolean
   canOpenInventoryRow?: (row: ChitDetail) => boolean
   inventoryLinkType?: "IR" | "IO"
+  showVatDetailActions?: boolean
+  hasVatDataForRow?: (rowKey: string) => boolean
+  isVatActiveForRow?: (rowKey: string) => boolean
+  onOpenVat?: (row: ChitDetail) => void
   renderDetailLink?: (row: ChitDetail) => ReactNode
   linkSlot?: ReactNode
+  vatPanel?: ReactNode
 }
 
 export default function ChitDocumentEditorPanel({
@@ -59,40 +64,52 @@ export default function ChitDocumentEditorPanel({
   showInventoryLinkActions,
   canOpenInventoryRow,
   inventoryLinkType,
+  showVatDetailActions,
+  hasVatDataForRow,
+  isVatActiveForRow,
+  onOpenVat,
   renderDetailLink,
   linkSlot,
+  vatPanel,
 }: ChitDocumentEditorPanelProps) {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden pt-2">
-      <ChitDetailGridPopup
-        ref={gridRef}
-        companyCd={companyCd}
-        chitType={chitType}
-        baseDate={baseDate}
-        details={details}
-        onChange={onChange}
-        height="100%"
-        isVisible={isVisible}
-        readOnly={readOnly}
-        layoutVersion={layoutVersion}
-        ChitDetailColumns={DetailColumns}
-        quickCreateCustomer={quickCreateCustomer}
-        screenCd={screenCd}
-        gridId={gridId}
-        persistColumnSettings={true}
-        columnSettingStateRef={columnSettingStateRef}
-        onOpenInventory={onOpenInventory}
-        inventoryBusy={inventoryBusy}
-        pendingInventoryRowKeys={pendingInventoryRowKeys}
-        pendingInventoryDeleteRowKeys={pendingInventoryDeleteRowKeys}
-        pendingInventoryDeleteChitIds={pendingInventoryDeleteChitIds}
-        inventoryRefreshVersion={inventoryRefreshVersion}
-        showInventoryLinkActions={showInventoryLinkActions}
-        canOpenInventoryRow={canOpenInventoryRow}
-        inventoryLinkType={inventoryLinkType}
-        renderDetailLink={renderDetailLink}
-        linkSlot={linkSlot}
-      />
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <ChitDetailGridPopup
+          ref={gridRef}
+          companyCd={companyCd}
+          chitType={chitType}
+          baseDate={baseDate}
+          details={details}
+          onChange={onChange}
+          height="100%"
+          isVisible={isVisible}
+          readOnly={readOnly}
+          layoutVersion={layoutVersion}
+          ChitDetailColumns={DetailColumns}
+          quickCreateCustomer={quickCreateCustomer}
+          screenCd={screenCd}
+          gridId={gridId}
+          persistColumnSettings={true}
+          columnSettingStateRef={columnSettingStateRef}
+          onOpenInventory={onOpenInventory}
+          inventoryBusy={inventoryBusy}
+          pendingInventoryRowKeys={pendingInventoryRowKeys}
+          pendingInventoryDeleteRowKeys={pendingInventoryDeleteRowKeys}
+          pendingInventoryDeleteChitIds={pendingInventoryDeleteChitIds}
+          inventoryRefreshVersion={inventoryRefreshVersion}
+          showInventoryLinkActions={showInventoryLinkActions}
+          canOpenInventoryRow={canOpenInventoryRow}
+          inventoryLinkType={inventoryLinkType}
+          showVatDetailActions={showVatDetailActions}
+          hasVatDataForRow={hasVatDataForRow}
+          isVatActiveForRow={isVatActiveForRow}
+          onOpenVat={onOpenVat}
+          renderDetailLink={renderDetailLink}
+          linkSlot={linkSlot}
+        />
+      </div>
+      {vatPanel}
     </div>
   )
 }

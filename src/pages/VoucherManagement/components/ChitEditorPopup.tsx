@@ -75,6 +75,9 @@ import { useLinkedAccountingVoucherPopup } from "../hooks/useLinkedAccountingVou
 import { useLinkedCogsVoucherPopup } from "../hooks/useLinkedCogsVoucherPopup"
 import InventoryEditorPopup from "@/pages/Inventory/components/InventoryEditorPopup"
 import { useRowInventoryEditor, type SaveAccountingWithInventory, type InventoryDraftPreparation } from "./useRowInventoryEditor"
+import { useVoucherVatDetails } from "./useVoucherVatDetails"
+import VatDetailPanel from "./VatDetailPanel"
+import { applyLocalVatToDetailsForCopy } from "./voucherVatTypes"
 
 interface ChitEditorPopupProps {
     visible: boolean
@@ -276,6 +279,11 @@ export function ChitEditorPopup({
 
     const rowInventory = useRowInventoryEditor({ visible, chitType, readOnly, draftRef, setDraft, gridRef: detailGridRef, onSave, onSaveAndNew, inventoryDraftType, prepareInventoryDraft, validateInventoryDraft, canOpenInventoryRow, t })
     const inventoryRefreshVersion = rowInventory.refreshVersion + inventoryLinkRefreshVersion
+    const voucherVat = useVoucherVatDetails({
+        visible,
+        voucherValue: value,
+        details: draft.DETAILS,
+    })
 
     const handleOpenInventory = useCallback(async (row: ChitInfo["DETAILS"][number], target?: LinkedInventoryTarget) => {
         if (chitType === "OT") {
@@ -287,6 +295,36 @@ export function ChitEditorPopup({
         }
         await rowInventory.open(row, target)
     }, [chitType, onReturnToLinkedInventory, rowInventory.open])
+
+    const handleOpenVat = useCallback((row: ChitInfo["DETAILS"][number]) => {
+        const rowKey = typeof row.ROW_KEY === "string" ? row.ROW_KEY.trim() : ""
+        if (!rowKey) {
+            return
+        }
+        voucherVat.toggleVatPanel(rowKey)
+    }, [voucherVat.toggleVatPanel])
+
+    const activeVatDetail = useMemo(() => {
+        if (!voucherVat.activeVatRowKey) {
+            return null
+        }
+        return draft.DETAILS.find((row) => !row.ISDEL && row.ROW_KEY === voucherVat.activeVatRowKey) ?? null
+    }, [draft.DETAILS, voucherVat.activeVatRowKey])
+
+    const activeVatRowLabel = useMemo(() => {
+        if (!activeVatDetail) {
+            return undefined
+        }
+        const sort = Number(activeVatDetail.SORT ?? 0)
+        const description = String(activeVatDetail.DETAIL_DESCRIPTION_VIET ?? "").trim()
+        if (sort > 0 && description) {
+            return `#${sort} · ${description}`
+        }
+        if (sort > 0) {
+            return `#${sort}`
+        }
+        return description || undefined
+    }, [activeVatDetail])
 
     const editorDraft = useChitEditorDraft({
         visible,
@@ -741,6 +779,24 @@ export function ChitEditorPopup({
                                 pendingInventoryDeleteChitIds={rowInventory.pendingDeleteChitIds}
                                 inventoryRefreshVersion={inventoryRefreshVersion}
                                 showInventoryLinkActions={showInventoryLinkActions}
+                                showVatDetailActions={true}
+                                hasVatDataForRow={voucherVat.hasVatData}
+                                isVatActiveForRow={voucherVat.isVatActive}
+                                onOpenVat={handleOpenVat}
+                                vatPanel={voucherVat.activeVatRowKey && activeVatDetail ? (
+                                    <VatDetailPanel
+                                        rowKey={voucherVat.activeVatRowKey}
+                                        rowLabel={activeVatRowLabel}
+                                        value={voucherVat.getVatDetail(voucherVat.activeVatRowKey)}
+                                        readOnly={readOnly}
+                                        onChange={(patch) => {
+                                            if (voucherVat.activeVatRowKey) {
+                                                voucherVat.updateVatDetail(voucherVat.activeVatRowKey, patch)
+                                            }
+                                        }}
+                                        onClose={voucherVat.closeVatPanel}
+                                    />
+                                ) : null}
                             />
                         </div>
                         {additionalDetailTab ? <div role="tabpanel" style={{ height: "calc(100% - 2.25rem)", display: additionalTabActive ? "block" : "none" }}>{additionalDetailTab.content}</div> : null}
@@ -761,7 +817,11 @@ export function ChitEditorPopup({
                             { key: "copy", text: t("COPY", "Sao chép"), visible: !readOnly && Boolean(onCopy), disabled: rowInventory.loading || Boolean(rowInventory.editor), onClick: async () => {
                                 try {
                                     const details = detailGridRef.current ? await detailGridRef.current.savePendingChanges() : draftRef.current.DETAILS
-                                    onCopy?.({ ...cloneChit(draftRef.current), DETAILS: mergeInventoryIntoDetails(details, draftRef.current.DETAILS) })
+                                    const mergedDetails = mergeInventoryIntoDetails(details, draftRef.current.DETAILS)
+                                    onCopy?.({
+                                        ...cloneChit(draftRef.current),
+                                        DETAILS: applyLocalVatToDetailsForCopy(mergedDetails, voucherVat.vatByRowKey),
+                                    })
                                 } catch {
                                     notify(t("COPY_FAILED", "Không thể sao chép chứng từ"), "error", 4000)
                                 }
