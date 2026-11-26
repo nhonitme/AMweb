@@ -304,6 +304,10 @@ export interface ChitDetailApi {
   VAT_INQUIRY_IN?: ChitText
   VAT_INQUIRY_CODE?: ChitText
   IS_NEXTVAT?: ChitFlag
+  VAT_DIRECTION?: "BUY" | "SELL" | ChitText
+  VAT_RATE_CD?: ChitText
+  VAT_RATE_PERCENT?: number | null
+  VAT_CUSTOMS_EXCHANGE_RATE?: number | null
   UNDEFINE?: ChitText
   DETAIL_DESCRIPTION_VIET?: ChitText
   DETAIL_DESCRIPTION_ENG?: ChitText
@@ -511,6 +515,10 @@ export interface ChitDetail {
   VAT_INQUIRY_IN: string
   VAT_INQUIRY_CODE: string
   IS_NEXTVAT: boolean
+  VAT_DIRECTION: "BUY" | "SELL" | null
+  VAT_RATE_CD: string
+  VAT_RATE_PERCENT: number | null
+  VAT_CUSTOMS_EXCHANGE_RATE: number | null
   UNDEFINE: string
   DETAIL_DESCRIPTION_VIET: string
   DETAIL_DESCRIPTION_ENG: string

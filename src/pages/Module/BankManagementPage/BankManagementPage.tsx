@@ -346,8 +346,6 @@ export default function BankManagementPage({
           <MasterDataEditPopup editorMode={isUpdate ? "edit" : "add"}
             key={lang}
             title={popupTitle}
-            width="90%"
-            maxWidth={900}
           />
           <BankForm isUpdate={isUpdate} />
         </Editing>

@@ -64,6 +64,7 @@ interface BaseTreeListProps<T extends object> {
   screenCd?: string;
   gridId?: string;
   persistColumnSettings?: boolean;
+  respectCompanyLanguages?: boolean;
   selectionMode?: "single" | "multiple";
   onRowDblClick?: (e: RowDblClickEvent) => void;
   onRowClick?: (e: RowClickEvent) => void;
@@ -102,6 +103,7 @@ export function BaseTreeList<T extends object>({
   screenCd,
   gridId,
   persistColumnSettings = true,
+  respectCompanyLanguages = false,
   selectionMode = "single",
   onRowDblClick,
   onRowClick,
@@ -133,6 +135,7 @@ export function BaseTreeList<T extends object>({
     screenCd,
     gridId,
     hideColumnsMissingFromSettings: usesSysGridCatalog,
+    respectCompanyLanguages,
   });
   const treeListInstanceRef = React.useRef<TreeListComponentInstance | null>(null);
   const [columnSettingsVisible, setColumnSettingsVisible] = React.useState(false);
@@ -205,15 +208,16 @@ export function BaseTreeList<T extends object>({
   }, [children, actionButtons, actionButtonsPosition]);
 
   const companyLangRevision = useCompanyLangRevision();
+  const masterColumnLanguageRevision = respectCompanyLanguages ? companyLangRevision : 0;
   const renderedChildren = React.useMemo(
     () => applyGridColumnSettingsToChildren(
       normalizedChildren,
       Column,
       columnSettingState.cachedEditorItems,
       columnSettingState.translateCaption,
-      { hideColumnsMissingFromSettings: usesSysGridCatalog },
+      { hideColumnsMissingFromSettings: usesSysGridCatalog, respectCompanyLanguages },
     ),
-    [columnSettingState.cachedEditorItems, columnSettingState.translateCaption, companyLangRevision, normalizedChildren, usesSysGridCatalog],
+    [columnSettingState.cachedEditorItems, columnSettingState.translateCaption, companyLangRevision, normalizedChildren, usesSysGridCatalog, respectCompanyLanguages],
   );
 
   // Sync custom column components before the browser paints generated field captions.
@@ -227,6 +231,7 @@ export function BaseTreeList<T extends object>({
   }, [
     columnSettingState.cachedEditorItems,
     columnSettingState.syncEditorItemsToComponent,
+    masterColumnLanguageRevision,
   ]);
 
   React.useEffect(() => {
@@ -437,6 +442,7 @@ export function BaseTreeList<T extends object>({
     <MasterPopupValidationContext.Provider value={popupValidation}>
     <div className="data-tree-list-container h-full w-full">
       <TreeList
+        searchPanel={respectCompanyLanguages ? { searchVisibleColumnsOnly: true } : undefined}
         key={gridRemountKey}
         loadPanel={{ enabled: false }}
         dataSource={dataSource}
@@ -545,6 +551,7 @@ export function BaseTreeList<T extends object>({
           visible={columnSettingsVisible}
           title={t("AUDIT_SETTING_SHOW_HIDE", "Thiết lập cột hiển thị")}
           items={columnSettingsItems}
+          respectCompanyLanguages={respectCompanyLanguages}
           loading={columnSettingsLoading}
           onClose={() => setColumnSettingsVisible(false)}
           onReset={handleColumnSettingsReset}

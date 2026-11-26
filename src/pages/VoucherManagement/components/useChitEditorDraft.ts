@@ -38,6 +38,8 @@ export type UseChitEditorDraftOptions = {
     detailGridRef: MutableRefObject<ChitDetailGridHandle | null>
     formRef: MutableRefObject<dxForm | null>
     ensureAccountingInventoryLinksForSaveRef: MutableRefObject<EnsureAccountingInventoryLinksForSave>
+    /** Optional last-pass merge (e.g. local VAT panel → detail rows) before validation/save. */
+    mergeDetailsForSave?: (details: DetailRow[]) => DetailRow[]
     onSave: (record: ChitInfo) => Promise<void>
     onSaveAndNew?: (record: ChitInfo) => Promise<void>
     t: (key: string, fallback: string) => string
@@ -63,6 +65,7 @@ export function useChitEditorDraft({
     detailGridRef,
     formRef,
     ensureAccountingInventoryLinksForSaveRef,
+    mergeDetailsForSave,
     onSave,
     onSaveAndNew,
     t,
@@ -161,7 +164,10 @@ export function useChitEditorDraft({
         const latestDraft = draftRef.current
         const syncedDetails = mergeInventoryIntoDetails(syncedBaseDetails as DetailRow[], latestDraft.DETAILS as DetailRow[])
         const detailsWithInventoryLinks = await ensureAccountingInventoryLinksForSaveRef.current(syncedDetails as DetailRow[])
-        const activeSyncedDetails = getActiveDetailRows(detailsWithInventoryLinks as DetailRow[])
+        const detailsWithVat = mergeDetailsForSave
+            ? mergeDetailsForSave(detailsWithInventoryLinks as DetailRow[])
+            : (detailsWithInventoryLinks as DetailRow[])
+        const activeSyncedDetails = getActiveDetailRows(detailsWithVat)
         const normalizedChitNo = String(latestDraft.CHIT_NO ?? "").trim()
         const canPersistEmptyLinkedVoucher =
             isInventoryLinkedAccountingVoucherType(chitType) && Number(latestDraft.CHIT_ID ?? 0) > 0
@@ -192,7 +198,7 @@ export function useChitEditorDraft({
             DETAIL_COUNT: detailValidation.details.length,
             AMOUNT: totalAmount,
         })
-    }, [chitType, detailGridRef, draftRef, ensureAccountingInventoryLinksForSaveRef, flushPendingFormEditors, formRef, t])
+    }, [chitType, detailGridRef, draftRef, ensureAccountingInventoryLinksForSaveRef, flushPendingFormEditors, formRef, mergeDetailsForSave, t])
 
     const handleSave = useCallback(async () => {
         const record = await buildRecordForSave()

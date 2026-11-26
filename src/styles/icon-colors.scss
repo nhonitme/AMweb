@@ -108,6 +108,44 @@ $toolbar-icon-colors: $dx-icon-colors;
   }
 }
 
+.master-data-form-section__icon.dx-icon {
+  background-color: $soft-primary-hover-bg;
+  color: $icon-primary-hover !important;
+
+  &:is(.dx-icon-globe, .dx-icon-tags) {
+    background-color: $soft-accent-hover-bg;
+    color: $icon-accent-hover !important;
+  }
+
+  &:is(.dx-icon-tel, .dx-icon-pin) {
+    background-color: $soft-teal-hover-bg;
+    color: $icon-teal-base !important;
+  }
+
+  &.dx-icon-money {
+    background-color: $soft-success-hover-bg;
+    color: $icon-success-hover !important;
+  }
+
+  &:is(.dx-icon-key, .dx-icon-lock) {
+    background-color: #ffedd5;
+    color: #9a3412 !important;
+  }
+
+  &.dx-icon-overflow {
+    background-color: $soft-neutral-hover-bg;
+    color: $icon-neutral-hover !important;
+  }
+}
+
+.master-data-form-section__title > .dx-icon-chevrondown {
+  color: $icon-neutral-base;
+}
+
+.master-data-form-section__title[aria-expanded="true"] > .dx-icon-chevrondown {
+  color: $icon-primary-hover;
+}
+
 @each $icon, $role in $dx-icon-soft-roles {
   $chrome: map.get($soft-role-chrome, $role);
   $bg: list.nth($chrome, 1);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useSyncExternalStore } from "react"
 
 import axios from "@/api/axiosClient"
 import API_BASE_URL from "@/config/apiConfig"
@@ -59,9 +59,7 @@ export function getCompanyLangRevision(): number {
 }
 
 export function useCompanyLangRevision(): number {
-  const [value, setValue] = useState(revision)
-  useEffect(() => subscribeCompanyLang(() => setValue(revision)), [])
-  return value
+  return useSyncExternalStore(subscribeCompanyLang, getCompanyLangRevision, getCompanyLangRevision)
 }
 
 export function isCompanyLangKey(value: string): value is CompanyLangKey {
@@ -145,6 +143,27 @@ export function filterActiveLangFields(fields: string[]): string[] {
   return fields.filter((field) => isLangFieldVisible(field))
 }
 
+function orderedActiveLanguages(): CompanyLangKey[] {
+  return state.languages
+    .filter(({ lang }) => isLangSuffixVisible(lang))
+    .sort((left, right) => {
+      const defaultFirst = Number(right.lang === state.defaultLang) - Number(left.lang === state.defaultLang)
+      if (defaultFirst !== 0) return defaultFirst
+      return left.sort - right.sort
+    })
+    .map(({ lang }) => lang)
+}
+
+export function orderCompanyLangFields<T>(fields: readonly T[], getFieldName: (field: T) => string): T[] {
+  const order = orderedActiveLanguages()
+  const rank = (field: T) => {
+    const lang = getCompanyLangKey(getFieldName(field))
+    return lang ? order.indexOf(lang) : -1
+  }
+  return fields.filter((field) => isLangFieldVisible(getFieldName(field)))
+    .sort((left, right) => rank(left) - rank(right))
+}
+
 function readRowText(row: Record<string, unknown>, fieldName: string): string {
   const direct = row[fieldName]
   if (direct !== undefined && direct !== null && String(direct).trim()) {
@@ -182,15 +201,7 @@ export function pickLocalizedText(row: object | null | undefined, base: string):
     return ""
   }
 
-  const order = state.configured
-    ? [state.defaultLang, ...state.languages.filter((item) => item.isActive && item.lang !== state.defaultLang).map((item) => item.lang)]
-    : [...COMPANY_LANG_KEYS]
-
-  for (const lang of order) {
-    if (!isLangSuffixVisible(lang)) {
-      continue
-    }
-
+  for (const lang of orderedActiveLanguages()) {
     for (const fieldName of fieldNamesFor(prefix, lang)) {
       const text = readRowText(record, fieldName)
       if (text) {
@@ -257,11 +268,12 @@ export function parseCompanyLangRows(rows: Array<Record<string, unknown>>): Comp
       sort: Number.isFinite(sort) && sort > 0 ? sort : index + 1,
     }
   })
-  const defaultRow = rows.find((row) => readFlag(row, "CONFIG_KEY") === "DEFAULT")
+  const defaultRow = rows.find((row) => readFlag(row, "CONFIG_KEY") === "DEFAULT" && readFlag(row, "IS_ACTIVE") !== "0")
   const requested = readFlag(defaultRow ?? {}, "CONFIG_VALUE")
+  const activeByOrder = languages.filter((item) => item.isActive).sort((left, right) => left.sort - right.sort)
   const defaultLang = isCompanyLangKey(requested) && languages.some((item) => item.lang === requested && item.isActive)
     ? requested
-    : languages.find((item) => item.isActive)?.lang ?? "VIET"
+    : activeByOrder[0]?.lang ?? "VIET"
 
   return {
     configured,
@@ -307,20 +319,24 @@ export async function loadCompanyLangSettings(
     return loadPromise
   }
 
+  if (loadedCompanyCd && loadedCompanyCd !== resolved) clearCompanyLangCache()
   loadedCompanyCd = resolved
   const requestPromise = axios
     .get(`${API_BASE_URL}/SysConfig`, {
       params: { configGroup: "LANG", activeOnly: false },
     })
     .then((response) => {
+      if (loadPromise !== requestPromise) return state
       const rows = asConfigRows(response.data)
       state = parseCompanyLangRows(rows)
       notify()
       return state
     })
     .catch((error) => {
+      if (loadPromise !== requestPromise) return state
       console.error("load company lang settings failed", error)
-      state = { ...state, configured: false }
+      loadPromise = null
+      inFlightCompanyCd = ""
       notify()
       return state
     })

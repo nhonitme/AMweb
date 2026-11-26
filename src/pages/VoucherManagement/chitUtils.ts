@@ -432,6 +432,13 @@ export const normalizeChitDetail = (record: ChitDetailApi): ChitDetail => {
     VAT_INQUIRY_IN: trimText(record.VAT_INQUIRY_IN),
     VAT_INQUIRY_CODE: trimText(record.VAT_INQUIRY_CODE),
     IS_NEXTVAT: normalizeFlag(record.IS_NEXTVAT),
+    VAT_DIRECTION: (() => {
+      const direction = trimText(record.VAT_DIRECTION).toUpperCase()
+      return direction === "BUY" || direction === "SELL" ? direction : null
+    })(),
+    VAT_RATE_CD: trimText(record.VAT_RATE_CD),
+    VAT_RATE_PERCENT: normalizeNumber(record.VAT_RATE_PERCENT),
+    VAT_CUSTOMS_EXCHANGE_RATE: normalizeNumber(record.VAT_CUSTOMS_EXCHANGE_RATE),
     UNDEFINE: trimText(record.UNDEFINE),
     DETAIL_DESCRIPTION_VIET: trimText(record.DETAIL_DESCRIPTION_VIET),
     DETAIL_DESCRIPTION_ENG: trimText(record.DETAIL_DESCRIPTION_ENG),
@@ -567,6 +574,10 @@ export const createDefaultChitDetail = (_index: number, companyCd = ""): ChitDet
   VAT_INQUIRY_IN: "",
   VAT_INQUIRY_CODE: "",
   IS_NEXTVAT: false,
+  VAT_DIRECTION: null,
+  VAT_RATE_CD: "",
+  VAT_RATE_PERCENT: null,
+  VAT_CUSTOMS_EXCHANGE_RATE: null,
   UNDEFINE: "",
   DETAIL_DESCRIPTION_VIET: "",
   DETAIL_DESCRIPTION_ENG: "",
@@ -1179,6 +1190,13 @@ export const mapChitDetailToApiPayload = (record: ChitDetail): ChitDetailApi => 
     VAT_INQUIRY_IN: trimText(record.VAT_INQUIRY_IN),
     VAT_INQUIRY_CODE: trimText(record.VAT_INQUIRY_CODE),
     IS_NEXTVAT: toFlag(record.IS_NEXTVAT),
+    VAT_DIRECTION: (() => {
+      const direction = trimText(record.VAT_DIRECTION).toUpperCase()
+      return direction === "BUY" || direction === "SELL" ? direction : null
+    })(),
+    VAT_RATE_CD: trimText(record.VAT_RATE_CD),
+    VAT_RATE_PERCENT: record.VAT_RATE_PERCENT ?? null,
+    VAT_CUSTOMS_EXCHANGE_RATE: record.VAT_CUSTOMS_EXCHANGE_RATE ?? null,
     UNDEFINE: trimText(record.UNDEFINE),
     DETAIL_DESCRIPTION_VIET: trimText(record.DETAIL_DESCRIPTION_VIET),
     DETAIL_DESCRIPTION_ENG: trimText(record.DETAIL_DESCRIPTION_ENG),

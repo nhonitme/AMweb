@@ -130,7 +130,7 @@ export function CostAllocationPanel({
       stepNo="02"
       stepIndex={2}
       title={t("GK_STEP2_TITLE", "Phân bổ 622 / 627")}
-      desc={t("GK_STEP2_SUB", "Theo đối tượng giá thành") + " · " + t("GK_ENGINE_GK", "Nghiệp vụ G-K")}
+      desc={t("GK_STEP2_SUB", "Theo đối tượng giá thành")}
       runStatus={runStatus}
       waiting={waiting}
       t={t}
@@ -155,7 +155,7 @@ export function CostAllocationPanel({
         </>
       }
     >
-      <div className="gk-summary-band">
+      {/* <div className="gk-summary-band">
         <div className="big">622/627</div>
         <div className="explain">
           <div className="title">{t("GK_ALLOC_BAND", "Phân bổ chi phí dùng chung theo công thức frmAllocateCosts")}</div>
@@ -166,7 +166,7 @@ export function CostAllocationPanel({
             )}
           </div>
         </div>
-      </div>
+      </div> */}
 
       <div className="gk-columns">
         <div className="gk-mini">
@@ -179,7 +179,7 @@ export function CostAllocationPanel({
         </div>
       </div>
 
-      <div className="gk-toolbar" style={{ flexWrap: "wrap", gap: 12 }}>
+      {/* <div className="gk-toolbar" style={{ flexWrap: "wrap", gap: 12 }}>
         <div className="gk-toolleft" style={{ flexWrap: "wrap", gap: 16, alignItems: "center" }}>
           <RadioGroup
             items={[
@@ -215,9 +215,9 @@ export function CostAllocationPanel({
             NUMBER_DIGIT = {overview.allocationNumberDigit}
           </span>
         </div>
-      </div>
+      </div> */}
 
-      <Notice type="info">
+      {/* <Notice type="info">
         {overview.allocateType === 0
           ? t(
               "GK_HINT_NVL",
@@ -227,7 +227,7 @@ export function CostAllocationPanel({
               "GK_HINT_QTY",
               "Tiêu thức TPNK lấy từ số lượng nhập N155/C154 theo mã TP.",
             )}
-      </Notice>
+      </Notice> */}
 
       <div className="gk-tab-bar">
         {(
@@ -350,7 +350,7 @@ export function CostAllocationPanel({
         <CostingCompareTable rows={overview.compareRows} t={t} />
       ) : null}
 
-      <Notice type={locked ? "good" : overview.allocationPreviewed ? "info" : "warn"}>
+      {/* <Notice type={locked ? "good" : overview.allocationPreviewed ? "info" : "warn"}>
         {locked
           ? t("GK_ALLOC_DONE", "Đã xác nhận phân bổ. Bước 3/4 đọc kết quả chi tiết theo từng TK và mã TP.")
           : overview.allocationPreviewed
@@ -362,7 +362,7 @@ export function CostAllocationPanel({
                 "GK_ALLOC_NEED_PREVIEW",
                 "Chọn phương pháp / chỉnh reduction rồi nhấn Tính lại phân bổ.",
               )}
-      </Notice>
+      </Notice> */}
     </StepShell>
   );
 }

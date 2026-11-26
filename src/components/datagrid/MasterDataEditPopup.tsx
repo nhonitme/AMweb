@@ -18,8 +18,7 @@ import {
   raiseOverlayAboveSiblings,
   raiseFormOverlaysAboveSiblings,
 } from "@/components/popup/raiseOverlayZIndex";
-export const MASTER_DATA_EDIT_POPUP_MAX_HEIGHT = "80vh";
-export const MASTER_DATA_EDIT_POPUP_FIELD_SCROLL_THRESHOLD = 8;
+export const MASTER_DATA_POPUP_MAX_WIDTH = 900;
 
 type DataGridPopupProps = ComponentProps<typeof DataGridPopup>;
 type TreeListPopupProps = ComponentProps<typeof TreeListPopup>;
@@ -35,24 +34,12 @@ const popupEscapeCleanup = new WeakMap<object, PopupEscapeRegistration>();
 const popupOverlayWatchCleanup = new WeakMap<object, () => void>();
 
 export type MasterDataEditPopupProps = DataGridPopupProps & {
-  scrollable?: boolean;
   editorMode: "add" | "edit";
 };
 
 export type MasterDataTreeListEditPopupProps = TreeListPopupProps & {
-  scrollable?: boolean;
   editorMode: "add" | "edit";
 };
-
-function buildWrapperClass(scrollable: boolean, wrapperAttr?: Record<string, string>) {
-  return [
-    "master-data-edit-popup",
-    scrollable ? "master-data-edit-popup--scrollable" : "",
-    wrapperAttr?.class,
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
 
 function applyMasterDataEditPopupButtonIcons(event: ShownEvent) {
   const component = event.component;
@@ -142,11 +129,7 @@ function cancelHideWhenNestedPopupIsOpen(event: HidingEvent): boolean {
   return false;
 }
 
-export function shouldUseMasterDataEditPopupScroll(fieldCount: number): boolean {
-  return fieldCount >= MASTER_DATA_EDIT_POPUP_FIELD_SCROLL_THRESHOLD;
-}
-
-function MasterDataPopupTitleView({ title }: { title?: string }) {
+export function MasterDataPopupTitleView({ title }: { title?: string }) {
   const menuTitle = useCurrentMenuTitle();
   return (
     <div className="master-data-edit-popup-title-inner">
@@ -158,9 +141,10 @@ function MasterDataPopupTitleView({ title }: { title?: string }) {
 
 function resolveMasterDataEditPopupProps({
   height = "auto",
+  width = "90%",
+  maxWidth = MASTER_DATA_POPUP_MAX_WIDTH,
   deferRendering = true,
   showTitle = true,
-  scrollable = false,
   editorMode,
   wrapperAttr,
   onShown,
@@ -176,15 +160,16 @@ function resolveMasterDataEditPopupProps({
 
   return {
     height,
+    width,
+    maxWidth,
     deferRendering,
     showTitle,
-    scrollable,
     title,
     titleComponent: useCustomTitle ? () => <MasterDataPopupTitleView title={title} /> : titleComponent,
     titleRender: useCustomTitle ? undefined : titleRender,
     wrapperAttr: {
       ...wrapperAttr,
-      class: `${buildWrapperClass(scrollable, wrapperAttr)} editor-mode--${editorMode}`, 
+      class: ["master-data-edit-popup", `editor-mode--${editorMode}`, wrapperAttr?.class].filter(Boolean).join(" "),
     },
     onShowing: (event: MasterDataPopupShowingEvent) => {
       if (document.querySelector(".dx-overlay-wrapper.am-lookup-popup")) {

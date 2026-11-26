@@ -127,7 +127,7 @@ export default function ProductionCostingPage() {
     async (stepIndex: 1 | 2 | 3 | 4 | 5 | 6) => {
       try {
         setBusy(true);
-        const info = await getReopenInfo(stepIndex);
+        const info = await getReopenInfo(stepIndex, t);
         setReopenInfo(info);
         setReopenOpen(true);
       } catch (err) {
@@ -136,7 +136,7 @@ export default function ProductionCostingPage() {
         setBusy(false);
       }
     },
-    [showError],
+    [showError, t],
   );
 
   const handleRequestStepHistory = useCallback((stepIndex: 1 | 2 | 3 | 4 | 5 | 6) => {

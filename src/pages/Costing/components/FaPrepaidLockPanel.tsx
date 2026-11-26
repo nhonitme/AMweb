@@ -288,7 +288,7 @@ export function FaPrepaidLockPanel({
     if (lockButtonDisabled || processing) return;
     const ok = await confirm(
       t(
-        "GK_STEP1_CONFIRM",
+        "MSG_ARE_YOU_SURE",
         "Chạy PeriodLock FA_PREPAID_LOCK trên kỳ đang chọn. Tiếp tục?",
       ),
       t("GK_STEP1_TITLE", "Khóa sổ bước 1"),
@@ -323,10 +323,7 @@ export function FaPrepaidLockPanel({
       const next = await reloadProductionCosting();
       onRefresh(next);
       onSuccess(
-        formatGkMessage(
-          t("GK_STEP1_CHECK_OK", "Trạng thái B1 trên DB: {0}."),
-          next.stepStatuses[0],
-        ),
+        t("msg_Complete", "Trạng thái B1 trên DB: {0}."),
       );
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
@@ -428,12 +425,12 @@ export function FaPrepaidLockPanel({
               </div>
             </article>
           </div>
-          <p className="gk-step1-scope-note">
+          {/* <p className="gk-step1-scope-note">
             {t(
               "GK_STEP1_SCOPE_NOTE",
               "Hai nghiệp vụ được PeriodLock B-I xử lý trong một lần khóa FA_PREPAID_LOCK. Không tách thao tác riêng trên G-K.",
             )}
-          </p>
+          </p> */}
         </section>
 
         <section className="gk-step1-panel" aria-label={t("GK_STEP1_TIMELINE", "Tiến trình xử lý")}>

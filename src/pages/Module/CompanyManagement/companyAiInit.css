@@ -183,6 +183,10 @@
   color: #be123c;
 }
 
+.company-ai-init :is(.company-ai-init__step-dot, .company-ai-init__loading) > .dx-icon {
+  color: inherit !important;
+}
+
 .company-ai-init__step-line {
   width: 2px;
   flex: 1;

@@ -1,7 +1,6 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react"
 import Button from "devextreme-react/button"
 import notify from "devextreme/ui/notify"
-import { Check, Loader2, Sparkles, X } from "lucide-react"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import {
   getAiLicenseStatus,
@@ -163,7 +162,7 @@ export default function CompanyAiInitSection() {
         <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex min-w-0 items-start gap-3">
             <div className="company-ai-init__mark shrink-0" aria-hidden>
-              <Sparkles size={18} strokeWidth={2.2} />
+              <span className="dx-icon dx-icon-chatsparkleoutline text-lg leading-none" />
             </div>
             <div className="min-w-0">
               <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
@@ -253,8 +252,8 @@ export default function CompanyAiInitSection() {
             />
           </div>
           {initing ? (
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-700">
-              <Loader2 size={14} className="animate-spin" />
+            <span className="company-ai-init__loading inline-flex items-center gap-1.5 text-xs font-medium text-teal-700">
+              <span className="dx-icon dx-icon-refresh animate-spin text-sm leading-none" aria-hidden="true" />
               {t("PROCESSING", "Đang khởi tạo...")}
             </span>
           ) : null}
@@ -280,11 +279,11 @@ export default function CompanyAiInitSection() {
                       .join(" ")}
                   >
                     {visual === "done" ? (
-                      <Check size={13} strokeWidth={2.6} />
+                      <span className="dx-icon dx-icon-check" aria-hidden="true" />
                     ) : visual === "fail" ? (
-                      <X size={13} strokeWidth={2.6} />
+                      <span className="dx-icon dx-icon-close" aria-hidden="true" />
                     ) : visual === "run" ? (
-                      <Loader2 size={13} className="animate-spin" />
+                      <span className="dx-icon dx-icon-refresh animate-spin" aria-hidden="true" />
                     ) : (
                       index + 1
                     )}

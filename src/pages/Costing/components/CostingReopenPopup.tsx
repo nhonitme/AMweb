@@ -9,7 +9,7 @@ import { createPortal } from "react-dom";
 import Popup from "devextreme-react/popup";
 import Button from "devextreme-react/button";
 import TextArea from "devextreme-react/text-area";
-import type { CostingReopenInfo } from "../types/productionCostingTypes";
+import type { CostingReopenInfo, CostingStepRunStatus } from "../types/productionCostingTypes";
 import { formatGkMessage, Notice } from "./costingPanelShared";
 
 type CostingReopenPopupProps = {
@@ -20,6 +20,27 @@ type CostingReopenPopupProps = {
   onClose: () => void;
   onConfirm: (reason: string) => void;
 };
+
+/** Nhãn trạng thái bước — cùng pattern ngôn ngữ với /gl/closing-balance. */
+function getReopenStatusText(
+  status: CostingStepRunStatus,
+  t: (key: string, fallback: string) => string,
+) {
+  if (status === "DONE") return t("PERIOD_LOCK_STEP_DONE", "Hoàn tất");
+  if (status === "PROCESSING") return t("PERIOD_LOCK_STEP_PROCESSING", "Đang chạy");
+  if (status === "ERROR") return t("PERIOD_LOCK_STEP_ERROR", "Lỗi");
+  if (status === "REOPENED") return t("GK_BI_STATUS_REOPENED", "Đã mở lại");
+  return t("PERIOD_LOCK_STEP_OPEN", "Chưa chạy");
+}
+
+/** Class badge trạng thái — cùng style với popup thao tác PeriodLock. */
+function getReopenStatusBadgeClass(status: CostingStepRunStatus) {
+  if (status === "DONE") return "bg-green-100 text-green-700";
+  if (status === "PROCESSING") return "bg-blue-100 text-blue-700";
+  if (status === "ERROR") return "bg-red-100 text-red-700";
+  if (status === "REOPENED") return "bg-amber-100 text-amber-700";
+  return "bg-gray-100 text-gray-700";
+}
 
 export function CostingReopenPopup({
   visible,
@@ -71,8 +92,13 @@ export function CostingReopenPopup({
             <div className="num" style={{ fontSize: 14 }}>
               {info.periodYm} / {info.companyCd}
             </div>
-            <div className="small">
-              {t("STATUS", "Trạng thái")}: {info.currentStatus}
+            <div className="small" style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+              <span>{t("STATUS", "Trạng thái")}:</span>
+              <span
+                className={`rounded px-2 py-1 text-xs font-semibold ${getReopenStatusBadgeClass(info.currentStatus)}`}
+              >
+                {getReopenStatusText(info.currentStatus, t)}
+              </span>
             </div>
           </div>
         </div>
@@ -84,19 +110,21 @@ export function CostingReopenPopup({
           </div>
         </div>
 
-        <div className="gk-sectiontitle">{t("GK_RELATED", "Tác động và chứng từ liên quan")}</div>
-        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }}>
+        {/* <div className="gk-sectiontitle">{t("GK_RELATED", "Tác động và chứng từ liên quan")}</div> */}
+        {/* <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }}>
           {info.relatedResults.length > 0
             ? info.relatedResults.map((r) => <li key={r}>{r}</li>)
             : <li>{t("GK_REOPEN_EFFECTS_DB", "Chứng từ phát sinh sẽ được kiểm tra và hoàn nguyên bởi backend trước khi ghi REOPEN.")}</li>}
-        </ul>
+        </ul> */}
 
-        {info.blockingDependents.length > 0 ? (
+        {/* {info.blockingDependents.length > 0 ? (
           <Notice type="info">
             {info.blockReason}
             <div style={{ marginTop: 6 }}>
-              {t("GK_BLOCKING_LIST", "Các bước DONE phía sau sẽ được mở tự động theo thứ tự ngược")}:{" "}
-              {info.blockingDependents.map((b) => `${b.stepIndex} (${b.status})`).join(", ")}
+              {t("GK_BLOCKING_LIST", "Các bước đã hoàn tất phía sau sẽ được mở tự động theo thứ tự ngược")}:{" "}
+              {info.blockingDependents
+                .map((b) => `${b.stepIndex} (${getReopenStatusText(b.status, t)})`)
+                .join(", ")}
             </div>
           </Notice>
         ) : (
@@ -114,7 +142,7 @@ export function CostingReopenPopup({
               "Ảnh hưởng: backend tự hoàn nguyên các bước DONE phụ thuộc trong cùng transaction (bao gồm B-I khi cần), sau đó đưa G-K về REOPENED. Lịch sử phiên cũ được giữ để đối chiếu.",
             )}
           </Notice>
-        ) : null}
+        ) : null} */}
 
         <div className="gk-sectiontitle">{t("GK_REOPEN_REASON", "Lý do mở lại (bắt buộc)")}</div>
         <TextArea
@@ -126,12 +154,12 @@ export function CostingReopenPopup({
         />
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
-          <Button
+          {/* <Button
             text={t("GK_VIEW_IMPACT", "Xem ảnh hưởng")}
             stylingMode="outlined"
             disabled={busy}
             onClick={() => setShowImpact(true)}
-          />
+          /> */}
           <Button text={t("CANCEL", "Hủy")} stylingMode="outlined" disabled={busy} onClick={onClose} />
           <Button
             text={t("GK_CONFIRM_REOPEN", "Xác nhận mở lại")}

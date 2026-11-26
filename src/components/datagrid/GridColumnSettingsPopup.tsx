@@ -14,7 +14,7 @@ import { getApiErrorMessage } from "@/api/apiTypes"
 import { disableBuiltInPopupEscape, usePopupEscapeLayer } from "@/components/popup/popupEscapeStack"
 import { overlayWrapperFromPopupContent, raiseOverlayAboveSiblings } from "@/components/popup/raiseOverlayZIndex"
 import useShortcutBindings from "@/hooks/useShortcutBindings"
-import { useCompanyLangRevision } from "@/lib/companyLang"
+import { isLangFieldVisible, useCompanyLangRevision } from "@/lib/companyLang"
 import { resolveSysGridColumnDisplayCaption } from "@/lib/gridColumnSettingUtils"
 import { LanguageContext } from "@/lib/i18nLoader"
 import {
@@ -48,6 +48,7 @@ type GridColumnSettingsPopupProps = {
   visible: boolean
   title?: string
   items?: GridColumnSettingEditorItem[]
+  respectCompanyLanguages?: boolean
   loading?: boolean
   tabs?: GridColumnSettingsPopupTab[]
   templates?: GridColumnTemplateOption[]
@@ -164,6 +165,7 @@ export function GridColumnSettingsPopup({
   onClose,
   onReset,
   onSave,
+  respectCompanyLanguages = false,
   onSaveTabs,
   onTemplateChange,
   onCreateTemplate,
@@ -320,14 +322,11 @@ export function GridColumnSettingsPopup({
 
   const filteredItems = useMemo(() => {
     const keyword = searchText.trim().toLowerCase()
-    if (!keyword) {
-      return activeItems
-    }
-
-    return activeItems.filter((item) =>
-      item.caption.toLowerCase().includes(keyword) || item.columnName.toLowerCase().includes(keyword),
-    )
-  }, [activeItems, searchText])
+    return activeItems.filter((item) => {
+      if (respectCompanyLanguages && !isLangFieldVisible(item.columnName)) return false
+      return !keyword || item.caption.toLowerCase().includes(keyword) || item.columnName.toLowerCase().includes(keyword)
+    })
+  }, [activeItems, companyLangRevision, respectCompanyLanguages, searchText])
 
   const fixedOptions = useMemo(
     () => [

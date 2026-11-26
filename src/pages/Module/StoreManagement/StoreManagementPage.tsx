@@ -269,6 +269,7 @@ const handleToolbarDelete = async () => {
 
     >
         <BaseDataGrid<StoreInfo>
+          respectCompanyLanguages
           enableModifierSelection
           enableDragSelection
           dataSource={gridData}
@@ -312,8 +313,6 @@ const handleToolbarDelete = async () => {
           <MasterDataEditPopup editorMode={isUpdate ? "edit" : "add"}
               key={lang}
               title={popupTitle}
-              width="90%"
-              maxWidth={800}
             />
             <StoreForm />
           </Editing>

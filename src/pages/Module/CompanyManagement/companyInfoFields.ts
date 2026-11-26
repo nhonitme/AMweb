@@ -1,7 +1,7 @@
 import type { CompanyInfoOptionsKey } from "./companyInfoOptions";
 import type { CompanyInfo } from "@/types/companyInfo";
 
-export type CompanyInfoEditorType = "dxDateBox" | "dxSelectBox" | "dxTextArea" | "dxTextBox";
+export type CompanyInfoEditorType = "dxDateBox" | "dxSelectBox" | "dxTextBox";
 
 export type CompanyInfoFieldConfig = {
   key: keyof CompanyInfo;
@@ -17,6 +17,7 @@ export type CompanyInfoFieldConfig = {
 
 export type CompanyInfoFieldGroup = {
   key: string;
+  icon?: string;
   titleKey: string;
   title: string;
   /** When true, section starts expanded. Others start collapsed. */
@@ -42,12 +43,25 @@ export function createCompanyInfoFieldGroups(translate: TranslateFn): CompanyInf
       ],
     },
     {
+      key: "translations",
+      icon: "globe",
+      titleKey: "COMPANY_PROFILE_TRANSLATIONS",
+      title: t("COMPANY_PROFILE_TRANSLATIONS", "Tên và địa chỉ theo ngôn ngữ"),
+      defaultExpanded: true,
+      items: [
+        { key: "COMPANY_NM_EN", labelKey: "COMPANY_NM_EN", label: t("COMPANY_NM_EN", "Tên công ty (EN)"), colSpan: 6 },
+        { key: "ADDRESS_ENG", labelKey: "ADDRESS_ENG", label: t("ADDRESS_ENG", "Địa chỉ (EN)"), colSpan: 6 },
+        { key: "COMPANY_NM_KOR", labelKey: "COMPANY_NM_KOR", label: t("COMPANY_NM_KOR", "Tên công ty (KO)"), colSpan: 6 },
+        { key: "ADDRESS_KOR", labelKey: "ADDRESS_KOR", label: t("ADDRESS_KOR", "Địa chỉ (KO)"), colSpan: 6 },
+      ],
+    },
+    {
       key: "tax",
+      icon: "doc",
       titleKey: "COMPANY_INFO_TAX",
       title: t("COMPANY_INFO_TAX", "Thuế & đăng ký"),
       items: [
         { key: "OWNER_NM", labelKey: "OWNER_NM", label: t("OWNER_NM", "Người đại diện"), colSpan: 4 },
-        { key: "COMPANY_NM_EN", labelKey: "COMPANY_NM_EN", label: t("COMPANY_NM_EN", "Tên công ty (EN)"), colSpan: 8 },
         { key: "CCCDan", labelKey: "CCCDAN", label: t("CCCDan", "CCCD"), colSpan: 4 },
         { key: "OPEN_YMD", labelKey: "OPEN_YMD", label: t("OPEN_YMD", "Ngày thành lập"), editorType: "dxDateBox", colSpan: 4 },
         { key: "BRN", labelKey: "BRN", label: t("BRN", "Số ĐKKD"), colSpan: 4 },
@@ -58,17 +72,19 @@ export function createCompanyInfoFieldGroups(translate: TranslateFn): CompanyInf
     },
     {
       key: "address",
+      icon: "pin",
       titleKey: "COMPANY_INFO_ADDRESS",
       title: t("COMPANY_INFO_ADDRESS", "Địa chỉ chi tiết"),
       items: [
         { key: "ZIP_CODE", labelKey: "ZIP_CODE", label: t("ZIP_CODE", "Mã bưu điện"), colSpan: 2 },
         { key: "SIDO", labelKey: "SIDO", label: t("SIDO", "Tỉnh/Thành phố"), colSpan: 5 },
         { key: "GUMYUN", labelKey: "GUMYUN", label: t("GUMYUN", "Quận/Huyện"), colSpan: 5 },
-        { key: "ADDRESS_ENG", labelKey: "ADDRESS_ENG", label: t("ADDRESS_ENG", "Địa chỉ (EN)"), colSpan: 12 },
+        { key: "ADDRESS_DO", labelKey: "ADDRESS_DO", label: t("ADDRESS_DO", "Mã tỉnh/thành"), colSpan: 6 },
       ],
     },
     {
       key: "contact",
+      icon: "tel",
       titleKey: "COMPANY_INFO_CONTACT",
       title: t("COMPANY_INFO_CONTACT", "Liên hệ"),
       items: [
@@ -80,6 +96,7 @@ export function createCompanyInfoFieldGroups(translate: TranslateFn): CompanyInf
     },
     {
       key: "accounting",
+      icon: "money",
       titleKey: "COMPANY_INFO_ACCOUNTING",
       title: t("COMPANY_INFO_ACCOUNTING", "Kế toán"),
       items: [
@@ -111,22 +128,13 @@ export function createCompanyInfoFieldGroups(translate: TranslateFn): CompanyInf
     },
     {
       key: "business",
+      icon: "tags",
       titleKey: "COMPANY_INFO_BUSINESS",
       title: t("COMPANY_INFO_BUSINESS", "Kinh doanh"),
       items: [
         { key: "BUSINESS_TYPE", labelKey: "BUSINESS_TYPE", label: t("BUSINESS_TYPE", "Ngành nghề"), colSpan: 6 },
         { key: "KIND_BUSINESS", labelKey: "KIND_BUSINESS", label: t("KIND_BUSINESS", "Lĩnh vực"), colSpan: 6 },
         { key: "NOTE", labelKey: "NOTE", label: t("NOTE", "Ghi chú"), colSpan: 12 },
-      ],
-    },
-    {
-      key: "other",
-      titleKey: "COMPANY_INFO_OTHER",
-      title: t("COMPANY_INFO_OTHER", "Thông tin khác"),
-      items: [
-        { key: "COMPANY_NM_KOR", labelKey: "COMPANY_NM_KOR", label: t("COMPANY_NM_KOR", "Tên công ty (KO)"), colSpan: 6 },
-        { key: "ADDRESS_DO", labelKey: "ADDRESS_DO", label: t("ADDRESS_DO", "Mã tỉnh/thành"), colSpan: 6 },
-        { key: "ADDRESS_KOR", labelKey: "ADDRESS_KOR", label: t("ADDRESS_KOR", "Địa chỉ (KO)"), editorType: "dxTextArea", colSpan: 12 },
       ],
     },
   ];

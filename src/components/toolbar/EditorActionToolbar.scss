@@ -39,8 +39,7 @@
     }
   }
   &.master-data-edit-popup > .dx-overlay-content > .dx-popup-title {
-    &::before { display: none; }
-    &::after { background: var(--editor-mode-accent); }
+    padding: 10px var(--master-popup-inline-padding, 26px) !important;
   }
 }
 

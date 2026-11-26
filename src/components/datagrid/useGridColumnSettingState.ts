@@ -12,6 +12,7 @@ import {
   isTechnicalIdColumnName,
 } from "@/components/datagrid/gridColumnSettingRender"
 import { asGridSettingArray } from "@/lib/gridSettingCache"
+import { isLangFieldVisible } from "@/lib/companyLang"
 import { getCurrentCompanyCd, getCurrentUserId } from "@/lib/login"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { useSysGridColumnSettings } from "@/lib/sysGridColumnSettingContext"
@@ -68,6 +69,7 @@ type UseGridColumnSettingStateOptions = {
   excludedColumnNames?: readonly string[]
   /** Hide schema/store columns that are absent from sys_grid_column. */
   hideColumnsMissingFromSettings?: boolean
+  respectCompanyLanguages?: boolean
 }
 
 type CreateTemplatePayload = {
@@ -620,6 +622,7 @@ export function useGridColumnSettingState({
   gridId,
   excludedColumnNames = [],
   hideColumnsMissingFromSettings = false,
+  respectCompanyLanguages = false,
 }: UseGridColumnSettingStateOptions) {
   const { translate } = useContext(LanguageContext)
   const translateCaption = useCallback(
@@ -1014,13 +1017,14 @@ export function useGridColumnSettingState({
     try {
       applyGridColumnSettingsToComponent(component, normalizedItems, translateCaption, {
         hideColumnsMissingFromSettings,
+        respectCompanyLanguages,
       })
     } catch (error) {
       console.error("Failed to sync grid column settings", error)
     }
 
     return normalizedItems
-  }, [hideColumnsMissingFromSettings, translateCaption])
+  }, [hideColumnsMissingFromSettings, respectCompanyLanguages, translateCaption])
 
   const boundComponentRef = useRef<GridComponent | null>(null)
   const visibilityRepairTimerRef = useRef(0)
@@ -1243,12 +1247,18 @@ export function useGridColumnSettingState({
       return
     }
 
-    const rawItems = filterExcludedEditorItems(toEditorItemsFromColumns(state.columns))
+    const trustedItems = baselineItemsRef.current?.length ? baselineItemsRef.current : cachedEditorItems
+    let rawItems = filterExcludedEditorItems(toEditorItemsFromColumns(state.columns))
+    if (respectCompanyLanguages) {
+      rawItems = [
+        ...rawItems.filter((item) => isLangFieldVisible(item.columnName)),
+        ...trustedItems.filter((item) => !isLangFieldVisible(item.columnName)),
+      ]
+    }
     if (!rawItems.length) {
       return
     }
 
-    const trustedItems = baselineItemsRef.current?.length ? baselineItemsRef.current : cachedEditorItems
     const { items: nextItems, restored } = restoreTrustedHiddenColumns(rawItems, trustedItems)
     const nextSignature = buildEditorItemsSignature(nextItems)
     if (restored) {
@@ -1281,7 +1291,7 @@ export function useGridColumnSettingState({
     }
 
     await saveEditorItems(nextItems, false)
-  }, [cachedEditorItems, currentTemplateId, filterExcludedEditorItems, repairVisibilityOnComponent, saveEditorItems, target])
+  }, [cachedEditorItems, currentTemplateId, filterExcludedEditorItems, repairVisibilityOnComponent, respectCompanyLanguages, saveEditorItems, target])
 
   const refreshEditorItems = useCallback(async (component?: GridComponent | null) => {
     if (targetCacheKey) {

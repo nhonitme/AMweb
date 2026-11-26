@@ -133,6 +133,7 @@ interface BaseDataGridProps<T> {
     screenCd?: string;
     gridId?: string;
     persistColumnSettings?: boolean;
+    respectCompanyLanguages?: boolean;
 
     onRowDblClick?: (e: RowDblClickEvent) => void;
 
@@ -202,6 +203,7 @@ export function BaseDataGrid<T>({
     screenCd,
     gridId,
     persistColumnSettings = true,
+    respectCompanyLanguages = false,
     onRowDblClick,
     onInitialized,
     onContentReady,
@@ -264,6 +266,7 @@ export function BaseDataGrid<T>({
         screenCd,
         gridId,
         hideColumnsMissingFromSettings: usesSysGridCatalog,
+        respectCompanyLanguages,
     });
     if (columnSettingStateRef) {
         columnSettingStateRef.current = columnSettingState;
@@ -399,19 +402,20 @@ export function BaseDataGrid<T>({
     }, [children, actionButtons, actionButtonsPosition]);
 
     const companyLangRevision = useCompanyLangRevision();
+    const masterColumnLanguageRevision = respectCompanyLanguages ? companyLangRevision : 0;
     const renderedChildren = React.useMemo(() => {
         const settingsChildren = applyGridColumnSettingsToChildren(
             normalizedChildren,
             Column,
             columnSettingState.cachedEditorItems,
             columnSettingState.translateCaption,
-            { hideColumnsMissingFromSettings: usesSysGridCatalog },
+            { hideColumnsMissingFromSettings: usesSysGridCatalog, respectCompanyLanguages },
         );
 
         return runtimeColumnVisibility
             ? applyRuntimeColumnVisibilityToChildren(settingsChildren, Column, runtimeColumnVisibility)
             : settingsChildren;
-    }, [columnSettingState.cachedEditorItems, columnSettingState.translateCaption, companyLangRevision, normalizedChildren, runtimeColumnVisibility, usesSysGridCatalog]);
+    }, [columnSettingState.cachedEditorItems, columnSettingState.translateCaption, companyLangRevision, normalizedChildren, runtimeColumnVisibility, usesSysGridCatalog, respectCompanyLanguages]);
 
     const hasConfiguredColumnWidths = React.useMemo(
         () => columnSettingState.cachedEditorItems.some((item) => typeof item.width === "number"),
@@ -454,6 +458,7 @@ export function BaseDataGrid<T>({
         columnSettingState.cachedEditorItems,
         columnSettingState.syncEditorItemsToComponent,
         gridContentReady,
+        masterColumnLanguageRevision,
         runtimeColumnVisibility,
     ]);
 
@@ -830,6 +835,7 @@ export function BaseDataGrid<T>({
             onPointerCancel={finishDragSelection}
         >
             <DataGrid
+                searchPanel={respectCompanyLanguages ? { searchVisibleColumnsOnly: true } : undefined}
                 key={gridRemountKey}
                 loadPanel={{ enabled: loadPanelEnabled }}
                 dataSource={dataSource}
@@ -971,6 +977,7 @@ export function BaseDataGrid<T>({
                     visible={columnSettingsVisible}
                     title={t("AUDIT_SETTING_SHOW_HIDE", "Thiết lập cột hiển thị")}
                     items={columnSettingsItems}
+                    respectCompanyLanguages={respectCompanyLanguages}
                     loading={columnSettingsLoading}
                     onClose={() => setColumnSettingsVisible(false)}
                     onReset={handleColumnSettingsReset}

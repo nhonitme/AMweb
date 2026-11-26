@@ -483,18 +483,34 @@ async function runPeriodLock(
   return overview;
 }
 
+function hasSuccessfulLockHistory(
+  overview: ProductionCostingOverview,
+  stepIndex: 1 | 6,
+): boolean {
+  return overview.stepHistory.some((row) => {
+    if (row.stepIndex !== stepIndex) return false;
+    const action = (row.action || "").toUpperCase();
+    return action === "EXECUTE" || action === "CONFIRM";
+  });
+}
+
 export async function runProductionCostingStep1(
   onProgress?: PeriodLockProgressNotify,
 ): Promise<ProductionCostingOverview> {
   const current = session.overview;
-  // Đã DONE: chỉ retry ghi history EXECUTE (idempotent) — không chạy lại PeriodLock.
+  // Đã DONE trên UI: chỉ retry ghi history EXECUTE (idempotent) — không chạy lại PeriodLock.
+  // Không tin stepStatuses sau PeriodLock để chặn confirm: sau REOPEN G-K có thể còn REOPENED
+  // trong khi B-I vừa khóa lại — confirm tự xác nhận B-I DONE rồi ghi nhật ký.
   if (current?.stepStatuses[0] !== "DONE") {
-    const locked = await runPeriodLock("FA_PREPAID_LOCK", onProgress);
-    if (locked.stepStatuses[0] !== "DONE") {
-      throw new Error(locked.job.message || "PeriodLock chưa ghi nhận FA_PREPAID_LOCK = DONE.");
-    }
+    await runPeriodLock("FA_PREPAID_LOCK", onProgress);
   }
-  return confirmGkStep("/fa-prepaid/confirm", "b1", 1);
+  const next = await confirmGkStep("/fa-prepaid/confirm", "b1", 1);
+  if (!hasSuccessfulLockHistory(next, 1)) {
+    throw new Error(
+      "Khóa sổ bước 1 trên B-I đã xong nhưng chưa ghi được lịch sử G-K. Nhấn lại «Thực hiện khóa bước 1» để ghi nhật ký.",
+    );
+  }
+  return next;
 }
 
 export async function setAllocateType(allocateType: AllocateType): Promise<ProductionCostingOverview> {
@@ -551,8 +567,14 @@ async function confirmGkStep(path: string, opKey: string, stepIndex: 1 | 2 | 3 |
   const result = await post<Rec>(path, { ...identity, OperationId: operationId(opKey) });
   const overview = await reloadProductionCosting();
   const noop = text(result.IdempotencyAction) === "NoopAlreadyWritten";
+  const persisted = result.Persisted === true;
+  // Giống reopen: không coi thành công khi API trả 200 nhưng không ghi / không noop.
+  // Tránh trường hợp B-I đã DONE (stepStatuses=DONE) mà history EXECUTE chưa được insert.
+  if (!persisted && !noop) {
+    throw new Error(text(result.Message) || "Backend chưa ghi nhận bước.");
+  }
   if (overview.stepStatuses[stepIndex - 1] !== "DONE" && !noop) {
-    throw new Error(text(result.Message) || "Backend chÆ°a chuyá»ƒn bÆ°á»›c sang DONE.");
+    throw new Error(text(result.Message) || "Backend chưa chuyển bước sang DONE.");
   }
   clearOp(opKey);
   overview.statusMessage = text(result.Message);
@@ -675,17 +697,23 @@ export async function checkProfitLossPreconditions(): Promise<ProductionCostingO
 export async function lockProfitLoss(): Promise<ProductionCostingOverview> {
   const current = session.overview;
   if (current?.stepStatuses[5] !== "DONE") {
-    const locked = await runPeriodLock("PROFIT_LOSS_REPORT");
-    if (locked.stepStatuses[5] !== "DONE") {
-      throw new Error(locked.job.message || "PeriodLock chưa ghi nhận PROFIT_LOSS_REPORT = DONE.");
-    }
+    await runPeriodLock("PROFIT_LOSS_REPORT");
   }
-  return confirmGkStep("/profit-loss/confirm", "b6", 6);
+  const next = await confirmGkStep("/profit-loss/confirm", "b6", 6);
+  if (!hasSuccessfulLockHistory(next, 6)) {
+    throw new Error(
+      "Khóa sổ bước 6 trên B-I đã xong nhưng chưa ghi được lịch sử G-K. Nhấn lại để ghi nhật ký.",
+    );
+  }
+  return next;
 }
 
-export async function getReopenInfo(stepIndex: 1 | 2 | 3 | 4 | 5 | 6): Promise<CostingReopenInfo> {
+export async function getReopenInfo(
+  stepIndex: 1 | 2 | 3 | 4 | 5 | 6,
+  t?: (key: string, fallback: string) => string,
+): Promise<CostingReopenInfo> {
   const overview = await reloadProductionCosting();
-  return buildReopenInfo(overview, stepIndex);
+  return buildReopenInfo(overview, stepIndex, t);
 }
 
 export async function reopenCostingStep(stepIndex: 1 | 2 | 3 | 4 | 5 | 6, reason: string): Promise<ProductionCostingOverview> {

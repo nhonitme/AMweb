@@ -1,4 +1,5 @@
 import { useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
+import { confirm } from "devextreme/ui/dialog"
 import DateBox from "devextreme-react/date-box"
 import NumberBox from "devextreme-react/number-box"
 import SelectBox from "devextreme-react/select-box"
@@ -9,19 +10,28 @@ import type { SysCode } from "@/api/sysCodeService"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { getCachedSysCodes } from "@/lib/sysCodeCache"
 import { formatSysCodeOptionText, getSysCodeCd } from "@/lib/sysCodeUtils"
-import type { ChitDateValue } from "@/types/voucher"
+import type { ChitDateValue, ChitType } from "@/types/voucher"
 
 import {
   createVoucherDateBoxEditorOptions,
   createVoucherEditorOptions,
 } from "../forms/documentFieldConfig"
-import type { VoucherVatDetail } from "./voucherVatTypes"
+import {
+  createEmptyVoucherVatDetail,
+  getVatCategoryCodeType,
+  hasAnyVoucherVatInput,
+  resolveVatRatePercent,
+  suggestVatDirectionForChitType,
+  type VatDirection,
+  type VoucherVatDetail,
+} from "./voucherVatTypes"
 import "./VatDetailPanel.css"
 
 export type VatDetailPanelProps = {
   rowKey: string
   rowLabel?: string
   value: VoucherVatDetail
+  chitType?: ChitType | string | null
   readOnly?: boolean
   onChange: (patch: Partial<VoucherVatDetail>) => void
   onClose: () => void
@@ -42,23 +52,22 @@ function VatField({ label, className = "", children }: FieldProps) {
   )
 }
 
-function parseTaxRatePercent(code: string): number | null {
-  const trimmed = code.trim()
-  if (!trimmed) {
-    return null
-  }
-  const match = trimmed.replace(",", ".").match(/-?\d+(\.\d+)?/)
-  if (!match) {
-    return null
-  }
-  const value = Number(match[0])
-  return Number.isFinite(value) ? value : null
+function sortSysCodes(items: SysCode[]): SysCode[] {
+  return [...items].sort((a, b) => {
+    const sortA = Number(a.SORT_ORDER ?? 0)
+    const sortB = Number(b.SORT_ORDER ?? 0)
+    if (sortA !== sortB) {
+      return sortA - sortB
+    }
+    return getSysCodeCd(a).localeCompare(getSysCodeCd(b))
+  })
 }
 
 export default function VatDetailPanel({
   rowKey,
   rowLabel,
   value,
+  chitType,
   readOnly = false,
   onChange,
   onClose,
@@ -72,15 +81,22 @@ export default function VatDetailPanel({
     [translate],
   )
 
+  const suggestedDirection = useMemo(
+    () => suggestVatDirectionForChitType(chitType),
+    [chitType],
+  )
+  const effectiveDirection: VatDirection | null = value.direction ?? suggestedDirection
+
   const [moreOpen, setMoreOpen] = useState(false)
   const [taxRateOptions, setTaxRateOptions] = useState<SysCode[]>([])
+  const [categoryOptions, setCategoryOptions] = useState<SysCode[]>([])
 
   useEffect(() => {
     let cancelled = false
-    void getCachedSysCodes("VAT_RATE")
+    void getCachedSysCodes("VAT_RATE_CA")
       .then((items) => {
         if (!cancelled) {
-          setTaxRateOptions(items)
+          setTaxRateOptions(sortSysCodes(items))
         }
       })
       .catch(() => {
@@ -93,7 +109,33 @@ export default function VatDetailPanel({
     }
   }, [])
 
-  // CODE_NAME from SysCode is a language key — translate for the active UI language.
+  useEffect(() => {
+    let cancelled = false
+    const codeType = getVatCategoryCodeType(effectiveDirection)
+    if (!codeType) {
+      setCategoryOptions([])
+      return () => {
+        cancelled = true
+      }
+    }
+
+    void getCachedSysCodes(codeType)
+      .then((items) => {
+        if (!cancelled) {
+          setCategoryOptions(sortSysCodes(items))
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCategoryOptions([])
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [effectiveDirection])
+
   const taxRateDisplayOptions = useMemo(
     () =>
       taxRateOptions.map((item) => ({
@@ -103,12 +145,37 @@ export default function VatDetailPanel({
     [t, taxRateOptions],
   )
 
+  const categoryDisplayOptions = useMemo(() => {
+    const mapped = categoryOptions.map((item) => ({
+      ...item,
+      CODE_NAME: t(item.CODE_NAME, item.NOTE || item.CODE_NAME),
+    }))
+
+    const currentInfoType = value.infoType.trim()
+    if (
+      currentInfoType
+      && !mapped.some((item) => getSysCodeCd(item) === currentInfoType)
+    ) {
+      mapped.unshift({
+        CODE_CD: currentInfoType,
+        CODE_NAME: `${currentInfoType} (${t("VAT_INFO_TYPE_LEGACY", "mã cũ — không còn trong danh mục")})`,
+        NOTE: currentInfoType,
+        SORT_ORDER: -1,
+      } as SysCode)
+    }
+
+    return mapped
+  }, [categoryOptions, t, value.infoType])
+
   const taxRateDisplayExpr = useCallback(
     (item: SysCode | null) => formatSysCodeOptionText(item),
     [],
   )
+  const categoryDisplayExpr = useCallback(
+    (item: SysCode | null) => formatSysCodeOptionText(item),
+    [],
+  )
 
-  // Same outlined editor kit as voucher header (CHIT_NO / CHIT_YMD / PAYER_INFO).
   const editorOptions = useMemo(
     () => createVoucherEditorOptions({ stylingMode: "outlined" as const, readOnly }),
     [readOnly],
@@ -136,32 +203,138 @@ export default function VatDetailPanel({
     [readOnly],
   )
 
+  const isKhacRate = value.taxRateCode.trim().toUpperCase() === "KHAC"
+  const partnerTaxLabel =
+    effectiveDirection === "SELL"
+      ? t("buyerTaxCode", "Mã số thuế người mua")
+      : t("sellerTaxCode", "Mã số thuế người bán")
+  const partnerNameLabel =
+    effectiveDirection === "SELL"
+      ? t("BUYER_NM", "Tên người mua")
+      : t("SELLER_NM", "Tên người bán")
+  const infoTypeLabel =
+    effectiveDirection === "SELL"
+      ? t("VAT_SELL_CATEGORY", "Phân loại bảng kê Bán ra")
+      : t("VAT_BUY_CATEGORY", "Phân loại bảng kê Mua vào")
+
   const title = rowLabel
     ? `${t("VAT_INFO1", "Thông tin VAT")} · ${rowLabel}`
     : t("VAT_INFO1", "Thông tin VAT")
 
+  const handleDirectionChange = useCallback(
+    async (next: VatDirection) => {
+      if (readOnly || next === value.direction) {
+        return
+      }
+
+      const switchingExistingDirection = Boolean(value.direction) && value.direction !== next
+      const hasInfoType = Boolean(value.infoType.trim())
+      if (switchingExistingDirection && hasInfoType) {
+        const confirmed = await confirm(
+          t(
+            "VAT_DIRECTION_CHANGE_CONFIRM",
+            "Đổi chiều VAT sẽ xóa Ghi chú / Phân loại bảng kê hiện tại. Tiếp tục?",
+          ),
+          t("MSG_CONFIRM", "Xác nhận"),
+        )
+        if (!confirmed) {
+          return
+        }
+      }
+
+      onChange({
+        direction: next,
+        ...(switchingExistingDirection ? { infoType: "" } : {}),
+      })
+    },
+    [onChange, readOnly, t, value.direction, value.infoType],
+  )
+
+  const handleReset = useCallback(async () => {
+    if (readOnly) {
+      return
+    }
+    if (!hasAnyVoucherVatInput(value)) {
+      onChange(createEmptyVoucherVatDetail())
+      return
+    }
+    const confirmed = await confirm(
+      t("VAT_RESET_CONFIRM", "Xóa trống toàn bộ thông tin VAT của dòng này?"),
+      t("MSG_CONFIRM", "Xác nhận"),
+    )
+    if (!confirmed) {
+      return
+    }
+    onChange(createEmptyVoucherVatDetail())
+  }, [onChange, readOnly, t, value])
+
   return (
     <section className="voucher-vat-detail-panel" aria-label={title} data-vat-row-key={rowKey}>
       <header className="voucher-vat-detail-panel__header">
-        <h3 className="voucher-vat-detail-panel__title">{title}</h3>
-        <button
-          type="button"
-          className="voucher-vat-detail-panel__close"
-          title={t("CLOSE", "Đóng")}
-          aria-label={t("CLOSE", "Đóng")}
-          onClick={onClose}
-        >
-          <span className="dx-icon dx-icon-close" aria-hidden />
-        </button>
+        <div className="voucher-vat-detail-panel__header-main">
+          <h3 className="voucher-vat-detail-panel__title">{title}</h3>
+          <div className="voucher-vat-detail-panel__direction" role="group" aria-label={t("VAT_DIRECTION", "Chiều VAT")}>
+            <button
+              type="button"
+              className={`voucher-vat-detail-panel__direction-btn${effectiveDirection === "BUY" ? " is-active" : ""}`}
+              disabled={readOnly}
+              aria-pressed={effectiveDirection === "BUY"}
+              onClick={() => {
+                void handleDirectionChange("BUY")
+              }}
+            >
+              {t("VAT_DIRECTION_BUY", "Mua vào")}
+            </button>
+            <button
+              type="button"
+              className={`voucher-vat-detail-panel__direction-btn${effectiveDirection === "SELL" ? " is-active" : ""}`}
+              disabled={readOnly}
+              aria-pressed={effectiveDirection === "SELL"}
+              onClick={() => {
+                void handleDirectionChange("SELL")
+              }}
+            >
+              {t("VAT_DIRECTION_SELL", "Bán ra")}
+            </button>
+          </div>
+        </div>
+        <div className="voucher-vat-detail-panel__header-actions">
+          <button
+            type="button"
+            className="voucher-vat-detail-panel__reset"
+            title={t("MSG_RESET1", "Xóa trống")}
+            aria-label={t("MSG_RESET1", "Xóa trống")}
+            disabled={readOnly}
+            onClick={() => {
+              void handleReset()
+            }}
+          >
+            <span className="dx-icon dx-icon-revert" aria-hidden />
+            <span className="voucher-vat-detail-panel__reset-text">{t("MSG_RESET1", "Xóa trống")}</span>
+          </button>
+          <button
+            type="button"
+            className="voucher-vat-detail-panel__close"
+            title={t("CLOSE", "Đóng")}
+            aria-label={t("CLOSE", "Đóng")}
+            onClick={onClose}
+          >
+            <span className="dx-icon dx-icon-close" aria-hidden />
+          </button>
+        </div>
       </header>
 
       <div className="voucher-vat-detail-panel__body">
+        {/* Row 1: Ngày | Số | Ký hiệu mẫu | Ký hiệu */}
         <VatField label={t("VAT_INVOICE_DATE", "Ngày hóa đơn")}>
           <DateBox
             value={value.invoiceDate as Date | string | number | null}
             {...dateEditorOptions}
             onValueChanged={(event) => {
-              onChange({ invoiceDate: (event.value ?? null) as ChitDateValue })
+              onChange({
+                invoiceDate: (event.value ?? null) as ChitDateValue,
+                ...(value.direction ? {} : { direction: suggestedDirection }),
+              })
             }}
           />
         </VatField>
@@ -172,7 +345,10 @@ export default function VatDetailPanel({
             showClearButton={!readOnly}
             {...editorOptions}
             onValueChanged={(event) => {
-              onChange({ invoiceNo: String(event.value ?? "") })
+              onChange({
+                invoiceNo: String(event.value ?? ""),
+                ...(value.direction ? {} : { direction: suggestedDirection }),
+              })
             }}
           />
         </VatField>
@@ -199,18 +375,8 @@ export default function VatDetailPanel({
           />
         </VatField>
 
-        <VatField label={t("VAT_TAX_CODE", "Mã số thuế")}>
-          <TextBox
-            value={value.taxCode}
-            showClearButton={!readOnly}
-            {...editorOptions}
-            onValueChanged={(event) => {
-              onChange({ taxCode: String(event.value ?? "") })
-            }}
-          />
-        </VatField>
-
-        <VatField label={t("VAT_SELLER_NAME", "Tên người bán")} className="voucher-vat-detail-panel__field--span-2">
+        {/* Row 2: Tên (dưới Ngày) | MST (dưới Số) | Ghi chú (span 2 = mẫu + ký hiệu) */}
+        <VatField label={partnerNameLabel}>
           <TextBox
             value={value.sellerName}
             showClearButton={!readOnly}
@@ -221,17 +387,32 @@ export default function VatDetailPanel({
           />
         </VatField>
 
-        <VatField label={t("VAT_TAX_RATE", "Thuế suất (%)")}>
-          <SelectBox
-            key={`vat-tax-rate-${lang ?? "VIET"}`}
-            dataSource={taxRateDisplayOptions}
-            value={value.taxRateCode || null}
-            valueExpr="CODE_CD"
-            displayExpr={taxRateDisplayExpr}
-            searchEnabled
-            searchExpr={["CODE_CD", "CODE_NAME"]}
+        <VatField label={partnerTaxLabel}>
+          <TextBox
+            value={value.taxCode}
             showClearButton={!readOnly}
-            acceptCustomValue
+            {...editorOptions}
+            onValueChanged={(event) => {
+              onChange({ taxCode: String(event.value ?? "") })
+            }}
+          />
+        </VatField>
+
+        <VatField
+          label={infoTypeLabel}
+          className="voucher-vat-detail-panel__field--span-2"
+        >
+          <SelectBox
+            key={`vat-info-type-${effectiveDirection ?? "none"}-${lang ?? "VIET"}`}
+            dataSource={categoryDisplayOptions}
+            value={value.infoType || null}
+            valueExpr="CODE_CD"
+            displayExpr={categoryDisplayExpr}
+            searchEnabled
+            searchExpr={["CODE_CD", "CODE_NAME", "NOTE"]}
+            showClearButton={!readOnly}
+            acceptCustomValue={false}
+            disabled={readOnly || !effectiveDirection}
             {...editorOptions}
             onValueChanged={(event) => {
               const code = getSysCodeCd(
@@ -239,23 +420,57 @@ export default function VatDetailPanel({
                   ? (event.value as SysCode)
                   : { CODE_CD: event.value },
               )
-              const fromList = taxRateOptions.find((item) => getSysCodeCd(item) === code)
-              const percent = fromList
-                ? parseTaxRatePercent(getSysCodeCd(fromList))
-                : parseTaxRatePercent(code)
               onChange({
-                taxRateCode: code,
-                taxRate: percent,
+                infoType: code,
+                ...(value.direction ? {} : { direction: effectiveDirection }),
               })
-            }}
-            onCustomItemCreating={(event) => {
-              const code = String(event.text ?? "").trim()
-              event.customItem = code
-                ? { CODE_CD: code, CODE_NAME: code }
-                : null
             }}
           />
         </VatField>
+
+        <VatField label={t("VAT_TAX_RATE", "Thuế suất")}>
+          <SelectBox
+            key={`vat-tax-rate-${lang ?? "VIET"}`}
+            dataSource={taxRateDisplayOptions}
+            value={value.taxRateCode || null}
+            valueExpr="CODE_CD"
+            displayExpr={taxRateDisplayExpr}
+            searchEnabled
+            searchExpr={["CODE_CD", "CODE_NAME", "NOTE"]}
+            showClearButton={!readOnly}
+            acceptCustomValue={false}
+            {...editorOptions}
+            onValueChanged={(event) => {
+              const code = getSysCodeCd(
+                typeof event.value === "object" && event.value
+                  ? (event.value as SysCode)
+                  : { CODE_CD: event.value },
+              )
+              const percent = resolveVatRatePercent(code, value.taxRate)
+              onChange({
+                taxRateCode: code,
+                taxRate: percent,
+                ...(value.direction ? {} : { direction: effectiveDirection }),
+              })
+            }}
+          />
+        </VatField>
+
+        {isKhacRate ? (
+          <VatField label={t("VAT_TAX_RATE_OTHER", "Thuế suất khác (%)")}>
+            <NumberBox
+              value={value.taxRate}
+              format="#,##0.####"
+              showClearButton={!readOnly}
+              {...editorOptions}
+              onValueChanged={(event) => {
+                onChange({
+                  taxRate: event.value == null ? null : Number(event.value),
+                })
+              }}
+            />
+          </VatField>
+        ) : null}
 
         <VatField label={t("VAT_GOODS_AMOUNT", "Giá trị hàng hóa, dịch vụ")}>
           <NumberBox
@@ -316,7 +531,7 @@ export default function VatDetailPanel({
               <VatField label={t("VAT_CUSTOMS_EXCHANGE_RATE", "Tỷ giá hải quan")}>
                 <NumberBox
                   value={value.customsExchangeRate}
-                  format="#,##0.######"
+                  format="#,##0.########"
                   showClearButton={!readOnly}
                   {...editorOptions}
                   onValueChanged={(event) => {

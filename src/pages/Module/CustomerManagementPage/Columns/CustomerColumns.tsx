@@ -38,6 +38,7 @@ export function useCustomerColumns({
       <Column dataField="CUSTOMER_NM_VIET" />
 
       <Column dataField="CUSTOMER_NM_ENG" />
+      <Column dataField="CUSTOMER_NM_KOR" />
       <Column dataField="ADDRESS" />
       <Column dataField="TEL" />
       <Column dataField="EMAIL" />

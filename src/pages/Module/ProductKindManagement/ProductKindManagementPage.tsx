@@ -229,6 +229,7 @@ export default function ProductKindManagementPage({
       }
     >
         <BaseDataGrid<ProductKind>
+          respectCompanyLanguages
           enableModifierSelection
           enableDragSelection
           dataSource={gridData}
@@ -266,8 +267,6 @@ export default function ProductKindManagementPage({
             <MasterDataEditPopup editorMode={isUpdate ? "edit" : "add"}
               key={lang}
               title={popupTitle}
-              width="90%"
-              maxWidth={800}
             />
             <ProductKindForm />
           </Editing>

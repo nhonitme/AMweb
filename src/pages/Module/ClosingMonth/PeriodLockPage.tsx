@@ -1850,13 +1850,6 @@ export default function PeriodLockPage(): React.JSX.Element {
           <Paging enabled={false} />
 
           <Column
-            dataField="PeriodLabel"
-            caption={t("PERIOD_MONTH", "Tháng")}
-            width={110}
-            alignment="center"
-          />
-
-          <Column
             caption={t("PERIOD_LOCK_FA_PREPAID_SHORT", "TSCĐ / CP trả trước")}
             width={170}
             alignment="center"
@@ -1911,6 +1904,13 @@ export default function PeriodLockPage(): React.JSX.Element {
             minWidth={220}
           />
 
+           <Column
+            dataField="PeriodLabel"
+            caption={t("PERIOD_MONTH", "Tháng")}
+            width={110}
+            alignment="center"
+          />
+          
           <Column
             caption={t("ACTION", "Thao tác")}
             width={150}

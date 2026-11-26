@@ -1,4 +1,5 @@
-﻿import {useContext, useMemo, useCallback } from "react"
+import { masterFormGroupCaptions } from "@/components/forms/masterFormSectionIcons"
+import {useContext, useMemo, useCallback } from "react"
 import { Form as DxForm } from "devextreme-react/data-grid"
 import { GroupItem, Item } from "devextreme-react/form"
 
@@ -12,7 +13,7 @@ interface BankFormProps {
   isUpdate: boolean
 }
 
-type BankEditorType = "dxTextBox" | "dxTextBox"
+type BankEditorType = "dxTextBox"
 
 type FormItemConfig = {
   dataField: string
@@ -55,7 +56,7 @@ export default function BankForm({ isUpdate }: BankFormProps) {
     return [
       {
         key: "basic",
-        caption: t("BASE_INFO", "Basic Information"),
+        caption: t("BASE_INFO", "Thông tin chung"),
         colCount: 3,
         items: bankFieldGroups.basic.map(createItem),
       },
@@ -63,12 +64,14 @@ export default function BankForm({ isUpdate }: BankFormProps) {
         key: "account",
         caption: t("BANK_ACCOUNT_INFO", "Thông tin ngân hàng"),
         colCount: 3,
+        captionRender: masterFormGroupCaptions.money,
         items: bankFieldGroups.account.map(createItem),
       },
       {
         key: "other",
         caption: t("Other", "Khác"),
         colCount: 2,
+        captionRender: masterFormGroupCaptions.overflow,
         items: bankFieldGroups.other.map(createItem),
       },
     ]
@@ -78,7 +81,7 @@ export default function BankForm({ isUpdate }: BankFormProps) {
     <div className="bank-form">
       <DxForm colCount={1} labelLocation="top" width="100%" onInitialized={validation.onInitialized} onFieldDataChanged={validation.onFieldDataChanged}>
         {groups.map((group) => (
-          <GroupItem key={group.key} caption={group.caption} colCount={group.colCount}>
+          <GroupItem key={group.key} caption={group.caption} captionRender={group.captionRender ?? masterFormGroupCaptions.info} colCount={group.colCount} colCountByScreen={{ xs: 1 }}>
             {group.items.map((item) => (
               <Item
                 key={item.dataField}

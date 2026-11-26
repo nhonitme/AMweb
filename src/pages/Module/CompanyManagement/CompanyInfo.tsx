@@ -4,18 +4,17 @@ import Button from "devextreme-react/button";
 import DateBox from "devextreme-react/date-box";
 import SelectBox from "devextreme-react/select-box";
 import TabPanel, { Item as TabPanelItem } from "devextreme-react/tab-panel";
-import TextArea from "devextreme-react/text-area";
 import TextBox from "devextreme-react/text-box";
 import { confirm } from "devextreme/ui/dialog";
 import notify from "devextreme/ui/notify";
-import { ChevronDown } from "lucide-react";
+import { renderMasterFormSectionIcon } from "@/components/forms/masterFormSectionIcons";
 
 import { createOutlinedDateBoxEditorOptions, createOutlinedEditorOptions } from "@/components/forms/devExtremeEditorOptions";
 import { getApiErrorMessage } from "@/api/apiTypes";
 import { useCompanyInfoMutations, useCompanyInfoQuery } from "@/hooks/queries/adminQueries";
 import DxPage from "@/dx/DxPage";
 import useStateRef from "@/hooks/useStateRef";
-import { isLangFieldVisible, useCompanyLangRevision } from "@/lib/companyLang";
+import { isLangFieldVisible, orderCompanyLangFields, useCompanyLangRevision } from "@/lib/companyLang";
 import { LanguageContext } from "@/lib/i18nLoader";
 import { flushActiveEditorValue } from "@/lib/shortcuts/shortcutUtils";
 import type { CompanyInfo } from "@/types/companyInfo";
@@ -198,7 +197,7 @@ export default function CompanyManagementPage() {
   };
 
   const t = useCallback(
-    (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback),
+    (key: string, fallback = key) => (translate ? translate(key, fallback) : fallback),
     [translate],
   );
 
@@ -385,20 +384,6 @@ export default function CompanyManagementPage() {
         );
       }
 
-      if (field.editorType === "dxTextArea") {
-        return (
-          <FieldShell key={field.key} className={className} label={label} required={field.required}>
-            <TextArea
-              value={(formData[field.key] as string | null) ?? ""}
-              autoResizeEnabled={true}
-              minHeight={72}
-              onValueChanged={(event) => updateField(field.key, event.value)}
-              {...createOutlinedEditorOptions()}
-            />
-          </FieldShell>
-        );
-      }
-
       const textMode = field.key === "EMAIL" ? "email" : field.key === "WEBSITE" ? "url" : field.key === "TEL" || field.key === "FAX" ? "tel" : undefined;
 
       return (
@@ -407,7 +392,8 @@ export default function CompanyManagementPage() {
             value={(formData[field.key] as string | null) ?? ""}
             readOnly={field.readOnly}
             onValueChanged={(event) => updateField(field.key, event.value)}
-            {...createOutlinedEditorOptions(textMode ? { mode: textMode } : {})}
+            mode={textMode}
+            {...createOutlinedEditorOptions()}
           />
         </FieldShell>
       );
@@ -423,16 +409,19 @@ export default function CompanyManagementPage() {
         const address = formData.ADDRESS?.trim() || "—";
 
         return (
-          <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="absolute inset-y-0 left-0 w-1 bg-slate-800" aria-hidden />
+          <section className="master-data-form-section">
+            <h2 className="master-data-form-section__title">
+              {renderMasterFormSectionIcon()}
+              {t("BASE_INFO", "Thông tin chung")}
+            </h2>
             <div className="space-y-5 px-5 py-5 sm:px-6 sm:py-6">
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  {t("BASE_INFO", "Thông tin chung")}
+                  {t("COMPANY_NM", "Tên công ty")}
                 </div>
-                <h2 className="mt-2 max-w-4xl text-2xl font-semibold leading-snug tracking-tight text-slate-900 sm:text-[1.75rem]">
+                <p className="mt-2 max-w-4xl text-2xl font-semibold leading-snug tracking-tight text-slate-900 sm:text-[1.75rem]">
                   {companyNm}
-                </h2>
+                </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -458,7 +447,8 @@ export default function CompanyManagementPage() {
       {companyInfoFieldGroups
         .filter((group) => group.key !== "identity")
         .map((group) => {
-          const visibleItems = group.items.filter((field) => !field.showWhen || field.showWhen(formData));
+          const visibleItems = orderCompanyLangFields(group.items, (field) => String(field.key))
+            .filter((field) => !field.showWhen || field.showWhen(formData));
           if (visibleItems.length === 0) {
             return null;
           }
@@ -466,18 +456,18 @@ export default function CompanyManagementPage() {
           const expanded = Boolean(expandedGroups[group.key]);
 
           return (
-            <section key={group.key} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <section key={group.key} className="master-data-form-section">
               <button
                 type="button"
-                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-slate-50"
+                className="master-data-form-section__title w-full text-left transition hover:bg-slate-50"
                 aria-expanded={expanded}
                 onClick={() => toggleGroup(group.key)}
               >
+                {renderMasterFormSectionIcon(group.icon)}
                 <span className="text-sm font-semibold text-slate-700">{t(group.titleKey, group.title)}</span>
-                <ChevronDown
-                  size={16}
-                  className={`shrink-0 text-slate-500 transition-transform ${expanded ? "rotate-180" : ""}`}
-                  aria-hidden
+                <span
+                  className={`dx-icon dx-icon-chevrondown ml-auto shrink-0 text-base leading-none transition-transform ${expanded ? "rotate-180" : ""}`}
+                  aria-hidden="true"
                 />
               </button>
               {expanded ? (

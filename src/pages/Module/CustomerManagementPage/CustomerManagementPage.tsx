@@ -382,6 +382,7 @@ export default function CustomerManagementPage({
       }
     >
       <BaseDataGrid<CustomerExt>
+        respectCompanyLanguages
       enableModifierSelection
       enableDragSelection
         dataSource={gridData}
@@ -447,11 +448,8 @@ export default function CustomerManagementPage({
           startEditAction="dblClick"
         >
           <MasterDataEditPopup editorMode={isUpdate ? "edit" : "add"}
-            scrollable
             key={lang}
             title={popupTitle}
-            width="90%"
-            maxWidth={1100}
           />
           <CustomerExtForm categoryCodes={categoryCodes} customerTypeCodes={customerTypeCodes} />
         </Editing>

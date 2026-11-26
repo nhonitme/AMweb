@@ -77,7 +77,7 @@ import InventoryEditorPopup from "@/pages/Inventory/components/InventoryEditorPo
 import { useRowInventoryEditor, type SaveAccountingWithInventory, type InventoryDraftPreparation } from "./useRowInventoryEditor"
 import { useVoucherVatDetails } from "./useVoucherVatDetails"
 import VatDetailPanel from "./VatDetailPanel"
-import { applyLocalVatToDetailsForCopy } from "./voucherVatTypes"
+import { applyLocalVatToDetails } from "./voucherVatTypes"
 
 interface ChitEditorPopupProps {
     visible: boolean
@@ -283,7 +283,14 @@ export function ChitEditorPopup({
         visible,
         voucherValue: value,
         details: draft.DETAILS,
+        t,
     })
+
+    const mergeDetailsForSave = useCallback(
+        (details: ChitInfo["DETAILS"]) =>
+            applyLocalVatToDetails(details, voucherVat.vatByRowKey, voucherVat.dirtyVatRowKeys),
+        [voucherVat.dirtyVatRowKeys, voucherVat.vatByRowKey],
+    )
 
     const handleOpenInventory = useCallback(async (row: ChitInfo["DETAILS"][number], target?: LinkedInventoryTarget) => {
         if (chitType === "OT") {
@@ -317,14 +324,15 @@ export function ChitEditorPopup({
         }
         const sort = Number(activeVatDetail.SORT ?? 0)
         const description = String(activeVatDetail.DETAIL_DESCRIPTION_VIET ?? "").trim()
+        const rowPrefix = t("VAT_ROW_LABEL", "Dòng")
         if (sort > 0 && description) {
-            return `#${sort} · ${description}`
+            return `${rowPrefix} ${sort} · ${description}`
         }
         if (sort > 0) {
-            return `#${sort}`
+            return `${rowPrefix} ${sort}`
         }
         return description || undefined
-    }, [activeVatDetail])
+    }, [activeVatDetail, t])
 
     const editorDraft = useChitEditorDraft({
         visible,
@@ -337,6 +345,7 @@ export function ChitEditorPopup({
         detailGridRef,
         formRef,
         ensureAccountingInventoryLinksForSaveRef,
+        mergeDetailsForSave,
         onSave: rowInventory.saveSource,
         onSaveAndNew: rowInventory.saveSourceAndNew,
         t,
@@ -788,6 +797,7 @@ export function ChitEditorPopup({
                                         rowKey={voucherVat.activeVatRowKey}
                                         rowLabel={activeVatRowLabel}
                                         value={voucherVat.getVatDetail(voucherVat.activeVatRowKey)}
+                                        chitType={chitType}
                                         readOnly={readOnly}
                                         onChange={(patch) => {
                                             if (voucherVat.activeVatRowKey) {
@@ -820,7 +830,11 @@ export function ChitEditorPopup({
                                     const mergedDetails = mergeInventoryIntoDetails(details, draftRef.current.DETAILS)
                                     onCopy?.({
                                         ...cloneChit(draftRef.current),
-                                        DETAILS: applyLocalVatToDetailsForCopy(mergedDetails, voucherVat.vatByRowKey),
+                                        DETAILS: applyLocalVatToDetails(
+                                            mergedDetails,
+                                            voucherVat.vatByRowKey,
+                                            voucherVat.dirtyVatRowKeys,
+                                        ),
                                     })
                                 } catch {
                                     notify(t("COPY_FAILED", "Không thể sao chép chứng từ"), "error", 4000)

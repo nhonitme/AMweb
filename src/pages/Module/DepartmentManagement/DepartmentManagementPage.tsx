@@ -315,6 +315,7 @@ export default function DepartmentManagementPage({
       }
     >
       <BaseTreeList<DepartmentTreeRow>
+        respectCompanyLanguages
         selectionMode={isLookup ? "single" : "multiple"}
         dataSource={gridData}
         keyExpr="DEPARTMENT_ID"
@@ -362,8 +363,6 @@ export default function DepartmentManagementPage({
           <MasterDataTreeListEditPopup editorMode={isUpdate ? "edit" : "add"}
             key={lang}
             title={popupTitle}
-            width="90%"
-            maxWidth={980}
           />
           <DepartmentInfoForm isUpdate={isUpdate} />
         </Editing>

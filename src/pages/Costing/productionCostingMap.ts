@@ -17,7 +17,21 @@ import type {
   ValuationSaleRow,
   WipDetailRow,
 } from "./types/productionCostingTypes";
-import { emptyPrerequisiteValidation } from "./types/productionCostingTypes";
+import { COSTING_STEPS, emptyPrerequisiteValidation } from "./types/productionCostingTypes";
+
+type TranslateFn = (key: string, fallback: string) => string;
+
+function resolveStepLabel(stepIndex: number, t: TranslateFn): { code: string; title: string; sub: string } {
+  const def = COSTING_STEPS.find((step) => step.index === stepIndex);
+  if (!def) {
+    return { code: "", title: "", sub: "" };
+  }
+  return {
+    code: def.code,
+    title: t(def.titleKey, def.titleFallback),
+    sub: t(def.subKey, def.subFallback),
+  };
+}
 
 type Rec = Record<string, unknown>;
 
@@ -296,16 +310,24 @@ export function mapCogsRows(items: Rec[]): ValuationSaleRow[] {
 export function buildReopenInfo(
   overview: ProductionCostingOverview,
   stepIndex: 1 | 2 | 3 | 4 | 5 | 6,
+  t: TranslateFn = (_key, fallback) => fallback,
 ): CostingReopenInfo {
-  const titles = ["", "Khóa TSCĐ/CPTT", "Phân bổ 622/627", "Kết chuyển 154", "Tính giá thành", "Định giá xuất", "Khóa lãi lỗ"];
+  const currentStep = resolveStepLabel(stepIndex, t);
   const current = overview.stepStatuses[stepIndex - 1];
   const blocking = overview.stepStatuses
-    .map((status, index) => ({ stepIndex: index + 1, title: titles[index + 1], status }))
+    .map((status, index) => {
+      const label = resolveStepLabel(index + 1, t);
+      return {
+        stepIndex: index + 1,
+        title: label.sub ? `${label.title} — ${label.sub}` : label.title,
+        status,
+      };
+    })
     .filter((row) => row.stepIndex > stepIndex && row.status === "DONE");
   return {
     stepIndex,
-    stepCode: titles[stepIndex],
-    stepTitle: titles[stepIndex],
+    stepCode: currentStep.sub || currentStep.code,
+    stepTitle: currentStep.title,
     companyCd: overview.companyCd,
     periodYm: overview.periodYm,
     currentStatus: current,
@@ -314,7 +336,13 @@ export function buildReopenInfo(
     relatedResults: [],
     blockingDependents: blocking,
     canReopen: current === "DONE" || current === "REOPENED",
-    blockReason: blocking.length > 0 ? "Hệ thống sẽ hoàn nguyên các bước DONE phía sau trong cùng thao tác." : "",
+    blockReason:
+      blocking.length > 0
+        ? t(
+            "GK_REOPEN_BLOCK_REASON",
+            "Hệ thống sẽ hoàn nguyên các bước đã hoàn tất phía sau trong cùng thao tác.",
+          )
+        : "",
     warnings: overview.warnings.map((row) => row.message),
   };
 }

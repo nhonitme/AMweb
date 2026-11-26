@@ -267,9 +267,11 @@ export function resolveDevExtremeColumnFormat(format: string | null | undefined)
     case "string":
     case "boolean":
     case "bool":
-    case "date":
-    case "datetime":
       return undefined
+    case "date":
+      return "dd/MM/yyyy"
+    case "datetime":
+      return "dd/MM/yyyy HH:mm"
     case "number0":
     case "integer":
       return "#,##0"

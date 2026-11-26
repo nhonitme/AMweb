@@ -1,4 +1,5 @@
-﻿import { useCallback, useContext, useEffect, useMemo, useState } from "react"
+import { masterFormGroupCaptions } from "@/components/forms/masterFormSectionIcons"
+import { useCallback, useContext, useEffect, useMemo, useState } from "react"
 import TextBox from "devextreme-react/text-box"
 import { Form as DxForm } from "devextreme-react/data-grid"
 import { GroupItem, Item } from "devextreme-react/form"
@@ -17,6 +18,7 @@ import { normalizeTaxCode } from "@/lib/taxCode"
 import type { BankInfo } from "@/types/bankInfo"
 import type { TaxLookupInfo } from "@/types/taxLookup"
 import { checkCodeExists } from "@/api/lookupApi"
+import { isLangFieldVisible, orderCompanyLangFields, useCompanyLangRevision } from "@/lib/companyLang"
 import { useMasterFormValidation } from "@/components/forms/useMasterFormValidation"
 import { requiredMasterMessage } from "@/components/forms/masterValidationMessages"
 import { MasterPopupFieldError } from "@/components/datagrid/masterPopupValidation"
@@ -34,18 +36,9 @@ import {
   resolveCustomerIdentitySeed,
 } from "./customerEditSession"
 
-export type FormGroup = {
-  key: string
-  caption: string
-  colCount: number
-  cssClass?: string
-  items: FormItemConfig[]
-}
-
 interface CustomerExtFormProps {
   categoryCodes: SysCode[]
   customerTypeCodes: SysCode[]
-  formGroups?: FormGroup[]
   translate?: (key: string, fallback?: string) => string
 }
 
@@ -271,7 +264,7 @@ function CustomerIdentitySection({
   )
 
   return (
-    <div className="grid w-full grid-cols-1 gap-3 md:grid-cols-2">
+    <div className="customer-identity-fields">
       <div className="min-w-0">
         <div className="dx-field-item-label-text mb-1 text-sm">{labels.taxCd}</div>
         <TaxCodeLookupField
@@ -280,7 +273,7 @@ function CustomerIdentitySection({
           onLookupApply={applyLookup}
         />
       </div>
-      <div className="min-w-0">
+      <div className="customer-identity-fields__name min-w-0">
         <div className="dx-field-item-label-text mb-1 text-sm">{labels.name}</div>
         <TextBox
           value={values.CUSTOMER_NM_VIET}
@@ -290,7 +283,7 @@ function CustomerIdentitySection({
         />
         <MasterPopupFieldError dataField="CUSTOMER_NM_VIET" />
       </div>
-      <div className="min-w-0 md:col-span-2">
+      <div className="customer-identity-fields__address min-w-0">
         <div className="dx-field-item-label-text mb-1 text-sm">{labels.address}</div>
         <TextBox
           value={values.ADDRESS}
@@ -326,7 +319,6 @@ function CustomerIdentityFormItem({
 export default function CustomerExtForm({
   categoryCodes,
   customerTypeCodes,
-  formGroups,
   translate: translateOverride,
 }: CustomerExtFormProps) {
   const { translate } = useContext(LanguageContext) as {
@@ -341,17 +333,20 @@ export default function CustomerExtForm({
     [translate, translateOverride],
   )
   const validation = useMasterFormValidation(t)
+  const companyLangRevision = useCompanyLangRevision()
 
   const identityLabels = useMemo(
     () => ({
       taxCd: t("TAX_CD", "Tax Code"),
-      name: t("CUSTOMER_NM_VIET", "Customer Name (VI)"),
+      name: isLangFieldVisible("CUSTOMER_NM_VIET")
+        ? t("CUSTOMER_NM_VIET", "Tên khách hàng (VI)")
+        : t("CUSTOMER_LEGAL_NAME", "Tên theo đăng ký thuế"),
       address: t("ADDRESS", "Address"),
     }),
-    [t],
+    [companyLangRevision, t],
   )
 
-  const defaultGroups = useMemo(() => {
+  const groups = useMemo(() => {
     const createItem = (fieldKey: CustomerFieldKey): FormItemConfig => {
       const field = customerFields.find((item) => item.key === fieldKey)
       const caption = t(fieldKey === "BANK_ID" ? "BANK_CD" : fieldKey, field?.caption ?? fieldKey)
@@ -370,22 +365,19 @@ export default function CustomerExtForm({
       }
     }
 
+    const translationFields = ["CUSTOMER_NM_ENG", "CUSTOMER_NM_KOR"] as const
+    const translations = orderCompanyLangFields(translationFields, (field) => field)
+
     return [
       {
         key: "basic",
-        caption: t("BASE_INFO", "Basic Information"),
-        colCount: 3,
-        cssClass: "popup-card popup-card--classify",
-        items: customerFieldGroups.basic.map(createItem),
-      },
-      {
-        key: "names",
-        caption: t("CUSTOMER_NAME_INFO", "Thông tin khách hàng"),
-        colCount: 1,
-        cssClass: "popup-card popup-card--company",
+        caption: t("BASE_INFO", "Thông tin chung"),
+        colCount: 6,
         items: [
+          ...customerFieldGroups.basic.map((field) => ({ ...createItem(field), colSpan: 2 })),
           {
             dataField: "CUSTOMER_NM_VIET",
+            colSpan: 6,
             label: { visible: false },
             validationRules: requiredCustomerFields.has("CUSTOMER_NM_VIET")
               ? [{ type: "required" as const, message: requiredMasterMessage(t, identityLabels.name) }]
@@ -394,19 +386,33 @@ export default function CustomerExtForm({
               <CustomerIdentityFormItem component={data.component} labels={identityLabels} />
             ),
           } satisfies FormItemConfig,
+          ...translations.map((field) => ({ ...createItem(field), colSpan: translations.length === 1 ? 6 : 3 })),
         ],
       },
       {
         key: "contact",
         caption: t("COMPANY_INFO_CONTACT", "Contact Information"),
-        colCount: 2,
-        cssClass: "popup-card popup-card--contact",
-        items: [...customerFieldGroups.contact, ...customerFieldGroups.finance, ...customerFieldGroups.other].map(createItem),
+        colCount: 3,
+        captionRender: masterFormGroupCaptions.tel,
+        items: customerFieldGroups.contact.map(createItem),
       },
-    ]
-  }, [categoryCodes, customerTypeCodes, identityLabels, t])
+      {
+        key: "finance",
+        caption: t("CUSTOMER_FINANCE_INFO", "Thông tin liên quan"),
+        colCount: 3,
+        captionRender: masterFormGroupCaptions.money,
+        items: customerFieldGroups.finance.map(createItem),
+      },
+      {
+        key: "other",
+        caption: t("Other", "Khác"),
+        colCount: 2,
+        captionRender: masterFormGroupCaptions.overflow,
+        items: customerFieldGroups.other.map(createItem),
+      },
+    ].filter((group) => group.items.length > 0)
+  }, [categoryCodes, companyLangRevision, customerTypeCodes, identityLabels, t])
 
-  const groups = formGroups && formGroups.length > 0 ? formGroups : defaultGroups
   // Stable option references prevent DevExtreme from rebuilding the popup.
   const itemLabels = useMemo(() => new Map(groups.flatMap(group =>
     group.items.map(item => [item, typeof item.label === "string" ? { text: item.label } : item.label] as const),
@@ -428,7 +434,7 @@ export default function CustomerExtForm({
         customizeItem={validation.customizeItem}
       >
         {groups.map((group) => (
-          <GroupItem key={group.key} caption={group.caption} colCount={group.colCount} cssClass={group.cssClass}>
+          <GroupItem key={group.key} caption={group.caption} captionRender={group.captionRender ?? masterFormGroupCaptions.info} colCount={group.colCount} colCountByScreen={{ xs: 1 }}>
             {group.items.map((item) => (
               <Item
                 key={typeof item.label === "string" ? item.dataField : `${item.dataField}-custom`}

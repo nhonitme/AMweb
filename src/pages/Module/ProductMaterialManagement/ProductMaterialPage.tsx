@@ -3,13 +3,17 @@ import DataGrid, { Column, Paging } from "devextreme-react/data-grid"
 import type dxDataGrid from "devextreme/ui/data_grid"
 import Button from "devextreme-react/button"
 import TextBox from "devextreme-react/text-box"
-import Popup from "devextreme-react/popup"
+import Popup, { ToolbarItem } from "devextreme-react/popup"
 import SelectBox from "devextreme-react/select-box"
 import notify from "devextreme/ui/notify"
 import { confirm } from "devextreme/ui/dialog"
 
 import DxPage from "@/dx/DxPage"
+import { MASTER_DATA_POPUP_MAX_WIDTH, MasterDataPopupTitleView } from "@/components/datagrid/MasterDataEditPopup"
+import { renderMasterFormSectionIcon } from "@/components/forms/masterFormSectionIcons"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
+import { EDITOR_ACTION_ICONS } from "@/components/toolbar/editorActionDefaults"
+import "@/components/toolbar/EditorActionToolbar.scss"
 import BaseExcelImportPopup from "@/components/forms/BaseExcelImportPopup"
 import { useProductMaterialAllImportConfig } from "./ProductMaterialImportConfig"
 import {
@@ -21,20 +25,29 @@ import {
 import { useMasterListLoadError } from "@/hooks/queries/master/masterQueryHelpers"
 import { getApiErrorMessage } from "@/api/apiTypes"
 import { getCurrentCompanyCd } from "@/lib/login"
+import { isLangFieldVisible, pickLocalizedText, useCompanyLangRevision } from "@/lib/companyLang"
 import { LanguageContext } from "@/lib/i18nLoader"
+import type { Product } from "@/types/product"
 import type { ProductMaterialRow } from "@/types/productMaterial"
 
 const PRODUCT_DIVISION_FILTER = "155"
 const MATERIAL_DIVISION_FILTER = "152"
 const numberFormat = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 6 })
 const matchText = (input: string) => input.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+const productSearchFields = ["PRODUCT_CD", "PRODUCT_NM_VIET", "PRODUCT_NM_ENG", "PRODUCT_NM_KOR"] as const
+
+function displayProduct(item: Product): string {
+  const name = pickLocalizedText(item, "PRODUCT_NM")
+  return name ? `${item.PRODUCT_CD} - ${name}` : item.PRODUCT_CD
+}
 
 function ProductMaterialContent() {
+  const companyLangRevision = useCompanyLangRevision()
   const { translate } = useContext(LanguageContext) as {
     translate?: (key: string, fallback?: string) => string
   }
   const t = useCallback(
-    (key: string, fallback: string) => translate?.(key, fallback) ?? fallback,
+    (key: string, fallback = key) => translate?.(key, fallback) ?? fallback,
     [translate],
   )
   const [selectedId, setSelectedId] = useState(0)
@@ -44,6 +57,7 @@ function ProductMaterialContent() {
   const [materialProductId, setMaterialProductId] = useState(0)
   const [quantity, setQuantity] = useState(1)
   const gridRef = useRef<dxDataGrid | null>(null)
+  const materialFormRef = useRef<HTMLFormElement>(null)
   const [importOpen, setImportOpen] = useState(false)
   const importAllConfig = useProductMaterialAllImportConfig()
 
@@ -136,20 +150,36 @@ function ProductMaterialContent() {
     [products, selectedId],
   )
 
+  const visibleSearchFields = useMemo(
+    () => productSearchFields.filter(isLangFieldVisible),
+    [companyLangRevision],
+  )
+
   const visibleProducts = useMemo(() => {
     const key = matchText(search.trim())
     return products.filter((item) => !key || matchText(
-      item.PRODUCT_CD + " " + item.PRODUCT_NM_VIET,
+      visibleSearchFields.map((field) => item[field]).join(" "),
     ).includes(key))
-  }, [products, search])
+  }, [products, search, visibleSearchFields])
 
   const materialOptions = useMemo(
     () => materialCatalog.filter((item) => item.PRODUCT_ID !== selectedId).map((item) => ({
       ...item,
-      DISPLAY: item.PRODUCT_CD + " - " + item.PRODUCT_NM_VIET,
+      DISPLAY: displayProduct(item),
     })),
-    [materialCatalog, selectedId],
+    [companyLangRevision, materialCatalog, selectedId],
   )
+
+  const materialRows = useMemo(() => {
+    const catalog = new Map(materialCatalog.map((item) => [item.PRODUCT_ID, item]))
+    const allowVietnamese = isLangFieldVisible("PRODUCT_NM_VIET")
+    return materials.map((row) => ({
+      ...row,
+      MATERIAL_PRODUCT_NM: pickLocalizedText(catalog.get(row.MATERIAL_PRODUCT_ID), "PRODUCT_NM")
+        || (allowVietnamese ? row.MATERIAL_PRODUCT_NM : "")
+        || row.MATERIAL_PRODUCT_CD,
+    }))
+  }, [companyLangRevision, materialCatalog, materials])
 
   function openAdd() {
     if (!selectedId) return
@@ -246,7 +276,7 @@ function ProductMaterialContent() {
                     : "border-transparent hover:bg-slate-50")}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold text-slate-800">{item.PRODUCT_NM_VIET}</div>
+                    <div className="text-sm font-semibold text-slate-800">{pickLocalizedText(item, "PRODUCT_NM") || item.PRODUCT_CD}</div>
                     <div className="mt-1 text-xs text-slate-400">{item.PRODUCT_CD} · {item.UNIT_NM ?? ""}</div>
                   </div>
                   <span className={"shrink-0 rounded px-1.5 py-0.5 text-[10px] " +
@@ -268,7 +298,7 @@ function ProductMaterialContent() {
           <div className="border-b border-slate-200 px-5 py-4">
             <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("PM_SELECTED_PRODUCT", "Thành phẩm đang chọn")}</p>
             <h1 className="text-lg font-bold text-slate-800">
-              {product ? product.PRODUCT_CD + " - " + product.PRODUCT_NM_VIET : t("PM_NO_PRODUCT_SELECTED", "Chưa chọn thành phẩm")}
+              {product ? displayProduct(product) : t("PM_NO_PRODUCT_SELECTED", "Chưa chọn thành phẩm")}
             </h1>
             <p className="mt-1 text-xs text-slate-400">{t("PM_PRODUCT_UNIT_AND_COUNT", "ĐVT: {0} · Số NVL: {1}")
               .replace("{0}", product?.UNIT_NM ?? "—").replace("{1}", String(materials.length))}</p>
@@ -291,7 +321,7 @@ function ProductMaterialContent() {
             </div>
 
             <div className="min-h-[360px] flex-1">
-              <DataGrid dataSource={materials} keyExpr="MATERIAL_ID"
+              <DataGrid dataSource={materialRows} keyExpr="MATERIAL_ID"
                 onInitialized={(event) => { gridRef.current = event.component ?? null }}
                 showBorders columnAutoWidth={false} rowAlternationEnabled
                 loadPanel={{ enabled: loadingMaterialDetails }}
@@ -328,34 +358,55 @@ function ProductMaterialContent() {
             dx-state-invisible (display: none) is removed on show. The visible overlay
             is still rendered in document.body by DevExtreme. */}
         <div className="absolute left-0 top-0 h-0 w-0">
-        <Popup container="body" visible={popupOpen} showTitle title={editId ? t("PM_POPUP_EDIT", "Sửa nguyên vật liệu") : t("PM_POPUP_ADD", "Thêm nguyên vật liệu")}
-          width={540} height="auto" dragEnabled={false} closeOnOutsideClick={!saving}
+        <Popup container="body" visible={popupOpen} showTitle
+          titleRender={() => <MasterDataPopupTitleView title={editId ? t("lblEdit", "Chỉnh sửa") : t("lblAddNew", "Thêm mới")} />}
+          wrapperAttr={{ class: `master-data-edit-popup editor-mode--${editId ? "edit" : "add"}` }}
+          width={`min(90vw, ${MASTER_DATA_POPUP_MAX_WIDTH}px)`} height="auto" dragEnabled={false} hideOnOutsideClick={!saving}
           onHiding={() => { if (!saving) setPopupOpen(false) }}>
-          <form className="space-y-4 p-2" onSubmit={(event) => {
+          <ToolbarItem toolbar="bottom" location="after" widget="dxButton" options={{
+            text: saving ? t("PM_SAVING", "Đang lưu...") : t("lblSave", "Lưu"),
+            icon: EDITOR_ACTION_ICONS.save,
+            type: "default",
+            stylingMode: "contained",
+            disabled: saving,
+            onClick: () => materialFormRef.current?.requestSubmit(),
+          }} />
+          <ToolbarItem toolbar="bottom" location="after" widget="dxButton" options={{
+            text: t("lblCancel", "Hủy"),
+            icon: EDITOR_ACTION_ICONS.close,
+            type: "normal",
+            stylingMode: "outlined",
+            disabled: saving,
+            onClick: () => setPopupOpen(false),
+          }} />
+          <form ref={materialFormRef} onSubmit={(event) => {
             event.preventDefault()
+            if (saving) return
             void handleSave()
           }}>
-            <div>
-              <label className="mb-1 block text-sm font-medium">{t("PM_MATERIAL_NAME", "Nguyên vật liệu")} <span className="text-red-500">*</span></label>
-              <SelectBox dataSource={materialOptions} valueExpr="PRODUCT_ID" displayExpr="DISPLAY"
-                searchEnabled searchExpr={["PRODUCT_CD", "PRODUCT_NM_VIET"]}
-                placeholder={t("PM_SEARCH_MATERIAL", "Tìm mã hoặc tên NVL")} value={materialProductId || null}
-                onValueChanged={(event) => setMaterialProductId(Number(event.value ?? 0))}
-                disabled={saving} />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium">{t("PM_QUANTITY", "Số lượng định mức")} <span className="text-red-500">*</span></label>
-              <input type="number" min="0.000001" max="999999999999.999999" step="0.000001"
-                value={quantity} onChange={(event) => setQuantity(Number(event.target.value))}
-                disabled={saving} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button text={t("lblCancel", "Hủy")} stylingMode="outlined" type="normal"
-                disabled={saving} onClick={() => setPopupOpen(false)} />
-              <Button text={saving ? t("PM_SAVING", "Đang lưu...") : t("lblSave", "Lưu")}
-                stylingMode="contained" type="default" disabled={saving}
-                useSubmitBehavior />
-            </div>
+            <button type="submit" hidden disabled={saving} />
+            <section className="master-data-form-section">
+              <h2 className="master-data-form-section__title">
+                {renderMasterFormSectionIcon()}
+                {t("BASE_INFO", "Thông tin chung")}
+              </h2>
+              <div className="master-data-form-section__fields">
+                <div>
+                  <label className="mb-1 block text-sm font-medium">{t("PM_MATERIAL_NAME", "Nguyên vật liệu")} <span className="text-red-500">*</span></label>
+                  <SelectBox dataSource={materialOptions} valueExpr="PRODUCT_ID" displayExpr="DISPLAY"
+                    searchEnabled searchExpr={visibleSearchFields}
+                    placeholder={t("PM_SEARCH_MATERIAL", "Tìm mã hoặc tên NVL")} value={materialProductId || null}
+                    onValueChanged={(event) => setMaterialProductId(Number(event.value ?? 0))}
+                    disabled={saving} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium">{t("PM_QUANTITY", "Số lượng định mức")} <span className="text-red-500">*</span></label>
+                  <input type="number" min="0.000001" max="999999999999.999999" step="0.000001"
+                    value={quantity} onChange={(event) => setQuantity(Number(event.target.value))}
+                    disabled={saving} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                </div>
+              </div>
+            </section>
           </form>
         </Popup>
         <BaseExcelImportPopup

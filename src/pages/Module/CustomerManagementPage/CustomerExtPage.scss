@@ -1,5 +1,18 @@
-.customer-ext-form {
-  width: 100%;
-  max-width: 1100px;
-  margin: 0 auto;
+.customer-identity-fields {
+  display: grid;
+  gap: 10px 16px;
+}
+
+@media (min-width: 768px) {
+  .customer-identity-fields {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+
+    &__name {
+      grid-column: span 2;
+    }
+
+    &__address {
+      grid-column: 1 / -1;
+    }
+  }
 }

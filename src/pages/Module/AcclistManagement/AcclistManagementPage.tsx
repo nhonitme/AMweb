@@ -268,6 +268,7 @@ export default function AcclistManagementPage({
       }
     >
       <BaseTreeList<AcclistInfo>
+        respectCompanyLanguages
         dataSource={gridData}
         keyExpr="ACC_ID"
         parentIdExpr="ACC_PARENT_ID"
@@ -315,8 +316,6 @@ export default function AcclistManagementPage({
           <MasterDataTreeListEditPopup editorMode={isUpdate ? "edit" : "add"}
             key={lang}
             title={popupTitle}
-            width="90%"
-            maxWidth={800}
           />
           <AcclistForm isUpdate={isUpdate} lblChoose={lblChoose} lblAccType={lblAccType} data={accTypeData} />
         </Editing>

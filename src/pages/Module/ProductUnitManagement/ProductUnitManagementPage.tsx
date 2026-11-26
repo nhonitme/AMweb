@@ -265,8 +265,6 @@ export default function ProductUnitManagementPage({
             <MasterDataEditPopup editorMode={isUpdate ? "edit" : "add"}
               key={lang}
               title={popupTitle}
-              width="90%"
-              maxWidth={800}
             />
             <ProductUnitForm />
           </Editing>

@@ -297,6 +297,7 @@ export default function ManagementInfoPage({
       }
     >
       <BaseDataGrid<ManagementInfo>
+        respectCompanyLanguages
       enableModifierSelection
       enableDragSelection
         dataSource={gridData}
@@ -342,8 +343,6 @@ export default function ManagementInfoPage({
           <MasterDataEditPopup editorMode={isUpdate ? "edit" : "add"}
             key={lang}
             title={popupTitle}
-            width="90%"
-            maxWidth={980}
           />
           <ManagementInfoForm />
         </Editing>

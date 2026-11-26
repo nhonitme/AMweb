@@ -251,6 +251,7 @@ export default function ProductManagementPage({
       }
     >
         <BaseDataGrid<Product>
+          respectCompanyLanguages
           enableModifierSelection
           enableDragSelection
           dataSource={gridData}
@@ -311,10 +312,7 @@ export default function ProductManagementPage({
           >
             <MasterDataEditPopup editorMode={isUpdate ? "edit" : "add"}
               key={lang}
-              scrollable
               title={popupTitle}
-              width="90%"
-              maxWidth={800}
             />
             <ProductForm />
           </Editing>

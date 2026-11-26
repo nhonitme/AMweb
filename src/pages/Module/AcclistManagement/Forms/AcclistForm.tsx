@@ -1,10 +1,12 @@
+import { masterFormGroupCaptions } from "@/components/forms/masterFormSectionIcons";
+import { getMasterNameFields } from "@/components/forms/masterNameFields";
 import { checkCodeExists } from "@/api/lookupApi";
 import { useMasterFormValidation } from "@/components/forms/useMasterFormValidation";
 import { Form } from 'devextreme-react/tree-list';
-import { Item  } from 'devextreme-react/form';
+import { GroupItem, Item } from 'devextreme-react/form';
 import {useContext, useMemo } from 'react';
 import { createOutlinedEditorOptions } from '@/components/forms/devExtremeEditorOptions';
-import { isDefaultLangField, isLangFieldVisible, useCompanyLangRevision } from '@/lib/companyLang';
+import { useCompanyLangRevision } from '@/lib/companyLang';
 import { LanguageContext } from '@/lib/i18nLoader';
 
 type AcclistFormProps = {
@@ -19,40 +21,40 @@ export function AcclistForm({ isUpdate, lblChoose, lblAccType, data }: AcclistFo
   const companyLangRevision = useCompanyLangRevision();
   const validation = useMasterFormValidation(translate);
   return useMemo(() => (
-    <Form key={companyLangRevision} colCount={2} onInitialized={validation.onInitialized} onFieldDataChanged={validation.onFieldDataChanged}>
-      <Item dataField="ACC_CD" validationRules={validation.code("ACC_CD", "ACC_ID", (id, value) => checkCodeExists("account", value, id))}
-        editorOptions={createOutlinedEditorOptions({           
-          validationMessageMode: "always",
-          readOnly: isUpdate
-        })}  
-      >
-      </Item>
-      
-      <Item dataField="ISABLETYPE"
-        editorType="dxSelectBox"
-        label={{ text: lblAccType }}
-        editorOptions={createOutlinedEditorOptions({
-          dataSource: data,
-          valueExpr: "VALUE",
-          displayExpr: "TEXT",
-          searchEnabled: true,
-          placeholder: lblChoose,
-          showClearButton: true,
-          validationMessageMode: "always"
-        })}
-      >
+    <Form key={companyLangRevision} colCount={1} labelLocation="top" width="100%" onInitialized={validation.onInitialized} onFieldDataChanged={validation.onFieldDataChanged}>
+      <GroupItem caption={translate("BASE_INFO", "Thông tin chung")} captionRender={masterFormGroupCaptions.info} colCount={2} colCountByScreen={{ xs: 1 }}>
+        <Item dataField="ACC_CD" validationRules={validation.code("ACC_CD", "ACC_ID", (id, value) => checkCodeExists("account", value, id))}
+          editorOptions={createOutlinedEditorOptions({
+            validationMessageMode: "always",
+            readOnly: isUpdate
+          })}
+        >
+        </Item>
 
-      </Item>
-
-      <Item dataField="ACCTITLE_NM_VIET" colSpan={2}
-        visible={isLangFieldVisible('ACCTITLE_NM_VIET') || isDefaultLangField('ACCTITLE_NM_VIET')}
-        validationRules={isDefaultLangField('ACCTITLE_NM_VIET') ? validation.required('ACCTITLE_NM_VIET') : []}
-        editorOptions={createOutlinedEditorOptions({ validationMessageMode: "always" })}
-      >
-      </Item>
-      <Item dataField="ACCTITLE_NM_ENG" colSpan={2} visible={isLangFieldVisible('ACCTITLE_NM_ENG') || isDefaultLangField('ACCTITLE_NM_ENG')} validationRules={isDefaultLangField('ACCTITLE_NM_ENG') ? validation.required('ACCTITLE_NM_ENG') : []} editorOptions={createOutlinedEditorOptions()} />
-      <Item dataField="ACCTITLE_NM_KOR" colSpan={2} visible={isLangFieldVisible('ACCTITLE_NM_KOR') || isDefaultLangField('ACCTITLE_NM_KOR')} validationRules={isDefaultLangField('ACCTITLE_NM_KOR') ? validation.required('ACCTITLE_NM_KOR') : []} editorOptions={createOutlinedEditorOptions()} />
-      <Item dataField="ACCTITLE_NM_CHINA" colSpan={2} visible={isLangFieldVisible('ACCTITLE_NM_CHINA') || isDefaultLangField('ACCTITLE_NM_CHINA')} validationRules={isDefaultLangField('ACCTITLE_NM_CHINA') ? validation.required('ACCTITLE_NM_CHINA') : []} editorOptions={createOutlinedEditorOptions()} />
+        <Item dataField="ISABLETYPE"
+          editorType="dxSelectBox"
+          label={{ text: lblAccType }}
+          editorOptions={createOutlinedEditorOptions({
+            dataSource: data,
+            valueExpr: "VALUE",
+            displayExpr: "TEXT",
+            searchEnabled: true,
+            placeholder: lblChoose,
+            showClearButton: true,
+            validationMessageMode: "always"
+          })}
+        >
+        </Item>
+        {getMasterNameFields("ACCTITLE_NM").map((field, index, fields) => (
+          <Item
+            key={field}
+            dataField={field}
+            colSpan={index === fields.length - 1 && fields.length % 2 === 1 ? 2 : 1}
+            validationRules={field === "ACCTITLE_NM_VIET" ? validation.required(field) : []}
+            editorOptions={createOutlinedEditorOptions(field === "ACCTITLE_NM_VIET" ? { validationMessageMode: "always" } : {})}
+          />
+        ))}
+      </GroupItem>
     </Form>
-  ), [companyLangRevision, validation, isUpdate, lblChoose, lblAccType, data]);
+  ), [translate, companyLangRevision, validation, isUpdate, lblChoose, lblAccType, data]);
 }

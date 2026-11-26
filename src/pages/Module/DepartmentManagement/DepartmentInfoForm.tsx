@@ -1,9 +1,10 @@
+import { masterFormGroupCaptions } from "@/components/forms/masterFormSectionIcons"
 import {useContext, useMemo, useCallback, type FC } from "react"
 import { Form as DxForm } from "devextreme-react/tree-list"
 import { GroupItem, Item } from "devextreme-react/form"
 
 import { createOutlinedEditorOptions } from "@/components/forms/devExtremeEditorOptions"
-import { isDefaultLangField, isLangFieldVisible, useCompanyLangRevision } from "@/lib/companyLang"
+import { orderCompanyLangFields, useCompanyLangRevision } from "@/lib/companyLang"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { departmentFieldGroups, type DepartmentFieldKey } from "./Columns/DepartmentFields"
 import { checkCodeExists } from "@/api/lookupApi"
@@ -64,7 +65,7 @@ const DepartmentInfoForm: FC<DepartmentInfoFormProps> = () => {
         validationRules:
           requiredDepartmentFields.has(fieldKey)
             ? validation.code(fieldKey, "DEPARTMENT_ID", (id, value) => checkCodeExists("department", value, id), baseCaption)
-            : isDefaultLangField(fieldKey) ? validation.required(fieldKey, baseCaption) : [],
+            : fieldKey === "DEP_NAME_VIET" ? validation.required(fieldKey, baseCaption) : [],
         cssClass: groupItemCount === 1 ? "field-narrow" : undefined,
       }
     }
@@ -72,7 +73,8 @@ const DepartmentInfoForm: FC<DepartmentInfoFormProps> = () => {
     const basicItems = departmentFieldGroups.basic.map((fieldKey) =>
       createItem(fieldKey, departmentFieldGroups.basic.length),
     )
-    const visibleNameFields = departmentFieldGroups.names.filter((fieldKey) => isLangFieldVisible(fieldKey) || isDefaultLangField(fieldKey))
+    const visibleNameFields = orderCompanyLangFields(departmentFieldGroups.names, (field) => field)
+    if (!visibleNameFields.includes("DEP_NAME_VIET")) visibleNameFields.push("DEP_NAME_VIET")
     const namesItems = visibleNameFields.map((fieldKey) => createItem(fieldKey, visibleNameFields.length))
 
     const colCountFor = (itemCount: number) => Math.max(1, Math.min(2, itemCount))
@@ -80,17 +82,16 @@ const DepartmentInfoForm: FC<DepartmentInfoFormProps> = () => {
     return [
       {
         key: "basic",
-        caption: t("BASE_INFO", "Basic Information"),
+        caption: t("BASE_INFO", "Thông tin chung"),
         colCount: colCountFor(basicItems.length),
         items: basicItems,
-        cardVariant: "info" as const,
       },
       {
         key: "names",
         caption: t("DEPARTMENT_NAME_INFO", "Department Names"),
         colCount: colCountFor(namesItems.length),
         items: namesItems,
-        cardVariant: "lang" as const,
+        captionRender: masterFormGroupCaptions.globe,
       },
     ]
   }, [companyLangRevision, t, validation])
@@ -102,8 +103,9 @@ const DepartmentInfoForm: FC<DepartmentInfoFormProps> = () => {
           <GroupItem
             key={group.key}
             caption={group.caption}
+            captionRender={group.captionRender ?? masterFormGroupCaptions.info}
             colCount={group.colCount ?? 2}
-            cssClass={`popup-card popup-card--${group.cardVariant}`}
+            colCountByScreen={{ xs: 1 }}
           >
             {group.items.map((item) => (
               <Item

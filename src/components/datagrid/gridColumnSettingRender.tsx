@@ -1,6 +1,6 @@
 import React from "react"
 
-import { shouldHideLangColumn } from "@/lib/companyLang"
+import { isLangFieldVisible, shouldHideLangColumn } from "@/lib/companyLang"
 import { asGridSettingArray } from "@/lib/gridSettingCache"
 import { resolveSysGridColumnDisplayCaption } from "@/lib/gridColumnSettingUtils"
 import { isReportSystemField } from "@/lib/reportSystemFields"
@@ -18,6 +18,11 @@ export type ApplyGridColumnSettingsOptions = {
    * Hide FE/schema columns that are absent from sys_grid_column (no FE fallback).
    */
   hideColumnsMissingFromSettings?: boolean
+  respectCompanyLanguages?: boolean
+}
+
+function isInactiveLanguageColumn(field: string, fields: string[], options?: ApplyGridColumnSettingsOptions) {
+  return options?.respectCompanyLanguages ? !isLangFieldVisible(field) : shouldHideLangColumn(field, fields)
 }
 
 type GridColumnSettingsComponent = {
@@ -28,6 +33,8 @@ type GridColumnSettingsComponent = {
   endUpdate?: () => void
   option?: (name: string) => unknown
 }
+
+const languageHiddenColumns = new WeakMap<GridColumnSettingsComponent, Set<string>>()
 
 export function isGridComponentReady(component: GridColumnSettingsComponent | null | undefined): boolean {
   if (!component || typeof component.columnCount !== "function") {
@@ -65,8 +72,10 @@ function resolveDevExtremeColumnFormat(formatType: string | null | undefined): s
 
   switch (normalized.toLowerCase()) {
     case "date":
+      // Keep padded day/month; returning undefined lets DevExtreme fall back to locale short (e.g. 1/9/2026).
+      return "dd/MM/yyyy"
     case "datetime":
-      return undefined
+      return "dd/MM/yyyy HH:mm"
     case "number0":
     case "integer":
       return "#,##0"
@@ -547,7 +556,7 @@ function applyGridColumnSettingsToChildrenUnsafe(
       nextProps.allowHiding = false
     }
 
-    const hideInactiveLang = columnCandidateKeys.some((columnKey) => shouldHideLangColumn(columnKey, allFieldNames))
+    const hideInactiveLang = columnCandidateKeys.some((columnKey) => isInactiveLanguageColumn(columnKey, allFieldNames, options))
     if (hideInactiveLang) {
       nextProps.visible = false
       nextProps.allowHiding = false
@@ -746,6 +755,10 @@ export function applyGridColumnSettingsToComponent(
   )
   const hideColumnsMissingFromSettings = Boolean(options?.hideColumnsMissingFromSettings)
   const processedColumnReferences = new Set<GridColumnReference>()
+  const languageHidden = options?.respectCompanyLanguages
+    ? languageHiddenColumns.get(component) ?? new Set<string>()
+    : undefined
+  if (languageHidden) languageHiddenColumns.set(component, languageHidden)
 
   component.beginUpdate?.()
 
@@ -771,10 +784,12 @@ export function applyGridColumnSettingsToComponent(
 
       const technicalIdColumn = isTechnicalIdColumnName(columnKey)
       const columnProps = currentColumn as Record<string, unknown>
+      const normalizedKey = columnKey.toUpperCase()
+      const restoredLanguage = isLangFieldVisible(normalizedKey) && languageHidden?.delete(normalizedKey)
       // Persisted/previous runtime chooser flags cannot override an
       // explicit visible column in the current sys_grid_column layout.
       const lockedHiddenColumn = technicalIdColumn ||
-        (isLockedHiddenColumnProps(columnProps) && !item.isVisible)
+        (!restoredLanguage && isLockedHiddenColumnProps(columnProps) && !item.isVisible)
       const fixed = item.fixedPosition !== "none"
       const sortOrder = item.sortOrder === "asc" || item.sortOrder === "desc" ? item.sortOrder : undefined
       const visibleIndex = typeof item.visibleIndex === "number" ? item.visibleIndex : undefined
@@ -792,6 +807,7 @@ export function applyGridColumnSettingsToComponent(
         writeComponentColumnOption(component, columnReference, "allowHiding", false)
       } else {
         writeComponentColumnOption(component, columnReference, "allowHiding", item.allowHiding)
+        if (restoredLanguage) writeComponentColumnOption(component, columnReference, "showInColumnChooser", item.allowHiding)
       }
       writeComponentColumnOption(
         component,
@@ -872,10 +888,11 @@ export function applyGridColumnSettingsToComponent(
     })
 
     columnReferenceMap.forEach((columnReference, columnKey) => {
-      if (!shouldHideLangColumn(columnKey, allFieldNames)) {
+      if (!isInactiveLanguageColumn(columnKey, allFieldNames, options)) {
         return
       }
 
+      languageHidden?.add(columnKey)
       writeComponentColumnOption(component, columnReference, "visible", false)
       writeComponentColumnOption(component, columnReference, "showInColumnChooser", false)
       writeComponentColumnOption(component, columnReference, "allowHiding", false)

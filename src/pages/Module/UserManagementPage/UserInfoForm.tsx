@@ -1,3 +1,4 @@
+import { masterFormGroupCaptions } from "@/components/forms/masterFormSectionIcons"
 import { useCallback, useContext, useEffect, useMemo, useRef } from "react"
 import Form, { GroupItem, Item } from "devextreme-react/form"
 import type { FieldDataChangedEvent } from "devextreme/ui/form"
@@ -151,18 +152,21 @@ export default function UserInfoForm({
     return [
       {
         key: "login",
+        captionRender: masterFormGroupCaptions.key,
         caption: t("USER_SECTION_LOGIN", "Đăng nhập"),
         colCount: 2,
         items: [createItem("USERID"), createItem("PASSWD")],
       },
       {
         key: "profile",
+        captionRender: masterFormGroupCaptions.tel,
         caption: t("USER_SECTION_PROFILE", "Thông tin liên hệ"),
         colCount: 2,
         items: [createItem("USERNM"), createItem("EMAIL"), createItem("MOBILE_NO", 2)],
       },
       {
         key: "access",
+        captionRender: masterFormGroupCaptions.lock,
         caption: t("USER_SECTION_ACCESS", "Quyền truy cập công ty"),
         colCount: 2,
         items: [createItem("USERLV", 2), createItem("IS_ACTIVE")],
@@ -213,7 +217,7 @@ export default function UserInfoForm({
         />
       </section>
 
-      <div className="[&_.dx-form-group-caption]:!mb-3 [&_.dx-form-group-caption]:!border-b [&_.dx-form-group-caption]:!border-slate-200 [&_.dx-form-group-caption]:!pb-2 [&_.dx-form-group-caption]:!text-sm [&_.dx-form-group-caption]:!font-semibold [&_.dx-form-group-caption]:!text-slate-800 [&_.dx-field-item]:!pb-3">
+      <div className="master-data-profile">
         <Form
           formData={value}
           colCount={1}
@@ -223,7 +227,7 @@ export default function UserInfoForm({
           onFieldDataChanged={handleFieldDataChanged}
         >
           {groups.map((group) => (
-            <GroupItem key={group.key} caption={group.caption} colCount={group.colCount}>
+            <GroupItem key={group.key} caption={group.caption} captionRender={group.captionRender} colCount={group.colCount} colCountByScreen={{ xs: 1 }}>
               {group.items.map((item) => (
                 <Item
                   key={item.dataField}
