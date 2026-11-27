@@ -7,8 +7,17 @@ import DateRangeBox from "@/components/toolbar/DateRangeBox"
 import DateBox from "devextreme-react/date-box"
 import { createDateBoxEditorOptions } from "@/components/forms/dateBoxEditorOptions"
 import ReportOptionLookup, { type ReportOptionLookupItem } from "@/components/toolbar/ReportOptionLookup"
+import useShortcutBindings from "@/hooks/useShortcutBindings"
 import { useCompanyLangRevision } from "@/lib/companyLang"
 import { LanguageContext } from "@/lib/i18nLoader"
+import {
+  createPopupShortcutWrapperAttr,
+  hasVisibleNonPopupOverlay,
+  isPopupShortcutScopeTopMost,
+  usePopupShortcutScopeId,
+} from "@/lib/popupShortcutScope"
+import { createShortcutBindings } from "@/lib/shortcuts/shortcutBindings"
+import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/shortcutDefinitions"
 import { getReportLanguageOptions, type ReportLanguageCode } from "@/pages/Reports/reportLanguage"
 import { customerLookupStore } from "@/components/lookup/customerLookupStore"
 import { warehouseLookupStore } from "@/components/lookup/warehouseLookupStore"
@@ -66,6 +75,7 @@ type ReportPdfExportPopupProps = {
   showCustomerFilter?: boolean
   showBankFilter?: boolean
   showCurrencyFilter?: boolean
+  currencyLookupSingleSelect?: boolean
   showVatRateFilter?: boolean
   showWarehouseFilter?: boolean
   showDepartmentFilter?: boolean
@@ -119,6 +129,7 @@ export default function ReportPdfExportPopup({
   showCustomerFilter,
   showBankFilter,
   showCurrencyFilter,
+  currencyLookupSingleSelect = false,
   showVatRateFilter,
   showWarehouseFilter,
   showDepartmentFilter,
@@ -169,6 +180,7 @@ export default function ReportPdfExportPopup({
 
   const [selectedLanguage, setSelectedLanguage] = useState<ReportLanguageCode>(defaultLanguage)
   const [selectedPrintTemplate, setSelectedPrintTemplate] = useState<ReportPrintTemplateCode>(defaultPrintTemplate)
+  const popupShortcutScopeId = usePopupShortcutScopeId("report-pdf-export")
 
   useEffect(() => {
     setSelectedLanguage(defaultLanguage)
@@ -181,6 +193,38 @@ export default function ReportPdfExportPopup({
   const handleConfirm = useCallback(() => {
     onConfirm(selectedLanguage, selectedPrintTemplate)
   }, [onConfirm, selectedLanguage, selectedPrintTemplate])
+
+  const shortcutBindings = useMemo(
+    () =>
+      createShortcutBindings(
+        [SHORTCUT_ACTIONS.CONFIRM, SHORTCUT_ACTIONS.CLOSE],
+        {
+          [SHORTCUT_ACTIONS.CONFIRM]: () => handleConfirm(),
+          [SHORTCUT_ACTIONS.CLOSE]: () => onHide(),
+        },
+        {
+          [SHORTCUT_ACTIONS.CONFIRM]: { allowInInput: true, commitActiveEditor: true },
+          [SHORTCUT_ACTIONS.CLOSE]: { allowInInput: true },
+        },
+      ),
+    [handleConfirm, onHide],
+  )
+
+  const shouldHandleShortcutEvent = useCallback(
+    (event: KeyboardEvent) => {
+      if (event.isComposing || hasVisibleNonPopupOverlay()) {
+        return false
+      }
+
+      return isPopupShortcutScopeTopMost(popupShortcutScopeId)
+    },
+    [popupShortcutScopeId],
+  )
+
+  useShortcutBindings(shortcutBindings, {
+    enabled: visible,
+    shouldHandleEvent: shouldHandleShortcutEvent,
+  })
 
   const languageItems = useMemo(
     () =>
@@ -229,11 +273,12 @@ export default function ReportPdfExportPopup({
       visible={visible}
       showTitle
       title={t("REPORT_EXPORT_CONFIRM_TITLE", title ?? "Export PDF")}
-      dragEnabled={false}
+      dragEnabled
       hideOnOutsideClick={true}
       showCloseButton={true}
       width={720}
       height="auto"
+      wrapperAttr={createPopupShortcutWrapperAttr(popupShortcutScopeId)}
       onHiding={onHide}
     >
       <div className="space-y-5 p-4 sm:p-6">
@@ -438,11 +483,12 @@ export default function ReportPdfExportPopup({
                     dataSource={currencyLookupStore}
                     values={currencyCodes ?? []}
                     valueExpr="CODE_CD"
+                    maxSelection={currencyLookupSingleSelect ? 1 : undefined}
                     searchExpr={["CODE_CD", "CODE_NAME"]}
                     placeholder={t("CURRENCY", "Currency")}
                     buttonHint={t("OPEN_CURRENCY_LOOKUP", "Open currency lookup")}
                     selectAllText={t("SELECT_ALL", "Chọn tất cả")}
-                    commitAllValue={REPORT_FILTER_ALL_VALUE}
+                    commitAllValue={currencyLookupSingleSelect ? undefined : REPORT_FILTER_ALL_VALUE}
                     onApply={onCurrencyCodesChange}
                     onClear={() => onCurrencyCodesChange([])}
                     width="100%"

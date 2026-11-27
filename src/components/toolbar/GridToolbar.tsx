@@ -100,6 +100,8 @@ export type GridToolbarProps = {
   showDelete?: boolean;
   deleteDisabled?: boolean;
   showSearch?: boolean;
+  /** Seed quick-search box when remounting from workspace tab cache. */
+  initialSearchText?: string;
   onSearchStateChange?: (value: string, active: boolean) => void;
   shortcutsEnabled?: boolean;
   additionalShortcutActions?: ShortcutActionCode[];
@@ -141,6 +143,7 @@ export function GridToolbar({
   showDelete = true,
   deleteDisabled = false,
   showSearch = true,
+  initialSearchText = "",
   onSearchStateChange,
   shortcutsEnabled = true,
   additionalShortcutActions,
@@ -149,7 +152,7 @@ export function GridToolbar({
 }: GridToolbarProps) {
   const { translate } = useContext(LanguageContext) as { translate?: (k: string, f?: string) => string };
   const label = titleKey ? (translate ? translate(titleKey, title) : title) : title;
-  const [panelSearchText, setPanelSearchText] = useState("");
+  const [panelSearchText, setPanelSearchText] = useState(initialSearchText);
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
   const dateRangeContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -551,6 +554,7 @@ export function GridToolbar({
                   variant="grouped"
                   onFromDateChange={onFromDateChange}
                   onToDateChange={onToDateChange}
+                  onEnter={handleRangeSearchClick}
                   width={150}
                   editorClassName={TOOLBAR_FIELD}
                   className="page-toolbar__date-range flex flex-nowrap gap-2"

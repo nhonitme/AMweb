@@ -4,12 +4,14 @@ import notify from "devextreme/ui/notify"
 import type { ChitDetail, ChitInfo } from "@/types/voucher"
 
 import {
+  applyLocalVatToDetails,
   applyVoucherVatAmountPatch,
   canDismissVoucherVatPanel,
   createEmptyVoucherVatDetail,
   detailAmountToVatNumber,
   hasAnyVoucherVatInput,
   hasMeaningfulVoucherVatData,
+  seedVoucherVatDetailFromChitDetail,
   seedVoucherVatDetailsMap,
   type VoucherVatDetail,
   type VoucherVatDetailsMap,
@@ -21,6 +23,11 @@ export type UseVoucherVatDetailsOptions = {
   voucherValue: ChitInfo
   details: readonly ChitDetail[]
   t?: (key: string, fallback: string) => string
+  /**
+   * Persist one row's VAT draft onto voucher DETAILS (close panel / switch row).
+   * Same gate as dismiss: only called after Ngày HĐ + số HĐ check passes.
+   */
+  onCommitVatRow?: (rowKey: string, nextDetails: ChitDetail[]) => void
 }
 
 export type UseVoucherVatDetailsResult = {
@@ -61,6 +68,7 @@ export function useVoucherVatDetails({
   voucherValue,
   details,
   t,
+  onCommitVatRow,
 }: UseVoucherVatDetailsOptions): UseVoucherVatDetailsResult {
   const [vatByRowKey, setVatByRowKey] = useState<VoucherVatDetailsMap>({})
   const [dirtyVatRowKeys, setDirtyVatRowKeys] = useState<Set<string>>(() => new Set())
@@ -70,11 +78,44 @@ export function useVoucherVatDetails({
   const vatRowKeysRef = useRef<Set<string>>(new Set())
   const activeVatRowKeyRef = useRef<string | null>(null)
   const vatByRowKeyRef = useRef<VoucherVatDetailsMap>({})
+  const dirtyVatRowKeysRef = useRef<Set<string>>(new Set())
+  const detailsRef = useRef(details)
+  const onCommitVatRowRef = useRef(onCommitVatRow)
 
   const translate = useCallback(
     (key: string, fallback: string) => (t ? t(key, fallback) : fallback),
     [t],
   )
+
+  useEffect(() => {
+    detailsRef.current = details
+  }, [details])
+
+  useEffect(() => {
+    onCommitVatRowRef.current = onCommitVatRow
+  }, [onCommitVatRow])
+
+  const commitVatRowDraft = useCallback((rowKey: string) => {
+    const key = rowKey.trim()
+    if (!key) {
+      return
+    }
+
+    const isDirty = dirtyVatRowKeysRef.current.has(key)
+    if (!isDirty) {
+      return
+    }
+
+    const vat = vatByRowKeyRef.current[key]
+    const vatMap: VoucherVatDetailsMap =
+      vat && hasMeaningfulVoucherVatData(vat) ? { [key]: vat } : {}
+    const nextDetails = applyLocalVatToDetails(
+      detailsRef.current,
+      vatMap,
+      new Set([key]),
+    )
+    onCommitVatRowRef.current?.(key, nextDetails)
+  }, [])
 
   const tryDismissActiveVatPanel = useCallback((): boolean => {
     const key = activeVatRowKeyRef.current
@@ -82,16 +123,19 @@ export function useVoucherVatDetails({
       return true
     }
     const vat = vatByRowKeyRef.current[key] ?? createEmptyVoucherVatDetail()
-    if (canDismissVoucherVatPanel(vat)) {
-      return true
+    if (!canDismissVoucherVatPanel(vat)) {
+      notify(
+        translate("MSG_VAT_Not_Input", "Thông tin VAT chưa điền đầy đủ"),
+        "warning",
+        3000,
+      )
+      return false
     }
-    notify(
-      translate("MSG_VAT_Not_Input", "Thông tin VAT chưa điền đầy đủ"),
-      "warning",
-      3000,
-    )
-    return false
-  }, [translate])
+
+    // Same as closing the panel: accept draft into DETAIL rows when dismiss is allowed.
+    commitVatRowDraft(key)
+    return true
+  }, [commitVatRowDraft, translate])
 
   const resetVatState = useCallback(() => {
     setVatByRowKey({})
@@ -100,6 +144,7 @@ export function useVoucherVatDetails({
     prevDetailFcAmountsRef.current = {}
     vatRowKeysRef.current = new Set()
     vatByRowKeyRef.current = {}
+    dirtyVatRowKeysRef.current = new Set()
     activeVatRowKeyRef.current = null
   }, [])
 
@@ -107,6 +152,10 @@ export function useVoucherVatDetails({
     vatRowKeysRef.current = new Set(Object.keys(vatByRowKey))
     vatByRowKeyRef.current = vatByRowKey
   }, [vatByRowKey])
+
+  useEffect(() => {
+    dirtyVatRowKeysRef.current = dirtyVatRowKeys
+  }, [dirtyVatRowKeys])
 
   useEffect(() => {
     activeVatRowKeyRef.current = activeVatRowKey
@@ -125,8 +174,23 @@ export function useVoucherVatDetails({
 
     prevVoucherValueRef.current = voucherValue
     const seeded = seedVoucherVatDetailsMap(voucherValue.DETAILS)
-    setVatByRowKey(seeded)
-    setDirtyVatRowKeys(new Set())
+
+    // Keep in-progress / committed dirty drafts when parent recreates `value` identity.
+    setVatByRowKey((current) => {
+      const dirty = dirtyVatRowKeysRef.current
+      if (dirty.size === 0) {
+        return seeded
+      }
+      const merged: VoucherVatDetailsMap = { ...seeded }
+      for (const key of dirty) {
+        if (Object.prototype.hasOwnProperty.call(current, key)) {
+          merged[key] = current[key]
+        } else {
+          delete merged[key]
+        }
+      }
+      return merged
+    })
     setActiveVatRowKey(null)
 
     const fcSnapshot: Record<string, number | null> = {}
@@ -231,9 +295,19 @@ export function useVoucherVatDetails({
   }, [details, visible])
 
   const hasVatData = useCallback(
-    (rowKey: string | null | undefined) =>
-      Boolean(rowKey && hasMeaningfulVoucherVatData(vatByRowKey[rowKey])),
-    [vatByRowKey],
+    (rowKey: string | null | undefined) => {
+      if (!rowKey) {
+        return false
+      }
+      // Local draft wins — including intentional empty after reset (do not re-seed DETAIL).
+      if (Object.prototype.hasOwnProperty.call(vatByRowKey, rowKey)) {
+        return hasMeaningfulVoucherVatData(vatByRowKey[rowKey])
+      }
+      // After commit-to-details, local map may omit the key — fall back to detail fields.
+      const detail = details.find((item) => !item.ISDEL && item.ROW_KEY === rowKey)
+      return Boolean(detail && seedVoucherVatDetailFromChitDetail(detail))
+    },
+    [details, vatByRowKey],
   )
 
   const isVatActive = useCallback(
@@ -246,10 +320,47 @@ export function useVoucherVatDetails({
       if (!rowKey) {
         return createEmptyVoucherVatDetail()
       }
-      return vatByRowKey[rowKey] ?? createEmptyVoucherVatDetail()
+      if (Object.prototype.hasOwnProperty.call(vatByRowKey, rowKey)) {
+        return vatByRowKey[rowKey]
+      }
+      const detail = details.find((item) => !item.ISDEL && item.ROW_KEY === rowKey)
+      return seedVoucherVatDetailFromChitDetail(detail ?? ({} as ChitDetail))
+        ?? createEmptyVoucherVatDetail()
     },
-    [vatByRowKey],
+    [details, vatByRowKey],
   )
+
+  const openVatPanelForRow = useCallback((key: string) => {
+    const detail = detailsRef.current.find((item) => !item.ISDEL && item.ROW_KEY === key)
+    const fcAmount = detailAmountToVatNumber(detail?.FC_AMOUNT)
+
+    setVatByRowKey((vatCurrent) => {
+      const alreadyOpen = Object.prototype.hasOwnProperty.call(vatCurrent, key)
+      let previous = alreadyOpen
+        ? vatCurrent[key]
+        : (detail ? seedVoucherVatDetailFromChitDetail(detail) : null)
+          ?? createEmptyVoucherVatDetail()
+
+      // Prefill FC from detail when draft has no FC yet.
+      if (previous.fcAmount == null && fcAmount != null) {
+        previous = applyVoucherVatAmountPatch(previous, { fcAmount })
+        if (hasAnyVoucherVatInput(previous)) {
+          setDirtyVatRowKeys((dirtyCurrent) => markDirty(dirtyCurrent, key))
+          return { ...vatCurrent, [key]: previous }
+        }
+      }
+
+      if (!alreadyOpen && hasAnyVoucherVatInput(previous)) {
+        return { ...vatCurrent, [key]: previous }
+      }
+
+      return vatCurrent
+    })
+
+    // Keep ref in sync immediately so row-switch / FC sync in the same tick see the new row.
+    activeVatRowKeyRef.current = key
+    setActiveVatRowKey(key)
+  }, [])
 
   const toggleVatPanel = useCallback((rowKey: string) => {
     const key = rowKey.trim()
@@ -262,41 +373,24 @@ export function useVoucherVatDetails({
       if (!tryDismissActiveVatPanel()) {
         return
       }
+      activeVatRowKeyRef.current = null
       setActiveVatRowKey(null)
       return
     }
 
-    // Switching rows also dismisses the current panel — block if incomplete.
+    // Switching rows: same dismiss gate + commit draft as close panel.
     if (current && !tryDismissActiveVatPanel()) {
       return
     }
 
-    // Prefill FC số tiền from detail FC_AMOUNT when opening an empty/incomplete VAT draft.
-    const detail = details.find((item) => !item.ISDEL && item.ROW_KEY === key)
-    const fcAmount = detailAmountToVatNumber(detail?.FC_AMOUNT)
-
-    setVatByRowKey((vatCurrent) => {
-      const previous = vatCurrent[key] ?? createEmptyVoucherVatDetail()
-      if (previous.fcAmount != null || fcAmount == null) {
-        return vatCurrent
-      }
-
-      const merged = applyVoucherVatAmountPatch(previous, { fcAmount })
-      if (!hasAnyVoucherVatInput(merged)) {
-        return vatCurrent
-      }
-
-      setDirtyVatRowKeys((dirtyCurrent) => markDirty(dirtyCurrent, key))
-      return { ...vatCurrent, [key]: merged }
-    })
-
-    setActiveVatRowKey(key)
-  }, [details, tryDismissActiveVatPanel])
+    openVatPanelForRow(key)
+  }, [openVatPanelForRow, tryDismissActiveVatPanel])
 
   const closeVatPanel = useCallback(() => {
     if (!tryDismissActiveVatPanel()) {
       return
     }
+    activeVatRowKeyRef.current = null
     setActiveVatRowKey(null)
   }, [tryDismissActiveVatPanel])
 
@@ -309,16 +403,19 @@ export function useVoucherVatDetails({
     setDirtyVatRowKeys((current) => markDirty(current, key))
 
     setVatByRowKey((current) => {
-      const previous = current[key] ?? createEmptyVoucherVatDetail()
+      let previous: VoucherVatDetail
+      if (Object.prototype.hasOwnProperty.call(current, key)) {
+        previous = current[key]
+      } else {
+        const detail = detailsRef.current.find((item) => !item.ISDEL && item.ROW_KEY === key)
+        previous = (detail ? seedVoucherVatDetailFromChitDetail(detail) : null)
+          ?? createEmptyVoucherVatDetail()
+      }
       const merged = applyVoucherVatAmountPatch(previous, patch)
 
+      // Keep an empty draft after reset so getVatDetail does not fall back to DETAIL seed.
       if (!hasAnyVoucherVatInput(merged)) {
-        if (!(key in current)) {
-          return current
-        }
-        const next = { ...current }
-        delete next[key]
-        return next
+        return { ...current, [key]: createEmptyVoucherVatDetail() }
       }
 
       return { ...current, [key]: merged }

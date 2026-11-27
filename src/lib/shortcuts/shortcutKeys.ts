@@ -39,6 +39,7 @@ export const SHORTCUT_KEYS = {
   EXPORT_PDF: "alt+p",
   COLUMN_CHOOSER: "alt+l",
   HELP: "f1",
+  CONFIRM: "enter",
   CLOSE: "escape",
   REFRESH: "f5",
   FOCUS_MENU_SEARCH: "mod+k",

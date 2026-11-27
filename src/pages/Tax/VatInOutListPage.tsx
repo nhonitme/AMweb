@@ -1,4 +1,5 @@
 import { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { useLocation } from "react-router-dom"
 import { Column } from "devextreme-react/data-grid"
 import LoadPanel from "devextreme-react/load-panel"
 import SelectBox from "devextreme-react/select-box"
@@ -14,11 +15,17 @@ import { getUserSettingsBatch, saveUserSettingsBulk } from "@/api/userSettingApi
 import { BaseDataGrid } from "@/components/datagrid/BaseDataGrid"
 import MasterDataPageLayout from "@/components/datagrid/MasterDataPageLayout"
 import { GridToolbar } from "@/components/toolbar/GridToolbar"
+import { useWorkspaceTabRoute } from "@/components/workspaceTabs/WorkspaceTabs"
 import DxPage from "@/dx/DxPage"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { getCurrentCompanyCd } from "@/lib/login"
 import { useVatInOutListQuery, useVatInOutListInvalidate } from "@/hooks/queries/useVatInOutListQuery"
 import { DEFAULT_PAGE_SIZE, createMirrorPagedStore, syncMirroredGridPage, SERVER_PAGING_REMOTE_OPERATIONS, resolvePageNumber, resolvePageSize } from "@/lib/paging"
+import {
+  readWorkspaceTabState,
+  VAT_INOUT_LIST_TAB_STATE_KEY,
+  writeWorkspaceTabState,
+} from "@/lib/workspaceTabStateCache"
 import { formatDateToYmd, formatYmdForDisplay, normalizeYmd } from "@/pages/Accounting/accountingDateUtils"
 import FetchGdtVatPopupContent from "@/pages/Reports/components/FetchGdtVatPopup"
 import { openReportViewerPage } from "@/pages/Reports/openReportViewerPage"
@@ -39,6 +46,24 @@ import VatInOutCreateModePopupContent, { type VatVoucherCreationMode } from "./V
 import VatInOutQuickBatchCreatePopup from "./VatInOutQuickBatchCreatePopup"
 
 type InvoiceType = "BUY" | "SELL"
+
+type VatInOutListTabState = {
+  fromDate: Date | null
+  toDate: Date | null
+  invoiceType: InvoiceType
+  invoiceStatus: string
+  searchText: string
+  listQuery: VatInOutQuery | null
+  pageNumber: number
+  pageSize: number
+  rows: VatInvoiceRow[]
+  totalRecords: number
+}
+
+function resolveInvoiceType(raw: string | null | undefined): InvoiceType {
+  const type = String(raw ?? "").trim().toUpperCase()
+  return type === "SELL" || type === "OUT" || type === "2" || type === "0" ? "SELL" : "BUY"
+}
 
 function skipHiddenPopupUpdate(previous: { visible: boolean }, next: { visible: boolean }): boolean {
   return !previous.visible && !next.visible
@@ -70,6 +95,12 @@ function resolveDateDisplay(value: unknown): string {
 }
 
 export default function VatInOutListPage() {
+  const location = useLocation()
+  const tabRoute = useWorkspaceTabRoute()
+  const cacheTabId = tabRoute?.tabId ?? location.key
+  const [restoredTabState] = useState(() =>
+    readWorkspaceTabState<VatInOutListTabState>(cacheTabId, VAT_INOUT_LIST_TAB_STATE_KEY),
+  )
   const { lang, translate } = useContext(LanguageContext) as {
     lang?: string
     translate?: (key: string, fallback?: string) => string
@@ -77,23 +108,32 @@ export default function VatInOutListPage() {
   const t = useCallback((key: string, fallback: string) => translate ? translate(key, fallback) : fallback, [translate])
   const today = useMemo(() => new Date(), [])
   const monthStart = useMemo(() => new Date(today.getFullYear(), today.getMonth(), 1), [today])
-  const initialParams = useMemo(() => new URLSearchParams(window.location.search), [])
-  const [fromDate, setFromDate] = useState<Date | null>(() => normalizeYmd(initialParams.get("fromYmd")) ?? monthStart)
-  const [toDate, setToDate] = useState<Date | null>(() => normalizeYmd(initialParams.get("toYmd")) ?? today)
-  const [invoiceType, setInvoiceType] = useState<InvoiceType>(() => {
-    const type = String(initialParams.get("type") ?? "").trim().toUpperCase()
-    return type === "SELL" || type === "OUT" || type === "2" || type === "0" ? "SELL" : "BUY"
-  })
-  const [invoiceStatus, setInvoiceStatus] = useState(() => initialParams.get("status") ?? "")
-  const searchTextRef = useRef("")
+  const initialParams = useMemo(
+    () => new URLSearchParams(tabRoute?.search ?? location.search),
+    [location.search, tabRoute?.search],
+  )
+  const [fromDate, setFromDate] = useState<Date | null>(
+    () => restoredTabState?.fromDate ?? normalizeYmd(initialParams.get("fromYmd")) ?? monthStart,
+  )
+  const [toDate, setToDate] = useState<Date | null>(
+    () => restoredTabState?.toDate ?? normalizeYmd(initialParams.get("toYmd")) ?? today,
+  )
+  const [invoiceType, setInvoiceType] = useState<InvoiceType>(
+    () => restoredTabState?.invoiceType ?? resolveInvoiceType(initialParams.get("type")),
+  )
+  const [invoiceStatus, setInvoiceStatus] = useState(
+    () => restoredTabState?.invoiceStatus ?? initialParams.get("status") ?? "",
+  )
+  const [searchText, setSearchText] = useState(() => restoredTabState?.searchText ?? "")
+  const searchTextRef = useRef(searchText)
   const gridRef = useRef<dxDataGrid | null>(null)
-  const rowsRef = useRef<VatInvoiceRow[]>([])
-  const totalRecordsRef = useRef(0)
+  const rowsRef = useRef<VatInvoiceRow[]>(restoredTabState?.rows ?? [])
+  const totalRecordsRef = useRef(restoredTabState?.totalRecords ?? 0)
   const initialPagingEventsSuppressedRef = useRef(true)
-  const [pageNumber, setPageNumber] = useState(1)
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
-  const [listQuery, setListQuery] = useState<VatInOutQuery | null>(null)
-  const [rows, setRows] = useState<VatInvoiceRow[]>([])
+  const [pageNumber, setPageNumber] = useState(() => restoredTabState?.pageNumber ?? 1)
+  const [pageSize, setPageSize] = useState(() => restoredTabState?.pageSize ?? DEFAULT_PAGE_SIZE)
+  const [listQuery, setListQuery] = useState<VatInOutQuery | null>(() => restoredTabState?.listQuery ?? null)
+  const [rows, setRows] = useState<VatInvoiceRow[]>(() => restoredTabState?.rows ?? [])
   const [loading, setLoading] = useState(false)
   const [selectedInvoices, setSelectedInvoices] = useState<VatInvoiceRow[]>([])
   const [gdtPopupVisible, setGdtPopupVisible] = useState(false)
@@ -124,6 +164,21 @@ export default function VatInOutListPage() {
   const dataSource = useMemo(() => createMirrorPagedStore<VatInvoiceRow>(
     "ROW_KEY", () => rowsRef.current, () => totalRecordsRef.current,
   ), [])
+
+  useEffect(() => {
+    writeWorkspaceTabState<VatInOutListTabState>(cacheTabId, VAT_INOUT_LIST_TAB_STATE_KEY, {
+      fromDate,
+      toDate,
+      invoiceType,
+      invoiceStatus,
+      searchText,
+      listQuery,
+      pageNumber,
+      pageSize,
+      rows,
+      totalRecords: totalRecordsRef.current,
+    })
+  }, [cacheTabId, fromDate, toDate, invoiceType, invoiceStatus, searchText, listQuery, pageNumber, pageSize, rows])
 
   const loadInvoices = useCallback(async (preserveSelection = false) => {
     const fromYmd = formatDateToYmd(fromDate)
@@ -255,6 +310,7 @@ export default function VatInOutListPage() {
 
   const handleSearchStateChange = useCallback((value: string) => {
     searchTextRef.current = value
+    setSearchText(value)
   }, [])
 
   const closeBatchPopup = useCallback(() => {
@@ -411,7 +467,7 @@ export default function VatInOutListPage() {
         valueExpr="value"
         value={invoiceType}
         stylingMode="outlined"
-        label={t("VAT_INOUT_TYPE", "Loại hóa đơn")}
+        label={t("VAT_DIRECTION", "Chiều VAT")}
         labelMode="floating"
         width={190}
         onValueChanged={(event) => setInvoiceType(String(event.value ?? "BUY") as InvoiceType)}
@@ -451,6 +507,7 @@ export default function VatInOutListPage() {
           showImport={false}
           showDelete={false}
           showSearch={true}
+          initialSearchText={searchText}
           searchLeadingContent={toolbarFilters}
           onSearchStateChange={handleSearchStateChange}
           onSearchSubmit={() => void loadInvoices()}

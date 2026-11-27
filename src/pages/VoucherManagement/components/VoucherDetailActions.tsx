@@ -20,7 +20,7 @@ export interface VoucherDetailActionsProps {
 }
 
 const ACTION_BUTTON_CLASS =
-  "inline-flex h-7 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded border px-1.5 text-xs font-medium transition-colors disabled:cursor-wait disabled:opacity-50"
+  "inline-flex h-7 min-w-[3.25rem] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border px-2 text-[11px] font-medium leading-none transition-colors disabled:cursor-wait disabled:opacity-50"
 
 function stopActionEvent(event: ReactMouseEvent<HTMLElement> | ReactPointerEvent<HTMLElement>) {
   event.preventDefault()
@@ -35,17 +35,34 @@ function inventoryButtonColors(pending: boolean, linked: boolean): string {
   if (linked) {
     return "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200"
   }
-  return "border-gray-300 bg-white text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+  return "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
 }
 
 function vatButtonColors(isActive: boolean, hasData: boolean): string {
   if (isActive) {
-    return "border-sky-500 bg-sky-100 text-sky-800 ring-1 ring-sky-300 dark:border-sky-400 dark:bg-sky-950 dark:text-sky-100"
+    return "border-sky-500 bg-sky-50 text-sky-800 ring-1 ring-sky-200 dark:border-sky-400 dark:bg-sky-950 dark:text-sky-100 dark:ring-sky-700"
   }
   if (hasData) {
     return "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200"
   }
-  return "border-gray-300 bg-white text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+  return "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+}
+
+function StatusDot({
+  tone,
+}: {
+  tone: "emerald" | "sky" | "amber" | "none"
+}) {
+  const color =
+    tone === "emerald"
+      ? "bg-emerald-500"
+      : tone === "sky"
+        ? "bg-sky-500"
+        : tone === "amber"
+          ? "bg-amber-500"
+          : "bg-transparent"
+
+  return <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} aria-hidden />
 }
 
 export default function VoucherDetailActions({
@@ -69,7 +86,7 @@ export default function VoucherDetailActions({
 
   return (
     <div className="inline-flex flex-col items-center justify-center gap-1 leading-none" data-row-key={rowKey}>
-      <div className="inline-flex items-center justify-center gap-0.5">
+      <div className="inline-flex items-center justify-center gap-1">
         {showInventoryButton ? (
           <button
             type="button"
@@ -88,9 +105,14 @@ export default function VoucherDetailActions({
             }}
             className={`${ACTION_BUTTON_CLASS} ${inventoryButtonColors(inventoryPending, linked)}`}
           >
-            <span className="dx-icon dx-icon-box !m-0 flex items-center justify-center text-[14px] leading-none" aria-hidden />
+            <span
+              className="dx-icon dx-icon-box !m-0 flex size-3.5 items-center justify-center text-[13px] leading-none"
+              aria-hidden
+            />
             <span className="leading-none">{inventoryLabel}</span>
-            {linked ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden /> : null}
+            <StatusDot
+              tone={inventoryPending ? "amber" : linked ? "emerald" : "none"}
+            />
           </button>
         ) : null}
 
@@ -108,11 +130,14 @@ export default function VoucherDetailActions({
           }}
           className={`${ACTION_BUTTON_CLASS} ${vatButtonColors(isVatActive, hasVatData)}`}
         >
-          <span className="dx-icon dx-icon-percent !m-0 flex items-center justify-center text-[14px] leading-none" aria-hidden />
+          <span
+            className="dx-icon dx-icon-percent !m-0 flex size-3.5 items-center justify-center text-[13px] leading-none"
+            aria-hidden
+          />
           <span className="leading-none">{vatLabel}</span>
-          {hasVatData && !isVatActive ? (
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden />
-          ) : null}
+          <StatusDot
+            tone={isVatActive ? "sky" : hasVatData ? "emerald" : "none"}
+          />
         </button>
       </div>
 

@@ -9,7 +9,6 @@ import { useUserAvatarThumbSrc } from "./useUserAvatarThumbSrc"
 type UserAvatarFieldProps = {
   value: UserInfo
   disabled?: boolean
-  isCreate?: boolean
   onChange: (next: UserInfo) => void
   onUploaded?: (avatarUrl: string) => void
   t: (key: string, fallback?: string) => string
@@ -18,7 +17,6 @@ type UserAvatarFieldProps = {
 export default function UserAvatarField({
   value,
   disabled = false,
-  isCreate = false,
   onChange,
   onUploaded,
   t,
@@ -28,7 +26,7 @@ export default function UserAvatarField({
   const [uploading, setUploading] = useState(false)
 
   const userPkId = typeof value.USER_PK_ID === "number" ? value.USER_PK_ID : null
-  const canUpload = !disabled && !isCreate && typeof userPkId === "number" && userPkId > 0
+  const canUpload = !disabled && typeof userPkId === "number" && userPkId > 0
 
   const imageSrc = useUserAvatarThumbSrc({
     userPkId,
@@ -50,14 +48,10 @@ export default function UserAvatarField({
   }, [userPkId, revokeLocalPreview])
 
   const handlePick = useCallback(() => {
-    if (!canUpload) {
-      if (isCreate) {
-        notify(t("AVATAR_SAVE_BEFORE_IMAGE", "Hãy lưu người dùng trước khi gắn ảnh"), "warning", 3000)
-      }
-      return
+    if (canUpload) {
+      inputRef.current?.click()
     }
-    inputRef.current?.click()
-  }, [canUpload, isCreate, t])
+  }, [canUpload])
 
   const handleSelected = useCallback(
     async (fileList: FileList | null) => {
@@ -156,11 +150,6 @@ export default function UserAvatarField({
         </button>
 
         <div className="min-w-0 flex-1">
-          {isCreate ? (
-            <div className="mb-2 text-xs text-slate-500">
-              {t("AVATAR_SAVE_BEFORE_IMAGE", "Hãy lưu người dùng trước khi gắn ảnh")}
-            </div>
-          ) : null}
           <div className="flex flex-wrap gap-2">
             <button
               type="button"

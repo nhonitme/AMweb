@@ -50,6 +50,8 @@ export function formatShortcutCombo(combo: string) {
           return "Shift"
         case "escape":
           return "Esc"
+        case "enter":
+          return "Enter"
         case "delete":
           return "Delete"
         case "insert":
@@ -182,6 +184,8 @@ function buildKeyboardEventKey(token: string) {
   switch (token) {
     case "escape":
       return "Escape"
+    case "enter":
+      return "Enter"
     case "delete":
       return "Delete"
     case "insert":

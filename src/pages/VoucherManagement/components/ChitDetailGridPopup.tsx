@@ -166,13 +166,13 @@ const DETAIL_ACTIONS_CELL_PADDING = 12
 
 function estimateActionButtonWidth(label: string): number {
     const text = label.trim() || "VAT"
-    // icon + gap + padding + border + status-dot reserve
-    const chrome = 14 + 4 + 12 + 2 + 8
+    // icon + gaps + padding + border + reserved status-dot
+    const chrome = 14 + 8 + 16 + 2 + 6
     let textWidth = 0
     for (const ch of text) {
-        textWidth += ch.charCodeAt(0) > 255 ? 12 : 7.2
+        textWidth += ch.charCodeAt(0) > 255 ? 12 : 6.6
     }
-    return Math.ceil(chrome + textWidth)
+    return Math.max(Math.ceil(chrome + textWidth), 52)
 }
 
 function resolveDetailActionsColumnWidth(options: {
@@ -183,7 +183,7 @@ function resolveDetailActionsColumnWidth(options: {
     vatLabel?: string
 }): number {
     const { showInventory, showVat, hasDetailLink, inventoryLabel = "Kho", vatLabel = "VAT" } = options
-    const gap = 2
+    const gap = 4
     let content = 0
     let buttonCount = 0
 
@@ -1241,7 +1241,7 @@ export const ChitDetailGridPopup = forwardRef<ChitDetailGridHandle, ChitDetailGr
                                         >
                                             <div
                                                 data-detail-actions-content="true"
-                                                className="inline-flex max-w-none items-center justify-center gap-0.5 whitespace-nowrap"
+                                                className="inline-flex max-w-none items-center justify-center gap-1 whitespace-nowrap"
                                             >
                                                 {cellInfo.data && renderDetailLink ? renderDetailLink(cellInfo.data) : null}
                                                 {showInventoryLinkActions || showVatActions ? (

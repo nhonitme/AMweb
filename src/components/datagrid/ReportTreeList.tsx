@@ -17,18 +17,18 @@ import TreeList, {
   FilterPanel,
   FilterRow,
   HeaderFilter,
+  Paging,
   Scrolling,
   Sorting,
   StateStoring,
 } from "devextreme-react/tree-list"
 import type dxTreeList from "devextreme/ui/tree_list"
-import ScrollView from "devextreme-react/scroll-view"
 import { formatNumber } from "devextreme/localization"
-import type dxScrollView from "devextreme/ui/scroll_view"
 import type {
   CellPreparedEvent,
   ContentReadyEvent,
   ContextMenuPreparingEvent,
+  DataErrorOccurredEvent,
   InitializedEvent,
   RowDblClickEvent as TreeRowDblClickEvent,
   RowPreparedEvent,
@@ -36,6 +36,7 @@ import type {
 // Report pages drill down with the shared handler typed against the DataGrid
 // event, so keep the same shape and forward the TreeList event untouched.
 import type { RowDblClickEvent } from "devextreme/ui/data_grid"
+import { debugMd } from "@amnote/debug-md"
 
 import type { ConfiguredReportPreview, ReportPreviewColumn } from "@/api/configuredReportPreviewApi"
 import GridColumnSettingsPopup from "@/components/datagrid/GridColumnSettingsPopup"
@@ -45,6 +46,7 @@ import {
   useGridColumnSettingState,
   type GridColumnSettingEditorItem,
 } from "@/components/datagrid/useGridColumnSettingState"
+import { applyHeaderFieldNameTooltip } from "@/lib/gridHeaderFieldTooltip"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { useSysCodes } from "@/lib/sysCodeContext"
 import { useCompanyLangRevision } from "@/lib/companyLang"
@@ -61,6 +63,8 @@ import {
   normalizeColumnKey,
   resolveColumnDataType,
   resolveColumnDisplayFormat,
+  resolveEffectiveColumnFormat,
+  resolveReportDateCellValue,
   resolveReportSysCodeType,
   resolveReportCellKeyFromTarget,
   syncReportCellSelectionHighlights,
@@ -69,6 +73,8 @@ import {
   type ReportDataGridRow,
 } from "./ReportDataGrid"
 import { getReportRowLabel, preservesReportRowOrder } from "./reportOutlineMetadata"
+import ReportGridVerticalScrollbar from "./ReportGridVerticalScrollbar"
+import { useReportHorizontalScrollbar } from "./useReportHorizontalScrollbar"
 
 function customizeZeroAsBlankText(cellInfo: { value?: unknown; valueText?: string }): string {
   const value = cellInfo.value
@@ -221,6 +227,7 @@ function ReportTreeList(
   const companyLangRevision = useCompanyLangRevision()
   const treeListRef = useRef<dxTreeList<ReportTreeRow, string> | null>(null)
   const treeListHostRef = useRef<HTMLDivElement | null>(null)
+  const treeDebugSampleRef = useRef<{ preview: ConfiguredReportPreview; signature: string; count: number } | null>(null)
   const [allRowsExpanded, setAllRowsExpanded] = useState(false)
   const [tempDecimalPlacesByField, setTempDecimalPlacesByField] = useState<Record<string, number>>({})
   const [selectedCellKeys, setSelectedCellKeys] = useState<string[]>([])
@@ -237,8 +244,7 @@ function ReportTreeList(
     [preview, reportCode, t],
   )
   const preserveRowOrder = useMemo(() => preservesReportRowOrder(treeRows), [treeRows])
-  // Report tree views always start fully expanded; users can collapse branches afterward.
-  const defaultExpandAll = true
+  const useNativeScrolling = true
 
   const parentIds = useMemo(() => {
     const idsWithChildren = new Set(
@@ -247,10 +253,6 @@ function ReportTreeList(
     return treeRows.filter((row) => idsWithChildren.has(row.ID)).map((row) => row.ID)
   }, [treeRows])
 
-  const defaultExpandedIds = useMemo(
-    () => (defaultExpandAll ? parentIds : []),
-    [defaultExpandAll, parentIds],
-  )
   const syncExpandedState = useCallback(() => {
     const instance = treeListRef.current
     setAllRowsExpanded(Boolean(instance && parentIds.length && parentIds.every((key) => instance.isRowExpanded(key))))
@@ -260,24 +262,6 @@ function ReportTreeList(
   const numberFieldNames = useMemo(() => new Set(columns.filter((column) => resolveColumnDataType(column) === "number").map((column) => normalizeColumnKey(column.FIELD_NAME))), [columns])
   const rowsByKey = useMemo(() => new Map(treeRows.map((row) => [row.ROW_KEY, row] as const)), [treeRows])
   const selectionStats = useMemo(() => computeReportCellSelectionStats(rowsByKey, new Set(selectedCellKeys), numberFieldNames), [rowsByKey, selectedCellKeys, numberFieldNames])
-  const [horizontalScrollNeeded, setHorizontalScrollNeeded] = useState(false)
-  const [horizontalScrollContentWidth, setHorizontalScrollContentWidth] = useState(1)
-  const hScrollProxyRef = useRef<dxScrollView | null>(null)
-  const hScrollPaneRef = useRef<HTMLDivElement | null>(null)
-  const horizontalScrollSyncingRef = useRef(false)
-  const rowsSignature = useMemo(() => treeRows.map((row) => row.ID).join("|"), [treeRows])
-  const expandedSignatureRef = useRef("")
-
-  const applyDefaultExpansion = useCallback(() => {
-    const instance = treeListRef.current
-    if (!instance || expandedSignatureRef.current === rowsSignature) {
-      return
-    }
-
-    expandedSignatureRef.current = rowsSignature
-    defaultExpandedIds.forEach((key) => instance.expandRow(key))
-  }, [defaultExpandedIds, rowsSignature])
-
   const handleInitialized = useCallback(
     (event: InitializedEvent<ReportTreeRow, string>) => {
       treeListRef.current = event.component ?? null
@@ -287,35 +271,22 @@ function ReportTreeList(
   const handleContentReady = useCallback(
     (event: ContentReadyEvent<ReportTreeRow, string>) => {
       treeListRef.current = event.component ?? treeListRef.current
-      applyDefaultExpansion()
       syncGridSearchState(treeListRef.current, searchText)
       syncExpandedState()
     },
-    [applyDefaultExpansion, searchText, syncExpandedState],
+    [searchText, syncExpandedState],
   )
-
-  useEffect(() => {
-    expandedSignatureRef.current = ""
-    applyDefaultExpansion()
-  }, [applyDefaultExpansion, rowsSignature])
 
   useEffect(() => {
     syncGridSearchState(treeListRef.current, searchText)
   }, [searchText])
 
-  const handleExpandAll = useCallback(() => {
-    parentIds.forEach((key) => treeListRef.current?.expandRow(key))
-  }, [parentIds])
-  const handleCollapseAll = useCallback(() => {
-    parentIds.forEach((key) => treeListRef.current?.collapseRow(key))
-  }, [parentIds])
   const handleToggleAll = useCallback(() => {
     const instance = treeListRef.current
-    if (!instance) return
-    if (parentIds.every((key) => instance.isRowExpanded(key))) handleCollapseAll()
-    else handleExpandAll()
-    syncExpandedState()
-  }, [parentIds, handleCollapseAll, handleExpandAll, syncExpandedState])
+    if (!instance || parentIds.length === 0) return
+    const allExpanded = parentIds.every((key) => instance.isRowExpanded(key))
+    instance.option("expandedRowKeys", allExpanded ? [] : parentIds)
+  }, [parentIds])
   const updateHeaderToggleButton = useCallback((button: HTMLButtonElement, expanded: boolean) => {
     button.textContent = expanded ? "−" : "+"
     button.disabled = parentIds.length === 0
@@ -411,19 +382,40 @@ function ReportTreeList(
     setColumnSettingsItems([])
   }, [columnSettingsTargetKey])
 
+  const columnSettingMap = useMemo(() => {
+    const map = new Map<string, GridColumnSettingEditorItem>()
+    for (const item of columnSettingState.cachedEditorItems) {
+      const key = normalizeColumnKey(item.columnName)
+      if (key) {
+        map.set(key, item)
+      }
+    }
+    return map
+  }, [columnSettingState.cachedEditorItems])
+
   const columnChildren = useMemo(
     () => [
       ...columns.map((column: ReportPreviewColumn) => {
         const sysCodeType = resolveReportSysCodeType(column.FIELD_NAME, sysCodeMap)
+        const setting = columnSettingMap.get(normalizeColumnKey(column.FIELD_NAME))
+          ?? columnSettingMap.get(normalizeColumnKey(column.COLUMN_KEY))
+        const effectiveFormat = resolveEffectiveColumnFormat(column, setting)
+        const dataType = resolveColumnDataType(column, effectiveFormat)
+        const fieldName = column.FIELD_NAME
         return (
           <Column
             key={column.COLUMN_KEY}
-            dataField={column.FIELD_NAME}
+            dataField={fieldName}
             caption={column.CAPTION}
-            dataType={column.DATA_TYPE === "date" ? "date" : column.DATA_TYPE === "number" ? "number" : undefined}
-            format={resolveColumnDisplayFormat(column, tempDecimalPlacesByField)}
-            customizeText={resolveColumnDataType(column) === "number" ? customizeZeroAsBlankText : undefined}
+            dataType={dataType === "boolean" ? undefined : dataType}
+            format={resolveColumnDisplayFormat(column, tempDecimalPlacesByField, effectiveFormat)}
+            customizeText={dataType === "number" ? customizeZeroAsBlankText : undefined}
             allowSorting={!preserveRowOrder}
+            calculateCellValue={
+              dataType === "date"
+                ? (row: ReportTreeRow) => resolveReportDateCellValue(row?.[fieldName]) ?? row?.[fieldName] ?? null
+                : undefined
+            }
             cellRender={(cellData) => {
               const groupLabel = getReportRowLabel(cellData.data)
               if (groupLabel) {
@@ -469,7 +461,7 @@ function ReportTreeList(
         showInColumnChooser={false}
       />,
     ],
-    [columns, getCodeName, labelsReady, preserveRowOrder, sysCodeMap, t, tempDecimalPlacesByField],
+    [columnSettingMap, columns, getCodeName, labelsReady, preserveRowOrder, sysCodeMap, t, tempDecimalPlacesByField],
   )
   const renderedColumnChildren = useMemo(() => {
     const configured = applyGridColumnSettingsToChildren(
@@ -630,6 +622,8 @@ function ReportTreeList(
   }, [reportCode])
 
   const handleCellPrepared = useCallback((event: CellPreparedEvent<ReportTreeRow, string>) => {
+    applyHeaderFieldNameTooltip(event)
+
     const cell = event.cellElement
     if (!cell) return
     if (event.rowType === "header" && event.columnIndex === 0) {
@@ -768,92 +762,90 @@ function ReportTreeList(
   }, [columns, numberFieldNames, t, clearSelectedCells, copySelectedCells, copySelectionSum])
 
 
-  const resolveScrollable = useCallback(() => {
-    const instance = treeListRef.current as (dxTreeList<ReportTreeRow, string> & {
-      getScrollable?: () => {
-        scrollWidth?: () => number
-        clientWidth?: () => number
-        scrollOffset?: () => { left?: number; top?: number }
-        scrollTo?: (position: { left?: number; top?: number }) => void
-        on?: (eventName: string, handler: () => void) => void
-        off?: (eventName: string, handler: () => void) => void
-      } | null
-    }) | null
-    return instance?.getScrollable?.() ?? null
-  }, [])
+  const { needed: horizontalScrollNeeded, scrollbar: horizontalScrollbar, sync: syncHorizontalScroll } =
+    useReportHorizontalScrollbar({
+      widgetRef: treeListRef,
+      hostRef: treeListHostRef,
+      loading,
+      rows: treeRows,
+      columnLayout: columnLayoutSignature,
+    })
 
-  const getProxyScrollContainer = useCallback(() => {
-    return hScrollProxyRef.current?.element()?.querySelector<HTMLElement>(".dx-scrollable-container") ?? null
-  }, [])
+  const handleContentReadyWithHorizontalScroll = useCallback(
+    (event: ContentReadyEvent<ReportTreeRow, string>) => {
+      handleContentReady(event)
+      syncHorizontalScroll()
 
-  const syncScrollFromTree = useCallback(() => {
-    const scrollable = resolveScrollable()
-    if (!scrollable) return
-    const left = Number(scrollable.scrollOffset?.()?.left ?? 0)
-    const maxLeft = Math.max(0, Number(scrollable.scrollWidth?.() ?? 0) - Number(scrollable.clientWidth?.() ?? 0))
-    const needed = maxLeft > 2
-    setHorizontalScrollNeeded((current) => current === needed ? current : needed)
-    const proxy = getProxyScrollContainer()
-    if (!proxy || proxy.clientWidth <= 0 || !needed) return
-    const contentWidth = Math.max(1, Math.round(proxy.clientWidth + maxLeft))
-    setHorizontalScrollContentWidth((current) => current === contentWidth ? current : contentWidth)
-    if (horizontalScrollSyncingRef.current) return
-    if (Math.abs(proxy.scrollLeft - left) > 1) {
-      horizontalScrollSyncingRef.current = true
-      proxy.scrollLeft = left
-      window.requestAnimationFrame(() => { horizontalScrollSyncingRef.current = false })
-    }
-  }, [resolveScrollable, getProxyScrollContainer])
-
-  const handleProxyScroll = useCallback(() => {
-    const proxy = getProxyScrollContainer()
-    const scrollable = resolveScrollable()
-    if (!proxy || !scrollable || horizontalScrollSyncingRef.current) return
-    horizontalScrollSyncingRef.current = true
-    const maxLeft = Math.max(0, Number(scrollable.scrollWidth?.() ?? 0) - Number(scrollable.clientWidth?.() ?? 0))
-    const left = Math.min(Math.max(0, proxy.scrollLeft), maxLeft)
-    scrollable.scrollTo?.({ left })
-    window.requestAnimationFrame(() => { horizontalScrollSyncingRef.current = false })
-  }, [getProxyScrollContainer, resolveScrollable])
-
-  const handleProxyInitialized = useCallback((event: { component?: dxScrollView }) => {
-    hScrollProxyRef.current = event.component ?? null
-    if (event.component) void event.component.update().then(syncScrollFromTree)
-  }, [syncScrollFromTree])
-
-  const handleProxyDisposing = useCallback(() => {
-    hScrollProxyRef.current = null
-  }, [])
-
-  useLayoutEffect(() => {
-    if (!horizontalScrollNeeded || !hScrollProxyRef.current) return
-    void hScrollProxyRef.current.update().then(syncScrollFromTree)
-  }, [horizontalScrollNeeded, horizontalScrollContentWidth, syncScrollFromTree])
+      if (reportCode === "GL_ACCOUNT_DETAIL_S38DN" && preview && !loading) {
+        const instance = event.component
+        const dataSource = instance.getDataSource()
+        const host = treeListHostRef.current
+        const rootNode = instance.getRootNode()
+        const sample = {
+          responseRows: preview.ROWS.length,
+          treeRows: treeRows.length,
+          visibleRows: instance.getVisibleRows().length,
+          renderedRows: host?.querySelectorAll(".dx-data-row").length,
+          viewportHeight: host?.clientHeight,
+          hasSearch: searchVisible,
+          hasCombinedFilter: Boolean(instance.getCombinedFilter()),
+          dataSourceLoading: dataSource?.isLoading(),
+          dataSourceLoaded: dataSource?.isLoaded(),
+          dataSourceItems: dataSource?.items().length,
+          widgetRootChildren: rootNode?.children.length,
+          visibleColumns: instance.getVisibleColumns().length,
+        }
+        const signature = JSON.stringify(sample)
+        const previousSample = treeDebugSampleRef.current
+        const previousCount = previousSample?.preview === preview ? previousSample.count : 0
+        if (previousCount < 6 && (previousCount === 0 || previousSample?.signature !== signature)) {
+          treeDebugSampleRef.current = { preview, signature, count: previousCount + 1 }
+          debugMd("gl-account-detail", "tree-sample", sample)
+        }
+      }
+    },
+    [handleContentReady, loading, preview, reportCode, searchVisible, syncHorizontalScroll, treeRows.length],
+  )
 
   useEffect(() => {
-    if (loading) {
-      setHorizontalScrollNeeded(false)
-      return
-    }
-    const scrollable = resolveScrollable()
-    const onScroll = () => {
-      if (!horizontalScrollSyncingRef.current) syncScrollFromTree()
-    }
-    scrollable?.on?.("scroll", onScroll)
-    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(syncScrollFromTree) : null
-    if (treeListHostRef.current) observer?.observe(treeListHostRef.current)
-    if (hScrollPaneRef.current) observer?.observe(hScrollPaneRef.current)
-    window.addEventListener("resize", syncScrollFromTree)
-    const timer = window.setInterval(syncScrollFromTree, 800)
-    syncScrollFromTree()
-    return () => {
-      scrollable?.off?.("scroll", onScroll)
-      observer?.disconnect()
-      window.removeEventListener("resize", syncScrollFromTree)
-      window.clearInterval(timer)
-    }
-  }, [loading, treeRows, columnLayoutSignature, resolveScrollable, syncScrollFromTree])
+    if (reportCode !== "GL_ACCOUNT_DETAIL_S38DN" || !preview) return
 
+    const childrenByParent = new Map<string, string[]>()
+    const rootIds: string[] = []
+    for (const row of treeRows) {
+      if (row.PARENT_ID === null) {
+        rootIds.push(row.ID)
+        continue
+      }
+      const siblings = childrenByParent.get(row.PARENT_ID)
+      if (siblings) siblings.push(row.ID)
+      else childrenByParent.set(row.PARENT_ID, [row.ID])
+    }
+
+    const reachableIds = new Set(rootIds)
+    const pending = [...rootIds]
+    for (let index = 0; index < pending.length; index += 1) {
+      for (const childId of childrenByParent.get(pending[index]) ?? []) {
+        if (reachableIds.has(childId)) continue
+        reachableIds.add(childId)
+        pending.push(childId)
+      }
+    }
+    const unreachableRows = treeRows.filter((row) => !reachableIds.has(row.ID))
+    debugMd("gl-account-detail", "tree-hierarchy", {
+      treeRows: treeRows.length,
+      rootRows: rootIds.length,
+      unreachableRows: unreachableRows.length,
+      unreachableExamples: unreachableRows.slice(0, 3).map(({ ID, PARENT_ID }) => ({ id: ID, parentId: PARENT_ID })),
+    })
+  }, [preview, reportCode, treeRows])
+
+  const handleDataError = useCallback((event: DataErrorOccurredEvent<ReportTreeRow, string>) => {
+    debugMd("gl-account-detail", "tree-error", {
+      message: event.error?.message?.slice(0, 250),
+      stack: (event.error?.stack ?? new Error().stack)?.split("\n").slice(1, 5),
+    })
+  }, [])
 
   // Selection summary updates must preserve the DOM between the two clicks.
   const renderedTreeList = useMemo(() => (
@@ -865,7 +857,8 @@ function ReportTreeList(
           filterMode="fullBranch"
           expandNodesOnFiltering
           onInitialized={handleInitialized}
-          onContentReady={handleContentReady}
+          onContentReady={handleContentReadyWithHorizontalScroll}
+          onDataErrorOccurred={reportCode === "GL_ACCOUNT_DETAIL_S38DN" ? handleDataError : undefined}
           onRowDblClick={handleRowDblClick}
           onRowExpanded={syncExpandedState}
           onRowCollapsed={syncExpandedState}
@@ -883,10 +876,18 @@ function ReportTreeList(
           columnResizingMode="widget"
           wordWrapEnabled={false}
           noDataText={t("NO_DATA", "Không có dữ liệu")}
-          autoExpandAll={defaultExpandAll}
+          autoExpandAll
           repaintChangesOnly
         >
-          <Scrolling mode="virtual" rowRenderingMode="virtual" useNative={false} showScrollbar="always" scrollByThumb scrollByContent={false} />
+          <Paging enabled={false} />
+          <Scrolling
+            mode="standard"
+            rowRenderingMode="standard"
+            useNative={useNativeScrolling}
+            showScrollbar="always"
+            scrollByThumb
+            scrollByContent={useNativeScrolling}
+          />
           <ColumnFixing enabled />
           {preserveRowOrder ? <Sorting mode="none" /> : null}
           {columnSettingState.enabled ? (
@@ -907,13 +908,15 @@ function ReportTreeList(
     treeRows,
     preserveRowOrder,
     handleInitialized,
-    handleContentReady,
+    handleContentReadyWithHorizontalScroll,
+    handleDataError,
+    reportCode,
     handleRowDblClick,
     syncExpandedState,
     handleRowPrepared,
     handleCellPrepared,
     handleContextMenuPreparing,
-    defaultExpandAll,
+    useNativeScrolling,
     columnSettingState.enabled,
     columnSettingState.customLoad,
     columnSettingState.customSave,
@@ -931,14 +934,16 @@ function ReportTreeList(
       <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
         <div
           ref={treeListHostRef}
-          className="report-tree-list-host min-h-0 min-w-0 flex-1 overflow-hidden"
+          className={`report-tree-list-host min-h-0 min-w-0 flex-1 overflow-hidden${useNativeScrolling ? " report-grid-custom-scrollbars" : ""}`}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={finishSelection}
           onPointerLeave={finishSelection}
         >
           {renderedTreeList}
-
+          {useNativeScrolling ? (
+            <ReportGridVerticalScrollbar hostRef={treeListHostRef} label={t("REPORT_VERTICAL_SCROLL", "Cuộn dọc bảng báo cáo")} />
+          ) : null}
         </div>
         {horizontalScrollNeeded || selectionStats.numericCount > 0 ? (
           <div className={horizontalScrollNeeded ? "report-grid-footer" : "report-grid-footer report-grid-footer--summary-only"}>
@@ -960,26 +965,7 @@ function ReportTreeList(
                 ) : null}
               </div>
             </div>
-            {horizontalScrollNeeded ? (
-              <div ref={hScrollPaneRef} className="report-grid-hscroll-pane">
-                <ScrollView
-                  className="report-grid-hscroll"
-                  direction="horizontal"
-                  useNative={false}
-                  showScrollbar="always"
-                  scrollByThumb
-                  scrollByContent={false}
-                  bounceEnabled={false}
-                  width="100%"
-                  height={18}
-                  onInitialized={handleProxyInitialized}
-                  onDisposing={handleProxyDisposing}
-                  onScroll={handleProxyScroll}
-                >
-                  <div className="report-grid-hscroll-content" style={{ width: Math.max(horizontalScrollContentWidth, 1) }} />
-                </ScrollView>
-              </div>
-            ) : null}
+            {horizontalScrollbar}
           </div>
         ) : null}
       </div>

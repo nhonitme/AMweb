@@ -279,11 +279,19 @@ export function ChitEditorPopup({
 
     const rowInventory = useRowInventoryEditor({ visible, chitType, readOnly, draftRef, setDraft, gridRef: detailGridRef, onSave, onSaveAndNew, inventoryDraftType, prepareInventoryDraft, validateInventoryDraft, canOpenInventoryRow, t })
     const inventoryRefreshVersion = rowInventory.refreshVersion + inventoryLinkRefreshVersion
+    const handleCommitVatRow = useCallback((_rowKey: string, nextDetails: ChitInfo["DETAILS"]) => {
+        setDraft((current) => ({
+            ...current,
+            DETAILS: nextDetails,
+        }))
+    }, [setDraft])
+
     const voucherVat = useVoucherVatDetails({
         visible,
         voucherValue: value,
         details: draft.DETAILS,
         t,
+        onCommitVatRow: handleCommitVatRow,
     })
 
     const mergeDetailsForSave = useCallback(
@@ -794,6 +802,7 @@ export function ChitEditorPopup({
                                 onOpenVat={handleOpenVat}
                                 vatPanel={voucherVat.activeVatRowKey && activeVatDetail ? (
                                     <VatDetailPanel
+                                        key={voucherVat.activeVatRowKey}
                                         rowKey={voucherVat.activeVatRowKey}
                                         rowLabel={activeVatRowLabel}
                                         value={voucherVat.getVatDetail(voucherVat.activeVatRowKey)}

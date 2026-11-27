@@ -70,6 +70,7 @@ const getEditorConfig = (
     return {
       editorType: "dxTextBox",
       editorOptions: createOutlinedEditorOptions({
+        ...(!isUpdate && { valueChangeEvent: "input" }),
         mode: "password",
         disabled,
         readOnly: disabled,
@@ -86,6 +87,7 @@ const getEditorConfig = (
     return {
       editorType: "dxTextBox",
       editorOptions: createOutlinedEditorOptions({
+        ...(!isUpdate && { valueChangeEvent: "input" }),
         disabled: disabled || isUpdate,
         readOnly: disabled || isUpdate,
       }),
@@ -95,6 +97,7 @@ const getEditorConfig = (
   return {
     editorType: "dxTextBox",
     editorOptions: createOutlinedEditorOptions({
+      ...(!isUpdate && { valueChangeEvent: "input" }),
       disabled,
       readOnly: disabled,
     }),
@@ -118,6 +121,7 @@ export default function UserInfoForm({
     [translate],
   )
   const passwordArmedRef = useRef(false)
+  const formData = useMemo(() => ({ ...value }), [value])
 
   useEffect(() => {
     passwordArmedRef.current = false
@@ -187,7 +191,7 @@ export default function UserInfoForm({
           editor.option("value", "")
         }
         if (value.PASSWD) {
-          value.PASSWD = ""
+          onChange({ ...value, PASSWD: "" })
         }
         return
       }
@@ -206,20 +210,15 @@ export default function UserInfoForm({
 
   return (
     <div className="user-info-form mx-auto w-full max-w-3xl space-y-5">
-      <section className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
-        <UserAvatarField
-          value={value}
-          onChange={onChange}
-          onUploaded={onAvatarUploaded}
-          disabled={disabled}
-          isCreate={!isUpdate}
-          t={t}
-        />
-      </section>
+      {isUpdate && (
+        <section className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
+          <UserAvatarField value={value} onChange={onChange} onUploaded={onAvatarUploaded} disabled={disabled} t={t} />
+        </section>
+      )}
 
       <div className="master-data-profile">
         <Form
-          formData={value}
+          formData={formData}
           colCount={1}
           labelLocation="top"
           width="100%"
@@ -239,6 +238,7 @@ export default function UserInfoForm({
                   }
                   editorType={item.editorType}
                   editorOptions={item.editorOptions}
+                  isRequired={!isUpdate && (item.dataField === "USERID" || item.dataField === "PASSWD" || item.dataField === "USERNM")}
                   colSpan={item.colSpan}
                 />
               ))}

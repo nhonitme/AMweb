@@ -18,7 +18,7 @@ export function ChitNoteColumns({ showRevenueAmount = false }: { showRevenueAmou
 
   return (
     <>
-      <Column dataField="CHIT_ID" />
+      <Column dataField="CHIT_ID" visible={false} />
       <Column
         dataField="CHIT_TYPE"
         caption={t("CHIT_TYPE", "Loại")}

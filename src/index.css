@@ -408,9 +408,64 @@ tbody {
   touch-action: manipulation;
 }
 
-/* Ẩn thanh cuộn ngang trong lưới — dùng thanh ngoài bên phải vùng Tổng cộng. */
-.report-data-grid .dx-scrollbar-horizontal {
+/* Ẩn thanh cuộn ngang trong lưới vì chân bảng có thanh cuộn riêng. */
+.report-data-grid .dx-scrollbar-horizontal,
+.report-tree-list .dx-scrollbar-horizontal {
   display: none !important;
+}
+
+.report-grid-custom-scrollbars {
+  position: relative;
+  box-sizing: border-box;
+}
+
+.report-grid-custom-scrollbars:has(> .report-grid-vscroll) {
+  padding-right: 16px;
+}
+
+.report-grid-custom-scrollbars :is(.dx-datagrid-rowsview, .dx-treelist-rowsview).dx-scrollable-native,
+.report-grid-custom-scrollbars :is(.dx-datagrid-rowsview, .dx-treelist-rowsview).dx-scrollable-native > .dx-scrollable-wrapper > .dx-scrollable-container {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.report-grid-custom-scrollbars :is(.dx-datagrid-rowsview, .dx-treelist-rowsview).dx-scrollable-native::-webkit-scrollbar,
+.report-grid-custom-scrollbars :is(.dx-datagrid-rowsview, .dx-treelist-rowsview).dx-scrollable-native > .dx-scrollable-wrapper > .dx-scrollable-container::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.report-grid-vscroll {
+  position: absolute;
+  right: 0;
+  width: 16px;
+  margin: 0;
+  padding: 2px;
+  appearance: none;
+  writing-mode: vertical-lr;
+  direction: ltr;
+  touch-action: none;
+  cursor: pointer;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+}
+
+.report-grid-vscroll::-webkit-slider-thumb {
+  appearance: none;
+  width: 10px;
+  height: var(--report-grid-vscroll-thumb-height);
+  background: #64748b;
+  border-radius: 999px;
+}
+
+.report-grid-vscroll::-moz-range-thumb {
+  width: 10px;
+  height: var(--report-grid-vscroll-thumb-height);
+  background: #64748b;
+  border: 0;
+  border-radius: 999px;
 }
 
 /* Thanh cuộn dọc: luôn hiện, dày, dễ kéo. */
@@ -682,32 +737,29 @@ tbody {
   flex: 1 1 auto;
   width: 100%;
   height: 18px;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
   border-radius: 999px;
 }
 
-.report-grid-hscroll .dx-scrollable-scrollbar.dx-scrollbar-horizontal {
-  height: 14px !important;
-  border-radius: 999px;
-  background: #f1f5f9;
+.report-grid-hscroll::-webkit-scrollbar {
+  height: 14px;
 }
 
-.report-grid-hscroll .dx-scrollbar-horizontal .dx-scrollable-scroll {
-  height: 14px !important;
-  padding: 3px;
-}
-
-.report-grid-hscroll .dx-scrollable-scroll-content {
+.report-grid-hscroll::-webkit-scrollbar-thumb {
+  border: 3px solid #f1f5f9;
   border-radius: 999px;
   background: #64748b;
 }
 
-.report-grid-hscroll .dx-scrollbar-hoverable .dx-scrollable-scroll-content {
+.report-grid-hscroll::-webkit-scrollbar-thumb:hover {
   background: #475569;
 }
 
-.report-grid-hscroll .dx-scrollable-scrollbar-active .dx-scrollable-scroll-content {
+.report-grid-hscroll::-webkit-scrollbar-thumb:active {
   background: #334155;
 }
 
@@ -768,6 +820,9 @@ tbody {
 }
 
 .report-data-grid .dx-group-row > td {
+  height: var(--am-grid-row-height) !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
   vertical-align: middle !important;
 }
 
@@ -776,13 +831,66 @@ tbody {
   line-height: 1;
 }
 
-/* Fluent sticky: focus/selection đặt padding-bottom:9px → lệch mũi tên group */
+/* VAT section groups: collapse native command-expand column; toggle is inline on the group label. */
+.report-data-grid-host--vat-reduction .report-data-grid td.dx-command-expand,
+.report-data-grid-host--vat-reduction .report-data-grid .dx-command-expand {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  overflow: hidden !important;
+}
+
+.report-data-grid-host--vat-reduction .report-data-grid .dx-command-expand .dx-datagrid-expand,
+.report-data-grid-host--vat-reduction .report-data-grid .dx-command-expand .dx-datagrid-group-opened,
+.report-data-grid-host--vat-reduction .report-data-grid .dx-command-expand .dx-datagrid-group-closed {
+  display: none !important;
+}
+
+.report-group-cell-with-expand {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+  vertical-align: middle;
+}
+
+.report-group-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: #312e81;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.report-group-expand-btn:hover {
+  background: rgba(49, 46, 129, 0.08);
+}
+
+.report-group-expand-btn:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 1px;
+}
+
+/* Keep focused/selected group rows the same height as normal data rows. */
 .report-data-grid .dx-datagrid-rowsview.dx-datagrid-sticky-columns
   .dx-group-row.dx-row-focused:not(.dx-edit-row) > td:not(.dx-editor-cell, .dx-master-detail-cell),
 .report-data-grid .dx-datagrid-rowsview.dx-datagrid-sticky-columns
   .dx-group-row.dx-selection:not(.dx-edit-row) > td:not(.dx-editor-cell, .dx-master-detail-cell) {
-  padding-top: 10px !important;
-  padding-bottom: 10px !important;
+  height: var(--am-grid-row-height) !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
 }
 
 .report-data-grid .dx-datagrid-total-footer td.report-cell-align-left {
@@ -806,8 +914,8 @@ tbody {
   background-color: #ffffff;
 }
 
-/* VAT appendix: a single overlay line follows the actual filler column edge
-   across the header, group rows and data rows. */
+/* VAT section-grouped reports (reduction appendix, invoice list): a single
+   overlay line follows the actual filler column edge across header/group/data. */
 .report-data-grid-host--vat-reduction {
   position: relative;
 }

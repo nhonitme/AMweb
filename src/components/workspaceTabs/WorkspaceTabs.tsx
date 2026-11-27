@@ -30,6 +30,7 @@ export type WorkspaceTab = {
 }
 
 export type OpenWorkspacePathOptions = {
+  forceNew?: boolean
   replaceScreen?: boolean
   title?: string
   state?: unknown
@@ -160,51 +161,63 @@ export function useWorkspaceTabsController({
     (target: string, options?: OpenWorkspacePathOptions) => {
       const href = normalizeWorkspaceHref(target)
       if (!enabled) {
+        if (options?.forceNew && typeof window !== "undefined") {
+          window.open(href, "_blank", "noopener,noreferrer")
+          return
+        }
         navigate(href, { replace: Boolean(options?.replaceScreen), state: options?.state })
         return
       }
 
-      const existing = tabs.find((tab) => tab.href === href)
-      if (existing) {
-        selectTab(existing.id)
+      if (!options?.forceNew) {
+        const existing = tabs.find((tab) => tab.href === href)
+        if (existing) {
+          selectTab(existing.id)
+          return
+        }
+
+        if (options?.replaceScreen) {
+          const pathname = pathnameOf(href)
+          const existingScreen = tabs.find((tab) => tab.pathname === pathname)
+          if (existingScreen) {
+            const providedTitle = options.title?.trim() ?? ""
+            const nextTitle = providedTitle || getTitle(href)
+            if (existingScreen.href === href && existingScreen.state === options.state && existingScreen.title === nextTitle) {
+              selectTab(existingScreen.id)
+              return
+            }
+
+            setTabs((currentTabs) =>
+              currentTabs.map((tab) =>
+                tab.id === existingScreen.id
+                  ? {
+                      ...tab,
+                      customTitle: Boolean(providedTitle),
+                      href,
+                      icon: getIcon(href),
+                      pathname,
+                      state: options.state,
+                      title: nextTitle,
+                    }
+                  : tab,
+              ),
+            )
+            navigate(href, { replace: true, state: options.state })
+            return
+          }
+        }
+
+        // Let the location sync effect create/activate the tab after navigate.
+        navigate(href, { state: options?.state })
         return
       }
 
-      if (options?.replaceScreen) {
-        const pathname = pathnameOf(href)
-        const existingScreen = tabs.find((tab) => tab.pathname === pathname)
-        if (existingScreen) {
-          const providedTitle = options.title?.trim() ?? ""
-          const nextTitle = providedTitle || getTitle(href)
-          if (existingScreen.href === href && existingScreen.state === options.state && existingScreen.title === nextTitle) {
-            selectTab(existingScreen.id)
-            return
-          }
-
-          setTabs((currentTabs) =>
-            currentTabs.map((tab) =>
-              tab.id === existingScreen.id
-                ? {
-                    ...tab,
-                    customTitle: Boolean(providedTitle),
-                    href,
-                    icon: getIcon(href),
-                    pathname,
-                    state: options.state,
-                    title: nextTitle,
-                  }
-                : tab,
-            ),
-          )
-          navigate(href, { replace: true, state: options.state })
-          return
-        }
-      }
-
-      // Let the location sync effect create/activate the tab after navigate.
+      const newTab = makeTab(href, options)
+      setTabs((currentTabs) => [...currentTabs, newTab])
+      setActiveTabId(newTab.id)
       navigate(href, { state: options?.state })
     },
-    [enabled, getIcon, getTitle, navigate, selectTab, tabs],
+    [enabled, getIcon, getTitle, makeTab, navigate, selectTab, tabs],
   )
 
   const openWorkspaceScreen = useCallback(

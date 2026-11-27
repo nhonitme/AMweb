@@ -20,7 +20,8 @@ import { getCurrentCompanyCd, getCurrentUserId, getCurrentUserPkId } from "@/lib
 import type { MenuItem } from "@/types/menu"
 import type { UserInfo, UserInfoApi } from "@/types/userInfo"
 import { PermissionsDialog } from "./PermissionsDialog"
-import UserDetailPanel, { type UserDetailMode } from "./UserDetailPanel"
+import UserCreatePopup from "./UserCreatePopup"
+import UserDetailPanel from "./UserDetailPanel"
 import UserListPanel from "./UserListPanel"
 import {
   getChangedPermissionRows,
@@ -52,22 +53,8 @@ const EDITABLE_COMPARE_FIELDS: Array<keyof UserInfo> = [
   "IS_ACTIVE",
 ]
 
-function isUserDraftDirty(draft: UserInfo | null, baseline: UserInfo | null, mode: UserDetailMode): boolean {
-  if (!draft || mode === "idle") {
-    return false
-  }
-
-  if (mode === "create") {
-    const empty = createDefaultUserInfo(draft.COMPANY_CD || getCurrentCompanyCd())
-    return EDITABLE_COMPARE_FIELDS.some((field) => {
-      if (field === "PASSWD") {
-        return hasText(draft.PASSWD)
-      }
-      return draft[field] !== empty[field]
-    })
-  }
-
-  if (!baseline) {
+function isUserDraftDirty(draft: UserInfo | null, baseline: UserInfo | null): boolean {
+  if (!draft || !baseline) {
     return false
   }
 
@@ -90,14 +77,15 @@ export default function UserManagementPage() {
   const { getCodesByType } = useSysCodes()
   const [selectedUser, setSelectedUser] = useState<UserInfo | null>(null)
   const [formDraft, setFormDraft] = useState<UserInfo | null>(null)
-  const [detailMode, setDetailMode] = useState<UserDetailMode>("idle")
   const [detailSaving, setDetailSaving] = useState(false)
+  const [createDraft, setCreateDraft] = useState<UserInfo | null>(null)
+  const [createSaving, setCreateSaving] = useState(false)
   const [listSearchText, setListSearchText] = useState("")
   const gridRef = useRef<dxDataGrid | null>(null)
   const selectedUserRef = useRef<UserInfo | null>(null)
   const formDraftRef = useRef<UserInfo | null>(null)
-  const detailModeRef = useRef<UserDetailMode>("idle")
   const hasAutoSelectedRef = useRef(false)
+  const createActionRef = useRef<"discard" | "save" | null>(null)
 
   const { lang, translate } = useContext(LanguageContext) as {
     translate: (key: string, fallback?: string) => string
@@ -132,14 +120,11 @@ export default function UserManagementPage() {
     formDraftRef.current = formDraft
   }, [formDraft])
 
-  useEffect(() => {
-    detailModeRef.current = detailMode
-  }, [detailMode])
-
   const isDirty = useMemo(
-    () => isUserDraftDirty(formDraft, selectedUser, detailMode),
-    [detailMode, formDraft, selectedUser],
+    () => isUserDraftDirty(formDraft, selectedUser),
+    [formDraft, selectedUser],
   )
+  const isCreateDirty = Boolean(createDraft && isUserDraftDirty(createDraft, createDefaultUserInfo(createDraft.COMPANY_CD)))
 
   const invalidateMenuTree = useMenuTreeInvalidate()
 
@@ -178,21 +163,18 @@ export default function UserManagementPage() {
     if (!user) {
       setSelectedUser(null)
       setFormDraft(null)
-      setDetailMode("idle")
       return
     }
 
     const next = cloneUser({ ...user, PASSWD: "" })
     setSelectedUser(next)
     setFormDraft(cloneUser(next))
-    setDetailMode("view-edit")
   }, [])
 
   const confirmDiscardIfDirty = useCallback(async () => {
     const dirty = isUserDraftDirty(
       formDraftRef.current,
       selectedUserRef.current,
-      detailModeRef.current,
     )
     if (!dirty) {
       return true
@@ -209,16 +191,12 @@ export default function UserManagementPage() {
       return
     }
 
-    if (detailModeRef.current === "create") {
-      return
-    }
-
     hasAutoSelectedRef.current = true
     applySelectedUser(users[0])
   }, [applySelectedUser, loading, users])
 
   useEffect(() => {
-    if (detailMode !== "view-edit" || !selectedUser?.USER_PK_ID) {
+    if (!selectedUser?.USER_PK_ID) {
       return
     }
 
@@ -227,13 +205,13 @@ export default function UserManagementPage() {
       return
     }
 
-    const dirty = isUserDraftDirty(formDraftRef.current, selectedUserRef.current, "view-edit")
+    const dirty = isUserDraftDirty(formDraftRef.current, selectedUserRef.current)
     if (dirty) {
       return
     }
 
     applySelectedUser(refreshed)
-  }, [applySelectedUser, detailMode, selectedUser?.USER_PK_ID, users])
+  }, [applySelectedUser, selectedUser?.USER_PK_ID, users])
 
   const loadPermissions = useCallback(
     async (userId?: string) => {
@@ -372,7 +350,6 @@ export default function UserManagementPage() {
     async (user: UserInfo) => {
       const currentPk = selectedUserRef.current?.USER_PK_ID
       if (
-        detailModeRef.current === "view-edit" &&
         currentPk != null &&
         user.USER_PK_ID === currentPk
       ) {
@@ -390,80 +367,82 @@ export default function UserManagementPage() {
   )
 
   const handleToolbarAdd = useCallback(async () => {
+    if (createDraft || detailSaving) {
+      return
+    }
+
     const canContinue = await confirmDiscardIfDirty()
     if (!canContinue) {
       return
     }
 
-    const draft = createDefaultUserInfo(getCurrentCompanyCd())
-    setSelectedUser(null)
-    setFormDraft(draft)
-    setDetailMode("create")
-  }, [confirmDiscardIfDirty])
+    if (isUserDraftDirty(formDraftRef.current, selectedUserRef.current)) {
+      const user = selectedUserRef.current
+      setFormDraft(user ? cloneUser(user) : null)
+    }
+    setCreateDraft(createDefaultUserInfo(getCurrentCompanyCd()))
+  }, [confirmDiscardIfDirty, createDraft, detailSaving])
 
-  const handleDetailCancel = useCallback(async () => {
-    if (detailMode === "create") {
-      const canContinue = isDirty
-        ? await confirm(
-            t("USER_DETAIL_DISCARD_CONFIRM", "Discard unsaved changes?"),
-            t("MSG_CONFIRM", "Confirm"),
-          )
-        : true
-      if (!canContinue) {
-        return
-      }
-
-      if (users.length > 0) {
-        applySelectedUser(users[0])
-      } else {
-        applySelectedUser(null)
-      }
+  const handleCreateCancel = useCallback(async () => {
+    if (!createDraft || createActionRef.current) {
       return
     }
 
+    createActionRef.current = "discard"
+    try {
+      if (!isCreateDirty || await confirm(
+        t("USER_DETAIL_DISCARD_CONFIRM", "Discard unsaved changes?"),
+        t("MSG_CONFIRM", "Confirm"),
+      )) {
+        setCreateDraft(null)
+      }
+    } finally {
+      createActionRef.current = null
+    }
+  }, [createDraft, isCreateDirty, t])
+
+  const handleCreateSave = useCallback(async () => {
+    if (!createDraft || createActionRef.current) {
+      return
+    }
+
+    if (!hasText(createDraft.USERID) || !hasText(createDraft.USERNM) || !hasText(createDraft.PASSWD)) {
+      notify(t("USER_DETAIL_REQUIRED", "Cần nhập tên đăng nhập, họ tên và mật khẩu."), "warning", 3000)
+      return
+    }
+
+    createActionRef.current = "save"
+    setCreateSaving(true)
+    try {
+      const created = await createMutation.mutateAsync(buildCreatePayload(createDraft))
+      const refreshed = await refetchUsers()
+      const list = normalizeUserInfoRows(refreshed.data ?? [])
+      const createdPk = created?.data?.USER_PK_ID
+      const matched =
+        (createdPk != null ? list.find((row) => row.USER_PK_ID === createdPk) : undefined) ??
+        list.find((row) => row.USERID === createDraft.USERID.trim())
+      if (matched) {
+        applySelectedUser(matched)
+      }
+      setCreateDraft(null)
+      notify(t("MSG_INSERT_SUCCESS", "Created successfully"), "success", 3000)
+    } catch (error) {
+      console.error("Create user error", error)
+      notify(getApiErrorMessage(error, t("INSERT_FAILED", "Thêm mới thất bại")), "error", 3000)
+    } finally {
+      createActionRef.current = null
+      setCreateSaving(false)
+    }
+  }, [applySelectedUser, buildCreatePayload, createDraft, createMutation, refetchUsers, t])
+
+  const handleDetailCancel = useCallback(() => {
     if (selectedUser) {
       setFormDraft(cloneUser({ ...selectedUser, PASSWD: "" }))
     }
-  }, [applySelectedUser, detailMode, isDirty, selectedUser, t, users])
+  }, [selectedUser])
 
   const handleDetailSave = useCallback(async () => {
-    if (!formDraft || detailMode === "idle") {
-      return
-    }
-
-    if (detailMode === "create") {
-      if (!hasText(formDraft.USERID) || !hasText(formDraft.USERNM) || !hasText(formDraft.PASSWD)) {
-        notify(
-          t("USER_DETAIL_REQUIRED", "User ID, name and password are required."),
-          "warning",
-          3000,
-        )
-        return
-      }
-
-      setDetailSaving(true)
-      try {
-        const payload = buildCreatePayload(formDraft)
-        const created = await createMutation.mutateAsync(payload)
-        notify(t("MSG_INSERT_SUCCESS", "Created successfully"), "success", 3000)
-        const refreshed = await refetchUsers()
-        const list = normalizeUserInfoRows(refreshed.data ?? [])
-        const createdPk =
-          typeof created?.data?.USER_PK_ID === "number" ? created.data.USER_PK_ID : null
-        const matched =
-          (createdPk != null ? list.find((row) => row.USER_PK_ID === createdPk) : undefined) ??
-          list.find((row) => row.USERID === formDraft.USERID.trim())
-        applySelectedUser(matched ?? null)
-      } catch (error) {
-        console.error("Create user error", error)
-        notify(getApiErrorMessage(error, t("INSERT_FAILED", "Thêm mới thất bại")), "error", 3000)
-      } finally {
-        setDetailSaving(false)
-      }
-      return
-    }
-
-    if (!selectedUser?.USER_PK_ID) {
+    if (!formDraft || !selectedUser?.USER_PK_ID) {
       return
     }
 
@@ -491,10 +470,7 @@ export default function UserManagementPage() {
     }
   }, [
     applySelectedUser,
-    buildCreatePayload,
     buildUpdatePayload,
-    createMutation,
-    detailMode,
     formDraft,
     refetchUsers,
     selectedUser,
@@ -563,7 +539,7 @@ export default function UserManagementPage() {
             showImport={false}
             showExportPdf={false}
             showColumnChooser={false}
-            deleteDisabled={!selectedUser || detailMode === "create"}
+            deleteDisabled={!selectedUser || Boolean(createDraft) || createSaving}
             onSearchStateChange={(value) => setListSearchText(value)}
             customItems={[
               {
@@ -573,10 +549,22 @@ export default function UserManagementPage() {
                 hint: t("USER_PERMISSION_TOOLTIP", "User permissions"),
                 stylingMode: "text",
                 showText: "none",
-                disabled: !selectedUser || !canOpenPermissionDialog || detailMode === "create",
+                disabled: !selectedUser || !canOpenPermissionDialog || Boolean(createDraft) || createSaving,
                 onClick: () => void loadPermissions(selectedUser?.USERID),
               },
             ]}
+          />
+        }
+        overlays={
+          <UserCreatePopup
+            value={createDraft}
+            isDirty={isCreateDirty}
+            saving={createSaving}
+            userLevelCodes={userLevelCodes}
+            onChange={setCreateDraft}
+            onSave={() => { void handleCreateSave() }}
+            onCancel={() => { void handleCreateCancel() }}
+            translate={t}
           />
         }
       >
@@ -587,7 +575,6 @@ export default function UserManagementPage() {
               selectedUserPkId={selectedUser?.USER_PK_ID ?? null}
               searchText={listSearchText}
               userLevelCodes={userLevelCodes}
-              creating={detailMode === "create"}
               emptyText={t("USER_LIST_EMPTY", "Không tìm thấy người dùng.")}
               countLabel={t("USER_LIST_COUNT", "{0} người dùng")}
               inactiveLabel={t("INACTIVE", "Ngưng")}
@@ -600,7 +587,6 @@ export default function UserManagementPage() {
 
           <div className="min-h-[360px] min-w-0 flex-1 overflow-hidden">
             <UserDetailPanel
-              mode={detailMode}
               value={formDraft}
               isDirty={isDirty}
               saving={detailSaving}
@@ -634,7 +620,7 @@ export default function UserManagementPage() {
 
         <LoadPanel
           shadingColor="rgba(0, 0, 0, 0.4)"
-          visible={loading || detailSaving}
+          visible={!createDraft && (loading || detailSaving || createSaving)}
           showIndicator={true}
           shading={true}
           showPane={true}

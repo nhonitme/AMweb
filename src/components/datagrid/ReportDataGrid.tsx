@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useContext, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type ForwardedRef, type PointerEvent as ReactPointerEvent } from "react"
+import { forwardRef, useCallback, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, type ForwardedRef, type PointerEvent as ReactPointerEvent } from "react"
 import DataGrid, {
   Column,
   ColumnFixing,
@@ -6,20 +6,30 @@ import DataGrid, {
   FilterRow,
   Grouping,
   HeaderFilter,
+  Paging,
   Scrolling,
   StateStoring,
   Summary,
   TotalItem,
 } from "devextreme-react/data-grid"
 import ProgressBar from "devextreme-react/progress-bar"
-import ScrollView from "devextreme-react/scroll-view"
 import { formatNumber } from "devextreme/localization"
 import { getFaStatusDisplayText } from "@/pages/Module/FixedAssetManagement/fixedAssetStatus"
 import { resolveVatInvoiceStatusLabel } from "@/pages/Tax/vatInvoiceStatus"
-import { Coins, Landmark, Scale } from "lucide-react"
+import {
+  ensureVatInvoiceListGroupRows,
+  isVatInvoiceListGroupPlaceholderRow,
+  isVatSectionStyleGroupReport,
+  normalizeVatInvoiceListDirection,
+  resolveVatInvoiceListGroupLabel,
+  type VatInvoiceListDirection,
+} from "@/pages/Tax/vatInvoiceListGroup"
+import { getVatCategoryCodeType } from "@/pages/VoucherManagement/components/voucherVatTypes"
+import { ChevronDown, ChevronRight, Coins, Landmark, Scale } from "lucide-react"
 import ContextMenu from "devextreme/ui/context_menu"
 import type {
   CellPreparedEvent,
+  ContentReadyEvent,
   ContextMenuPreparingEvent,
   GroupCellTemplateData,
   InitializedEvent,
@@ -27,7 +37,6 @@ import type {
   RowPreparedEvent,
   dxDataGrid,
 } from "devextreme/ui/data_grid"
-import type dxScrollView from "devextreme/ui/scroll_view"
 import { hasSearchText, syncGridSearchState } from "@/components/datagrid/gridSearch"
 import { applyHeaderFieldNameTooltip } from "@/lib/gridHeaderFieldTooltip"
 
@@ -41,9 +50,12 @@ import { LanguageContext } from "@/lib/i18nLoader"
 import { isReportSystemField } from "@/lib/reportSystemFields"
 import { applyGridColumnSettingsToChildren } from "@/components/datagrid/gridColumnSettingRender"
 import { useCompanyLangRevision } from "@/lib/companyLang"
+import ReportGridVerticalScrollbar from "./ReportGridVerticalScrollbar"
+import { useReportHorizontalScrollbar } from "./useReportHorizontalScrollbar"
 import { useSysCodes } from "@/lib/sysCodeContext";
 import GridColumnSettingsPopup from "@/components/datagrid/GridColumnSettingsPopup"
 import { useGridColumnSettingState, type GridColumnSettingEditorItem } from "@/components/datagrid/useGridColumnSettingState"
+import { formatYmdForDisplay, normalizeYmd } from "@/pages/Accounting/accountingDateUtils"
 import { translateReportColumnCaption, translateReportItemCaption } from "@/utils/reportColumnCaption"
 
 export type ReportDataGridRow = {
@@ -60,6 +72,8 @@ export type ReportDataGridGroupConfig = {
   labelField: string
   labelPrefixKey?: string
   labelPrefixFallback?: string
+  /** Section-style header: show label only (no "Prefix: code - label"). */
+  labelOnly?: boolean
 }
 
 const REPORT_OUTLINE_REQUIRED_FIELDS = ["__ROW_TYPE", "__ROW_LEVEL", "__ROW_SORT"] as const
@@ -112,6 +126,8 @@ type ReportDataGridProps = {
   pinLastRowRenderMode?: "summary" | "fixedFooter";
   showFilterPanel?: boolean;
   groupConfig?: ReportDataGridGroupConfig
+  /** BUY/SELL for TAX_VAT_INVOICE_LIST — seeds empty VAT_INFO_TYPE groups from sys_code. */
+  vatDirection?: VatInvoiceListDirection | null
   onRowPrepared?: (event: RowPreparedEvent<ReportDataGridRow, string>) => void
   onRowDblClick?: (event: RowDblClickEvent<ReportDataGridRow, string>) => void
 }
@@ -291,20 +307,51 @@ export function resolveDevExtremeColumnFormat(format: string | null | undefined)
   }
 }
 
+/** Prefer sys_grid_column.FORMAT_TYPE when present; preview FORMAT is often unset on screen. */
+export function resolveEffectiveColumnFormat(
+  column: ReportPreviewColumn,
+  setting?: Pick<GridColumnSettingEditorItem, "formatType"> | null,
+): string | null {
+  return normalizeNullableString(setting?.formatType) ?? normalizeNullableString(column.FORMAT)
+}
+
 export function resolveColumnDisplayFormat(
   column: ReportPreviewColumn,
   tempDecimalPlacesByField: Readonly<Record<string, number>> = {},
+  formatOverride?: string | null,
 ): string | undefined {
-  if (resolveColumnDataType(column) !== "number") {
-    return resolveDevExtremeColumnFormat(column.FORMAT)
+  const effectiveFormat = formatOverride !== undefined ? formatOverride : column.FORMAT
+
+  if (resolveColumnDataType(column, effectiveFormat) !== "number") {
+    return resolveDevExtremeColumnFormat(effectiveFormat)
   }
 
   const overridePlaces = tempDecimalPlacesByField[normalizeColumnKey(column.FIELD_NAME)]
   if (overridePlaces === undefined) {
-    return resolveDevExtremeColumnFormat(column.FORMAT)
+    return resolveDevExtremeColumnFormat(effectiveFormat)
   }
 
-  return buildNumberFormat(overridePlaces, formatUsesGrouping(column.FORMAT))
+  return buildNumberFormat(overridePlaces, formatUsesGrouping(effectiveFormat))
+}
+
+/** Parse yyyyMMdd / yyyy-MM-dd / Date so DevExtreme date format masks can apply. */
+export function resolveReportDateCellValue(value: unknown): Date | null {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const asText = String(Math.trunc(value))
+    if (/^\d{8}$/.test(asText)) {
+      return normalizeYmd(asText)
+    }
+  }
+
+  if (typeof value === "string" || value instanceof Date) {
+    return normalizeYmd(value)
+  }
+
+  return null
 }
 
 export function makeReportCellKey(rowKey: string, fieldName: string): string {
@@ -1161,11 +1208,15 @@ export function toLocalizedReportDataGridRows(
   const normalizedReportCode = String(reportCode ?? "").trim().toUpperCase()
   const localizeStatusText = FA_STATUS_TEXT_REPORT_CODES.has(normalizedReportCode)
   const localizeTaxReductionGroup = normalizedReportCode === "TAX_VAT_REDUCTION_APPENDIX"
+  const shouldLocalizeTaxInvoiceList = normalizedReportCode === "TAX_VAT_INVOICE_LIST"
   return toReportDataGridRows(preview).map((row) => {
     let localized = localizeReportItemNameFields(row, translate)
     if (localizeTaxReductionGroup) {
       localized = localizeTaxReductionAppendixGroup(localized, translate)
       localized = localizeTaxReductionAppendixStatus(localized, translate)
+    }
+    if (shouldLocalizeTaxInvoiceList) {
+      localized = localizeTaxInvoiceListGroup(localized, translate)
     }
     return localizeStatusText ? localizeFaStatusTextField(localized, translate) : localized
   })
@@ -1204,6 +1255,30 @@ function localizeTaxReductionAppendixStatus(
   const translated = resolveVatInvoiceStatusLabel(raw, translate)
   if (!translated) return row
   const fieldName = Object.keys(row).find((key) => normalizeColumnKey(key) === "TTHAI_TEXT") ?? "TThai_TEXT"
+  return translated === row[fieldName] ? row : { ...row, [fieldName]: translated }
+}
+
+// SP returns VAT_INFO_TYPE (+ VAT_DIRECTION). Build VAT_INFO_TYPE_NM in the UI so
+// language switch updates group headers / Excel without re-fetching.
+function localizeTaxInvoiceListGroup(
+  row: ReportDataGridRow,
+  translate: (key: string, fallback: string) => string,
+): ReportDataGridRow {
+  const infoTypeKey =
+    Object.keys(row).find((key) => normalizeColumnKey(key) === "VAT_INFO_TYPE") ?? "VAT_INFO_TYPE"
+  const infoTypeRaw = row[infoTypeKey]
+  const infoType =
+    infoTypeRaw == null || infoTypeRaw === ""
+      ? ""
+      : String(infoTypeRaw).trim()
+
+  const translated = resolveVatInvoiceListGroupLabel(
+    readRowField(row, "VAT_DIRECTION"),
+    infoType,
+    translate,
+  )
+  const fieldName =
+    Object.keys(row).find((key) => normalizeColumnKey(key) === "VAT_INFO_TYPE_NM") ?? "VAT_INFO_TYPE_NM"
   return translated === row[fieldName] ? row : { ...row, [fieldName]: translated }
 }
 
@@ -1302,10 +1377,38 @@ function formatCellValue(value: ReportPreviewCellValue | undefined, text: string
   return String(value)
 }
 
-export function resolveColumnDataType(column: ReportPreviewColumn): ReportPreviewColumnDataType {
-  const formatToken = normalizeNullableString(column.FORMAT)?.toLowerCase()
-  if (formatToken === "date" || formatToken === "datetime" || column.DATA_TYPE === "date") {
-    return "string"
+/** True when FORMAT_TYPE from sys_grid_column is a date/datetime token or mask. */
+export function isReportDateFormatToken(format: string | null | undefined): boolean {
+  const token = normalizeNullableString(format)?.toLowerCase()
+  if (!token) {
+    return false
+  }
+
+  if (token === "date" || token === "datetime") {
+    return true
+  }
+
+  // Literal masks stored in FORMAT_TYPE (e.g. dd/MM/yyyy, yyyy-MM-dd HH:mm).
+  return /y{2,4}/i.test(token) && /[md]/i.test(token)
+}
+
+export function resolveColumnDataType(
+  column: ReportPreviewColumn,
+  formatOverride?: string | null,
+): ReportPreviewColumnDataType {
+  const effectiveFormat = formatOverride !== undefined ? formatOverride : column.FORMAT
+  // Preview API often leaves FORMAT empty on screen; sys_grid_column.FORMAT_TYPE
+  // (date / dd/MM/yyyy / ...) must still force DevExtreme dataType=date.
+  if (isReportDateFormatToken(effectiveFormat) || column.DATA_TYPE === "date") {
+    return "date"
+  }
+
+  const formatToken = normalizeNullableString(effectiveFormat)?.toLowerCase()
+  if (
+    formatToken &&
+    /^(n\d{1,2}|number[0-4]|integer|amount|quantity|unitprice)$/i.test(formatToken)
+  ) {
+    return "number"
   }
 
   return column.DATA_TYPE || "string"
@@ -1375,14 +1478,16 @@ function resolvePinnedBottomColumns(
       return []
     }
 
+    const effectiveFormat = resolveEffectiveColumnFormat(column, setting)
+
     return [
       {
         key: column.COLUMN_KEY,
         fieldName: column.FIELD_NAME,
         width: resolveSettingWidth(setting) ?? resolveColumnWidth(column),
         alignment: column.ALIGN,
-        dataType: resolveColumnDataType(column),
-        format: resolveColumnDisplayFormat(column, tempDecimalPlacesByField) ?? null,
+        dataType: resolveColumnDataType(column, effectiveFormat),
+        format: resolveColumnDisplayFormat(column, tempDecimalPlacesByField, effectiveFormat) ?? null,
       },
     ]
   })
@@ -1397,6 +1502,11 @@ function formatPinnedBottomCellValue(
   }
 
   const format = normalizeNullableString(column.format)
+
+  if (column.dataType === "date") {
+    const display = formatYmdForDisplay(value as string | Date | null)
+    return display || String(value)
+  }
 
   if (column.dataType === "number") {
     const numericValue = toFiniteNumber(value)
@@ -1452,13 +1562,15 @@ function ReportDataGrid(
     pinLastRowRenderMode = "summary",
     showFilterPanel = false,
     groupConfig,
+    vatDirection = null,
   }: ReportDataGridProps,
   ref: ForwardedRef<ReportDataGridHandle>,
 ) {
   const { translate, labelsReady } = useContext(LanguageContext)
   
   const t = useCallback((key: string, fallback: string) => translate(key, fallback), [translate])
-  const { getCodeName, sysCodeMap } = useSysCodes();
+  const { getCodeName, getCodesByType, sysCodeMap } = useSysCodes();
+  const useNativeScrolling = true
   const isBalanceSheetReport = isBalanceSheetReportCode(reportCode)
   const hasPeriodHeaderCaptions =
     isBalanceSheetReport || isComparativeYearPeriodReportCode(reportCode)
@@ -1485,10 +1597,26 @@ function ReportDataGrid(
   [columns, outlineIndentFieldCandidates, outlineIndentFallbackToFirstString],
   )
 
-  const rows = useMemo(
-    () => toLocalizedReportDataGridRows(preview, t, reportCode),
-    [preview, reportCode, t],
-  )
+  const rows = useMemo(() => {
+    const localized = toLocalizedReportDataGridRows(preview, t, reportCode)
+    if (String(reportCode ?? "").trim().toUpperCase() !== "TAX_VAT_INVOICE_LIST" || !preview) {
+      return localized
+    }
+
+    const directionFromRows = localized
+      .map((row) => normalizeVatInvoiceListDirection(readRowField(row, "VAT_DIRECTION")))
+      .find((value): value is VatInvoiceListDirection => value != null)
+    const direction = normalizeVatInvoiceListDirection(vatDirection) ?? directionFromRows
+    const categoryType = getVatCategoryCodeType(direction)
+    const catalogCodes = categoryType ? getCodesByType(categoryType) : []
+
+    return ensureVatInvoiceListGroupRows({
+      rows: localized,
+      direction,
+      catalogCodes,
+      translate: t,
+    })
+  }, [getCodesByType, preview, reportCode, t, vatDirection])
   const groupDataField = useMemo(
     () => (groupConfig ? resolveDataFieldName(columns, rows, groupConfig.groupField) : null),
     [columns, groupConfig, rows],
@@ -1539,14 +1667,23 @@ function ReportDataGrid(
   )
   const shouldRenderPinnedBottomSummary = pinnedBottomRow !== null && pinLastRowRenderMode === "summary"
   const searchVisible = useMemo(() => hasSearchText(searchText), [searchText])
+  const columnSettingMap = useMemo(
+    () => buildColumnSettingMap(columnSettingState.cachedEditorItems),
+    [columnSettingState.cachedEditorItems],
+  )
   const numberFieldNames = useMemo(
     () =>
       new Set(
         columns
-          .filter((column) => resolveColumnDataType(column) === "number")
+          .filter((column) => {
+            const setting =
+              columnSettingMap.get(normalizeColumnKey(column.FIELD_NAME)) ??
+              columnSettingMap.get(normalizeColumnKey(column.COLUMN_KEY))
+            return resolveColumnDataType(column, resolveEffectiveColumnFormat(column, setting)) === "number"
+          })
           .map((column) => normalizeColumnKey(column.FIELD_NAME)),
       ),
-    [columns],
+    [columnSettingMap, columns],
   )
   const visibleFieldNames = useMemo(() => columns.map((column) => column.FIELD_NAME), [columns])
   const rowsByKey = useMemo(() => new Map(filteredRows.map((row) => [row.ROW_KEY, row] as const)), [filteredRows])
@@ -1694,23 +1831,57 @@ function ReportDataGrid(
       const valueText = String(groupValue ?? "").trim()
       const labelText = labelValue?.trim() ?? ""
 
-      // The appendix group label already contains "I." / "II." from ITEM_KIND.
-      // Do not prepend "Loại hóa đơn: 1/2" to these report sections.
-      if (reportCode.trim().toUpperCase() === "TAX_VAT_REDUCTION_APPENDIX") {
+      // Section-style reports (reduction appendix / invoice list): label already
+      // contains "I." / "1." — do not prepend "Loại hóa đơn: code -".
+      const isSectionStyleGroup = groupConfig.labelOnly || isVatSectionStyleGroupReport(reportCode)
+      const labelContent = isSectionStyleGroup
+        ? labelText || valueText || t("VAT_INFO_TYPE_EMPTY", "Chưa phân loại")
+        : `${t(groupConfig.labelPrefixKey ?? "VAT_INOUT_TYPE", groupConfig.labelPrefixFallback ?? "Loại hóa đơn")}: ${valueText}${labelText ? ` - ${labelText}` : ""}`
+
+      const labelNode = <span className="font-semibold text-indigo-950">{labelContent}</span>
+
+      // Inline expand on the group label so section reports do not keep a dedicated
+      // command column (empty header/data cells). Native .dx-command-expand is CSS-collapsed.
+      if (isVatSectionStyleGroupReport(reportCode)) {
+        const groupKey = cellData.row?.key
+        const component = cellData.component
+        const expanded =
+          typeof cellData.row?.isExpanded === "boolean"
+            ? cellData.row.isExpanded
+            : groupKey != null && Boolean(component?.isRowExpanded?.(groupKey))
+
         return (
-          <span className="font-semibold text-indigo-950">
-            {labelText || valueText}
+          <span className="report-group-cell-with-expand">
+            <button
+              type="button"
+              className="report-group-expand-btn"
+              aria-expanded={expanded}
+              aria-label={expanded ? t("COLLAPSE", "Thu gọn") : t("EXPAND", "Mở rộng")}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                if (groupKey == null || !component) {
+                  return
+                }
+                if (component.isRowExpanded(groupKey)) {
+                  void component.collapseRow(groupKey)
+                } else {
+                  void component.expandRow(groupKey)
+                }
+              }}
+            >
+              {expanded ? (
+                <ChevronDown size={14} aria-hidden="true" />
+              ) : (
+                <ChevronRight size={14} aria-hidden="true" />
+              )}
+            </button>
+            {labelNode}
           </span>
         )
       }
 
-      const prefix = t(groupConfig.labelPrefixKey ?? "VAT_INOUT_TYPE", groupConfig.labelPrefixFallback ?? "Loại hóa đơn")
-      return (
-        <span className="font-semibold text-indigo-950">
-          {prefix}: {valueText}
-          {labelText ? ` - ${labelText}` : ""}
-        </span>
-      )
+      return labelNode
     },
     [filteredRows, groupConfig, reportCode, t],
   )
@@ -1733,6 +1904,13 @@ function ReportDataGrid(
         ? resolveFinancialStatementHeaderPeriod(reportCode, column.FIELD_NAME, fromDate, toDate)
         : null
 
+      const setting =
+        columnSettingMap.get(normalizeColumnKey(column.FIELD_NAME)) ??
+        columnSettingMap.get(normalizeColumnKey(column.COLUMN_KEY))
+      const effectiveFormat = resolveEffectiveColumnFormat(column, setting)
+      const dataType = resolveColumnDataType(column, effectiveFormat)
+      const displayFormat = resolveColumnDisplayFormat(column, tempDecimalPlacesByField, effectiveFormat)
+
       let cellRender = columnIsOutlineIndentField ? renderOutlineCell : undefined;
       const sysCodeType = resolveReportSysCodeType(column.FIELD_NAME, sysCodeMap);
       if (sysCodeType) {
@@ -1751,19 +1929,26 @@ function ReportDataGrid(
         };
       }
 
+      const fieldName = column.FIELD_NAME
+
       return (
         <Column
           key={column.COLUMN_KEY}
-          dataField={column.FIELD_NAME}
+          dataField={fieldName}
           caption={translateReportColumnCaption(column, t)}
-          dataType={resolveColumnDataType(column)}
-          format={resolveColumnDisplayFormat(column, tempDecimalPlacesByField)}
+          dataType={dataType}
+          format={displayFormat}
           width={resolveColumnWidth(column)}
           allowSorting
           allowFiltering
           groupIndex={isGroupColumn ? 0 : undefined}
           groupCellRender={isGroupColumn ? renderGroupCell : undefined}
           cellRender={cellRender}
+          calculateCellValue={
+            dataType === "date"
+              ? (row: ReportDataGridRow) => resolveReportDateCellValue(row?.[fieldName]) ?? row?.[fieldName] ?? null
+              : undefined
+          }
           headerCellRender={
             periodHeaderText
               ? (header) => {
@@ -1779,7 +1964,9 @@ function ReportDataGrid(
           }
           alignment="left"
           cssClass={resolveColumnAlignClass(column.ALIGN)}
-          customizeText={customizeZeroAsBlankText}
+          customizeText={
+            dataType === "number" ? customizeZeroAsBlankText : undefined
+          }
         />
       )
     })
@@ -1801,6 +1988,7 @@ function ReportDataGrid(
 
     return columnElements
   }, [
+    columnSettingMap,
     columns,
     fromDate,
     getCodeName,
@@ -1909,41 +2097,32 @@ function ReportDataGrid(
     [columnSettingState],
   )
 
+  const hideNativeGroupExpandColumn = useCallback((component: dxDataGrid<ReportDataGridRow, string> | null | undefined) => {
+    if (!component || !isVatSectionStyleGroupReport(reportCode) || !groupConfig) {
+      return
+    }
+
+    try {
+      // Collapse DevExtreme's dedicated groupExpand command column; toggle lives in groupCellRender.
+      component.columnOption("command:expand", {
+        width: 0.01,
+        minWidth: 0,
+        visibleWidth: 0,
+        showInColumnChooser: false,
+      })
+    } catch {
+      // command:expand is absent until grouping columns are applied.
+    }
+  }, [groupConfig, reportCode])
+
   const handleInitialized = useCallback((event: InitializedEvent<ReportDataGridRow, string>) => {
     gridRef.current = event.component
-  }, [])
-
-  const hScrollProxyRef = useRef<dxScrollView | null>(null)
-  const hScrollPaneRef = useRef<HTMLDivElement | null>(null)
-  const horizontalScrollSyncingRef = useRef(false)
-  const [horizontalScrollContentWidth, setHorizontalScrollContentWidth] = useState(0)
-  const [horizontalScrollNeeded, setHorizontalScrollNeeded] = useState(false)
-
-  const resolveProxyScrollContainer = useCallback(() => {
-    const element = hScrollProxyRef.current?.element()
-    return element?.querySelector<HTMLElement>(".dx-scrollable-container") ?? null
-  }, [])
-
-  const resolveGridScrollable = useCallback(() => {
-    const grid = gridRef.current as
-      | (dxDataGrid & {
-          getScrollable?: () => {
-            scrollWidth?: () => number
-            clientWidth?: () => number
-            scrollOffset?: () => { left?: number; top?: number }
-            scrollTo?: (position: { left?: number; top?: number }) => void
-            on?: (eventName: string, handler: () => void) => void
-            off?: (eventName: string, handler?: () => void) => void
-          } | null
-        })
-      | null
-
-    return grid?.getScrollable?.() ?? null
-  }, [])
+    hideNativeGroupExpandColumn(event.component)
+  }, [hideNativeGroupExpandColumn])
 
   // Keep one divider on the stable grid host, not on recycled group cells.
   const syncGroupRowFillerBackground = useCallback(() => {
-    if (reportCode.trim().toUpperCase() !== "TAX_VAT_REDUCTION_APPENDIX") {
+    if (!isVatSectionStyleGroupReport(reportCode)) {
       return
     }
 
@@ -1990,133 +2169,23 @@ function ReportDataGrid(
     host.classList.toggle("report-data-grid-host--group-filler-ready", fillerWidth > 0)
   }, [reportCode])
 
-  const syncHorizontalScrollProxyFromGrid = useCallback(() => {
-    syncGroupRowFillerBackground()
-    const scrollable = resolveGridScrollable()
-    if (!scrollable) {
-      return
-    }
-
-    const scrollWidth = Number(scrollable.scrollWidth?.() ?? 0)
-    const clientWidth = Number(scrollable.clientWidth?.() ?? 0)
-    const gridMaxLeft = Math.max(0, scrollWidth - clientWidth)
-    const needsHorizontalScroll = gridMaxLeft > 2
-    setHorizontalScrollNeeded((current) => (current === needsHorizontalScroll ? current : needsHorizontalScroll))
-
-    const proxyScrollContainer = resolveProxyScrollContainer()
-    const proxyClientWidth = Number(proxyScrollContainer?.clientWidth ?? 0)
-    if (!needsHorizontalScroll || !proxyScrollContainer || proxyClientWidth <= 0) {
-      return
-    }
-
-    // Proxy sits in a narrower footer pane than the grid viewport. Size its
-    // content so proxy.maxLeft === grid.maxLeft and scrollLeft stays 1:1.
-    const contentWidth = Math.max(Math.round(proxyClientWidth + gridMaxLeft), 1)
-    setHorizontalScrollContentWidth((current) => (current === contentWidth ? current : contentWidth))
-
-    if (horizontalScrollSyncingRef.current) {
-      return
-    }
-
-    const left = Number(scrollable.scrollOffset?.()?.left ?? 0)
-    if (Math.abs(proxyScrollContainer.scrollLeft - left) > 1) {
-      horizontalScrollSyncingRef.current = true
-      proxyScrollContainer.scrollLeft = left
-      window.requestAnimationFrame(() => {
-        horizontalScrollSyncingRef.current = false
-      })
-    }
-  }, [resolveGridScrollable, resolveProxyScrollContainer, syncGroupRowFillerBackground])
-
-  const handleHorizontalScrollProxyScroll = useCallback(() => {
-    const proxyScrollContainer = resolveProxyScrollContainer()
-    const scrollable = resolveGridScrollable()
-    if (!proxyScrollContainer || !scrollable || horizontalScrollSyncingRef.current) {
-      return
-    }
-
-    horizontalScrollSyncingRef.current = true
-    const gridScrollWidth = Number(scrollable.scrollWidth?.() ?? 0)
-    const gridClientWidth = Number(scrollable.clientWidth?.() ?? 0)
-    const gridMaxLeft = Math.max(0, gridScrollWidth - gridClientWidth)
-    const nextLeft = Math.min(Math.max(0, proxyScrollContainer.scrollLeft), gridMaxLeft)
-    scrollable.scrollTo?.({ left: nextLeft })
-    window.requestAnimationFrame(() => {
-      horizontalScrollSyncingRef.current = false
+  const { needed: horizontalScrollNeeded, scrollbar: horizontalScrollbar, sync: syncHorizontalScroll } =
+    useReportHorizontalScrollbar({
+      widgetRef: gridRef,
+      hostRef: gridHostRef,
+      loading,
+      rows: filteredRows,
+      columnLayout: columnSettingState.cachedEditorItems,
+      onSync: syncGroupRowFillerBackground,
     })
-  }, [resolveGridScrollable, resolveProxyScrollContainer])
 
-  const handleHorizontalScrollProxyInitialized = useCallback((event: { component: dxScrollView }) => {
-    hScrollProxyRef.current = event.component
-    void event.component.update().then(syncHorizontalScrollProxyFromGrid)
-  }, [syncHorizontalScrollProxyFromGrid])
-
-  const handleHorizontalScrollProxyDisposing = useCallback(() => {
-    hScrollProxyRef.current = null
-  }, [])
-
-  useLayoutEffect(() => {
-    if (!horizontalScrollNeeded) {
-      return
-    }
-
-    const proxy = hScrollProxyRef.current
-    if (proxy) {
-      void proxy.update().then(syncHorizontalScrollProxyFromGrid)
-    }
-  }, [horizontalScrollContentWidth, horizontalScrollNeeded, syncHorizontalScrollProxyFromGrid])
-
-  useEffect(() => {
-    if (loading) {
-      setHorizontalScrollNeeded(false)
-      return
-    }
-
-    const scrollable = resolveGridScrollable()
-    syncHorizontalScrollProxyFromGrid()
-    const handleScroll = () => {
-      if (horizontalScrollSyncingRef.current) {
-        return
-      }
-
-      syncHorizontalScrollProxyFromGrid()
-    }
-
-    scrollable?.on?.("scroll", handleScroll)
-
-    const handleWindowResize = () => {
-      syncHorizontalScrollProxyFromGrid()
-    }
-    window.addEventListener("resize", handleWindowResize)
-
-    const host = gridHostRef.current
-    const hscrollPane = hScrollPaneRef.current
-    const resizeObserver =
-      typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(() => {
-            syncHorizontalScrollProxyFromGrid()
-          })
-        : null
-    if (resizeObserver) {
-      if (host) {
-        resizeObserver.observe(host)
-      }
-      if (hscrollPane) {
-        resizeObserver.observe(hscrollPane)
-      }
-    }
-
-    const timer = window.setInterval(() => {
-      syncHorizontalScrollProxyFromGrid()
-    }, 800)
-
-    return () => {
-      scrollable?.off?.("scroll", handleScroll)
-      window.removeEventListener("resize", handleWindowResize)
-      resizeObserver?.disconnect()
-      window.clearInterval(timer)
-    }
-  }, [filteredRows, horizontalScrollNeeded, loading, resolveGridScrollable, syncHorizontalScrollProxyFromGrid, columnSettingState.cachedEditorItems])
+  const handleContentReady = useCallback(
+    (event: ContentReadyEvent<ReportDataGridRow, string>) => {
+      hideNativeGroupExpandColumn(event.component)
+      syncHorizontalScroll()
+    },
+    [hideNativeGroupExpandColumn, syncHorizontalScroll],
+  )
 
   const applySelectedCellKeys = useCallback((nextKeys: string[], options?: { commitReactState?: boolean }) => {
     selectedCellKeysRef.current = nextKeys
@@ -2129,7 +2198,7 @@ function ReportDataGrid(
 
   const fireReportRowDblClick = useCallback(
     (row: ReportDataGridRow | undefined) => {
-      if (!row || typeof onRowDblClick !== "function") {
+      if (!row || typeof onRowDblClick !== "function" || isVatInvoiceListGroupPlaceholderRow(row)) {
         return
       }
 
@@ -2475,6 +2544,12 @@ function ReportDataGrid(
       }
 
       if (event.rowType === "data" && event.rowElement) {
+        // Keep group headers for empty VAT_INFO_TYPE sections; hide the synthetic seed row.
+        if (isVatInvoiceListGroupPlaceholderRow(event.data)) {
+          event.rowElement.style.display = "none"
+          return
+        }
+
         const rowType = outlineMode ? resolveOutlineRowType(event.data) : ""
         const visualStyle = resolveOutlineRowVisualStyle(rowType)
         applyRowVisualStyle(event.rowElement, visualStyle, rowType, outlineMode)
@@ -2651,8 +2726,9 @@ function ReportDataGrid(
               ref={gridHostRef}
               className={[
                 "report-data-grid-host min-h-0 w-full min-w-0 flex-1 overflow-hidden",
+                useNativeScrolling ? "report-grid-custom-scrollbars" : "",
                 hasPeriodHeaderCaptions ? "report-data-grid-host--period-headers" : "",
-                reportCode.trim().toUpperCase() === "TAX_VAT_REDUCTION_APPENDIX"
+                isVatSectionStyleGroupReport(reportCode)
                   ? "report-data-grid-host--vat-reduction"
                   : "",
                 filteredRows.length > 0 ? "report-data-grid-host--has-data" : "",
@@ -2682,24 +2758,24 @@ function ReportDataGrid(
                 columnAutoWidth={false}
                 wordWrapEnabled={false}
                 cellHintEnabled
+                dateSerializationFormat="yyyy-MM-dd"
                 noDataText={t("NO_DATA", "No data")}
                 loadPanel={{ enabled: false }}
                 onInitialized={handleInitialized}
-                onContentReady={() => {
-                  syncHorizontalScrollProxyFromGrid()
-                }}
+                onContentReady={handleContentReady}
                 onRowPrepared={handleRowPrepared}
                 onRowDblClick={handleRowDblClickInternal}
                 onCellPrepared={handleCellPrepared}
                 onContextMenuPreparing={handleContextMenuPreparing}
               >
+                <Paging enabled={false} />
                 <Scrolling
-                  mode="virtual"
-                  rowRenderingMode="virtual"
-                  useNative={false}
+                  mode="standard"
+                  rowRenderingMode="standard"
+                  useNative={useNativeScrolling}
                   showScrollbar="always"
                   scrollByThumb
-                  scrollByContent={false}
+                  scrollByContent={useNativeScrolling}
                 />
                 {groupConfig && groupDataField ? <Grouping autoExpandAll allowCollapsing /> : null}
                 <ColumnFixing enabled />
@@ -2751,6 +2827,9 @@ function ReportDataGrid(
                 />
 
               </DataGrid>
+              {useNativeScrolling ? (
+                <ReportGridVerticalScrollbar hostRef={gridHostRef} label={t("REPORT_VERTICAL_SCROLL", "Cuộn dọc bảng báo cáo")} />
+              ) : null}
             </div>
 
             {showReportFooter ? (
@@ -2855,29 +2934,7 @@ function ReportDataGrid(
                 </div>
               </div>
 
-                {horizontalScrollNeeded ? (
-                  <div ref={hScrollPaneRef} className="report-grid-hscroll-pane">
-                    <ScrollView
-                      className="report-grid-hscroll"
-                      direction="horizontal"
-                      useNative={false}
-                      showScrollbar="always"
-                      scrollByThumb
-                      scrollByContent={false}
-                      bounceEnabled={false}
-                      width="100%"
-                      height={18}
-                      onInitialized={handleHorizontalScrollProxyInitialized}
-                      onDisposing={handleHorizontalScrollProxyDisposing}
-                      onScroll={handleHorizontalScrollProxyScroll}
-                    >
-                      <div
-                        className="report-grid-hscroll-content"
-                        style={{ width: Math.max(horizontalScrollContentWidth, 1) }}
-                      />
-                    </ScrollView>
-                  </div>
-                ) : null}
+                {horizontalScrollbar}
               </div>
             ) : null}
           </div>

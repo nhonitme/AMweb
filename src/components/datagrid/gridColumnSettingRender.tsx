@@ -53,6 +53,36 @@ function normalizeText(value: unknown): string {
   return typeof value === "string" ? value.trim() : ""
 }
 
+function isDateFormatType(formatType: string | null | undefined): boolean {
+  const normalized = normalizeText(formatType).toLowerCase()
+  if (!normalized) {
+    return false
+  }
+
+  if (normalized === "date" || normalized === "datetime") {
+    return true
+  }
+
+  return /y{2,4}/i.test(normalized) && /[md]/i.test(normalized)
+}
+
+function resolveDevExtremeColumnDataType(formatType: string | null | undefined): string | undefined {
+  const normalized = normalizeText(formatType)
+  if (!normalized) {
+    return undefined
+  }
+
+  if (isDateFormatType(normalized)) {
+    return "date"
+  }
+
+  if (/^(n\d{1,2}|number[0-4]|integer|amount|quantity|unitprice)$/i.test(normalized)) {
+    return "number"
+  }
+
+  return undefined
+}
+
 function resolveDevExtremeColumnFormat(formatType: string | null | undefined): string | undefined {
   const normalized = normalizeText(formatType)
   if (!normalized) {
@@ -549,6 +579,10 @@ function applyGridColumnSettingsToChildrenUnsafe(
 
       if (!lockedHiddenColumn && setting.formatType) {
         nextProps.format = resolveDevExtremeColumnFormat(setting.formatType)
+        const dataTypeFromFormat = resolveDevExtremeColumnDataType(setting.formatType)
+        if (dataTypeFromFormat) {
+          nextProps.dataType = dataTypeFromFormat
+        }
       }
     } else if (hideColumnsMissingFromSettings && !lockedHiddenColumn && !isCommandColumn(childProps)) {
       nextProps.visible = false
@@ -844,6 +878,10 @@ export function applyGridColumnSettingsToComponent(
           "format",
           resolveDevExtremeColumnFormat(item.formatType),
         )
+        const dataTypeFromFormat = resolveDevExtremeColumnDataType(item.formatType)
+        if (dataTypeFromFormat) {
+          writeComponentColumnOption(component, columnReference, "dataType", dataTypeFromFormat)
+        }
       }
     })
 

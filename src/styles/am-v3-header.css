@@ -1,9 +1,8 @@
-/* Size: CHUYEN-MENU-CU-SANG-MOI (36px / 12px).
-   Màu & border: amnote-v3-header HUONG-DAN.md.
+/* Màu & border: amnote-v3-header HUONG-DAN.md.
    Giữ logo AMnote. */
 header:has(.header-system-menu),
 header:has(nav[aria-label="Menu hệ thống"]) {
-  padding: 8px 12px !important;
+  padding: 6px 12px !important;
   border-bottom-color: #e2e6eb !important;
 }
 
@@ -11,7 +10,7 @@ header .header-system-menu,
 header nav[aria-label="Menu hệ thống"] {
   align-items: center;
   gap: 6px !important;
-  padding: 2px 0 4px;
+  padding: 2px 0;
   scrollbar-width: thin;
   scrollbar-color: #d8dde3 transparent;
   scroll-padding-inline: 4px;
@@ -19,9 +18,9 @@ header nav[aria-label="Menu hệ thống"] {
 
 header .header-system-menu > button,
 header nav[aria-label="Menu hệ thống"] > button {
-  height: 36px;
-  gap: 6px !important;
-  padding: 0 10px !important;
+  height: 30px;
+  gap: 4px !important;
+  padding: 0 4px !important;
   border: 1px solid #cbd5e1 !important;
   border-radius: 3px;
   background: #fff;
@@ -80,7 +79,7 @@ header nav[aria-label="Menu hệ thống"] > button:active:not(:disabled) {
 header .header-system-menu > button:focus-visible,
 header nav[aria-label="Menu hệ thống"] > button:focus-visible {
   outline: 2px solid #2563eb;
-  outline-offset: 2px;
+  outline-offset: -2px;
 }
 
 header .header-system-menu > button:disabled,
@@ -114,8 +113,7 @@ header.bg-slate-950 nav[aria-label="Menu hệ thống"] > button:not([aria-curre
 
   header .header-system-menu > button,
   header nav[aria-label="Menu hệ thống"] > button {
-    height: 38px;
-    padding-inline: 9px !important;
+    height: 32px;
   }
 }
 

@@ -28,6 +28,60 @@ export type VoucherVatDetailsMap = Record<string, VoucherVatDetail>
 
 const NULL_PERCENT_RATE_CODES = new Set(["KCT", "KKKNT", "CTTC"])
 
+/**
+ * Machine token in sys_code.NOTE for VAT category → tax rate link.
+ * Example: `4. Hàng hóa... 10% [[RATE:10%]]` (CODE_CD may include `%`).
+ */
+const VAT_CATEGORY_RATE_TOKEN_RE = /\[\[RATE:([^\]]*)\]\]/i
+
+/** Extract linked VAT_RATE_CA.CODE_CD from category NOTE; empty token → null. */
+export function parseVatCategoryLinkedRateCode(note: unknown): string | null {
+  const text = typeof note === "string" ? note : note == null ? "" : String(note)
+  const match = text.match(VAT_CATEGORY_RATE_TOKEN_RE)
+  if (!match) {
+    return null
+  }
+  const code = match[1]?.trim() ?? ""
+  return code || null
+}
+
+/** Remove `[[RATE:...]]` tokens so NOTE can still be used as UI label. */
+export function stripVatCategoryRateToken(text: unknown): string {
+  const value = typeof text === "string" ? text : text == null ? "" : String(text)
+  return value.replace(VAT_CATEGORY_RATE_TOKEN_RE, "").replace(/\s{2,}/g, " ").trim()
+}
+
+/**
+ * Resolve a RATE token against VAT_RATE_CA options.
+ * Accepts both `10` and `10%` when catalog CODE_CD is `10%`.
+ */
+export function matchVatRateCodeFromOptions(
+  linkedRate: string,
+  rateOptions: ReadonlyArray<{ CODE_CD?: unknown }>,
+): string | null {
+  const wanted = trimText(linkedRate)
+  if (!wanted) {
+    return null
+  }
+
+  const wantedUpper = wanted.toUpperCase()
+  const candidates = [
+    wantedUpper,
+    wantedUpper.endsWith("%") ? wantedUpper.slice(0, -1) : `${wantedUpper}%`,
+  ]
+
+  for (const candidate of candidates) {
+    const matched = rateOptions.find(
+      (item) => trimText(item.CODE_CD).toUpperCase() === candidate,
+    )
+    if (matched) {
+      return trimText(matched.CODE_CD)
+    }
+  }
+
+  return wanted
+}
+
 export function createEmptyVoucherVatDetail(
   direction: VatDirection | null = null,
 ): VoucherVatDetail {

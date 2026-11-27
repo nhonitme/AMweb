@@ -3,6 +3,7 @@ import React, { useContext } from "react";
 import TreeList, {
   Paging,
   Pager,
+  Scrolling,
   FilterRow,
   HeaderFilter,
   FilterBuilderPopup,
@@ -532,6 +533,7 @@ export function BaseTreeList<T extends object>({
           />
         ) : null}
 
+        <Scrolling mode="standard" rowRenderingMode="standard" />
         <Paging defaultPageSize={20} />
         <Pager
           visible={true}

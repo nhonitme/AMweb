@@ -101,6 +101,7 @@ const SalesJournalReportPage = () => (
         menuCode="AR_REPORT_SALES_JOURNAL"
         titleKey="AR_SALES_JOURNAL"
         titleFallback="Sổ nhật ký bán hàng"
+        showBookPrintTemplate={false}
     />
 );
 const VatInOutListPage = lazy(() => import('./pages/Tax/VatInOutListPage'));
@@ -748,7 +749,7 @@ function AppContent({ onLogout, licenseExpired }: { onLogout: () => void; licens
 
                 <main className="relative min-h-0 flex-1 overflow-hidden">
                     {workspaceScreen ? (
-                        <div className="absolute inset-0 overflow-auto p-1.5">
+                        <div className="absolute inset-0 overflow-auto px-1.5 pb-1.5 pt-0">
                             <WorkspaceTabRouteProvider tab={workspaceScreen.tab}>
                                 <MemoAppWorkspaceRoutes
                                     key={workspaceScreen.tab.id}
@@ -764,7 +765,7 @@ function AppContent({ onLogout, licenseExpired }: { onLogout: () => void; licens
                             </WorkspaceTabRouteProvider>
                         </div>
                     ) : (
-                        <div className="absolute inset-0 overflow-auto p-1.5">
+                        <div className="absolute inset-0 overflow-auto px-1.5 pb-1.5 pt-0">
                             <MemoAppWorkspaceRoutes
                                 tabLocation={plainWorkspaceLocation}
                                 currentCompanyCd={currentCompanyCd ?? ""}
@@ -961,15 +962,15 @@ function AppWorkspaceRoutes({
                         />
                         <Route
                             path="/gl/book/sales-detail"
-                            element={<JournalReportPage reportCode="AR_SALES_DETAIL" menuCode="GL_BOOK_SALES_DETAIL" titleKey="AR_SALES_DETAIL" titleFallback="Sổ nhật ký bán hàng" />}
+                            element={<JournalReportPage reportCode="AR_SALES_DETAIL" menuCode="GL_BOOK_SALES_DETAIL" titleKey="AR_SALES_DETAIL" titleFallback="Sổ chi tiết bán hàng" />}
                         />
                         <Route
                             path="/ap/report/purchase-journal"
-                            element={<JournalReportPage reportCode="AP_PURCHASE_JOURNAL" menuCode="AP_REPORT_PURCHASE_JOURNAL" titleKey="AP_PURCHASE_JOURNAL" titleFallback="Sổ nhật ký mua hàng" />}
+                            element={<JournalReportPage reportCode="AP_PURCHASE_JOURNAL" menuCode="AP_REPORT_PURCHASE_JOURNAL" titleKey="AP_PURCHASE_JOURNAL" titleFallback="Sổ nhật ký mua hàng" showBookPrintTemplate={false} />}
                         />
                         <Route
                             path="/gl/book/purchase-journal"
-                            element={<JournalReportPage reportCode="AP_PURCHASE_JOURNAL" menuCode="AP_REPORT_PURCHASE_JOURNAL" titleKey="AP_PURCHASE_JOURNAL" titleFallback="Sổ nhật ký mua hàng" />}
+                            element={<JournalReportPage reportCode="AP_PURCHASE_JOURNAL" menuCode="AP_REPORT_PURCHASE_JOURNAL" titleKey="AP_PURCHASE_JOURNAL" titleFallback="Sổ nhật ký mua hàng" showBookPrintTemplate={false} />}
                         />
                         <Route
                             path="/gl/book/general-journal"
@@ -1041,27 +1042,31 @@ function AppWorkspaceRoutes({
                         />
                         <Route
                             path="/inventory/report/detail-product"
-                            element={<JournalReportPage reportCode="INVENTORY_DETAIL_BOOK" menuCode="INV_REPORT_DETAIL_PRODUCT" titleKey="INV_REPORT_DETAIL_BOOK" titleFallback="Sổ chi tiết vật liệu, dụng cụ (sản phẩm, hàng hóa)" accountCd="156" />}
+                            element={<JournalReportPage reportCode="INVENTORY_DETAIL_PRODUCT" menuCode="INV_REPORT_DETAIL_PRODUCT" titleKey="INVENTORY_DETAIL_PRODUCT" titleFallback="Sổ chi tiết vật liệu, dụng cụ - theo sản phẩm" showProductFilter={true} showCurrencyFilter={true} includeEmptyFilterParams={true} showBookPrintTemplate={false} />}
                         />
                         <Route
                             path="/inventory/report/detail-department"
-                            element={<JournalReportPage reportCode="INVENTORY_DETAIL_BOOK" menuCode="INV_REPORT_DETAIL_DEPT" titleKey="INV_REPORT_DETAIL_BOOK" titleFallback="Sổ chi tiết vật liệu, dụng cụ (sản phẩm, hàng hóa)" accountCd="152" />}
+                            element={<JournalReportPage reportCode="INVENTORY_DETAIL_DEPARTMENT" menuCode="INV_REPORT_DETAIL_DEPT" titleKey="INVENTORY_DETAIL_DEPARTMENT" titleFallback="Sổ chi tiết vật liệu, dụng cụ - theo đối tượng tập hợp chi phí" showProductFilter={true} showCurrencyFilter={true} includeEmptyFilterParams={true} showBookPrintTemplate={false} />}
                         />
                         <Route
                             path="/inventory/report/detail-account"
-                            element={<JournalReportPage reportCode="INVENTORY_DETAIL_BOOK" menuCode="INV_REPORT_DETAIL_ACCOUNT" titleKey="INV_REPORT_DETAIL_BOOK" titleFallback="Sổ chi tiết vật liệu, dụng cụ (sản phẩm, hàng hóa)" accountCd="153" />}
+                            element={<JournalReportPage reportCode="INVENTORY_DETAIL_ACCOUNT" menuCode="INV_REPORT_DETAIL_ACCOUNT" titleKey="INVENTORY_DETAIL_ACCOUNT" titleFallback="Sổ chi tiết vật liệu, dụng cụ - theo tài khoản" showProductFilter={true} showCurrencyFilter={true} includeEmptyFilterParams={true} showAccountFilter={true} showBookPrintTemplate={false} />}
                         />
                         <Route
                             path="/inventory/report/detail-store"
-                            element={<JournalReportPage reportCode="INVENTORY_DETAIL_BOOK" menuCode="INV_REPORT_DETAIL_STORE" titleKey="INV_REPORT_DETAIL_BOOK" titleFallback="Sổ chi tiết vật liệu, dụng cụ (sản phẩm, hàng hóa)" accountCd="155" />}
+                            element={<JournalReportPage reportCode="INVENTORY_DETAIL_STORE" menuCode="INV_REPORT_DETAIL_STORE" titleKey="INVENTORY_DETAIL_STORE" titleFallback="Sổ chi tiết vật liệu, dụng cụ - theo kho" showProductFilter={true} showCurrencyFilter={true} includeEmptyFilterParams={true} showWarehouseFilter={true} showBookPrintTemplate={false} />}
                         />
                         <Route
                             path="/inventory/report/quantity"
-                            element={<JournalReportPage reportCode="INVENTORY_QUANTITY_REPORT" menuCode="INV_REPORT_QUANTITY" titleKey="INVENTORY_QUANTITY_REPORT" titleFallback="Số lượng tồn kho" showWarehouseFilter={true} showProductFilter={true} includeEmptyFilterParams={true} reportOptionGroupCode="INV_REPORT_QUANTITY" />}
+                            element={<JournalReportPage reportCode="INVENTORY_QUANTITY_REPORT" menuCode="INV_REPORT_QUANTITY" titleKey="INVENTORY_QUANTITY_REPORT" titleFallback="Số lượng tồn kho" showWarehouseFilter={true} showProductFilter={true} showAccountFilter={true} accountFilterEtcType={EtcType.cbxInventoryQuantityAccount} includeEmptyFilterParams={true} reportOptionGroupCode="INV_REPORT_QUANTITY" />}
                         />
                         <Route
                             path="/inventory/report/source-doc"
-                            element={<JournalReportPage reportCode="INVENTORY_SOURCE_DOCUMENT_REPORT" menuCode="INV_REPORT_SOURCE_DOC" titleKey="INVENTORY_SOURCE_DOCUMENT_REPORT" titleFallback="Bảng tổng hợp chứng từ gốc của hàng tồn kho" showWarehouseFilter={true} showProductFilter={true} includeEmptyFilterParams={true} />}
+                            element={<JournalReportPage reportCode="INVENTORY_SOURCE_DOCUMENT_REPORT" menuCode="INV_REPORT_SOURCE_DOC" titleKey="INVENTORY_SOURCE_DOCUMENT_REPORT" titleFallback="Bảng tổng hợp chứng từ gốc của hàng tồn kho" showWarehouseFilter={true} showProductFilter={true} includeEmptyFilterParams={true} showBookPrintTemplate={false} />}
+                        />
+                        <Route
+                            path="/inventory/report/cost-list"
+                            element={<JournalReportPage reportCode="GL_COST_LIST" menuCode="GL_BOOK_COST_LIST" titleKey="GL_COST_LIST" titleFallback="Bảng giá thành" reportVersion="2025" unitDivisor="1" costListToolbarOptions={true} enableCostListAccountDrill={true} showBookPrintTemplate={false} />}
                         />
 
                         <Route
@@ -1094,7 +1099,7 @@ function AppWorkspaceRoutes({
                         />
                         <Route
                             path="/tax/vat/invoice-list"
-                            element={<JournalReportPage reportCode="TAX_VAT_INVOICE_LIST" menuCode="VAT_INVOICE_LIST" titleKey="VAT_INVOICE_LIST" titleFallback="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra" />}
+                            element={<JournalReportPage reportCode="TAX_VAT_INVOICE_LIST" menuCode="VAT_INVOICE_LIST" titleKey="VAT_INVOICE_LIST" titleFallback="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ" showInvoiceTypeFilter={true} defaultInvoiceType="SELL" showBookPrintTemplate={false} />}
                         />
                         <Route
                             path="/tax/vat/allocation"
@@ -1102,7 +1107,7 @@ function AppWorkspaceRoutes({
                         />
                         <Route
                             path="/tax/vat/reduction-appendix"
-                            element={<JournalReportPage reportCode="TAX_VAT_REDUCTION_APPENDIX" menuCode="VAT_REDUCTION_APPENDIX" titleKey="VAT_REDUCTION_APPENDIX" titleFallback="Phụ lục giảm thuế giá trị gia tăng" showInvoiceStatusFilter={true} showInvoiceKindFilter={true} showCurrencyFilter={true} includeEmptyFilterParams={true} />}
+                            element={<JournalReportPage reportCode="TAX_VAT_REDUCTION_APPENDIX" menuCode="VAT_REDUCTION_APPENDIX" titleKey="VAT_REDUCTION_APPENDIX" titleFallback="Phụ lục giảm thuế giá trị gia tăng" showInvoiceStatusFilter={true} showInvoiceKindFilter={true} showCurrencyFilter={true} includeEmptyFilterParams={true} showDefaultGridPrintTemplate={false} />}
                         />
                         <Route path="/assets" element={<ModuleContent moduleId="assets" />} />
                         <Route path="/invoices" element={<ModuleContent moduleId="invoices" />} />

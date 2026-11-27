@@ -90,6 +90,19 @@ export function hasVisiblePopupWrapper() {
   return getVisiblePopupWrappers().length > 0
 }
 
+export function hasVisibleNonPopupOverlay() {
+  if (typeof window === "undefined") {
+    return false
+  }
+
+  return Array.from(document.querySelectorAll<HTMLElement>(".dx-overlay-wrapper:not(.dx-popup-wrapper)")).some(
+    (element) => {
+      const content = element.querySelector<HTMLElement>(".dx-overlay-content")
+      return isVisibleElement(element) || (content ? isVisibleElement(content) : false)
+    },
+  )
+}
+
 /** True when the top-most popup owns its own shortcut scope (custom editor popups). */
 export function isTopMostPopupShortcutScoped() {
   const topMostWrapper = getTopMostVisiblePopupWrapper()

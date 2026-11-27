@@ -4,6 +4,7 @@
   display: flex;
   flex-shrink: 0;
   width: 100%;
+  overflow: visible;
 
   &__row {
     display: flex;
@@ -12,11 +13,12 @@
     justify-content: space-between;
     gap: 12px;
     width: 100%;
-    padding: 4px 2px;
+    padding: 2px 2px;
     border: none;
     border-radius: 0;
     background: transparent;
     box-shadow: none;
+    overflow: visible;
 
     .page-toolbar__search-btn:not(.page-toolbar__search-btn--inline) {
       border-radius: 999px !important;
@@ -30,11 +32,15 @@
   }
 
   &__row--flat {
-    padding: 4px 2px;
+    padding: 2px 2px;
     border: none;
     border-radius: 0;
     background: transparent;
     box-shadow: none;
+  }
+
+  &__filters {
+    overflow: visible;
   }
 
   &__actions {
@@ -163,10 +169,11 @@
       height: 26px;
       min-height: 26px;
       max-height: 26px;
-      overflow: visible;
+      overflow: visible !important;
 
       .dx-texteditor-label {
         z-index: 2;
+        overflow: visible;
       }
 
       .dx-texteditor-container {
@@ -507,11 +514,21 @@
   display: flex;
   align-items: stretch;
   gap: 0;
+  margin-top: 6.5px;
   border: 1.5px solid #e5e7eb;
   border-radius: 10px;
   background: #ffffff;
-  overflow: hidden;
+  overflow: visible;
   transition: border-color 150ms ease, box-shadow 150ms ease;
+
+  .dx-editor-outlined.dx-texteditor-with-floating-label,
+  .dx-editor-outlined.dx-texteditor-with-label {
+    margin-top: 0;
+  }
+
+  .date-range-box__field .dx-texteditor-label {
+    z-index: 2;
+  }
 }
 
 .date-range-box--grouped:focus-within {
@@ -525,6 +542,7 @@
   justify-content: center;
   flex: 0 0 auto;
   width: 34px;
+  border-radius: 8.5px 0 0 8.5px;
   background: icon-colors.$soft-primary-bg;
   border-right: 1px solid #eef0f3;
   color: icon-colors.$icon-primary-base;

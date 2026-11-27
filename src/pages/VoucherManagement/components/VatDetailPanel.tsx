@@ -20,7 +20,10 @@ import {
   createEmptyVoucherVatDetail,
   getVatCategoryCodeType,
   hasAnyVoucherVatInput,
+  matchVatRateCodeFromOptions,
+  parseVatCategoryLinkedRateCode,
   resolveVatRatePercent,
+  stripVatCategoryRateToken,
   suggestVatDirectionForChitType,
   type VatDirection,
   type VoucherVatDetail,
@@ -88,6 +91,8 @@ export default function VatDetailPanel({
   const effectiveDirection: VatDirection | null = value.direction ?? suggestedDirection
 
   const [moreOpen, setMoreOpen] = useState(false)
+  /** Bump to remount DevExtreme editors after reset (they keep stale internal values). */
+  const [editorNonce, setEditorNonce] = useState(0)
   const [taxRateOptions, setTaxRateOptions] = useState<SysCode[]>([])
   const [categoryOptions, setCategoryOptions] = useState<SysCode[]>([])
 
@@ -146,10 +151,14 @@ export default function VatDetailPanel({
   )
 
   const categoryDisplayOptions = useMemo(() => {
-    const mapped = categoryOptions.map((item) => ({
-      ...item,
-      CODE_NAME: t(item.CODE_NAME, item.NOTE || item.CODE_NAME),
-    }))
+    const mapped = categoryOptions.map((item) => {
+      const noteLabel = stripVatCategoryRateToken(item.NOTE || "")
+      return {
+        ...item,
+        CODE_NAME: t(item.CODE_NAME, noteLabel || item.CODE_NAME),
+        // Keep raw NOTE for RATE parse; strip only the visible label above.
+      }
+    })
 
     const currentInfoType = value.infoType.trim()
     if (
@@ -166,6 +175,33 @@ export default function VatDetailPanel({
 
     return mapped
   }, [categoryOptions, t, value.infoType])
+
+  const resolveLinkedTaxRatePatch = useCallback(
+    (categoryNote: unknown): Partial<VoucherVatDetail> => {
+      const linkedRate = parseVatCategoryLinkedRateCode(categoryNote)
+      if (!linkedRate) {
+        // No [[RATE:...]] token (e.g. "Không lên bảng kê") → clear tax rate.
+        return {
+          taxRateCode: "",
+          taxRate: null,
+        }
+      }
+
+      const taxRateCode = matchVatRateCodeFromOptions(linkedRate, taxRateOptions)
+      if (!taxRateCode) {
+        return {
+          taxRateCode: "",
+          taxRate: null,
+        }
+      }
+
+      return {
+        taxRateCode,
+        taxRate: resolveVatRatePercent(taxRateCode, value.taxRate),
+      }
+    },
+    [taxRateOptions, value.taxRate],
+  )
 
   const taxRateDisplayExpr = useCallback(
     (item: SysCode | null) => formatSysCodeOptionText(item),
@@ -256,6 +292,7 @@ export default function VatDetailPanel({
     }
     if (!hasAnyVoucherVatInput(value)) {
       onChange(createEmptyVoucherVatDetail())
+      setEditorNonce((current) => current + 1)
       return
     }
     const confirmed = await confirm(
@@ -266,6 +303,7 @@ export default function VatDetailPanel({
       return
     }
     onChange(createEmptyVoucherVatDetail())
+    setEditorNonce((current) => current + 1)
   }, [onChange, readOnly, t, value])
 
   return (
@@ -324,7 +362,7 @@ export default function VatDetailPanel({
         </div>
       </header>
 
-      <div className="voucher-vat-detail-panel__body">
+      <div className="voucher-vat-detail-panel__body" key={`vat-editors-${rowKey}-${editorNonce}`}>
         {/* Row 1: Ngày | Số | Ký hiệu mẫu | Ký hiệu */}
         <VatField label={t("VAT_INVOICE_DATE", "Ngày hóa đơn")}>
           <DateBox
@@ -420,8 +458,16 @@ export default function VatDetailPanel({
                   ? (event.value as SysCode)
                   : { CODE_CD: event.value },
               )
+              // Prefer raw catalog NOTE (keeps [[RATE:10%]]); display options may only change CODE_NAME.
+              const sourceNote =
+                (typeof event.value === "object" && event.value
+                  ? (event.value as SysCode).NOTE
+                  : undefined)
+                ?? categoryOptions.find((item) => getSysCodeCd(item) === code)?.NOTE
+                ?? categoryDisplayOptions.find((item) => getSysCodeCd(item) === code)?.NOTE
               onChange({
                 infoType: code,
+                ...resolveLinkedTaxRatePatch(sourceNote),
                 ...(value.direction ? {} : { direction: effectiveDirection }),
               })
             }}

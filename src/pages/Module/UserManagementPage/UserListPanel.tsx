@@ -10,7 +10,6 @@ type UserListPanelProps = {
   selectedUserPkId: number | null
   searchText?: string
   userLevelCodes?: SysCode[]
-  creating?: boolean
   emptyText: string
   countLabel: string
   inactiveLabel: string
@@ -73,7 +72,6 @@ export default function UserListPanel({
   selectedUserPkId,
   searchText = "",
   userLevelCodes = [],
-  creating = false,
   emptyText,
   countLabel,
   inactiveLabel,
@@ -112,7 +110,6 @@ export default function UserListPanel({
           <ul className="flex flex-col gap-1.5">
             {filteredUsers.map((user) => {
               const selected =
-                !creating &&
                 user.USER_PK_ID != null &&
                 selectedUserPkId != null &&
                 user.USER_PK_ID === selectedUserPkId

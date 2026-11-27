@@ -2,8 +2,11 @@ import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, us
 import notify from "devextreme/ui/notify"
 import LoadPanel from "devextreme-react/load-panel"
 import SelectBox from "devextreme-react/select-box"
+import CheckBox from "devextreme-react/check-box"
 import type { RowDblClickEvent } from "devextreme/ui/data_grid"
 import { useLocation } from "react-router-dom"
+import { isAxiosError } from "axios"
+import { debugMd } from "@amnote/debug-md"
 
 import {
   getConfiguredReportPreview,
@@ -27,6 +30,7 @@ import {
 import DxPage from "@/dx/DxPage"
 import { useMasterListLoadError } from "@/hooks/queries/master/masterQueryHelpers"
 import { useReportOptionsQuery } from "@/hooks/queries/useReportQueries"
+import { DEFAULT_CURRENCY_CODE, getPrimaryCurrencyCode } from "@/lib/currency"
 import { LanguageContext } from "@/lib/i18nLoader"
 import { createMonthStartDate } from "@/lib/dateRangeDefaults"
 import { getCurrentCompanyCd, buildAppPath } from "@/lib/login"
@@ -69,7 +73,10 @@ type JournalReportPageProps = {
     | "GL_GENERAL_JOURNAL"
     | "BANK_DEPOSIT_BOOK"
     | "CASH_BOOK"
-    | "INVENTORY_DETAIL_BOOK"
+    | "INVENTORY_DETAIL_PRODUCT"
+    | "INVENTORY_DETAIL_DEPARTMENT"
+    | "INVENTORY_DETAIL_ACCOUNT"
+    | "INVENTORY_DETAIL_STORE"
     | "INVENTORY_QUANTITY_REPORT"
     | "INVENTORY_SOURCE_DOCUMENT_REPORT"
     | "GL_GENERAL_LEDGER_S02C1DN"
@@ -159,6 +166,8 @@ type JournalReportPageProps = {
   showAssetStatusFilter?: boolean
   showInvoiceKindFilter?: boolean
   showInvoiceTypeFilter?: boolean
+  /** Default BUY/SELL when URL has no `type` (VAT invoice list → SELL). */
+  defaultInvoiceType?: "BUY" | "SELL"
   showInvoiceStatusFilter?: boolean
   showFetchFromGdt?: boolean
   accountQueryParamKey?: "accountCd" | "accCd"
@@ -172,10 +181,13 @@ type JournalReportPageProps = {
   useUseStartYmdFilter?: boolean
   /** Cost-list toolbar: In chi tiết (lọc LEVEL_NO). */
   costListToolbarOptions?: boolean
+  enableCostListAccountDrill?: boolean
   /** AR invoice debt detail: radio Chỉ lấy hóa đơn trong kỳ / trong kỳ và đầu kỳ. */
   arInvoiceToolbarOptions?: boolean
   /** Khi false: ẩn lookup "Mẫu in sổ", luôn in DEFAULT_GRID. */
   showBookPrintTemplate?: boolean
+  /** Khi false: ẩn option "In mặc định" (DEFAULT_GRID), chỉ giữ mẫu in sổ. */
+  showDefaultGridPrintTemplate?: boolean
 }
 
 type ReportRouteFilterState = {
@@ -196,6 +208,13 @@ type ReportRouteFilterState = {
 }
 
 type VatInvoiceType = "BUY" | "SELL"
+function readInventoryFilters(params: Record<string, string>) {
+  return {
+    departmentCodes: splitFilterCodes(params.departmentCd ?? null),
+    quantityOnly: params.quantityOnly === "1",
+    hideNoMovement: params.hideNoMovement === "1",
+  }
+}
 
 type JournalReportTabState = {
   routeIdentity: string
@@ -212,6 +231,8 @@ type JournalReportTabState = {
   productCodes: string[]
   assetStatusCodes: string[]
   invoiceType: VatInvoiceType
+  /** Chiều VAT đã áp dụng cho preview/grid — chỉ cập nhật khi tìm kiếm/refresh. */
+  appliedInvoiceType?: VatInvoiceType
   invoiceStatus: string
   invoiceKind: string
   searchText: string
@@ -223,6 +244,7 @@ type JournalReportTabState = {
   exportPrintTemplate: ReportPrintTemplateCode
   showDetailRows?: boolean
   includeOpeningInvoices?: boolean
+  inventoryFilters?: ReturnType<typeof readInventoryFilters>
 }
 
 const TOOLBAR_FIELD = "page-toolbar__field"
@@ -257,6 +279,9 @@ const NON_NAVIGABLE_ROW_TYPES = new Set([
   "SUMMARY",
   "HEADER",
   "SECTION",
+  "GROUP",
+  "PERIOD_AVERAGE",
+  "MONTH_AVERAGE",
   "BLANK",
   "EMPTY",
 ])
@@ -314,6 +339,9 @@ const SOURCE_DOC_TYPE_ALIASES: Record<string, string> = {
   INVENTORY_OUTPUT: "IO",
   INVENTORY_ISSUE: "IO",
   INVENTORY_ADJUST: "IA",
+  TRANSFER: "IA",
+  INVENTORY_TRANSFER: "IA",
+  INVENTORY_TRANSFER_VOUCHER: "IA",
   OFFSET: "CO",
   OTHER: "OT",
 }
@@ -329,7 +357,10 @@ const REPORT_DRILL_ROUTES = [
   { reportCode: "GL_AR_AGING", menuCode: "GL_BOOK_AR_AGING", route: "/gl/book/ar-aging" },
   { reportCode: "GL_AR_AGING_DETAIL", menuCode: "GL_BOOK_AR_AGING_DETAIL", route: "/gl/book/ar-aging-detail" },
   { reportCode: "GL_TRIAL_BALANCE_S06DN", menuCode: "GL_BOOK_TRIAL", route: "/gl/book/trial-balance" },
-  { reportCode: "INVENTORY_DETAIL_BOOK", menuCode: "INV_REPORT_DETAIL_STORE", route: "/inventory/report/detail-store" },
+  { reportCode: "INVENTORY_DETAIL_PRODUCT", menuCode: "INV_REPORT_DETAIL_PRODUCT", route: "/inventory/report/detail-product" },
+  { reportCode: "INVENTORY_DETAIL_DEPARTMENT", menuCode: "INV_REPORT_DETAIL_DEPT", route: "/inventory/report/detail-department" },
+  { reportCode: "INVENTORY_DETAIL_ACCOUNT", menuCode: "INV_REPORT_DETAIL_ACCOUNT", route: "/inventory/report/detail-account" },
+  { reportCode: "INVENTORY_DETAIL_STORE", menuCode: "INV_REPORT_DETAIL_STORE", route: "/inventory/report/detail-store" },
   { reportCode: "INVENTORY_QUANTITY_REPORT", menuCode: "INV_REPORT_QUANTITY", route: "/inventory/report/quantity" },
   { reportCode: "INVENTORY_SOURCE_DOCUMENT_REPORT", menuCode: "INV_REPORT_SOURCE_DOC", route: "/inventory/report/source-doc" },
   { reportCode: "BANK_DEPOSIT_BOOK", menuCode: "BA_BANK_BOOK", route: "/bank/bank-book" },
@@ -347,13 +378,16 @@ const FALLBACK_REPORT_DRILL_ROUTES: Partial<Record<JournalReportPageProps["repor
   GL_AR_SUMMARY_S31DN: "/gl/book/ar-detail",
   GL_AR_AGING: "/gl/book/ar-aging-detail",
   GL_TRIAL_BALANCE_S06DN: "/gl/book/account-detail",
-  INVENTORY_QUANTITY_REPORT: "/inventory/report/source-doc",
+  INVENTORY_QUANTITY_REPORT: "/inventory/report/detail-product",
 }
 function splitFilterCodes(value: string | null | undefined): string[] {
   return splitReportFilterValues(value)
 }
 
-function buildRouteFilterState(search: string): ReportRouteFilterState {
+function buildRouteFilterState(
+  search: string,
+  defaultInvoiceType: VatInvoiceType = "BUY",
+): ReportRouteFilterState {
   const params = new URLSearchParams(search)
   const extraParams: Record<string, string> = {}
 
@@ -363,6 +397,8 @@ function buildRouteFilterState(search: string): ReportRouteFilterState {
       extraParams[key] = normalizedValue
     }
   })
+
+  const rawInvoiceType = params.get("type") ?? params.get("vatDirection")
 
   return {
     fromDate: normalizeYmd(params.get("fromYmd")),
@@ -376,19 +412,45 @@ function buildRouteFilterState(search: string): ReportRouteFilterState {
     productCodes: splitFilterCodes(params.get("productCd")),
     assetStatusCodes: splitFilterCodes(params.get("assetStatus")),
 	invoiceKind: (params.get("invoiceKind") ?? "").trim(),
-    invoiceType: normalizeInvoiceType(params.get("type")),
+    invoiceType: rawInvoiceType != null && rawInvoiceType.trim() !== ""
+      ? normalizeInvoiceType(rawInvoiceType, defaultInvoiceType)
+      : defaultInvoiceType,
     invoiceStatus: (params.get("status") ?? "").trim(),
     extraParams,
   }
 }
 
-function normalizeInvoiceType(value: string | null | undefined): VatInvoiceType {
+function normalizeInvoiceType(
+  value: string | null | undefined,
+  fallback: VatInvoiceType = "BUY",
+): VatInvoiceType {
   const normalized = (value ?? "").trim().toUpperCase()
   if (normalized === "SELL" || normalized === "OUT" || normalized === "2" || normalized === "0") {
     return "SELL"
   }
+  if (normalized === "BUY" || normalized === "IN" || normalized === "1") {
+    return "BUY"
+  }
 
-  return "BUY"
+  return fallback
+}
+
+/** PDF/tab title for VAT invoice list — mirrors SP REPORT_TITLE_TEXT / TSvat_list_BUY|SELL. */
+function resolveVatInvoiceListTitle(
+  invoiceType: VatInvoiceType,
+  translate: (key: string, fallback: string) => string,
+): string {
+  if (invoiceType === "BUY") {
+    return translate(
+      "TSvat_list_BUY",
+      "BẢNG KÊ HOÁ ĐƠN, CHỨNG TỪ HÀNG HOÁ, DỊCH VỤ MUA VÀO",
+    )
+  }
+
+  return translate(
+    "TSvat_list_SELL",
+    "BẢNG KÊ HÓA ĐƠN, CHỨNG TỪ HÀNG HÓA, DỊCH VỤ BÁN RA",
+  )
 }
 
 function resolveInitialFilterCodes(routeCodes: string[], propValue?: string): string[] {
@@ -464,9 +526,8 @@ function normalizeSourceDocType(value: string | null): string | null {
 function resolveReportDrillRoute(row: ReportDataGridRow): string | null {
   const targetReportCode = readReportRowText(row, ["__TARGET_REPORT_CODE"])?.toUpperCase()
   const targetMenuCode = readReportRowText(row, ["__TARGET_MENU_CODE"])?.toUpperCase()
-  const routeConfig = REPORT_DRILL_ROUTES.find(
-    (route) => route.reportCode === targetReportCode || route.menuCode === targetMenuCode,
-  )
+  const routeConfig = REPORT_DRILL_ROUTES.find((route) => route.menuCode === targetMenuCode)
+    ?? REPORT_DRILL_ROUTES.find((route) => route.reportCode === targetReportCode)
 
   return routeConfig?.route ?? null
 }
@@ -603,6 +664,7 @@ export default function JournalReportPage({
   showAssetStatusFilter = false,
   showInvoiceKindFilter = false,
   showInvoiceTypeFilter = false,
+  defaultInvoiceType = "BUY",
   showInvoiceStatusFilter = false,
   showFetchFromGdt = false,
   accountQueryParamKey = "accountCd",
@@ -615,8 +677,10 @@ export default function JournalReportPage({
   reportOptionGroupCode,
   useUseStartYmdFilter = false,
   costListToolbarOptions = false,
+  enableCostListAccountDrill = false,
   arInvoiceToolbarOptions = false,
   showBookPrintTemplate = true,
+  showDefaultGridPrintTemplate = true,
 }: JournalReportPageProps) {
   const location = useLocation()
   const tabRoute = useWorkspaceTabRoute()
@@ -625,7 +689,14 @@ export default function JournalReportPage({
   const routePathname = tabRoute?.pathname ?? location.pathname
   const { openWorkspacePath } = useWorkspaceTabs()
   const today = useMemo(() => getToday(), [])
-  const routeFilterState = useMemo(() => buildRouteFilterState(routeSearch), [routeSearch])
+  const routeFilterState = useMemo(
+    () => buildRouteFilterState(routeSearch, defaultInvoiceType),
+    [defaultInvoiceType, routeSearch],
+  )
+  const isInventoryDetail = reportCode.startsWith("INVENTORY_DETAIL_")
+  const canOpenInventoryVoucher = isInventoryDetail || reportCode === "INVENTORY_SOURCE_DOCUMENT_REPORT"
+  const isInventoryDepartment = reportCode === "INVENTORY_DETAIL_DEPARTMENT"
+  const initialCurrencyCode = fcType ?? (showCurrencyFilter ? DEFAULT_CURRENCY_CODE : undefined)
   const routeIdentity = `${routePathname}${routeSearch}`
   const restoredTabStateRef = useRef<JournalReportTabState | null | undefined>(undefined)
   if (restoredTabStateRef.current === undefined) {
@@ -678,7 +749,7 @@ export default function JournalReportPage({
     () => restoredTabState?.bankCodes ?? resolveInitialFilterCodes(routeFilterState.bankCodes, bankCd),
   )
   const [currencyCodes, setCurrencyCodes] = useState<string[]>(
-    () => restoredTabState?.currencyCodes ?? resolveInitialFilterCodes(routeFilterState.currencyCodes, fcType),
+    () => restoredTabState?.currencyCodes ?? resolveInitialFilterCodes(routeFilterState.currencyCodes, initialCurrencyCode),
   )
   const [warehouseCodes, setWarehouseCodes] = useState<string[]>(
     () => restoredTabState?.warehouseCodes ?? resolveInitialFilterCodes(routeFilterState.warehouseCodes, storeCd),
@@ -686,11 +757,25 @@ export default function JournalReportPage({
   const [productCodes, setProductCodes] = useState<string[]>(
     () => restoredTabState?.productCodes ?? resolveInitialFilterCodes(routeFilterState.productCodes, productCd),
   )
+  const [inventoryFilters, setInventoryFilters] = useState(
+    () => restoredTabState?.inventoryFilters ?? readInventoryFilters(routeFilterState.extraParams),
+  )
+  const changeReportCurrencyCodes = (codes: string[]) => {
+    setCurrencyCodes(isInventoryDetail ? [getPrimaryCurrencyCode(codes)] : codes)
+  }
   const [assetStatusCodes, setAssetStatusCodes] = useState<string[]>(
     () => restoredTabState?.assetStatusCodes ?? routeFilterState.assetStatusCodes,
   )
   const [invoiceType, setInvoiceType] = useState<VatInvoiceType>(
     () => restoredTabState?.invoiceType ?? routeFilterState.invoiceType,
+  )
+  const invoiceTypeRef = useRef(invoiceType)
+  invoiceTypeRef.current = invoiceType
+  const [appliedInvoiceType, setAppliedInvoiceType] = useState<VatInvoiceType>(
+    () =>
+      restoredTabState?.appliedInvoiceType ??
+      restoredTabState?.invoiceType ??
+      routeFilterState.invoiceType,
   )
   const [invoiceKind, setInvoiceKind] = useState(() => restoredTabState?.invoiceKind ?? routeFilterState.invoiceKind)
   const [invoiceStatus, setInvoiceStatus] = useState(
@@ -738,7 +823,11 @@ export default function JournalReportPage({
       if (!showBookPrintTemplate) {
         return "DEFAULT_GRID"
       }
-      return restoredTabState?.exportPrintTemplate ?? "BOOK"
+      const restored = restoredTabState?.exportPrintTemplate ?? "BOOK"
+      if (!showDefaultGridPrintTemplate && restored === "DEFAULT_GRID") {
+        return "BOOK"
+      }
+      return restored
     },
   )
   const [showDetailRows, setShowDetailRows] = useState(
@@ -749,6 +838,18 @@ export default function JournalReportPage({
       !arInvoiceToolbarOptions ||
       restoredTabState?.includeOpeningInvoices !== false,
   )
+
+  useEffect(() => {
+    if (reportCode === "GL_ACCOUNT_DETAIL_S38DN") {
+      debugMd("gl-account-detail", "open", {
+        restoredPreview: Boolean(restoredTabState?.preview),
+        restoredRows: restoredTabState?.preview?.ROWS.length,
+        routeAccountCodes: routeFilterState.accountCodes.slice(0, 10),
+        routeFromYmd: formatDateToYmd(routeFilterState.fromDate ?? null),
+        routeToYmd: formatDateToYmd(routeFilterState.toDate ?? null),
+      }, { reset: true })
+    }
+  }, [reportCode, restoredTabState, routeFilterState, routeIdentity])
 
   useEffect(() => {
     if (restoredTabState) {
@@ -774,6 +875,7 @@ export default function JournalReportPage({
       productCodes,
       assetStatusCodes,
       invoiceType,
+      appliedInvoiceType,
       invoiceStatus,
 	  invoiceKind,
       searchText,
@@ -784,6 +886,7 @@ export default function JournalReportPage({
       exportPrintTemplate,
       showDetailRows,
       includeOpeningInvoices,
+      inventoryFilters,
     })
   }, [
     accountCodes,
@@ -796,9 +899,11 @@ export default function JournalReportPage({
     exportPrintTemplate,
     fromDate,
     includeOpeningInvoices,
+    inventoryFilters,
     invoiceStatus,
 	invoiceKind,
     invoiceType,
+    appliedInvoiceType,
     cacheTabId,
     menuCode,
     preview,
@@ -819,11 +924,18 @@ export default function JournalReportPage({
   )
   const invoiceTypeOptions = useMemo(
     () => [
-      { value: "BUY", label: t("VAT_INOUT_TYPE_BUY", "Hóa đơn đầu vào") },
-      { value: "SELL", label: t("VAT_INOUT_TYPE_SELL", "Hóa đơn đầu ra") },
+      { value: "SELL", label: t("SELL", "Hóa đơn đầu ra") },
+      { value: "BUY", label: t("BUY", "Hóa đơn đầu vào") }
     ],
     [t],
   )
+  const exportReportTitle = useMemo(() => {
+    if (!showInvoiceTypeFilter) {
+      return t(titleKey, titleFallback)
+    }
+
+    return resolveVatInvoiceListTitle(appliedInvoiceType, t)
+  }, [appliedInvoiceType, showInvoiceTypeFilter, t, titleFallback, titleKey])
 
   const invoiceKindOptions = useMemo(() => [
     { value: "", label: t("ALL", "Tất cả") },
@@ -846,18 +958,19 @@ export default function JournalReportPage({
     [t],
   )
 
-  const printTemplateOptions = useMemo(
-    () =>
-      (showBookPrintTemplate
-        ? [
-            { code: "BOOK", label: t("REPORT_PRINT_TEMPLATE_BOOK", "Mẫu in sổ") },
-            { code: "DEFAULT_GRID", label: t("REPORT_PRINT_TEMPLATE_DEFAULT_GRID", "In mặc định") },
-          ]
-        : [
-            { code: "DEFAULT_GRID", label: t("REPORT_PRINT_TEMPLATE_DEFAULT_GRID", "In mặc định") },
-          ]) satisfies { code: ReportPrintTemplateCode; label: string }[],
-    [showBookPrintTemplate, t],
-  )
+  const printTemplateOptions = useMemo(() => {
+    const options: { code: ReportPrintTemplateCode; label: string }[] = []
+    if (showBookPrintTemplate) {
+      options.push({ code: "BOOK", label: t("REPORT_PRINT_TEMPLATE_BOOK", "Mẫu in sổ") })
+    }
+    if (showDefaultGridPrintTemplate || !showBookPrintTemplate) {
+      options.push({
+        code: "DEFAULT_GRID",
+        label: t("REPORT_PRINT_TEMPLATE_DEFAULT_GRID", "In mặc định"),
+      })
+    }
+    return options
+  }, [showBookPrintTemplate, showDefaultGridPrintTemplate, t])
 
   const abortPreviewRequest = useCallback(() => {
     previewRequestRef.current?.controller.abort()
@@ -929,18 +1042,20 @@ export default function JournalReportPage({
       showAccountFilter && accountLookupSingleSelect && resolvedAccountCodes.length === 0
     setCustomerCodes(resolveInitialFilterCodes(routeFilterState.customerCodes, customerCd))
     setBankCodes(resolveInitialFilterCodes(routeFilterState.bankCodes, bankCd))
-    setCurrencyCodes(resolveInitialFilterCodes(routeFilterState.currencyCodes, fcType))
+    setCurrencyCodes(resolveInitialFilterCodes(routeFilterState.currencyCodes, initialCurrencyCode))
     setWarehouseCodes(resolveInitialFilterCodes(routeFilterState.warehouseCodes, storeCd))
     setProductCodes(resolveInitialFilterCodes(routeFilterState.productCodes, productCd))
+    setInventoryFilters(readInventoryFilters(routeFilterState.extraParams))
     setAssetStatusCodes(routeFilterState.assetStatusCodes)
     setInvoiceType(routeFilterState.invoiceType)
+    setAppliedInvoiceType(routeFilterState.invoiceType)
     setInvoiceStatus(routeFilterState.invoiceStatus)
 	setInvoiceKind(routeFilterState.invoiceKind)
     setSearchText("")
     setPreview(null)
     setPreviewLoading(false)
     setAutoLoadVersion((version) => version + 1)
-  }, [abortPreviewRequest, accountCd, accountLookupSingleSelect, bankCd, customerCd, fcType, menuCode, productCd, reportCode, routeFilterState, routeIdentity, showAccountFilter, storeCd, today])
+  }, [abortPreviewRequest, accountCd, accountLookupSingleSelect, bankCd, customerCd, initialCurrencyCode, menuCode, productCd, reportCode, routeFilterState, routeIdentity, showAccountFilter, storeCd, today])
 
   useEffect(() => {
     if (restoredTabState) {
@@ -1027,7 +1142,10 @@ export default function JournalReportPage({
   }, [t, useUseStartYmdFilter])
 
   const buildReportParams = useCallback(
-    (selectedReportLanguage?: ReportLanguageCode): ConfiguredReportPreviewRequest | null => {
+    (
+      selectedReportLanguage?: ReportLanguageCode,
+      overrides?: { vatDirection?: VatInvoiceType },
+    ): ConfiguredReportPreviewRequest | null => {
       const companyCd = getCurrentCompanyCd()
       const fromDate = fromDateRef.current
       const toDate = toDateRef.current
@@ -1043,6 +1161,7 @@ export default function JournalReportPage({
       const effectiveReportCode = selectedReportOption?.REPORT_CODE || reportCode
       const storedTemplateId = getStoredGridTemplateId(effectiveReportCode)
       const keyword = searchText.trim()
+      const resolvedInvoiceType = overrides?.vatDirection ?? appliedInvoiceType
 
       if (useUseStartYmdFilter) {
         if (!normalizedUseStartYmd) {
@@ -1097,8 +1216,16 @@ export default function JournalReportPage({
         ...(reportCode === "FA_DEPRECIATION_PERIOD_REPORT"
           ? { departmentCd: resolveFilterParam("", includeEmptyFilterParams) ?? "" }
           : {}),
+        ...(isInventoryDetail ? {
+          quantityOnly: inventoryFilters.quantityOnly ? "1" : "0",
+          hideNoMovement: inventoryFilters.hideNoMovement ? "1" : "0",
+          fcType: getPrimaryCurrencyCode(currencyCodes),
+        } : {}),
+        ...(isInventoryDepartment ? { departmentCd: joinReportFilterValues(inventoryFilters.departmentCodes) } : {}),
 		invoiceKind: showInvoiceKindFilter ? invoiceKind : undefined,
-        type: showInvoiceTypeFilter ? invoiceType : undefined,
+        type: showInvoiceTypeFilter ? resolvedInvoiceType : undefined,
+        // SP rpt_vat_invoice_list(@p_VAT_DIRECTION) — sync BUY/SELL with Vat Detail Panel
+        vatDirection: showInvoiceTypeFilter ? resolvedInvoiceType : undefined,
         status: showInvoiceStatusFilter
           ? resolveFilterParam(invoiceStatus, includeEmptyFilterParams)
           : undefined,
@@ -1115,7 +1242,7 @@ export default function JournalReportPage({
         templateId: storedTemplateId > 0 ? String(storedTemplateId) : undefined,
       }
     },
-    [accountCd, accountCodes, accountQueryParamKey, arInvoiceToolbarOptions, assetStatusCodes, bankCd, bankCodes, costListToolbarOptions, currencyCodes, customerCd, customerCodes, effectiveReportOptionGroupCode, fcType, includeEmptyFilterParams, includeOpeningInvoices, invoiceKind, showInvoiceKindFilter, invoiceStatus, invoiceType, lang, menuCode, moduleCd, productCd, productCodes, reportCode, reportOptions, reportVersion, routeFilterState.extraParams, searchText, selectedReportOptionCode, showAccountFilter, showAssetStatusFilter, showBankFilter, showCurrencyFilter, showCustomerFilter, showDetailRows, showInvoiceStatusFilter, showInvoiceTypeFilter, showProductFilter, showWarehouseFilter, storeCd, unitDivisor, useUseStartYmdFilter, warehouseCodes],
+    [accountCd, accountCodes, accountQueryParamKey, appliedInvoiceType, arInvoiceToolbarOptions, assetStatusCodes, bankCd, bankCodes, costListToolbarOptions, currencyCodes, customerCd, customerCodes, effectiveReportOptionGroupCode, fcType, includeEmptyFilterParams, includeOpeningInvoices, inventoryFilters, invoiceKind, showInvoiceKindFilter, invoiceStatus, isInventoryDepartment, isInventoryDetail, lang, menuCode, moduleCd, productCd, productCodes, reportCode, reportOptions, reportVersion, routeFilterState.extraParams, searchText, selectedReportOptionCode, showAccountFilter, showAssetStatusFilter, showBankFilter, showCurrencyFilter, showCustomerFilter, showDetailRows, showInvoiceStatusFilter, showInvoiceTypeFilter, showProductFilter, showWarehouseFilter, storeCd, unitDivisor, useUseStartYmdFilter, warehouseCodes],
   )
 
   const releaseAutoLoadInFlight = useCallback((requestId: number) => {
@@ -1130,6 +1257,7 @@ export default function JournalReportPage({
       const showValidationMessage = options?.showValidationMessage ?? false
       const trigger = options?.trigger ?? "manual"
       const requestedAutoLoadVersion = options?.autoLoadVersion
+      const traceAccountDetail = reportCode === "GL_ACCOUNT_DETAIL_S38DN"
       const releaseAutoLoadIfNeeded = () => {
         if (trigger === "auto-load") {
           autoLoadInFlightRef.current = false
@@ -1142,6 +1270,14 @@ export default function JournalReportPage({
       }
 
       if (!validateFilter(showValidationMessage)) {
+        if (traceAccountDetail) {
+          debugMd("gl-account-detail", "preview-skipped", {
+            trigger,
+            reason: "invalid-date-filter",
+            fromYmd: formatDateToYmd(fromDateRef.current),
+            toYmd: formatDateToYmd(toDateRef.current),
+          }, { reset: trigger === "manual" })
+        }
         releaseAutoLoadIfNeeded()
         abortPreviewRequest()
         setPreviewLoading(false)
@@ -1154,37 +1290,101 @@ export default function JournalReportPage({
         setPreview(null)
       }
 
-      const params = buildReportParams()
+      // Combobox chiều VAT (Doanh thu/Mua hàng): chỉ áp dụng khi tìm kiếm/refresh.
+      const selectedInvoiceType = invoiceTypeRef.current
+      const invoiceTypeToApply = showInvoiceTypeFilter ? selectedInvoiceType : appliedInvoiceType
+      if (showInvoiceTypeFilter && selectedInvoiceType !== appliedInvoiceType) {
+        setAppliedInvoiceType(selectedInvoiceType)
+        setPreview(null)
+      }
+
+      const params = buildReportParams(
+        undefined,
+        showInvoiceTypeFilter ? { vatDirection: invoiceTypeToApply } : undefined,
+      )
       if (!params) {
+        if (traceAccountDetail) {
+          debugMd("gl-account-detail", "preview-skipped", { trigger, reason: "missing-params" })
+        }
         releaseAutoLoadIfNeeded()
         abortPreviewRequest()
         setPreviewLoading(false)
         return
       }
 
-      previewRequestRef.current?.controller.abort()
+      const previousRequest = previewRequestRef.current
+      previousRequest?.controller.abort()
       const requestId = previewRequestSequenceRef.current + 1
       previewRequestSequenceRef.current = requestId
       const controller = new AbortController()
       previewRequestRef.current = { controller, requestId }
 
+      const startedAt = traceAccountDetail ? performance.now() : 0
+      if (traceAccountDetail) {
+        const accounts = splitReportFilterValues(params.accountCd ?? params.accCd)
+        debugMd("gl-account-detail", "preview-start", {
+          requestId,
+          trigger,
+          companyCd: params.companyCd,
+          fromYmd: params.fromYmd,
+          toYmd: params.toYmd,
+          accountCount: accounts.length,
+          accountCodes: accounts.slice(0, 10),
+          currency: params.fcType,
+          hasKeyword: Boolean(params.keyword),
+          templateId: params.templateId,
+          replacedRequestId: previousRequest?.requestId,
+        }, { reset: trigger === "manual" })
+      }
+
       setPreviewLoading(true)
       try {
         const data = await getConfiguredReportPreview(params, { signal: controller.signal })
         if (controller.signal.aborted || previewRequestRef.current?.requestId !== requestId) {
+          if (traceAccountDetail) {
+            debugMd("gl-account-detail", "preview-canceling", {
+              requestId,
+              activeRequestId: previewRequestRef.current?.requestId,
+              elapsedMs: Math.round(performance.now() - startedAt),
+              stack: new Error().stack?.split("\n").slice(1, 5),
+            })
+          }
           if (trigger === "auto-load") {
             releaseAutoLoadInFlight(requestId)
           }
           return
         }
 
+        if (traceAccountDetail) {
+          debugMd("gl-account-detail", "preview-result", {
+            requestId,
+            elapsedMs: Math.round(performance.now() - startedAt),
+            reportCode: data.REPORT_CODE,
+            viewType: data.VIEW_TYPE,
+            rows: data.ROWS?.length,
+            detailRows: data.ROWS?.filter((row) => row.VALUES.__ROW_TYPE === "DETAIL").length,
+            emptyRows: data.ROWS?.filter((row) => row.VALUES.__ROW_TYPE === "EMPTY").length,
+            columns: data.COLUMNS?.length,
+          })
+        }
         setPreview(data)
         if (trigger === "auto-load" && typeof requestedAutoLoadVersion === "number") {
           lastAutoLoadedVersionRef.current = requestedAutoLoadVersion
           autoLoadInFlightRef.current = false
         }
       } catch (error) {
-        if (controller.signal.aborted || previewRequestRef.current?.requestId !== requestId || isCanceledPreviewRequest(error)) {
+        const canceled = controller.signal.aborted || previewRequestRef.current?.requestId !== requestId || isCanceledPreviewRequest(error)
+        if (traceAccountDetail) {
+          debugMd("gl-account-detail", canceled ? "preview-canceling" : "preview-error", {
+            requestId,
+            activeRequestId: previewRequestRef.current?.requestId,
+            elapsedMs: Math.round(performance.now() - startedAt),
+            status: isAxiosError(error) ? error.response?.status : undefined,
+            code: isAxiosError(error) ? error.code : undefined,
+            stack: (error instanceof Error ? error : new Error()).stack?.split("\n").slice(1, 5),
+          })
+        }
+        if (canceled) {
           if (trigger === "auto-load") {
             releaseAutoLoadInFlight(requestId)
           }
@@ -1202,6 +1402,7 @@ export default function JournalReportPage({
     },
     [
       abortPreviewRequest,
+      appliedInvoiceType,
       appliedReportOptionCode,
       buildReportParams,
       effectiveReportOptionGroupCode,
@@ -1211,6 +1412,7 @@ export default function JournalReportPage({
       reportCode,
       reportOptionsLoaded,
       selectedReportOptionCode,
+      showInvoiceTypeFilter,
       t,
       validateFilter,
     ],
@@ -1267,6 +1469,19 @@ export default function JournalReportPage({
         labelField: "ITEM_KIND",
         labelPrefixKey: "VAT_INOUT_TYPE",
         labelPrefixFallback: "Loại hóa đơn",
+        labelOnly: true,
+      }
+    }
+
+    // Bảng kê hóa đơn: group by phân loại bảng kê (VAT_INFO_TYPE), same section UI.
+    if (reportCode === "TAX_VAT_INVOICE_LIST" ||
+        normalizedReportCode === "TAX_VAT_INVOICE_LIST") {
+      return {
+        groupField: "VAT_INFO_TYPE",
+        labelField: "VAT_INFO_TYPE_NM",
+        labelPrefixKey: "VAT_INFO_TYPE",
+        labelPrefixFallback: "Phân loại bảng kê",
+        labelOnly: true,
       }
     }
 
@@ -1378,21 +1593,64 @@ export default function JournalReportPage({
     void loadPreview({ showValidationMessage: false })
   }, [loadPreview])
 
-  const openDrillTab = useCallback(
-    (targetUrl: string) => {
-      openWorkspacePath(targetUrl)
+  const openReportDrillInBrowserTab = useCallback(
+    (route: string, query: URLSearchParams) => {
+      const targetPath = buildAppPath(getCurrentCompanyCd(), `${route}?${query.toString()}`)
+      const targetUrl = new URL(targetPath, window.location.origin).toString()
+      const opened = openReportViewerPage(targetUrl)
+      if (!opened) {
+        notify(t("UNABLE_TO_OPEN_REPORT_VIEWER", "Không mở được trình xem báo cáo"), "error", 3000)
+      }
     },
-    [openWorkspacePath],
+    [t],
   )
 
   const handleReportRowDblClick = useCallback(
     (event: RowDblClickEvent<ReportDataGridRow, string>) => {
       const row = event.data
-      if (!row || !isNavigableSummaryRow(row)) {
+      if (!row || (reportCode === "GL_COST_LIST" && !enableCostListAccountDrill)) {
+        return
+      }
+
+      if (reportCode === "INVENTORY_QUANTITY_REPORT") {
+        const quantityProductCd = readReportRowText(row, PRODUCT_FIELD_CANDIDATES)
+        if (!quantityProductCd) {
+          return
+        }
+
+        const query = new URLSearchParams()
+        setQueryValue(query, "fromYmd", formatDateToYmd(fromDate))
+        setQueryValue(query, "toYmd", formatDateToYmd(toDate))
+        setQueryValue(query, "productCd", quantityProductCd)
+        setQueryCodes(query, "storeCd", warehouseCodes)
+        setQueryCodes(query, "accountCd", accountCodes)
+        openReportDrillInBrowserTab("/inventory/report/detail-product", query)
+        return
+      }
+
+      if (!isNavigableSummaryRow(row)) {
         return
       }
 
       const drillType = readReportRowText(row, DRILL_TYPE_FIELD_CANDIDATES)?.toUpperCase() ?? ""
+      if (reportCode === "GL_COST_LIST") {
+        const targetRoute = resolveReportDrillRoute(row)
+        if (drillType !== "REPORT" || !targetRoute) {
+          return
+        }
+
+        const query = new URLSearchParams(parseDrillParams(readReportRowText(row, ["__DRILL_PARAMS"])))
+        const accountCd = query.get("accountCd")
+        const fromYmd = query.get("fromYmd")
+        const toYmd = query.get("toYmd")
+        if (!accountCd || !fromYmd || !toYmd) {
+          return
+        }
+
+        openReportDrillInBrowserTab(targetRoute, query)
+        return
+      }
+
       const parsedRowKey = parseReportDetailRowKey(readReportRowText(row, ["__ROW_KEY", "ROW_KEY"]))
       const sourceDocType = normalizeSourceDocType(readReportRowText(row, SOURCE_DOC_TYPE_FIELD_CANDIDATES))
       const sourceDocId = readReportRowNumber(row, SOURCE_DOC_ID_FIELD_CANDIDATES) ?? parsedRowKey?.chitId ?? null
@@ -1403,6 +1661,16 @@ export default function JournalReportPage({
       }
 
       if ((drillType === "DOCUMENT" || (!drillType && canOpenDocument)) && sourceDocId) {
+        const inventoryVoucherRoute = sourceDocType === "IR" ? "/inventory/receipt"
+          : sourceDocType === "IO" ? "/inventory/issue"
+          : sourceDocType === "IA" ? "/inventory/adjust" : null
+        if (canOpenInventoryVoucher && inventoryVoucherRoute) {
+          const query = new URLSearchParams({ openChitId: String(sourceDocId) })
+          openWorkspacePath(buildAppPath(getCurrentCompanyCd(), `${inventoryVoucherRoute}?${query.toString()}`))
+          return
+        }
+        if (canOpenInventoryVoucher && sourceDocType === "IRO") return
+
         const resolved = resolveAccountingLedger(
           sourceDocType,
           readReportRowText(row, MODULE_CD_FIELD_CANDIDATES) ?? parsedRowKey?.moduleCd,
@@ -1488,9 +1756,9 @@ export default function JournalReportPage({
 
       const queryText = query.toString()
       const targetPath = queryText ? `${targetRoute}?${queryText}` : targetRoute
-      openDrillTab(buildAppPath(getCurrentCompanyCd(), targetPath))
+      openWorkspacePath(buildAppPath(getCurrentCompanyCd(), targetPath))
     },
-    [accountCodes, bankCodes, currencyCodes, customerCodes, fromDate, openDrillTab, productCodes, reportCode, t, toDate, warehouseCodes],
+    [accountCodes, bankCodes, canOpenInventoryVoucher, currencyCodes, customerCodes, enableCostListAccountDrill, fromDate, openReportDrillInBrowserTab, openWorkspacePath, productCodes, reportCode, t, toDate, warehouseCodes],
   )
 
   const openExportPopup = useCallback(() => {
@@ -1512,20 +1780,22 @@ export default function JournalReportPage({
         return
       }
 
-      const printTemplate: ReportPrintTemplateCode = showBookPrintTemplate
-        ? selectedPrintTemplate
-        : "DEFAULT_GRID"
+      const printTemplate: ReportPrintTemplateCode = !showBookPrintTemplate
+        ? "DEFAULT_GRID"
+        : !showDefaultGridPrintTemplate
+          ? "BOOK"
+          : selectedPrintTemplate
 
       setExportPopupVisible(false)
       setExportLanguage(selectedReportLanguage)
       setExportPrintTemplate(printTemplate)
 
       const targetUrl = buildReportViewerPageUrl(buildReportPrintParams(reportParams, printTemplate))
-      if (!openReportViewerPage(targetUrl, t(titleKey, titleFallback))) {
+      if (!openReportViewerPage(targetUrl, exportReportTitle)) {
         notify(t("UNABLE_TO_OPEN_REPORT_VIEWER", "Không mở được trình xem báo cáo"), "error", 3000)
       }
     },
-    [buildReportParams, showBookPrintTemplate, t, titleFallback, titleKey, validateFilter],
+    [buildReportParams, exportReportTitle, showBookPrintTemplate, showDefaultGridPrintTemplate, t, validateFilter],
   )
 
   useEffect(() => {
@@ -1561,7 +1831,7 @@ export default function JournalReportPage({
     <DxPage key={reportCode}>
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <section className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 overflow-visible">
             <ReportToolbar
               accountCodes={showAccountFilter ? accountCodes : undefined}
               accountLookupStore={accountLookupStore}
@@ -1569,9 +1839,11 @@ export default function JournalReportPage({
               customerCodes={showCustomerFilter ? customerCodes : undefined}
               bankCodes={showBankFilter ? bankCodes : undefined}
               currencyCodes={showCurrencyFilter ? currencyCodes : undefined}
+              currencyLookupSingleSelect={isInventoryDetail}
               currencyAllOptionEnabled={reportCode === "TAX_VAT_REDUCTION_APPENDIX"}
               warehouseCodes={showWarehouseFilter ? warehouseCodes : undefined}
               productCodes={showProductFilter ? productCodes : undefined}
+              departmentCodes={isInventoryDepartment ? inventoryFilters.departmentCodes : undefined}
               assetStatusCodes={showAssetStatusFilter ? assetStatusCodes : undefined}
               fromDate={useUseStartYmdFilter ? undefined : fromDate}
               toDate={useUseStartYmdFilter ? undefined : toDate}
@@ -1585,9 +1857,12 @@ export default function JournalReportPage({
               onAccountCodesChange={showAccountFilter ? setAccountCodes : undefined}
               onCustomerCodesChange={showCustomerFilter ? setCustomerCodes : undefined}
               onBankCodesChange={showBankFilter ? setBankCodes : undefined}
-              onCurrencyCodesChange={showCurrencyFilter ? setCurrencyCodes : undefined}
+              onCurrencyCodesChange={showCurrencyFilter ? changeReportCurrencyCodes : undefined}
               onWarehouseCodesChange={showWarehouseFilter ? setWarehouseCodes : undefined}
               onProductCodesChange={showProductFilter ? setProductCodes : undefined}
+              onDepartmentCodesChange={isInventoryDepartment
+                ? (departmentCodes) => setInventoryFilters((filters) => ({ ...filters, departmentCodes }))
+                : undefined}
               onAssetStatusCodesChange={showAssetStatusFilter ? setAssetStatusCodes : undefined}
               onReportOptionChange={handleReportOptionChange}
               onFromDateChange={useUseStartYmdFilter ? undefined : setFromDate}
@@ -1635,7 +1910,14 @@ export default function JournalReportPage({
                 </>
               ) : undefined}
               leadingFilters={
-                !showInvoiceKindFilter && (showInvoiceTypeFilter || showInvoiceStatusFilter) ? (
+                isInventoryDetail ? (
+                  <>
+                    <CheckBox text={t("QUANTITY_ONLY", "Chỉ số lượng")} value={inventoryFilters.quantityOnly}
+                      onValueChanged={(event) => setInventoryFilters((filters) => ({ ...filters, quantityOnly: Boolean(event.value) }))} />
+                    <CheckBox text={t("HIDE_NO_INVENTORY_MOVEMENT", "Ẩn mã hàng không phát sinh")} value={inventoryFilters.hideNoMovement}
+                      onValueChanged={(event) => setInventoryFilters((filters) => ({ ...filters, hideNoMovement: Boolean(event.value) }))} />
+                  </>
+                ) : !showInvoiceKindFilter && (showInvoiceTypeFilter || showInvoiceStatusFilter) ? (
                   <>
                     {showInvoiceTypeFilter ? (
                       <SelectBox
@@ -1645,11 +1927,13 @@ export default function JournalReportPage({
                         valueExpr="value"
                         value={invoiceType}
                         stylingMode="outlined"
-                        label={t("VAT_INOUT_TYPE", "Loại hóa đơn")}
+                        label={t("VAT_DIRECTION", "Chiều VAT")}
                         labelMode="floating"
                         width={220}
                         showClearButton={false}
-                        onValueChanged={(event) => setInvoiceType(normalizeInvoiceType(String(event.value ?? "BUY")))}
+                        onValueChanged={(event) =>
+                          setInvoiceType(normalizeInvoiceType(String(event.value ?? defaultInvoiceType), defaultInvoiceType))
+                        }
                       />
                     ) : null}
                     {showInvoiceStatusFilter ? (
@@ -1687,10 +1971,16 @@ export default function JournalReportPage({
               accountLookupStore={accountLookupStore}
               accountLookupSingleSelect={accountLookupSingleSelect}
               defaultLanguage={exportLanguage}
-              defaultPrintTemplate={showBookPrintTemplate ? exportPrintTemplate : "DEFAULT_GRID"}
+              defaultPrintTemplate={
+                !showBookPrintTemplate
+                  ? "DEFAULT_GRID"
+                  : !showDefaultGridPrintTemplate
+                    ? "BOOK"
+                    : exportPrintTemplate
+              }
               onHide={closeExportPopup}
               onConfirm={handleExportPdf}
-              description={t(titleKey, titleFallback)}
+              description={exportReportTitle}
               printTemplateOptions={printTemplateOptions}
               printTemplateLookupVisible={showBookPrintTemplate}
               onPrintTemplateChange={setExportPrintTemplate}
@@ -1710,6 +2000,7 @@ export default function JournalReportPage({
               showCustomerFilter={showCustomerFilter}
               showBankFilter={showBankFilter}
               showCurrencyFilter={showCurrencyFilter}
+              currencyLookupSingleSelect={isInventoryDetail}
               showWarehouseFilter={showWarehouseFilter}
               showProductFilter={showProductFilter}
               accountCodes={accountCodes}
@@ -1721,7 +2012,7 @@ export default function JournalReportPage({
               onAccountCodesChange={setAccountCodes}
               onCustomerCodesChange={setCustomerCodes}
               onBankCodesChange={setBankCodes}
-              onCurrencyCodesChange={setCurrencyCodes}
+              onCurrencyCodesChange={changeReportCurrencyCodes}
               onWarehouseCodesChange={setWarehouseCodes}
               onProductCodesChange={setProductCodes}
               accountFilterEtcType={accountFilterEtcType}
@@ -1764,6 +2055,11 @@ export default function JournalReportPage({
                   outlineIndentFieldCandidates={[]}
                   outlineIndentFallbackToFirstString={false}
                   groupConfig={vatInOutListGroupConfig}
+                  vatDirection={
+                    String(effectiveDashboardReportCode).trim().toUpperCase() === "TAX_VAT_INVOICE_LIST"
+                      ? appliedInvoiceType
+                      : null
+                  }
                   onRowDblClick={handleReportRowDblClick}
                 />
               </EInvoiceTableShell>
@@ -1783,6 +2079,11 @@ export default function JournalReportPage({
                   outlineIndentFieldCandidates={[]}
                   outlineIndentFallbackToFirstString={false}
                   groupConfig={vatInOutListGroupConfig}
+                  vatDirection={
+                    String(effectiveDashboardReportCode).trim().toUpperCase() === "TAX_VAT_INVOICE_LIST"
+                      ? appliedInvoiceType
+                      : null
+                  }
                   onRowDblClick={handleReportRowDblClick}
                 />
               </div>
