@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 
 import { LookupPopupProvider } from "@/components/lookup/LookupPopupHost"
+import { GridDataStatusProvider } from "./gridDataStatus"
 
 type MasterDataPageLayoutProps = {
   toolbar?: ReactNode
@@ -12,6 +13,13 @@ type MasterDataPageLayoutProps = {
   holdToolbarUntilReady?: boolean
   contentReady?: boolean
   openingLabel?: string
+  /**
+   * Shared grid data status for nested BaseDataGrid / BaseTreeList / DetailGrid.
+   * Suppresses empty-state flicker while the page query is still in flight.
+   */
+  loading?: boolean
+  fetching?: boolean
+  loadError?: boolean
 }
 
 export default function MasterDataPageLayout({
@@ -23,6 +31,9 @@ export default function MasterDataPageLayout({
   holdToolbarUntilReady = false,
   contentReady = true,
   openingLabel = "Đang tải…",
+  loading = false,
+  fetching = false,
+  loadError = false,
 }: MasterDataPageLayoutProps) {
   const showOpeningOverlay = holdToolbarUntilReady && !contentReady
   const resolvedToolbar = showOpeningOverlay ? null : toolbar
@@ -39,15 +50,23 @@ export default function MasterDataPageLayout({
 
   return (
     <LookupPopupProvider>
-      <div className={containerClassName}>
-        {resolvedToolbar ? <div className="flex-shrink-0">{resolvedToolbar}</div> : null}
-        <div className={bodyClassName}>{children}</div>
-        {showOpeningOverlay ? (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 text-sm text-slate-500">
-            {openingLabel}
-          </div>
-        ) : null}
-      </div>
+      <GridDataStatusProvider
+        value={{
+          loading: loading || showOpeningOverlay,
+          fetching,
+          error: loadError,
+        }}
+      >
+        <div className={containerClassName}>
+          {resolvedToolbar ? <div className="flex-shrink-0">{resolvedToolbar}</div> : null}
+          <div className={bodyClassName}>{children}</div>
+          {showOpeningOverlay ? (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 text-sm text-slate-500">
+              {openingLabel}
+            </div>
+          ) : null}
+        </div>
+      </GridDataStatusProvider>
       {overlays}
     </LookupPopupProvider>
   )

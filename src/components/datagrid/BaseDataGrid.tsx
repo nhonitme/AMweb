@@ -29,6 +29,11 @@ import {
     applyRuntimeColumnVisibilityToComponent,
     type RuntimeColumnVisibilityOptions,
 } from "./gridColumnSettingRender";
+import {
+    resolveGridDataStatus,
+    shouldAllowGridEmptyState,
+    useGridDataStatus,
+} from "./gridDataStatus";
 import { useCompanyLangRevision } from "@/lib/companyLang";
 import { applyGridEditingTexts } from "@/lib/gridEditingTexts";
 import { useGridColumnSettingState, type GridColumnSettingState } from "./useGridColumnSettingState";
@@ -78,6 +83,8 @@ function isGridEmptyForAddCta(component: dxDataGrid | null | undefined): boolean
 
     try {
         const dataSource = component.getDataSource?.();
+        // ArrayStore / unbound source: isLoading is false even while the parent query is in flight.
+        // Callers must gate via loading/fetching props (or GridDataStatusProvider).
         if (dataSource?.isLoading?.()) {
             return false;
         }
@@ -90,7 +97,8 @@ function isGridEmptyForAddCta(component: dxDataGrid | null | undefined): boolean
             if (totalCount === 0) {
                 return true;
             }
-            // totalCount === -1: remote/CustomStore has not published a total yet.
+            // totalCount === -1: remote/CustomStore has not published a total yet — not empty.
+            return false;
         }
 
         const items = dataSource?.items?.() ?? [];
@@ -105,17 +113,9 @@ function isGridEmptyForAddCta(component: dxDataGrid | null | undefined): boolean
             return false;
         }
 
-        const root = component.element?.() as HTMLElement | undefined;
-        const noDataEl = root?.querySelector?.(".dx-datagrid-nodata") as HTMLElement | null;
-        if (noDataEl) {
-            const style = window.getComputedStyle(noDataEl);
-            if (style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0") {
-                return true;
-            }
-        }
-
-        // Empty items + no visible data rows after load finished.
-        return !dataSource?.isLoading?.();
+        // Without a known totalCount, visible DX "no data" alone is not proof the query settled.
+        // Only treat as empty after the store finished loading with zero items/rows.
+        return Boolean(dataSource) && !dataSource?.isLoading?.();
     } catch {
         return false;
     }
@@ -184,6 +184,14 @@ interface BaseDataGridProps<T> {
     runtimeColumnVisibility?: RuntimeColumnVisibilityOptions;
     /** Optional empty-state Add handler. Prefer GridToolbar registration when available. */
     onAdd?: () => void;
+    /** Hide empty state while the bound query/store is loading. */
+    loading?: boolean;
+    /** Hide empty state during refetch / filter / search fetches. */
+    fetching?: boolean;
+    /** Hide empty state when the last load failed. */
+    loadError?: boolean;
+    /** Force-hide empty overlay (master–detail detail grids, etc.). */
+    suppressEmptyOverlay?: boolean;
 }
 
 const handleToolbarPreparingDefault = (e: ToolbarPreparingEvent) => {
@@ -251,6 +259,10 @@ export function BaseDataGrid<T>({
     columnSettingStateRef,
     runtimeColumnVisibility,
     onAdd,
+    loading,
+    fetching,
+    loadError,
+    suppressEmptyOverlay,
 }: BaseDataGridProps<T>) {
     const { translate, lang } = useContext(LanguageContext) as {
         translate: (key: string, fallback?: string) => string;
@@ -259,6 +271,19 @@ export function BaseDataGrid<T>({
 
     const t = (key: string, fallback?: string) => (translate ? translate(key, fallback) : fallback ?? key);
     const popupValidation = useMasterPopupValidation();
+    const gridDataStatusContext = useGridDataStatus();
+    const gridDataStatus = React.useMemo(
+        () => resolveGridDataStatus(
+            {
+                loading,
+                fetching,
+                error: loadError,
+                suppressEmptyOverlay,
+            },
+            gridDataStatusContext,
+        ),
+        [fetching, gridDataStatusContext, loadError, loading, suppressEmptyOverlay],
+    );
     const usesSysGridCatalog = persistColumnSettings && Boolean(gridId?.trim());
     const columnSettingState = useGridColumnSettingState({
         enabled: persistColumnSettings,
@@ -296,6 +321,8 @@ export function BaseDataGrid<T>({
     const [gridContentReady, setGridContentReady] = React.useState(false);
     const [isGridEmpty, setIsGridEmpty] = React.useState(false);
     const [emptyAddAvailable, setEmptyAddAvailable] = React.useState(false);
+    const showEmptyOverlay = shouldAllowGridEmptyState(gridDataStatus, emptyAddAvailable && isGridEmpty);
+    const blankNoDataText = !shouldAllowGridEmptyState(gridDataStatus, true);
 
     React.useEffect(() => {
         columnSettingsTargetKeyRef.current = columnSettingsTargetKey;
@@ -326,7 +353,7 @@ export function BaseDataGrid<T>({
 
     React.useEffect(() => {
         refreshEmptyAddState();
-    }, [onAdd, refreshEmptyAddState]);
+    }, [onAdd, refreshEmptyAddState, dataSource, gridDataStatus.loading, gridDataStatus.fetching, gridDataStatus.error]);
 
     React.useEffect(() => {
         const grid = gridInstanceRef.current;
@@ -828,7 +855,7 @@ export function BaseDataGrid<T>({
     return (
         <MasterPopupValidationContext.Provider value={popupValidation}>
         <div
-            className={`data-grid-container relative h-full w-full${emptyAddAvailable && isGridEmpty ? " data-grid-container--empty-add" : ""}`}
+            className={`data-grid-container relative h-full w-full${showEmptyOverlay ? " data-grid-container--empty-add" : ""}`}
             onPointerDown={handleDragSelectionPointerDown}
             onPointerMove={handleDragSelectionPointerMove}
             onPointerUp={finishDragSelection}
@@ -839,7 +866,11 @@ export function BaseDataGrid<T>({
                 key={gridRemountKey}
                 loadPanel={{ enabled: loadPanelEnabled }}
                 dataSource={dataSource}
-                noDataText={emptyAddAvailable ? " " : translate("NO_DATA", "Không có dữ liệu")}
+                noDataText={
+                    blankNoDataText || showEmptyOverlay
+                        ? " "
+                        : translate("NO_DATA", "Không có dữ liệu")
+                }
                 {...gridKeyExprProps}
                 width="100%"
                 height="100%"
@@ -959,7 +990,7 @@ export function BaseDataGrid<T>({
                 {renderedChildren}
 
             </DataGrid>
-            {emptyAddAvailable && isGridEmpty ? (
+            {showEmptyOverlay ? (
                 <div className="data-grid-empty-overlay pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-4">
                     <div className="pointer-events-auto">
                         <GridEmptyAddButton

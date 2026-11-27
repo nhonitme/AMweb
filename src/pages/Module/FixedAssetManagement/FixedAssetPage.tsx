@@ -706,6 +706,8 @@ export default function FixedAssetPage() {
       <MasterDataPageLayout
         className="fixed-asset-page"
         contentClassName="flex flex-col"
+        loading={loading}
+        loadError={isError}
         toolbar={
           <GridToolbar
             gridRef={gridRef}
@@ -820,7 +822,8 @@ export default function FixedAssetPage() {
                 onInitialized={handleDetailGridInitialized}
                 searchVisible={isMasterSearchActive}
                 showSearchButton={false}
-                suppressEmptyOverlay={detailLoading}
+                loading={detailLoading}
+                suppressEmptyOverlay={detailLoading || loading}
                 noDataText={
                   selectedAssetId
                     ? t('NO_DETAIL_DATA', 'Không có dữ liệu chi tiết')

@@ -20,6 +20,11 @@ import GridColumnSettingsPopup from "./GridColumnSettingsPopup";
 import {
   applyGridColumnSettingsToChildren,
 } from "./gridColumnSettingRender";
+import {
+  resolveGridDataStatus,
+  shouldAllowGridEmptyState,
+  useGridDataStatus,
+} from "./gridDataStatus";
 import { useCompanyLangRevision } from "@/lib/companyLang";
 import { applyGridEditingTexts } from "@/lib/gridEditingTexts";
 import { useGridColumnSettingState } from "./useGridColumnSettingState";
@@ -83,6 +88,10 @@ interface BaseTreeListProps<T extends object> {
   onContentReady?: (e: ContentReadyEvent) => void;
 
   wordWrapEnabled?: boolean;
+  loading?: boolean;
+  fetching?: boolean;
+  loadError?: boolean;
+  suppressEmptyOverlay?: boolean;
 }
 
 const handleToolbarPreparingDefault = (e: ToolbarPreparingEvent) => {
@@ -119,7 +128,11 @@ export function BaseTreeList<T extends object>({
   onSelectionChanged,
   onContentReady,
   wordWrapEnabled,
-  onEditorPreparing
+  onEditorPreparing,
+  loading,
+  fetching,
+  loadError,
+  suppressEmptyOverlay,
 }: BaseTreeListProps<T>) {
   const { translate, lang } = useContext(LanguageContext) as {
     translate: (key: string, fallback?: string) => string;
@@ -129,7 +142,21 @@ export function BaseTreeList<T extends object>({
   const t = (key: string, fallback?: string) =>
     translate ? translate(key, fallback) : (fallback ?? key);
   const popupValidation = useMasterPopupValidation();
-    const usesSysGridCatalog = persistColumnSettings && Boolean(gridId?.trim());
+  const gridDataStatusContext = useGridDataStatus();
+  const gridDataStatus = React.useMemo(
+    () => resolveGridDataStatus(
+      {
+        loading,
+        fetching,
+        error: loadError,
+        suppressEmptyOverlay,
+      },
+      gridDataStatusContext,
+    ),
+    [fetching, gridDataStatusContext, loadError, loading, suppressEmptyOverlay],
+  );
+  const blankNoDataText = !shouldAllowGridEmptyState(gridDataStatus, true);
+  const usesSysGridCatalog = persistColumnSettings && Boolean(gridId?.trim());
   const columnSettingState = useGridColumnSettingState({
     enabled: persistColumnSettings,
     menuCode,
@@ -453,6 +480,7 @@ export function BaseTreeList<T extends object>({
         width="100%"
         height="100%"
         autoExpandAll
+        noDataText={blankNoDataText ? " " : t("NO_DATA", "Không có dữ liệu")}
         onSelectionChanged={onSelectionChanged}
         showBorders
         columnAutoWidth={!hasConfiguredColumnWidths}

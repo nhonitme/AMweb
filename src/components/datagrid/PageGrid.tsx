@@ -69,6 +69,10 @@ interface PageGridProps<TData> {
   actionButtons?: boolean
   actionButtonsPosition?: 'start' | 'end'
   onAdd?: () => void
+  loading?: boolean
+  fetching?: boolean
+  loadError?: boolean
+  suppressEmptyOverlay?: boolean
 }
 
 export function PageGrid<TData>({
@@ -117,6 +121,10 @@ export function PageGrid<TData>({
   columnSettingStateRef,
   runtimeColumnVisibility,
   onAdd,
+  loading,
+  fetching,
+  loadError,
+  suppressEmptyOverlay,
 }: PageGridProps<TData>) {
   return (
     <BaseDataGrid<TData>
@@ -164,6 +172,10 @@ export function PageGrid<TData>({
       actionButtons={actionButtons}
       actionButtonsPosition={actionButtonsPosition}
       onAdd={onAdd}
+      loading={loading}
+      fetching={fetching}
+      loadError={loadError}
+      suppressEmptyOverlay={suppressEmptyOverlay}
     >
       {children}
     </BaseDataGrid>

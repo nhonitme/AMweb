@@ -530,6 +530,8 @@ export default function UserManagementPage() {
   return (
     <DxPage>
       <MasterDataPageLayout
+        loading={loading}
+        loadError={isError}
         toolbar={
           <GridToolbar
             gridRef={gridRef}

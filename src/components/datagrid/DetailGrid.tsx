@@ -26,6 +26,11 @@ import {
 } from "./gridColumnSettingRender"
 import { useCompanyLangRevision } from "@/lib/companyLang"
 import { GridEmptyAddButton } from "./GridEmptyAddButton"
+import {
+  resolveGridDataStatus,
+  shouldAllowGridEmptyState,
+  useGridDataStatus,
+} from "./gridDataStatus"
 import { useInlineGridSearch } from "./gridSearch"
 import { useGridColumnSettingState, type GridColumnSettingState } from "./useGridColumnSettingState"
 import type { GridColumnSettingEditorItem } from "@/types/sysGridColumnSetting"
@@ -68,6 +73,10 @@ interface DetailGridProps<TData> {
   contextualColumnVisibility?: ContextualColumnVisibility
   /** Hide the empty-state overlay while a parent is still loading rows. */
   suppressEmptyOverlay?: boolean
+  /** Detail-grid load in flight (independent from master). */
+  loading?: boolean
+  fetching?: boolean
+  loadError?: boolean
 }
 
 export function DetailGrid<TData>({
@@ -89,11 +98,27 @@ export function DetailGrid<TData>({
   runtimeColumnFormatAliases,
   contextualColumnVisibility,
   suppressEmptyOverlay = false,
+  loading,
+  fetching,
+  loadError,
 }: DetailGridProps<TData>) {
   const gridRef = useRef<dxDataGrid<TData, string | number> | null>(null)
   const { translate } = useContext(LanguageContext) as {
     translate?: (key: string, fallback?: string) => string
   }
+  const gridDataStatusContext = useGridDataStatus()
+  const gridDataStatus = useMemo(
+    () => resolveGridDataStatus(
+      {
+        loading,
+        fetching,
+        error: loadError,
+        suppressEmptyOverlay,
+      },
+      gridDataStatusContext,
+    ),
+    [fetching, gridDataStatusContext, loadError, loading, suppressEmptyOverlay],
+  )
   const {
     searchText,
     searchVisible,
@@ -150,6 +175,8 @@ export function DetailGrid<TData>({
 
   const t = (key: string, fallback: string) => (translate ? translate(key, fallback) : fallback)
   const isEmpty = dataSource.length === 0
+  const showEmptyOverlay = shouldAllowGridEmptyState(gridDataStatus, isEmpty)
+  const blankNoDataText = !shouldAllowGridEmptyState(gridDataStatus, true)
   const emptyStateText = noDataText ?? t("NO_DETAIL_DATA", "Không có dữ liệu chi tiết")
   const isSearchControlled = typeof controlledSearchVisible === "boolean"
   const effectiveSearchVisible = controlledSearchVisible ?? searchVisible
@@ -258,7 +285,7 @@ export function DetailGrid<TData>({
       rowAlternationEnabled={true}
       hoverStateEnabled={true}
       wordWrapEnabled={false}
-      noDataText={isEmpty ? " " : emptyStateText}
+      noDataText={blankNoDataText || showEmptyOverlay ? " " : emptyStateText}
       paging={{ enabled: false }}
       onInitialized={handleInitialized}
       onContentReady={(event) => {
@@ -322,7 +349,7 @@ export function DetailGrid<TData>({
       <Scrolling mode="standard" useNative={false} showScrollbar="always" />
       {renderedChildren}
     </DataGrid>
-    {isEmpty && !suppressEmptyOverlay ? (
+    {showEmptyOverlay ? (
       <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-4">
         <div className="pointer-events-auto">
           <GridEmptyAddButton title={emptyStateText} />

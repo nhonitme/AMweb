@@ -315,6 +315,8 @@ export default function InventoryOpeningPage() {
   return (
     <DxPage>
       <MasterDataPageLayout
+        loading={loading}
+        loadError={isError}
         toolbar={
           <GridToolbar
             gridRef={gridRef}

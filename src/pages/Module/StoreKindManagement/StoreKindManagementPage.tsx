@@ -234,6 +234,8 @@ const handleToolbarDelete = async () => {
       holdToolbarUntilReady={holdToolbarUntilReady}
       contentReady={lookupGridReady}
       openingLabel={t("LOADING", "Đang tải…")}
+      loading={loading}
+      loadError={isError}
       toolbar={
         <GridToolbar
           gridRef={gridRef}
