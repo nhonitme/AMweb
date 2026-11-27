@@ -1,4 +1,5 @@
-import { useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { flushSync } from "react-dom"
 import Popup from "devextreme-react/popup"
 import SelectBox from "devextreme-react/select-box"
 import MultiLookupCellEditor from "@/components/lookup/MultiLookupCellEditor"
@@ -52,12 +53,31 @@ export type ReportPrintTemplateOption = {
   label: string
 }
 
+/**
+ * Confirm result for ReportPdfExportPopup:
+ * - `false` — validation failed; keep the popup open
+ * - `() => void` — close the popup stably, then run this in the same user gesture
+ *   (e.g. open Report Viewer). Closing first avoids hide-animation resume flicker
+ *   when returning from the viewer tab; running sync avoids popup blockers.
+ * - `void` — just close the popup
+ */
+export type ReportPdfExportConfirmResult = false | void | (() => void)
+
+/** Instant hide so the overlay is gone before tab switch / background throttling. */
+const REPORT_PDF_EXPORT_POPUP_ANIMATION = {
+  show: { type: "fade" as const, duration: 0 },
+  hide: { type: "fade" as const, duration: 0 },
+}
+
 type ReportPdfExportPopupProps = {
   visible: boolean
   defaultLanguage: ReportLanguageCode
   defaultPrintTemplate?: ReportPrintTemplateCode
   onHide: () => void
-  onConfirm: (language: ReportLanguageCode, printTemplate: ReportPrintTemplateCode) => void
+  onConfirm: (
+    language: ReportLanguageCode,
+    printTemplate: ReportPrintTemplateCode,
+  ) => ReportPdfExportConfirmResult
   title?: string
   description?: string
   printTemplateOptions?: ReportPrintTemplateOption[]
@@ -197,6 +217,7 @@ export default function ReportPdfExportPopup({
   const [selectedLanguage, setSelectedLanguage] = useState<ReportLanguageCode>(defaultLanguage)
   const [selectedPrintTemplate, setSelectedPrintTemplate] = useState<ReportPrintTemplateCode>(defaultPrintTemplate)
   const popupShortcutScopeId = usePopupShortcutScopeId("report-pdf-export")
+  const confirmInFlightRef = useRef(false)
 
   useEffect(() => {
     setSelectedLanguage(defaultLanguage)
@@ -206,9 +227,56 @@ export default function ReportPdfExportPopup({
     setSelectedPrintTemplate(defaultPrintTemplate)
   }, [defaultPrintTemplate])
 
+  useEffect(() => {
+    if (!visible) {
+      confirmInFlightRef.current = false
+    }
+  }, [visible])
+
+  const handleHide = useCallback(() => {
+    if (confirmInFlightRef.current) {
+      return
+    }
+    onHide()
+  }, [onHide])
+
+  /**
+   * Close the popup synchronously (zero hide animation + flushSync), then run the
+   * follow-up while still inside the user-gesture stack. This prevents:
+   * 1) DevExtreme hide animation resuming when the source tab regains focus
+   * 2) browser popup blockers from deferred window.open
+   * 3) double Report Viewer opens from repeated Kiểm tra clicks
+   */
   const handleConfirm = useCallback(() => {
-    onConfirm(selectedLanguage, selectedPrintTemplate)
-  }, [onConfirm, selectedLanguage, selectedPrintTemplate])
+    if (!visible || confirmInFlightRef.current) {
+      return
+    }
+
+    confirmInFlightRef.current = true
+
+    let afterClose: (() => void) | null = null
+    try {
+      const result = onConfirm(selectedLanguage, selectedPrintTemplate)
+      if (result === false) {
+        confirmInFlightRef.current = false
+        return
+      }
+      afterClose = typeof result === "function" ? result : null
+    } catch (error) {
+      confirmInFlightRef.current = false
+      throw error
+    }
+
+    flushSync(() => {
+      onHide()
+    })
+
+    try {
+      afterClose?.()
+    } finally {
+      confirmInFlightRef.current = false
+    }
+  }, [onConfirm, onHide, selectedLanguage, selectedPrintTemplate, visible])
 
   const shortcutBindings = useMemo(
     () =>
@@ -216,14 +284,14 @@ export default function ReportPdfExportPopup({
         [SHORTCUT_ACTIONS.CONFIRM, SHORTCUT_ACTIONS.CLOSE],
         {
           [SHORTCUT_ACTIONS.CONFIRM]: () => handleConfirm(),
-          [SHORTCUT_ACTIONS.CLOSE]: () => onHide(),
+          [SHORTCUT_ACTIONS.CLOSE]: () => handleHide(),
         },
         {
           [SHORTCUT_ACTIONS.CONFIRM]: { allowInInput: true, commitActiveEditor: true },
           [SHORTCUT_ACTIONS.CLOSE]: { allowInInput: true },
         },
       ),
-    [handleConfirm, onHide],
+    [handleConfirm, handleHide],
   )
 
   const shouldHandleShortcutEvent = useCallback(
@@ -533,6 +601,7 @@ export default function ReportPdfExportPopup({
       width={620}
       maxWidth="95vw"
       height="auto"
+      animation={REPORT_PDF_EXPORT_POPUP_ANIMATION}
       wrapperAttr={{
         class: "report-pdf-export-popup",
         ...createPopupShortcutWrapperAttr(popupShortcutScopeId),
@@ -552,12 +621,12 @@ export default function ReportPdfExportPopup({
               icon="close"
               aria-label={closeLabel}
               title={closeLabel}
-              onClick={onHide}
+              onClick={handleHide}
             />
           </div>
         </header>
       )}
-      onHiding={onHide}
+      onHiding={handleHide}
     >
       <div className="am-ui report-pdf-export">
         <div className="report-pdf-export__body">
@@ -657,7 +726,7 @@ export default function ReportPdfExportPopup({
             <AMButton variant="primary" icon="check" onClick={handleConfirm}>
               {t("CONFIRM", "Kiểm tra")}
             </AMButton>
-            <AMButton variant="soft" color="neutral" icon="close" onClick={onHide}>
+            <AMButton variant="soft" color="neutral" icon="close" onClick={handleHide}>
               {t("CANCEL", "Hủy")}
             </AMButton>
           </div>

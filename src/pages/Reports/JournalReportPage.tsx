@@ -1696,12 +1696,12 @@ export default function JournalReportPage({
   const handleExportPdf = useCallback(
     (selectedReportLanguage: ReportLanguageCode, selectedPrintTemplate: ReportPrintTemplateCode) => {
       if (!validateFilter(true)) {
-        return
+        return false
       }
 
       const reportParams = buildReportParams(selectedReportLanguage)
       if (!reportParams) {
-        return
+        return false
       }
 
       const printTemplate: ReportPrintTemplateCode = !showBookPrintTemplate
@@ -1710,13 +1710,17 @@ export default function JournalReportPage({
           ? "BOOK"
           : selectedPrintTemplate
 
-      setExportPopupVisible(false)
       setExportLanguage(selectedReportLanguage)
       setExportPrintTemplate(printTemplate)
 
       const targetUrl = buildReportViewerPageUrl(buildReportPrintParams(reportParams, printTemplate))
-      if (!openReportViewerPage(targetUrl, exportReportTitle)) {
-        notify(t("UNABLE_TO_OPEN_REPORT_VIEWER", "Không mở được trình xem báo cáo"), "error", 3000)
+      const reportTitle = exportReportTitle
+
+      // Popup closes synchronously first, then runs this in the same user gesture.
+      return () => {
+        if (!openReportViewerPage(targetUrl, reportTitle)) {
+          notify(t("UNABLE_TO_OPEN_REPORT_VIEWER", "Không mở được trình xem báo cáo"), "error", 3000)
+        }
       }
     },
     [buildReportParams, exportReportTitle, showBookPrintTemplate, showDefaultGridPrintTemplate, t, validateFilter],

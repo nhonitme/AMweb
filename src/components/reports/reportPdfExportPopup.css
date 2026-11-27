@@ -1,5 +1,16 @@
 /* Scoped to ReportPdfExportPopup only — Soft footer IO + AMnote dialog tokens. */
 
+/*
+ * Instant hide (paired with animation duration 0 in the component): prevent CSS
+ * transition residue from flashing when the source tab regains focus after the
+ * Report Viewer tab is closed.
+ */
+.report-pdf-export-popup.dx-overlay-wrapper,
+.report-pdf-export-popup .dx-overlay-content,
+.report-pdf-export-popup.dx-overlay-shader {
+  transition: none !important;
+}
+
 .report-pdf-export-popup > .dx-overlay-content {
   border: 1px solid var(--am-border, #dfe5ec);
   border-radius: var(--am-radius, 8px);
