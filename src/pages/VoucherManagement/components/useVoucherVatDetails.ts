@@ -63,6 +63,32 @@ function amountsEqual(a: number | null | undefined, b: number | null | undefined
   return a === b
 }
 
+type VatPartnerSnapshot = {
+  sellerName: string
+  taxCode: string
+}
+
+function trimPartnerText(value: unknown): string {
+  if (value == null) {
+    return ""
+  }
+  return String(value).trim()
+}
+
+function readVatPartnerSnapshot(detail: ChitDetail): VatPartnerSnapshot {
+  return {
+    sellerName: trimPartnerText(detail.VAT_COMPANY_ISSUE),
+    taxCode: trimPartnerText(detail.VAT_COMPANY_TAXCD),
+  }
+}
+
+function vatPartnersEqual(a: VatPartnerSnapshot | undefined, b: VatPartnerSnapshot): boolean {
+  if (!a) {
+    return false
+  }
+  return a.sellerName === b.sellerName && a.taxCode === b.taxCode
+}
+
 export function useVoucherVatDetails({
   visible,
   voucherValue,
@@ -75,6 +101,7 @@ export function useVoucherVatDetails({
   const [activeVatRowKey, setActiveVatRowKey] = useState<string | null>(null)
   const prevVoucherValueRef = useRef<ChitInfo | null>(null)
   const prevDetailFcAmountsRef = useRef<Record<string, number | null>>({})
+  const prevDetailVatPartnersRef = useRef<Record<string, VatPartnerSnapshot>>({})
   const vatRowKeysRef = useRef<Set<string>>(new Set())
   const activeVatRowKeyRef = useRef<string | null>(null)
   const vatByRowKeyRef = useRef<VoucherVatDetailsMap>({})
@@ -142,6 +169,7 @@ export function useVoucherVatDetails({
     setDirtyVatRowKeys(new Set())
     setActiveVatRowKey(null)
     prevDetailFcAmountsRef.current = {}
+    prevDetailVatPartnersRef.current = {}
     vatRowKeysRef.current = new Set()
     vatByRowKeyRef.current = {}
     dirtyVatRowKeysRef.current = new Set()
@@ -194,14 +222,17 @@ export function useVoucherVatDetails({
     setActiveVatRowKey(null)
 
     const fcSnapshot: Record<string, number | null> = {}
+    const partnerSnapshot: Record<string, VatPartnerSnapshot> = {}
     for (const detail of voucherValue.DETAILS) {
       const rowKey = typeof detail.ROW_KEY === "string" ? detail.ROW_KEY.trim() : ""
       if (!rowKey) {
         continue
       }
       fcSnapshot[rowKey] = detailAmountToVatNumber(detail.FC_AMOUNT)
+      partnerSnapshot[rowKey] = readVatPartnerSnapshot(detail)
     }
     prevDetailFcAmountsRef.current = fcSnapshot
+    prevDetailVatPartnersRef.current = partnerSnapshot
   }, [resetVatState, visible, voucherValue])
 
   // Close panel if the active detail row was soft-deleted / removed.
@@ -289,6 +320,78 @@ export function useVoucherVatDetails({
           next = { ...current }
         }
         next[item.rowKey] = merged
+      }
+      return next
+    })
+  }, [details, visible])
+
+  // When customer lookup updates VAT partner fields on a detail that has an open/local VAT draft,
+  // mirror sellerName/taxCode into the panel draft. Do not mark dirty — DETAIL already holds values
+  // for save; marking dirty alone could clear incomplete VAT on save.
+  useEffect(() => {
+    if (!visible) {
+      return
+    }
+
+    const prevPartners = prevDetailVatPartnersRef.current
+    const nextPartners: Record<string, VatPartnerSnapshot> = {}
+    const patches: Array<{ rowKey: string } & VatPartnerSnapshot> = []
+
+    for (const detail of details) {
+      if (detail.ISDEL) {
+        continue
+      }
+      const rowKey = typeof detail.ROW_KEY === "string" ? detail.ROW_KEY.trim() : ""
+      if (!rowKey) {
+        continue
+      }
+
+      const partner = readVatPartnerSnapshot(detail)
+      nextPartners[rowKey] = partner
+
+      if (vatPartnersEqual(prevPartners[rowKey], partner)) {
+        continue
+      }
+
+      const shouldSync =
+        rowKey === activeVatRowKeyRef.current || vatRowKeysRef.current.has(rowKey)
+      if (!shouldSync) {
+        continue
+      }
+
+      patches.push({ rowKey, ...partner })
+    }
+
+    prevDetailVatPartnersRef.current = nextPartners
+
+    if (patches.length === 0) {
+      return
+    }
+
+    setVatByRowKey((current) => {
+      let next = current
+      for (const item of patches) {
+        const hasDraft = Object.prototype.hasOwnProperty.call(next, item.rowKey)
+        if (!hasDraft && item.rowKey !== activeVatRowKeyRef.current) {
+          continue
+        }
+
+        const previous = hasDraft
+          ? next[item.rowKey]
+          : createEmptyVoucherVatDetail()
+
+        if (previous.sellerName === item.sellerName && previous.taxCode === item.taxCode) {
+          continue
+        }
+
+        if (next === current) {
+          next = { ...current }
+        }
+        next[item.rowKey] = {
+          ...previous,
+          sellerName: item.sellerName,
+          taxCode: item.taxCode,
+        }
       }
       return next
     })

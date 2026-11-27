@@ -90,7 +90,14 @@ export default function CustomerLookupCellEditor({
 
       if (hasLookupRowField(rowData, taxCdField)) {
         setLookupGridCellValue(grid, rowIndex, taxCdField, trimLookupText(customer.TAX_CD))
-      } else if (quickCreateEnabled && hasLookupRowField(rowData, "VAT_COMPANY_TAXCD")) {
+      }
+
+      // Shared VAT Detail Panel: partner name/tax follow the selected customer.
+      // Only when the detail row already carries these fields (voucher details).
+      if (hasLookupRowField(rowData, "VAT_COMPANY_ISSUE")) {
+        setLookupGridCellValue(grid, rowIndex, "VAT_COMPANY_ISSUE", customerNm)
+      }
+      if (hasLookupRowField(rowData, "VAT_COMPANY_TAXCD")) {
         setLookupGridCellValue(grid, rowIndex, "VAT_COMPANY_TAXCD", trimLookupText(customer.TAX_CD))
       }
 
@@ -126,6 +133,13 @@ export default function CustomerLookupCellEditor({
 
     if (hasLookupRowField(rowData, taxCdField)) {
       setLookupGridCellValue(grid, rowIndex, taxCdField, "")
+    }
+
+    if (hasLookupRowField(rowData, "VAT_COMPANY_ISSUE")) {
+      setLookupGridCellValue(grid, rowIndex, "VAT_COMPANY_ISSUE", "")
+    }
+    if (hasLookupRowField(rowData, "VAT_COMPANY_TAXCD")) {
+      setLookupGridCellValue(grid, rowIndex, "VAT_COMPANY_TAXCD", "")
     }
 
     if (hasLookupRowField(rowData, addressField)) {
