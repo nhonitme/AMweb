@@ -5,8 +5,6 @@ import SelectBox from "devextreme-react/select-box"
 import CheckBox from "devextreme-react/check-box"
 import type { RowDblClickEvent } from "devextreme/ui/data_grid"
 import { useLocation } from "react-router-dom"
-import { isAxiosError } from "axios"
-import { debugMd } from "@amnote/debug-md"
 
 import {
   getConfiguredReportPreview,
@@ -182,7 +180,6 @@ type JournalReportPageProps = {
   /** Cost-list toolbar: In chi tiết (lọc LEVEL_NO). */
   costListToolbarOptions?: boolean
   enableCostListAccountDrill?: boolean
-  /** AR invoice debt detail: radio Chỉ lấy hóa đơn trong kỳ / trong kỳ và đầu kỳ. */
   arInvoiceToolbarOptions?: boolean
   /** Khi false: ẩn lookup "Mẫu in sổ", luôn in DEFAULT_GRID. */
   showBookPrintTemplate?: boolean
@@ -840,18 +837,6 @@ export default function JournalReportPage({
   )
 
   useEffect(() => {
-    if (reportCode === "GL_ACCOUNT_DETAIL_S38DN") {
-      debugMd("gl-account-detail", "open", {
-        restoredPreview: Boolean(restoredTabState?.preview),
-        restoredRows: restoredTabState?.preview?.ROWS.length,
-        routeAccountCodes: routeFilterState.accountCodes.slice(0, 10),
-        routeFromYmd: formatDateToYmd(routeFilterState.fromDate ?? null),
-        routeToYmd: formatDateToYmd(routeFilterState.toDate ?? null),
-      }, { reset: true })
-    }
-  }, [reportCode, restoredTabState, routeFilterState, routeIdentity])
-
-  useEffect(() => {
     if (restoredTabState) {
       return
     }
@@ -1257,7 +1242,6 @@ export default function JournalReportPage({
       const showValidationMessage = options?.showValidationMessage ?? false
       const trigger = options?.trigger ?? "manual"
       const requestedAutoLoadVersion = options?.autoLoadVersion
-      const traceAccountDetail = reportCode === "GL_ACCOUNT_DETAIL_S38DN"
       const releaseAutoLoadIfNeeded = () => {
         if (trigger === "auto-load") {
           autoLoadInFlightRef.current = false
@@ -1270,14 +1254,6 @@ export default function JournalReportPage({
       }
 
       if (!validateFilter(showValidationMessage)) {
-        if (traceAccountDetail) {
-          debugMd("gl-account-detail", "preview-skipped", {
-            trigger,
-            reason: "invalid-date-filter",
-            fromYmd: formatDateToYmd(fromDateRef.current),
-            toYmd: formatDateToYmd(toDateRef.current),
-          }, { reset: trigger === "manual" })
-        }
         releaseAutoLoadIfNeeded()
         abortPreviewRequest()
         setPreviewLoading(false)
@@ -1303,9 +1279,6 @@ export default function JournalReportPage({
         showInvoiceTypeFilter ? { vatDirection: invoiceTypeToApply } : undefined,
       )
       if (!params) {
-        if (traceAccountDetail) {
-          debugMd("gl-account-detail", "preview-skipped", { trigger, reason: "missing-params" })
-        }
         releaseAutoLoadIfNeeded()
         abortPreviewRequest()
         setPreviewLoading(false)
@@ -1319,54 +1292,16 @@ export default function JournalReportPage({
       const controller = new AbortController()
       previewRequestRef.current = { controller, requestId }
 
-      const startedAt = traceAccountDetail ? performance.now() : 0
-      if (traceAccountDetail) {
-        const accounts = splitReportFilterValues(params.accountCd ?? params.accCd)
-        debugMd("gl-account-detail", "preview-start", {
-          requestId,
-          trigger,
-          companyCd: params.companyCd,
-          fromYmd: params.fromYmd,
-          toYmd: params.toYmd,
-          accountCount: accounts.length,
-          accountCodes: accounts.slice(0, 10),
-          currency: params.fcType,
-          hasKeyword: Boolean(params.keyword),
-          templateId: params.templateId,
-          replacedRequestId: previousRequest?.requestId,
-        }, { reset: trigger === "manual" })
-      }
-
       setPreviewLoading(true)
       try {
         const data = await getConfiguredReportPreview(params, { signal: controller.signal })
         if (controller.signal.aborted || previewRequestRef.current?.requestId !== requestId) {
-          if (traceAccountDetail) {
-            debugMd("gl-account-detail", "preview-canceling", {
-              requestId,
-              activeRequestId: previewRequestRef.current?.requestId,
-              elapsedMs: Math.round(performance.now() - startedAt),
-              stack: new Error().stack?.split("\n").slice(1, 5),
-            })
-          }
           if (trigger === "auto-load") {
             releaseAutoLoadInFlight(requestId)
           }
           return
         }
 
-        if (traceAccountDetail) {
-          debugMd("gl-account-detail", "preview-result", {
-            requestId,
-            elapsedMs: Math.round(performance.now() - startedAt),
-            reportCode: data.REPORT_CODE,
-            viewType: data.VIEW_TYPE,
-            rows: data.ROWS?.length,
-            detailRows: data.ROWS?.filter((row) => row.VALUES.__ROW_TYPE === "DETAIL").length,
-            emptyRows: data.ROWS?.filter((row) => row.VALUES.__ROW_TYPE === "EMPTY").length,
-            columns: data.COLUMNS?.length,
-          })
-        }
         setPreview(data)
         if (trigger === "auto-load" && typeof requestedAutoLoadVersion === "number") {
           lastAutoLoadedVersionRef.current = requestedAutoLoadVersion
@@ -1374,16 +1309,6 @@ export default function JournalReportPage({
         }
       } catch (error) {
         const canceled = controller.signal.aborted || previewRequestRef.current?.requestId !== requestId || isCanceledPreviewRequest(error)
-        if (traceAccountDetail) {
-          debugMd("gl-account-detail", canceled ? "preview-canceling" : "preview-error", {
-            requestId,
-            activeRequestId: previewRequestRef.current?.requestId,
-            elapsedMs: Math.round(performance.now() - startedAt),
-            status: isAxiosError(error) ? error.response?.status : undefined,
-            code: isAxiosError(error) ? error.code : undefined,
-            stack: (error instanceof Error ? error : new Error()).stack?.split("\n").slice(1, 5),
-          })
-        }
         if (canceled) {
           if (trigger === "auto-load") {
             releaseAutoLoadInFlight(requestId)
@@ -1409,7 +1334,6 @@ export default function JournalReportPage({
       fromDate,
       menuCode,
       releaseAutoLoadInFlight,
-      reportCode,
       reportOptionsLoaded,
       selectedReportOptionCode,
       showInvoiceTypeFilter,
@@ -1968,8 +1892,6 @@ export default function JournalReportPage({
             />
             <ReportPdfExportPopup
               visible={exportPopupVisible}
-              accountLookupStore={accountLookupStore}
-              accountLookupSingleSelect={accountLookupSingleSelect}
               defaultLanguage={exportLanguage}
               defaultPrintTemplate={
                 !showBookPrintTemplate

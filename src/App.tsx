@@ -1006,15 +1006,15 @@ function AppWorkspaceRoutes({
                         />
                         <Route
                             path="/gl/book/pl-by-object"
-                            element={<JournalReportPage reportCode="GL_PL_BY_OBJECT" menuCode="GL_BOOK_PL_OBJ" titleKey="GL_PL_BY_OBJECT" titleFallback="Báo cáo lãi lỗ chi tiết theo đối tượng" />}
+                            element={<JournalReportPage reportCode="GL_PL_BY_OBJECT" menuCode="GL_BOOK_PL_OBJ" titleKey="GL_PL_BY_OBJECT" titleFallback="Báo cáo lãi lỗ chi tiết theo đối tượng" showBookPrintTemplate={false} />}
                         />
                         <Route
                             path="/gl/book/pl-summary"
-                            element={<JournalReportPage reportCode="GL_PL_SUMMARY" menuCode="GL_BOOK_PL_SUM" titleKey="GL_PL_SUMMARY" titleFallback="Báo cáo lãi lỗ tổng hợp" />}
+                            element={<JournalReportPage reportCode="GL_PL_SUMMARY" menuCode="GL_BOOK_PL_SUM" titleKey="GL_PL_SUMMARY" titleFallback="Báo cáo lãi lỗ tổng hợp" showBookPrintTemplate={false} />}
                         />
                         <Route
                             path="/gl/book/trial-balance"
-                            element={<JournalReportPage reportCode="GL_TRIAL_BALANCE_S06DN" menuCode="GL_BOOK_TRIAL" titleKey="GL_TRIAL_BALANCE_S06DN" titleFallback="Bảng cân đối số phát sinh" />}
+                            element={<JournalReportPage reportCode="GL_TRIAL_BALANCE_S06DN" menuCode="GL_BOOK_TRIAL" titleKey="GL_TRIAL_BALANCE_S06DN" titleFallback="Bảng cân đối số phát sinh" showDefaultGridPrintTemplate={false} />}
                         />
                         <Route
                             path="/gl/book/cost-list"
@@ -1026,19 +1026,19 @@ function AppWorkspaceRoutes({
                         />
                         <Route
                             path="/gl/fs/balance-sheet"
-                            element={<JournalReportPage reportCode="GL_BALANCE_SHEET_B01DN" menuCode="GL_FS_BALANCE" titleKey="GL_BALANCE_SHEET_B01DN" titleFallback="Bảng cân đối kế toán" reportVersion="2025" unitDivisor="1" />}
+                            element={<JournalReportPage reportCode="GL_BALANCE_SHEET_B01DN" menuCode="GL_FS_BALANCE" titleKey="GL_BALANCE_SHEET_B01DN" titleFallback="Bảng cân đối kế toán" reportVersion="2025" unitDivisor="1" showBookPrintTemplate={false} />}
                         />
                         <Route
                             path="/gl/fs/profit-loss"
-                            element={<JournalReportPage reportCode="GL_PROFIT_LOSS_B02DN" menuCode="GL_FS_PL" titleKey="GL_PROFIT_LOSS_B02DN" titleFallback="Báo cáo kết quả hoạt động kinh doanh" reportVersion="2025" unitDivisor="1" />}
+                            element={<JournalReportPage reportCode="GL_PROFIT_LOSS_B02DN" menuCode="GL_FS_PL" titleKey="GL_PROFIT_LOSS_B02DN" titleFallback="Báo cáo kết quả hoạt động kinh doanh" reportVersion="2025" unitDivisor="1" showBookPrintTemplate={false} />}
                         />
                         <Route
                             path="/gl/fs/pl-period"
-                            element={<JournalReportPage reportCode="GL_PROFIT_LOSS_B02DNTT" menuCode="GL_PROFIT_LOSS_B02DNTT" titleKey="GL_PROFIT_LOSS_B02DNTT" titleFallback="Báo cáo kết quả kinh doanh theo kỳ" reportVersion="2025" unitDivisor="1" />}
+                            element={<JournalReportPage reportCode="GL_PROFIT_LOSS_B02DNTT" menuCode="GL_PROFIT_LOSS_B02DNTT" titleKey="GL_PROFIT_LOSS_B02DNTT" titleFallback="Báo cáo kết quả kinh doanh theo kỳ" reportVersion="2025" unitDivisor="1" showBookPrintTemplate={false} />}
                         />
                         <Route
                             path="/gl/fs/cashflow"
-                            element={<JournalReportPage reportCode="GL_CASHFLOW_B03DN_TT" menuCode="GL_FS_CASHFLOW" titleKey="GL_CASHFLOW_B03DN" titleFallback="Báo cáo lưu chuyển tiền tệ" reportVersion="2025" unitDivisor="1" reportOptionGroupCode="GL_FS_CASHFLOW" />}
+                            element={<JournalReportPage reportCode="GL_CASHFLOW_B03DN_TT" menuCode="GL_FS_CASHFLOW" titleKey="GL_CASHFLOW_B03DN" titleFallback="Báo cáo lưu chuyển tiền tệ" reportVersion="2025" unitDivisor="1" reportOptionGroupCode="GL_FS_CASHFLOW" showBookPrintTemplate={false} />}
                         />
                         <Route
                             path="/inventory/report/detail-product"

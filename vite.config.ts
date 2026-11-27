@@ -78,6 +78,7 @@ export default defineConfig({
     resolve: {
         alias: {
             "@": path.resolve(__dirname, "src"),
+            "@amnote/debug-md": path.resolve(__dirname, "src/shims/amnote-debug-md.ts"),
             // or if components sits at project root:
             // "@": path.resolve(__dirname, "."),
         },

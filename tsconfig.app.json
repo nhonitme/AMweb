@@ -23,7 +23,8 @@
 
     "baseUrl": "./",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@amnote/debug-md": ["src/shims/amnote-debug-md.ts"]
     }
   },
   "include": ["src"]

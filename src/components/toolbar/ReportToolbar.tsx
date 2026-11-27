@@ -2,7 +2,6 @@ import { useCallback, useContext, useMemo, useRef, useState } from "react"
 import type { KeyboardEvent, ReactNode } from "react"
 import Button from "devextreme-react/button"
 import CheckBox from "devextreme-react/check-box"
-import RadioGroup from "devextreme-react/radio-group"
 import SelectBox from "devextreme-react/select-box"
 import TextBox from "devextreme-react/text-box"
 import { LanguageContext } from "@/lib/i18nLoader"
@@ -141,7 +140,6 @@ type ReportToolbarProps = {
   costListOptionsVisible?: boolean
   showDetailRows?: boolean
   onShowDetailRowsChange?: (value: boolean) => void
-  /** AR invoice debt detail: period-only vs period + opening invoices. */
   arInvoiceOptionsVisible?: boolean
   includeOpeningInvoices?: boolean
   onIncludeOpeningInvoicesChange?: (value: boolean) => void
@@ -1029,8 +1027,8 @@ export function ReportToolbar({
             ) : null}
 
             {arInvoiceOptionsVisible ? (
-              <RadioGroup
-                className="page-toolbar__ar-invoice-options"
+              <SelectBox
+                className={`${TOOLBAR_FIELD} page-toolbar__ar-invoice-options`}
                 dataSource={[
                   {
                     value: false,
@@ -1043,13 +1041,16 @@ export function ReportToolbar({
                 ]}
                 displayExpr="text"
                 valueExpr="value"
-                layout="horizontal"
                 value={includeOpeningInvoices}
+                stylingMode="outlined"
+                label={t("AR_INVOICE_SCOPE", "Phạm vi hóa đơn")}
+                labelMode="floating"
                 onValueChanged={(event) => {
                   if (typeof event.value === "boolean") {
                     onIncludeOpeningInvoicesChange?.(event.value)
                   }
                 }}
+                width={300}
               />
             ) : null}
 

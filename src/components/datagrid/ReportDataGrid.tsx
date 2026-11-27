@@ -12,7 +12,7 @@ import DataGrid, {
   Summary,
   TotalItem,
 } from "devextreme-react/data-grid"
-import ProgressBar from "devextreme-react/progress-bar"
+import ReportLoadingProgressBar from "./ReportLoadingProgressBar"
 import { formatNumber } from "devextreme/localization"
 import { getFaStatusDisplayText } from "@/pages/Module/FixedAssetManagement/fixedAssetStatus"
 import { resolveVatInvoiceStatusLabel } from "@/pages/Tax/vatInvoiceStatus"
@@ -2682,43 +2682,13 @@ function ReportDataGrid(
     ],
   )
 
-  const [loadingProgress, setLoadingProgress] = useState(0)
-
-  useEffect(() => {
-    if (!loading) {
-      setLoadingProgress(0)
-      return
-    }
-
-    setLoadingProgress(18)
-    const timer = window.setInterval(() => {
-    setLoadingProgress((currentValue) => {
-      if (currentValue >= 92) return currentValue
-
-      const nextValue = currentValue + 0.8
-      return Math.min(92, nextValue)
-    })
-  }, 40)
-
-    return () => window.clearInterval(timer)
-  }, [loading])
-
   const hasReportFooterContent = Boolean(balanceSheetFooterTotals) || selectionStats.numericCount > 0
   const showReportFooter = hasReportFooterContent || horizontalScrollNeeded
 
   return (
     <>
       <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden">
-        {loading ? (
-          <div className="px-1 pb-2">
-            <ProgressBar
-              min={0}
-              max={100}
-              value={loadingProgress}
-              showStatus={false}
-            />
-          </div>
-        ) : null}
+        <ReportLoadingProgressBar loading={loading} />
 
         {!loading ? (
           <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">

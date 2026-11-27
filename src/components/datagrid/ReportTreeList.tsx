@@ -22,13 +22,13 @@ import TreeList, {
   Sorting,
   StateStoring,
 } from "devextreme-react/tree-list"
+import ReportLoadingProgressBar from "./ReportLoadingProgressBar"
 import type dxTreeList from "devextreme/ui/tree_list"
 import { formatNumber } from "devextreme/localization"
 import type {
   CellPreparedEvent,
   ContentReadyEvent,
   ContextMenuPreparingEvent,
-  DataErrorOccurredEvent,
   InitializedEvent,
   RowDblClickEvent as TreeRowDblClickEvent,
   RowPreparedEvent,
@@ -36,7 +36,6 @@ import type {
 // Report pages drill down with the shared handler typed against the DataGrid
 // event, so keep the same shape and forward the TreeList event untouched.
 import type { RowDblClickEvent } from "devextreme/ui/data_grid"
-import { debugMd } from "@amnote/debug-md"
 
 import type { ConfiguredReportPreview, ReportPreviewColumn } from "@/api/configuredReportPreviewApi"
 import GridColumnSettingsPopup from "@/components/datagrid/GridColumnSettingsPopup"
@@ -227,7 +226,6 @@ function ReportTreeList(
   const companyLangRevision = useCompanyLangRevision()
   const treeListRef = useRef<dxTreeList<ReportTreeRow, string> | null>(null)
   const treeListHostRef = useRef<HTMLDivElement | null>(null)
-  const treeDebugSampleRef = useRef<{ preview: ConfiguredReportPreview; signature: string; count: number } | null>(null)
   const [allRowsExpanded, setAllRowsExpanded] = useState(false)
   const [tempDecimalPlacesByField, setTempDecimalPlacesByField] = useState<Record<string, number>>({})
   const [selectedCellKeys, setSelectedCellKeys] = useState<string[]>([])
@@ -775,77 +773,9 @@ function ReportTreeList(
     (event: ContentReadyEvent<ReportTreeRow, string>) => {
       handleContentReady(event)
       syncHorizontalScroll()
-
-      if (reportCode === "GL_ACCOUNT_DETAIL_S38DN" && preview && !loading) {
-        const instance = event.component
-        const dataSource = instance.getDataSource()
-        const host = treeListHostRef.current
-        const rootNode = instance.getRootNode()
-        const sample = {
-          responseRows: preview.ROWS.length,
-          treeRows: treeRows.length,
-          visibleRows: instance.getVisibleRows().length,
-          renderedRows: host?.querySelectorAll(".dx-data-row").length,
-          viewportHeight: host?.clientHeight,
-          hasSearch: searchVisible,
-          hasCombinedFilter: Boolean(instance.getCombinedFilter()),
-          dataSourceLoading: dataSource?.isLoading(),
-          dataSourceLoaded: dataSource?.isLoaded(),
-          dataSourceItems: dataSource?.items().length,
-          widgetRootChildren: rootNode?.children.length,
-          visibleColumns: instance.getVisibleColumns().length,
-        }
-        const signature = JSON.stringify(sample)
-        const previousSample = treeDebugSampleRef.current
-        const previousCount = previousSample?.preview === preview ? previousSample.count : 0
-        if (previousCount < 6 && (previousCount === 0 || previousSample?.signature !== signature)) {
-          treeDebugSampleRef.current = { preview, signature, count: previousCount + 1 }
-          debugMd("gl-account-detail", "tree-sample", sample)
-        }
-      }
     },
-    [handleContentReady, loading, preview, reportCode, searchVisible, syncHorizontalScroll, treeRows.length],
+    [handleContentReady, syncHorizontalScroll],
   )
-
-  useEffect(() => {
-    if (reportCode !== "GL_ACCOUNT_DETAIL_S38DN" || !preview) return
-
-    const childrenByParent = new Map<string, string[]>()
-    const rootIds: string[] = []
-    for (const row of treeRows) {
-      if (row.PARENT_ID === null) {
-        rootIds.push(row.ID)
-        continue
-      }
-      const siblings = childrenByParent.get(row.PARENT_ID)
-      if (siblings) siblings.push(row.ID)
-      else childrenByParent.set(row.PARENT_ID, [row.ID])
-    }
-
-    const reachableIds = new Set(rootIds)
-    const pending = [...rootIds]
-    for (let index = 0; index < pending.length; index += 1) {
-      for (const childId of childrenByParent.get(pending[index]) ?? []) {
-        if (reachableIds.has(childId)) continue
-        reachableIds.add(childId)
-        pending.push(childId)
-      }
-    }
-    const unreachableRows = treeRows.filter((row) => !reachableIds.has(row.ID))
-    debugMd("gl-account-detail", "tree-hierarchy", {
-      treeRows: treeRows.length,
-      rootRows: rootIds.length,
-      unreachableRows: unreachableRows.length,
-      unreachableExamples: unreachableRows.slice(0, 3).map(({ ID, PARENT_ID }) => ({ id: ID, parentId: PARENT_ID })),
-    })
-  }, [preview, reportCode, treeRows])
-
-  const handleDataError = useCallback((event: DataErrorOccurredEvent<ReportTreeRow, string>) => {
-    debugMd("gl-account-detail", "tree-error", {
-      message: event.error?.message?.slice(0, 250),
-      stack: (event.error?.stack ?? new Error().stack)?.split("\n").slice(1, 5),
-    })
-  }, [])
 
   // Selection summary updates must preserve the DOM between the two clicks.
   const renderedTreeList = useMemo(() => (
@@ -858,7 +788,6 @@ function ReportTreeList(
           expandNodesOnFiltering
           onInitialized={handleInitialized}
           onContentReady={handleContentReadyWithHorizontalScroll}
-          onDataErrorOccurred={reportCode === "GL_ACCOUNT_DETAIL_S38DN" ? handleDataError : undefined}
           onRowDblClick={handleRowDblClick}
           onRowExpanded={syncExpandedState}
           onRowCollapsed={syncExpandedState}
@@ -909,8 +838,6 @@ function ReportTreeList(
     preserveRowOrder,
     handleInitialized,
     handleContentReadyWithHorizontalScroll,
-    handleDataError,
-    reportCode,
     handleRowDblClick,
     syncExpandedState,
     handleRowPrepared,
@@ -925,48 +852,50 @@ function ReportTreeList(
     t,
   ])
 
-  if (loading) {
-    return <div className="flex h-full items-center justify-center text-sm text-slate-500">{t("LOADING", "Đang tải...")}</div>
-  }
-
   return (
     <>
       <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-        <div
-          ref={treeListHostRef}
-          className={`report-tree-list-host min-h-0 min-w-0 flex-1 overflow-hidden${useNativeScrolling ? " report-grid-custom-scrollbars" : ""}`}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={finishSelection}
-          onPointerLeave={finishSelection}
-        >
-          {renderedTreeList}
-          {useNativeScrolling ? (
-            <ReportGridVerticalScrollbar hostRef={treeListHostRef} label={t("REPORT_VERTICAL_SCROLL", "Cuộn dọc bảng báo cáo")} />
-          ) : null}
-        </div>
-        {horizontalScrollNeeded || selectionStats.numericCount > 0 ? (
-          <div className={horizontalScrollNeeded ? "report-grid-footer" : "report-grid-footer report-grid-footer--summary-only"}>
-            <div className="report-grid-summary">
-              <div className="report-grid-summary-main">
-                {selectionStats.numericCount > 0 ? (
-                  <div className="report-grid-summary-metrics">
-                    <span className="report-grid-metric report-grid-metric--emphasis">
-                      <span className="report-grid-metric__label">{t("REPORT_CELL_SUM", "Tổng cộng")}</span>
-                      <strong className="report-grid-metric__value">{formatNumber(selectionStats.sum, "#,##0.##")}</strong>
-                    </span>
-                    <span className="report-grid-metric">
-                      <span className="report-grid-metric__label">{t("REPORT_CELL_AVG", "Trung bình")}</span>
-                      <strong className="report-grid-metric__value">
-                        {selectionStats.avg == null ? "—" : formatNumber(selectionStats.avg, "#,##0.##")}
-                      </strong>
-                    </span>
-                  </div>
-                ) : null}
-              </div>
+        <ReportLoadingProgressBar loading={loading} />
+
+        {!loading ? (
+          <>
+            <div
+              ref={treeListHostRef}
+              className={`report-tree-list-host min-h-0 min-w-0 flex-1 overflow-hidden${useNativeScrolling ? " report-grid-custom-scrollbars" : ""}`}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={finishSelection}
+              onPointerLeave={finishSelection}
+            >
+              {renderedTreeList}
+              {useNativeScrolling ? (
+                <ReportGridVerticalScrollbar hostRef={treeListHostRef} label={t("REPORT_VERTICAL_SCROLL", "Cuộn dọc bảng báo cáo")} />
+              ) : null}
             </div>
-            {horizontalScrollbar}
-          </div>
+            {horizontalScrollNeeded || selectionStats.numericCount > 0 ? (
+              <div className={horizontalScrollNeeded ? "report-grid-footer" : "report-grid-footer report-grid-footer--summary-only"}>
+                <div className="report-grid-summary">
+                  <div className="report-grid-summary-main">
+                    {selectionStats.numericCount > 0 ? (
+                      <div className="report-grid-summary-metrics">
+                        <span className="report-grid-metric report-grid-metric--emphasis">
+                          <span className="report-grid-metric__label">{t("REPORT_CELL_SUM", "Tổng cộng")}</span>
+                          <strong className="report-grid-metric__value">{formatNumber(selectionStats.sum, "#,##0.##")}</strong>
+                        </span>
+                        <span className="report-grid-metric">
+                          <span className="report-grid-metric__label">{t("REPORT_CELL_AVG", "Trung bình")}</span>
+                          <strong className="report-grid-metric__value">
+                            {selectionStats.avg == null ? "—" : formatNumber(selectionStats.avg, "#,##0.##")}
+                          </strong>
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+                {horizontalScrollbar}
+              </div>
+            ) : null}
+          </>
         ) : null}
       </div>
       <GridColumnSettingsPopup
